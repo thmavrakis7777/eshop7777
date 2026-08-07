@@ -1,0 +1,159 @@
+import { getDefaultRegionId, medusaFetch, type MedusaProduct } from "@/lib/medusa";
+import { getCategoryIdsForHandle } from "@/lib/data/categories";
+import type { Product, Tone } from "@/lib/types";
+
+const TONES: Tone[] = ["clay", "sage", "stone", "linen"];
+const NEW_ARRIVAL_WINDOW_DAYS = 30;
+
+function hash(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i);
+  return h;
+}
+
+function toneFor(handle: string): Tone {
+  return TONES[Math.abs(hash(handle)) % TONES.length];
+}
+
+function isNewArrival(createdAt: string): boolean {
+  const ageDays = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24);
+  return ageDays <= NEW_ARRIVAL_WINDOW_DAYS;
+}
+
+function toDomainProduct(p: MedusaProduct): Product {
+  const variant = p.variants[0];
+  const price = variant?.calculated_price;
+  const amount = price?.calculated_amount ?? 0;
+  const originalAmount = price?.original_amount ?? amount;
+  const onSale = originalAmount > amount;
+
+  return {
+    id: p.id,
+    title: p.title,
+    handle: p.handle,
+    categoryHandle: p.categories[0]?.handle ?? "",
+    shortDescription: p.description ?? "",
+    price: { amount, currencyCode: "EUR" },
+    compareAtPrice: onSale ? { amount: originalAmount, currencyCode: "EUR" } : undefined,
+    badges: [
+      ...(onSale ? (["sale"] as const) : []),
+      ...(isNewArrival(p.created_at) ? (["new"] as const) : []),
+    ],
+    variants: p.variants.map((v) => ({
+      id: v.id,
+      title: v.title,
+      price: { amount: v.calculated_price?.calculated_amount ?? 0, currencyCode: "EUR" },
+      // Store API doesn't expose per-variant stock on this endpoint without
+      // extra fields wiring; treat as available until real inventory display
+      // is built (Phase 4).
+      inventoryQuantity: 1,
+    })),
+    placeholderTone: toneFor(p.handle),
+  };
+}
+
+const PRODUCT_FIELDS =
+  "id,title,handle,description,thumbnail,created_at,status,+variants.calculated_price,+categories.handle,+categories.name";
+
+export type ProductSort = "newest" | "title-asc" | "price-asc" | "price-desc";
+
+export async function getProductsByCategoryHandle(
+  categoryHandle: string,
+  opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
+): Promise<{ products: Product[]; count: number }> {
+  const [categoryIds, regionId] = await Promise.all([
+    getCategoryIdsForHandle(categoryHandle),
+    getDefaultRegionId(),
+  ]);
+  if (categoryIds.length === 0) return { products: [], count: 0 };
+
+  const { sort = "newest", limit = 24, offset = 0 } = opts;
+  // The Store API can only order by real columns (created_at, title), not
+  // calculated prices — price sorting is done client-side below. Fine at
+  // today's catalog size; revisit if the catalog grows past a page or two.
+  const order = sort === "title-asc" ? "title" : "-created_at";
+  const wantsPriceSort = sort === "price-asc" || sort === "price-desc";
+
+  const params = new URLSearchParams({
+    region_id: regionId,
+    fields: PRODUCT_FIELDS,
+    order,
+    limit: String(wantsPriceSort ? 200 : limit),
+    offset: String(wantsPriceSort ? 0 : offset),
+  });
+  categoryIds.forEach((id) => params.append("category_id[]", id));
+
+  const { products, count } = await medusaFetch<{ products: MedusaProduct[]; count: number }>(
+    `/store/products?${params.toString()}`,
+    { next: { revalidate: 30 } }
+  );
+
+  let domainProducts = products.map(toDomainProduct);
+
+  if (sort === "price-asc") domainProducts = domainProducts.sort((a, b) => a.price.amount - b.price.amount);
+  if (sort === "price-desc") domainProducts = domainProducts.sort((a, b) => b.price.amount - a.price.amount);
+  if (wantsPriceSort) domainProducts = domainProducts.slice(offset, offset + limit);
+
+  return { products: domainProducts, count };
+}
+
+export async function getProductByHandle(handle: string): Promise<Product | undefined> {
+  const regionId = await getDefaultRegionId();
+  const params = new URLSearchParams({
+    handle,
+    region_id: regionId,
+    fields: PRODUCT_FIELDS,
+  });
+  const { products } = await medusaFetch<{ products: MedusaProduct[] }>(
+    `/store/products?${params.toString()}`,
+    { next: { revalidate: 30 } }
+  );
+  return products[0] ? toDomainProduct(products[0]) : undefined;
+}
+
+export async function getNewArrivals(limit = 4): Promise<Product[]> {
+  const regionId = await getDefaultRegionId();
+  const params = new URLSearchParams({
+    region_id: regionId,
+    fields: PRODUCT_FIELDS,
+    order: "-created_at",
+    limit: String(limit),
+  });
+  const { products } = await medusaFetch<{ products: MedusaProduct[] }>(
+    `/store/products?${params.toString()}`,
+    { next: { revalidate: 30 } }
+  );
+  return products.map(toDomainProduct);
+}
+
+export async function getFeaturedProducts(limit = 4): Promise<Product[]> {
+  // No order history exists yet, so there's no real "best sellers" signal —
+  // showing a curated slice instead of fabricating a popularity ranking.
+  // Revisit once real order data exists to sort by actual sales.
+  const regionId = await getDefaultRegionId();
+  const params = new URLSearchParams({
+    region_id: regionId,
+    fields: PRODUCT_FIELDS,
+    order: "title",
+    limit: String(limit),
+  });
+  const { products } = await medusaFetch<{ products: MedusaProduct[] }>(
+    `/store/products?${params.toString()}`,
+    { next: { revalidate: 30 } }
+  );
+  return products.map(toDomainProduct);
+}
+
+export async function getAllProductHandles(): Promise<{ handle: string; updatedAt: string }[]> {
+  const regionId = await getDefaultRegionId();
+  const params = new URLSearchParams({
+    region_id: regionId,
+    fields: "handle,updated_at",
+    limit: "1000",
+  });
+  const { products } = await medusaFetch<{ products: Array<{ handle: string; updated_at: string }> }>(
+    `/store/products?${params.toString()}`,
+    { next: { revalidate: 300 } }
+  );
+  return products.map((p) => ({ handle: p.handle, updatedAt: p.updated_at }));
+}

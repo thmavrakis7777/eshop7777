@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { navCategories } from "@/lib/mock-data";
+import type { NavCategory } from "@/lib/types";
 import {
   BagIcon,
   ChevronDownIcon,
@@ -14,11 +14,12 @@ import {
 } from "@/components/ui/Icons";
 import { MobileMenu } from "./MobileMenu";
 
-export function Header() {
+export function Header({ categories: navCategories }: { categories: NavCategory[] }) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const activeMegaMenu = navCategories.find((c) => c.handle === openMenu) ?? null;
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
 
   return (
     <header
@@ -30,6 +31,7 @@ export function Header() {
       <div className="container-shell relative" onMouseLeave={() => setOpenMenu(null)}>
         <div className="flex h-(--header-height) items-center justify-between gap-4">
           <button
+            ref={mobileTriggerRef}
             type="button"
             className="p-2 -ml-2 lg:hidden"
             aria-label="Άνοιγμα μενού"
@@ -146,7 +148,14 @@ export function Header() {
         </div>
       )}
 
-      <MobileMenu open={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <MobileMenu
+        open={mobileOpen}
+        categories={navCategories}
+        onClose={() => {
+          setMobileOpen(false);
+          mobileTriggerRef.current?.focus();
+        }}
+      />
     </header>
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { navCategories } from "@/lib/mock-data";
+import type { NavCategory } from "@/lib/types";
 
 const helpLinks = [
   { label: "Παρακολούθηση Παραγγελίας", href: "/paraggelia" },
@@ -22,7 +22,7 @@ const legalLinks = [
   { label: "Πολιτική Cookies", href: "/cookies" },
 ];
 
-export function Footer() {
+export function Footer({ categories }: { categories: NavCategory[] }) {
   return (
     <footer className="mt-24 border-t border-border bg-surface">
       <div className="container-shell grid grid-cols-2 gap-8 py-12 md:grid-cols-4 lg:grid-cols-6">
@@ -34,7 +34,7 @@ export function Footer() {
           </p>
         </div>
 
-        <FooterColumn title="Κατηγορίες" links={navCategories.slice(0, 6).map((c) => ({ label: c.name, href: `/${c.handle}` }))} />
+        <FooterColumn title="Κατηγορίες" links={categories.map((c) => ({ label: c.name, href: `/${c.handle}` }))} />
         <FooterColumn title="Βοήθεια" links={helpLinks} />
         <FooterColumn title="Εταιρεία" links={companyLinks} />
         <FooterColumn title="Νομικά" links={legalLinks} />

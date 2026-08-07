@@ -5,17 +5,21 @@ import { EditorialBanner } from "@/components/home/EditorialBanner";
 import { TrustStrip } from "@/components/home/TrustStrip";
 import { Reviews } from "@/components/home/Reviews";
 import { Newsletter } from "@/components/home/Newsletter";
-import { getBestSellers, getNewArrivals } from "@/lib/mock-data";
+import { getNavCategories } from "@/lib/data/categories";
+import { getFeaturedProducts, getNewArrivals } from "@/lib/data/products";
 
-export default function HomePage() {
-  const bestSellers = getBestSellers();
-  const newArrivals = getNewArrivals();
+export default async function HomePage() {
+  const [categories, featured, newArrivals] = await Promise.all([
+    getNavCategories(),
+    getFeaturedProducts(4),
+    getNewArrivals(4),
+  ]);
 
   return (
     <>
       <Hero />
-      <CategoryGrid />
-      <ProductRail title="Τα πιο δημοφιλή" viewAllHref="/prosfores?sort=bestseller" products={bestSellers} />
+      <CategoryGrid categories={categories} />
+      <ProductRail title="Προτεινόμενα" viewAllHref="/prosfores" products={featured} />
       <EditorialBanner />
       <ProductRail title="Νέες αφίξεις" viewAllHref="/nea-afiksi" products={newArrivals} />
       <TrustStrip />

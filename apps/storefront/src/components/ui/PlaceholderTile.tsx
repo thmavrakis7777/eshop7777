@@ -1,4 +1,6 @@
-const TONE_STYLES: Record<string, { bg: string; fg: string }> = {
+import type { Tone } from "@/lib/types";
+
+const TONE_STYLES: Record<Tone, { bg: string; fg: string }> = {
   clay: { bg: "#e9d9cf", fg: "#8a5236" },
   sage: { bg: "#dfe4d8", fg: "#556b4d" },
   stone: { bg: "#e6e4de", fg: "#6b6862" },
@@ -21,7 +23,7 @@ export function PlaceholderTile({
   className = "",
 }: {
   label: string;
-  tone?: "clay" | "sage" | "stone" | "linen";
+  tone?: Tone;
   className?: string;
 }) {
   const { bg, fg } = TONE_STYLES[tone];

@@ -4,6 +4,8 @@ import "./globals.css";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { siteName, siteUrl } from "@/lib/site-config";
+import { getNavCategories } from "@/lib/data/categories";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -17,8 +19,6 @@ const literata = Literata({
   display: "swap",
 });
 
-const siteUrl = "https://www.stia.gr";
-
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "el_GR",
-    siteName: "STIA",
+    siteName,
     title: "STIA — Είδη Σπιτιού, Κουζίνας & Μπάνιου",
     description:
       "Ποιοτικά είδη κουζίνας, μπάνιου, αποθήκευσης και κήπου για το σπίτι σου.",
@@ -47,13 +47,14 @@ export const metadata: Metadata = {
   },
 };
 
+// No `logo`/`sameAs` yet — there's no real logo asset or social presence to
+// point to. Add both once brand assets and social accounts exist; a broken
+// logo URL in JSON-LD is worse for SEO than omitting the field.
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: "STIA",
+  name: siteName,
   url: siteUrl,
-  logo: `${siteUrl}/logo.png`,
-  sameAs: [],
   contactPoint: [
     {
       "@type": "ContactPoint",
@@ -64,7 +65,9 @@ const organizationJsonLd = {
   ],
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const categories = await getNavCategories();
+
   return (
     <html lang="el" className={`${inter.variable} ${literata.variable} antialiased`}>
       <body className="flex min-h-screen flex-col">
@@ -76,11 +79,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Μετάβαση στο περιεχόμενο
         </a>
         <AnnouncementBar />
-        <Header />
+        <Header categories={categories} />
         <main id="main-content" className="flex-1">
           {children}
         </main>
-        <Footer />
+        <Footer categories={categories} />
       </body>
     </html>
   );

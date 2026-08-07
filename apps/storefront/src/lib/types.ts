@@ -1,6 +1,8 @@
 // Shaped to line up with Medusa's product/category response objects,
 // so the Phase 2 swap to real data is an adapter change, not a UI rewrite.
 
+export type Tone = "clay" | "sage" | "stone" | "linen";
+
 export type Money = {
   amount: number; // in whole euros for the mock layer (Medusa uses minor units)
   currencyCode: "EUR";
@@ -29,11 +31,13 @@ export type Product = {
   shortDescription: string;
   price: Money;
   compareAtPrice?: Money;
-  rating: number;
-  reviewCount: number;
-  badges?: Array<"new" | "sale" | "bestseller">;
+  // No review system exists yet — real products carry no rating. Never
+  // fabricate one; a fake trust signal is worse than showing none.
+  rating?: number;
+  reviewCount?: number;
+  badges?: Array<"new" | "sale">;
   variants: ProductVariant[];
-  placeholderTone: "clay" | "sage" | "stone" | "linen";
+  placeholderTone: Tone;
 };
 
 export type NavCategory = Category & {
