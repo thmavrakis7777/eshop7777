@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "storefront",
+      "runtimeExecutable": "C:\\Users\\t.mavrakis\\Desktop\\CLAUDE\\.claude\\dev-storefront.cmd",
+      "runtimeArgs": [],
+      "port": 3000
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "houseware-store",
+  "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "scripts": {
+    "dev": "pnpm --filter storefront dev",
+    "build": "pnpm --filter storefront build",
+    "lint": "pnpm -r lint"
+  }
+}
