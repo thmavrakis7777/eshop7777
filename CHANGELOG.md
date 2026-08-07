@@ -3,6 +3,16 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Session handoff (2026-08-07)
+
+No code changes — Phase 3 was already complete, committed, and pushed (see the
+entry directly below). This entry just documents that the session ended with a
+deliberate handoff: `CURRENT_STATE.md` and `NEXT_STEPS.md` were added,
+`PROJECT_MEMORY.md` was substantially expanded (design system, coding
+conventions, SEO strategy, environment setup, development rules — previously
+thinner), and `TASKS.md` was restructured into Completed/In Progress/Next/Future.
+Nothing was left mid-change; working tree was clean before and after.
+
 ## Audit + Phase 3 — real data wiring (2026-08-07)
 
 **Full engineering audit of Phases 1–2** before starting Phase 3, per explicit
