@@ -1,11 +1,35 @@
 # Next Steps
 
-**The next Claude Code session should start here.**
+## START HERE NEXT SESSION
 
 Read `PROJECT_MEMORY.md`, `CURRENT_STATE.md`, and `TASKS.md` first — this file is
 the pointer to exactly where to resume, those three have the detail behind it. Do
 not restart the project, do not regenerate completed features, do not re-analyze
 the whole codebase from zero — everything needed is in these five files.
+
+1. **Exact phase we are currently in**: Phase 3 is complete and closed out.
+   No phase is "in progress" — the project is sitting at a clean checkpoint
+   between Phase 3 (done) and Phase 4/5 (not started, and not yet chosen
+   between — see #2).
+2. **Last completed action**: a documentation-only handoff commit (no code
+   changes) that expanded `PROJECT_MEMORY.md` and added `CURRENT_STATE.md` +
+   this file, on top of the Phase 3 work itself (audit fixes + real Medusa
+   data wiring), all committed and pushed to `origin/main`.
+3. **Next action to execute**: **this is a decision, not a coding task.**
+   See section 2 below ("Exact next action to perform") before writing any
+   code — do not silently start Phase 4 or Phase 5 without stating the
+   reasoning first.
+4. **First files to inspect**: `PROJECT_MEMORY.md` → `CURRENT_STATE.md` →
+   `TASKS.md`, then whichever direction-specific files are listed in section 3
+   below once a direction is chosen.
+5. **Warnings / important context**: see section 5 below in full before
+   touching the dev servers or trusting a console error — several environment
+   quirks in this specific setup have already wasted time once each and are
+   documented so they don't waste time twice.
+
+---
+
+**The rest of this file is the detailed version of the five points above.**
 
 ## 1. Exact last action completed
 
