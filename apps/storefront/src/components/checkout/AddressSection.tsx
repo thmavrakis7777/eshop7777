@@ -25,7 +25,7 @@ export function AddressSection({
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <SectionHeading number={3} title="Διεύθυνση παράδοσης" />
+      <SectionHeading number={3} title="Διεύθυνση παράδοσης" saving={saving} />
       <div className="grid grid-cols-[1fr_7rem] gap-3">
         <FormField
           id="checkout-street"
@@ -35,7 +35,6 @@ export function AddressSection({
           onChange={(v) => onFieldChange("street", v)}
           onBlur={() => onFieldBlur("street")}
           error={errors.street}
-          disabled={saving}
         />
         <FormField
           id="checkout-number"
@@ -44,7 +43,6 @@ export function AddressSection({
           onChange={(v) => onFieldChange("number", v)}
           onBlur={() => onFieldBlur("number")}
           error={errors.number}
-          disabled={saving}
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -57,7 +55,6 @@ export function AddressSection({
           onChange={(v) => onFieldChange("postalCode", v)}
           onBlur={() => onFieldBlur("postalCode")}
           error={errors.postalCode}
-          disabled={saving}
         />
         <FormField
           id="checkout-city"
@@ -67,7 +64,6 @@ export function AddressSection({
           onChange={(v) => onFieldChange("city", v)}
           onBlur={() => onFieldBlur("city")}
           error={errors.city}
-          disabled={saving}
         />
       </div>
       <FormField
@@ -76,7 +72,6 @@ export function AddressSection({
         value={values.area}
         onChange={(v) => onFieldChange("area", v)}
         onBlur={() => onFieldBlur("area")}
-        disabled={saving}
       />
       <div className="flex items-center justify-between text-sm">
         <span className="text-ink-muted">Χώρα</span>

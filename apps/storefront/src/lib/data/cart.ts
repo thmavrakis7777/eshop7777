@@ -27,6 +27,7 @@ export function toDomainCart(c: MedusaCart): Cart {
 
   return {
     id: c.id,
+    regionId: c.region_id,
     email: c.email ?? undefined,
     items,
     itemCount: items.reduce((sum, i) => sum + i.quantity, 0),

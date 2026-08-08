@@ -62,6 +62,12 @@ export function Header({
                 aria-expanded={openMenu === cat.handle}
                 onMouseEnter={() => setOpenMenu(cat.handle)}
                 onFocus={() => setOpenMenu(cat.handle)}
+                // Opens only, never toggles closed: a mouse click arrives
+                // *after* mouseenter/focus have already opened the panel, so
+                // a toggle would slam it shut under the cursor. Activation
+                // still does something real (matching aria-expanded) for
+                // anyone who reaches this without hover; Escape closes.
+                onClick={() => setOpenMenu(cat.handle)}
               >
                 {cat.name}
                 <ChevronDownIcon />
@@ -103,8 +109,12 @@ export function Header({
 
         {activeMegaMenu && (
           <div
+            // Deliberately a plain container, not role="menu": that role
+            // promises arrow-key roving-focus semantics this panel doesn't
+            // implement, and it makes screen readers announce ordinary
+            // navigation links as menu items. A list of links is what this
+            // actually is.
             className="absolute inset-x-0 top-full z-50 hidden rounded-b-md border border-t-0 border-border bg-bg p-6 shadow-lg lg:block"
-            role="menu"
           >
             <div className="grid grid-cols-3 gap-6">
               <div className="col-span-2 grid grid-cols-2 gap-x-6 gap-y-2">
@@ -113,7 +123,6 @@ export function Header({
                     key={child.handle}
                     href={`/${activeMegaMenu.handle}/${child.handle}`}
                     className="rounded-sm px-2 py-1.5 text-sm text-ink-muted hover:bg-surface hover:text-ink transition-colors"
-                    role="menuitem"
                     onClick={() => setOpenMenu(null)}
                   >
                     {child.name}

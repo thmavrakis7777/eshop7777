@@ -154,8 +154,7 @@ export async function completeCheckoutAction(): Promise<CheckoutCompleteResult> 
       return { ok: false, error: "Συμπλήρωσε όλα τα απαραίτητα στοιχεία πριν ολοκληρώσεις την παραγγελία." };
     }
 
-    const regionId = await regionIdForCart(cartId);
-    const providers = await getPaymentProviders(regionId);
+    const providers = await getPaymentProviders(cart.regionId);
     const providerId = providers[0]?.id;
     if (!providerId) {
       return { ok: false, error: "Δεν υπάρχει διαθέσιμος τρόπος πληρωμής αυτή τη στιγμή. Επικοινώνησε μαζί μας." };
@@ -197,9 +196,4 @@ export async function completeCheckoutAction(): Promise<CheckoutCompleteResult> 
   } catch (err) {
     return { ok: false, error: mapCheckoutError(err) };
   }
-}
-
-async function regionIdForCart(cartId: string): Promise<string> {
-  const { cart } = await medusaFetch<{ cart: MedusaCart }>(`/store/carts/${cartId}?fields=id,region_id`);
-  return cart.region_id;
 }

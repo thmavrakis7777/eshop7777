@@ -43,8 +43,12 @@ export function Footer({ categories }: { categories: NavCategory[] }) {
       <div className="border-t border-border">
         <div className="container-shell flex flex-col gap-4 py-6 text-xs text-ink-muted md:flex-row md:items-center md:justify-between">
           <span>© {new Date().getFullYear()} STIA. Με επιφύλαξη παντός δικαιώματος.</span>
+          {/* Only methods checkout can actually process — the one configured
+              Medusa provider is pp_system_default ("Αντικαταβολή"). Listing
+              Visa/Mastercard/Viva Wallet here advertised card payments the
+              store cannot take. */}
           <div className="flex items-center gap-3" aria-label="Αποδεκτοί τρόποι πληρωμής">
-            {["Visa", "Mastercard", "Viva Wallet", "Αντικαταβολή"].map((p) => (
+            {["Αντικαταβολή"].map((p) => (
               <span key={p} className="rounded-sm border border-border bg-bg px-2 py-1">
                 {p}
               </span>

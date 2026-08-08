@@ -44,6 +44,16 @@ out-of-stock test via the admin) but is **not yet committed** on top of
   one real payment method decided), then built end-to-end and verified with
   a real completed guest order through the actual UI. See "What is working"
   and `PROJECT_MEMORY.md` → "Checkout architecture" for the details.
+- **Production readiness audit** (2026-08-08, after Phase 5): a gated,
+  whole-codebase pass — code review, performance, SEO, Core Web Vitals,
+  accessibility, Medusa architecture, cleanup, and the full test gate.
+  Real bugs found and fixed (fabricated homepage customer reviews, a
+  checkout keyboard-focus bug, four SEO defects, two broken homepage links,
+  three places overclaiming payment methods, redundant Medusa requests, dead
+  code) — full list in `CHANGELOG.md`. Nothing about the cart/checkout/
+  Medusa data flow was restructured; the audit's changes are contained
+  fixes, not a rewrite.
+
 - **Phase 5**: permanent unique product code (Medusa's native `variant.sku`,
   no new field), search by code or name (Medusa's own `q` full-text search,
   no new search index), and add-to-cart from every product grid in the app
@@ -61,9 +71,14 @@ is **not yet committed** (see git state note above).
 ## What is working (verified in-browser this session)
 
 - Homepage: hero, category grid, featured-products rail, editorial banner,
-  new-arrivals rail, trust strip, reviews, newsletter form (UI only, no backend) —
-  all rendering real Medusa data except the reviews section (static placeholder
-  testimonials, not tied to a review system).
+  new-arrivals rail, trust strip, newsletter form (UI only, no backend —
+  submitting it currently does nothing at all, see "Known gaps") — all
+  rendering real Medusa data. **The "Τι λένε οι πελάτες μας" reviews section
+  no longer exists**: it held three invented, named customer testimonials
+  with hardcoded star ratings and was deleted during the production
+  readiness audit as a fabricated trust signal (see `CHANGELOG.md`). The two
+  product rails no longer carry a "Δες όλα →" link either — both pointed at
+  routes (`/prosfores`, `/nea-afiksi`) that have never existed.
 - Header: sticky, mega menu (desktop, real subcategories + featured tile per
   category), mobile hamburger → drawer (real categories, working focus trap,
   Escape-to-close, focus return), search icon toggles a **real, working**
@@ -272,9 +287,15 @@ is **not yet committed** (see git state note above).
 - **Production build/deploy** — only ever run `next build` locally; never
   deployed to Vercel or anywhere else. No production environment variables
   configured anywhere outside this local machine.
-- **Lighthouse / Core Web Vitals / accessibility audit tooling** — accessibility
-  fixes were made based on manual review + DOM inspection (focus management,
-  ARIA), not run through axe/Lighthouse. No performance profiling done.
+- **Lighthouse / Core Web Vitals / accessibility audit tooling** — the
+  production readiness audit was a manual review plus live DOM/computed-style
+  measurement (focus behaviour measured via `document.activeElement`, colour
+  contrast computed by hand against WCAG AA, rendered `<head>` read off the
+  wire). **axe and Lighthouse still have never been run**, and no runtime
+  performance profiling (real LCP/INP/CLS numbers) has been captured — the
+  CWV work so far is structural (no layout-shifting images since there are
+  none, request waterfalls flattened, client-side nav restored on category
+  chips), not measured.
 - **Cross-browser** — only verified in the one automation-controlled browser
   pane available in this environment. Not tested in real Chrome/Safari/Firefox,
   not tested on a real mobile device.
@@ -287,6 +308,25 @@ is **not yet committed** (see git state note above).
 - **What happens if the Medusa backend is unreachable** — the storefront has no
   fallback/error UI for a failed Store API call; an outage would currently
   surface as Next.js's generic error page, not a graceful degraded state.
+- **The newsletter form does nothing.** It validates as an `<input
+  type="email" required>` and then `preventDefault()`s with no feedback, no
+  request, and no stored address — a customer who signs up gets silence.
+  Flagged in the production readiness audit and deliberately left alone (it
+  needs a real email provider decision, not invented plumbing).
+- **`PaymentSection`'s multi-provider UI is structurally broken**, not just
+  unexercised: it renders one always-`checked` `readOnly` radio per provider
+  with no selection state, and `completeCheckoutAction` uses `providers[0]`
+  regardless of what's shown. Harmless today (exactly one provider exists);
+  must be built for real alongside the first real payment processor.
+- **The favicon is still Next.js's own default logo** — `public/` is empty
+  and no brand asset exists, so the framework's built-in icon is being
+  served. Needs a real brand mark, same blocker as the missing
+  `Organization.logo` in JSON-LD.
+- **No Content-Security-Policy.** Baseline security headers were added in the
+  production readiness audit (`nosniff`, `X-Frame-Options`,
+  `Referrer-Policy`, `poweredByHeader: false`), but a real CSP needs
+  per-request nonces threaded through the inline JSON-LD `<script>` tags on
+  nearly every page — deliberately deferred as its own change.
 
 ## Current file structure (storefront, `apps/storefront/src`)
 
@@ -312,7 +352,8 @@ components/
               (debounced live-results dropdown, backed by
               lib/actions/search.ts — Header renders it inside its existing
               search-toggle panel)
-  home/       Hero, CategoryGrid, ProductRail, EditorialBanner, TrustStrip, Reviews, Newsletter
+  home/       Hero, CategoryGrid, ProductRail, EditorialBanner, TrustStrip, Newsletter
+              (Reviews.tsx deleted — fabricated testimonials, see CHANGELOG)
   category/   Breadcrumbs, CategoryPLPView (also powers /anazitisi — takes
               optional extraParams/emptyMessage so a non-category listing
               doesn't need its own copy of the grid+pagination+sort chrome;
@@ -353,7 +394,8 @@ lib/
   format.ts           Price formatting (el-GR locale) + discountPercent()
   checkout-validation.ts   isValidEmail/isValidPhone/isValidPostalCode/isRequired
   site-config.ts       siteUrl / siteName (single source)
-  search-params.ts     Safe sort/page query-param parsing
+  search-params.ts     Safe sort/page query-param parsing + canonicalListingPath()
+                        (page-aware canonical URLs for paginated listings)
   recently-viewed-storage.ts   localStorage read/write for recently-viewed handles
   cart-config.ts       FREE_SHIPPING_THRESHOLD_EUR (configurable, not hardcoded —
                        currently unused, see FreeShippingProgress note above)

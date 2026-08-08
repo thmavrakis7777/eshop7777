@@ -1,7 +1,9 @@
 export function Stars({ rating, count }: { rating: number; count?: number }) {
   const full = Math.round(rating);
   return (
-    <div className="flex items-center gap-1" aria-label={`Βαθμολογία ${rating} από 5`}>
+    // role="img" is load-bearing: aria-label on a bare <div> has no role to
+    // attach to and is ignored by most screen readers.
+    <div className="flex items-center gap-1" role="img" aria-label={`Βαθμολογία ${rating} από 5`}>
       <div className="flex" aria-hidden="true">
         {Array.from({ length: 5 }).map((_, i) => (
           <svg

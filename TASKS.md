@@ -285,6 +285,60 @@ pattern as cart/checkout.
       product + coupon-after-quick-add (no active promotion in the live
       catalog to test against; neither code path was touched this phase).
 
+## Completed (continued)
+
+**Production readiness audit — Phases 1–5.** A gated whole-codebase pass
+before any further feature work: code review, performance, SEO, Core Web
+Vitals, accessibility (WCAG AA), Medusa architecture, cleanup, and the full
+`tsc`/`eslint`/`next build`/`medusa lint` gate. Findings verified against
+the running app, not reasoned about. Full narrative in `CHANGELOG.md`.
+
+- [x] **Fabricated homepage customer reviews deleted** — three invented,
+      named testimonials with hardcoded star ratings under "Τι λένε οι
+      πελάτες μας". Same class of bug as the Phase 3 fake 4.6-star ratings,
+      plus real EU Omnibus Directive exposure for fake consumer reviews.
+- [x] **Checkout keyboard-focus bug fixed** — every contact/address/email
+      input carried `disabled={saving}`, so the background autosave dropped
+      focus to `<body>` the moment a customer tabbed past the last field.
+      Measured live before and after; saving state moved to a
+      `role="status"` indicator on `SectionHeading`.
+- [x] **Payment-method overclaims reconciled in all three places** —
+      `TrustStrip`, the PDP delivery block (both previously flagged in this
+      file) and the footer payment-badge row (a *new* finding) all
+      advertised card/Viva Wallet. Delivery windows aligned to the real
+      Medusa `Standard Shipping` estimate (2-3 εργάσιμες).
+- [x] **Two broken homepage links removed** — "Δες όλα →" on both product
+      rails pointed at `/prosfores` and `/nea-afiksi`, neither of which has
+      ever existed (verified 404).
+- [x] **SEO defects fixed**: `/anazitisi` was indexable *and* canonicalised
+      to the homepage (inherited the root layout's `canonical: "/"`);
+      `/checkout/epibebaiosi` had the same inherited-canonical bug;
+      paginated category pages didn't self-canonicalise; `/checkout` was
+      crawlable. Also added the real Medusa SKU to the PDP's `Product`
+      JSON-LD.
+- [x] **Security hardening**: `cart_id` cookie now `httpOnly` + `secure` in
+      production; baseline security headers + `poweredByHeader: false` in
+      `next.config.ts`. CSP deliberately deferred (needs nonces for the
+      inline JSON-LD).
+- [x] **Redundant Medusa requests removed**: `Cart` now carries `regionId`,
+      killing both `regionIdForCart()`'s extra cart fetch in order
+      completion and `/checkout`'s `getDefaultRegionId()` call. PDP's
+      three-deep category→parent→related waterfall flattened.
+- [x] **Accessibility**: removed bogus `role="menu"`/`role="menuitem"` from
+      the mega menu, made its trigger actually do something on activation
+      (open-only — a toggle regressed the hover flow, caught live and
+      corrected), `role="img"` on `Stars`, live-region announcement for the
+      header search dropdown, `next/link` for category subcategory chips.
+- [x] **Colour contrast verified against WCAG AA** — all token pairs pass;
+      tightest is ink-muted on surface-strong at 4.58:1. Recorded in
+      `PROJECT_MEMORY.md` so it isn't recomputed.
+- [x] **Dead code removed**: `StarIcon`, the `CartController` type,
+      `FormField`'s `disabled` prop, and the unused
+      `--color-accent-strong`/`--color-accent-soft` tokens.
+- [x] Verified: `tsc`/`eslint`/`next build` clean (storefront),
+      `medusa lint` clean (backend), plus live in-browser verification of
+      every fix listed above.
+
 ## Next
 
 Checkout is built, verified, and stable — but per the user's own
@@ -346,6 +400,37 @@ and search (Phase 5) are also built and verified. See `NEXT_STEPS.md`.
       currently 404; low priority, no business logic involved)
 - [ ] Backend hosting decision (Vercel can't run Medusa's persistent server —
       deferred until actually needed, per explicit prior user decision)
+
+**Found by the production readiness audit, deliberately not fixed**
+
+- [ ] **The newsletter form silently does nothing** — validates, then
+      `preventDefault()`s with no feedback and no stored address. Needs a
+      real email-provider decision (or, as an interim, honest copy saying
+      signups aren't open yet); not something to invent plumbing for.
+- [ ] **`PaymentSection`'s multi-provider UI is structurally broken** — N
+      always-`checked` `readOnly` radios with no selection state, and
+      `completeCheckoutAction` uses `providers[0]` regardless. Harmless with
+      exactly one provider; build it properly alongside the first real
+      payment processor, not speculatively.
+- [ ] **Favicon is still Next.js's own default logo** (`public/` is empty).
+      Blocked on the same missing brand asset as `Organization.logo`.
+- [ ] **Content-Security-Policy** — baseline headers are in place, but a
+      real CSP needs per-request nonces threaded through the inline JSON-LD
+      `<script>` tags. Its own change, not a header-list tweak.
+- [ ] **Two near-identical hand-rolled focus traps** (`MobileMenu`,
+      `CartDrawer`, ~30 lines each, subtly different focusable selectors).
+      A shared `useFocusTrap` hook is the obvious dedupe, but both traps are
+      verified working and the payoff is small — left alone on purpose.
+- [ ] **`ProductCard` is a Client Component in full** — the whole card
+      (image, title, price, badges) hydrates so the quick-add button can be
+      interactive. Splitting it into a server card + a client button island
+      would cut hydration work on every grid, but it touches the one shared
+      card component whose class list is explicitly protected; worth doing
+      deliberately rather than as audit collateral.
+- [ ] **`TrustStrip`'s "Δωρεάν επιστροφές 30 ημερών"** is an unbacked
+      business-policy claim (no returns policy page exists, and EU law
+      mandates 14 days, not 30). Not changed — it needs a business
+      decision, not a code fix.
 
 **Housekeeping / non-blocking, any time**
 

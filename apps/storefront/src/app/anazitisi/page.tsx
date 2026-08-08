@@ -5,9 +5,16 @@ import { parsePage } from "@/lib/search-params";
 
 type Props = { searchParams: Promise<{ q?: string; page?: string }> };
 
+// noindex: an internal search-results page is near-infinite, thin, duplicate
+// content — and without an explicit canonical it inherits the root layout's
+// `canonical: "/"`, which would point every query's results at the homepage.
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { q } = await searchParams;
-  return { title: q ? `Αναζήτηση: ${q}` : "Αναζήτηση" };
+  return {
+    title: q ? `Αναζήτηση: ${q}` : "Αναζήτηση",
+    robots: { index: false, follow: true },
+    alternates: { canonical: "/anazitisi" },
+  };
 }
 
 export default async function SearchPage({ searchParams }: Props) {

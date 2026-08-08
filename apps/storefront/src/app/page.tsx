@@ -3,7 +3,6 @@ import { CategoryGrid } from "@/components/home/CategoryGrid";
 import { ProductRail } from "@/components/home/ProductRail";
 import { EditorialBanner } from "@/components/home/EditorialBanner";
 import { TrustStrip } from "@/components/home/TrustStrip";
-import { Reviews } from "@/components/home/Reviews";
 import { Newsletter } from "@/components/home/Newsletter";
 import { getNavCategories } from "@/lib/data/categories";
 import { getFeaturedProducts, getNewArrivals } from "@/lib/data/products";
@@ -19,11 +18,14 @@ export default async function HomePage() {
     <>
       <Hero />
       <CategoryGrid categories={categories} />
-      <ProductRail title="Προτεινόμενα" viewAllHref="/prosfores" products={featured} />
+      {/* No `viewAllHref` on either rail: /prosfores and /nea-afiksi were
+          both real links to routes that have never existed (verified 404).
+          ProductRail already treats the prop as optional — a missing link is
+          better than a broken one. Restore once those pages are built. */}
+      <ProductRail title="Προτεινόμενα" products={featured} />
       <EditorialBanner />
-      <ProductRail title="Νέες αφίξεις" viewAllHref="/nea-afiksi" products={newArrivals} />
+      <ProductRail title="Νέες αφίξεις" products={newArrivals} />
       <TrustStrip />
-      <Reviews />
       <Newsletter />
     </>
   );

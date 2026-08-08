@@ -81,6 +81,9 @@ export type AppliedPromotion = {
 
 export type Cart = {
   id: string;
+  // Carried through so order completion can resolve the cart's payment
+  // providers without a second round-trip just to read region_id back.
+  regionId: string;
   email?: string;
   items: CartLineItem[];
   itemCount: number;

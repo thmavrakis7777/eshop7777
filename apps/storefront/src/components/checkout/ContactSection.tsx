@@ -19,7 +19,7 @@ export function ContactSection({
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <SectionHeading number={2} title="Στοιχεία παραλήπτη" />
+      <SectionHeading number={2} title="Στοιχεία παραλήπτη" saving={saving} />
       <div className="grid grid-cols-2 gap-3">
         <FormField
           id="checkout-first-name"
@@ -29,7 +29,6 @@ export function ContactSection({
           onChange={(v) => onFieldChange("firstName", v)}
           onBlur={() => onFieldBlur("firstName")}
           error={errors.firstName}
-          disabled={saving}
         />
         <FormField
           id="checkout-last-name"
@@ -39,7 +38,6 @@ export function ContactSection({
           onChange={(v) => onFieldChange("lastName", v)}
           onBlur={() => onFieldBlur("lastName")}
           error={errors.lastName}
-          disabled={saving}
         />
       </div>
       <FormField
@@ -52,7 +50,6 @@ export function ContactSection({
         onChange={(v) => onFieldChange("phone", v)}
         onBlur={() => onFieldBlur("phone")}
         error={errors.phone}
-        disabled={saving}
       />
     </section>
   );

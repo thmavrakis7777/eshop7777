@@ -106,7 +106,17 @@ nested Turborepo/pnpm workspace):
   first; Latin-looking font names are not a reliable signal for Greek support.
 - **Grid/spacing**: Tailwind's default spacing scale (a dead custom `--space-*`
   token set was found unused and removed during the audit — don't reintroduce
-  parallel spacing tokens).
+  parallel spacing tokens). `--color-accent-strong`/`--color-accent-soft`
+  were removed for the same reason in the production readiness audit
+  (declared, mapped into `@theme inline`, referenced nowhere) — only add a
+  token at the point something actually uses it.
+- **Contrast**: every token pair was computed against WCAG AA during the
+  production readiness audit and they all pass, but the margin is thin in one
+  place — `--color-ink-muted` on `--color-surface-strong` is **4.58:1**
+  against a 4.5:1 requirement (checkout's section numbers, the order
+  confirmation timeline). Recompute before nudging either token lighter.
+  For reference: accent on white 5.06:1, ink-muted on white 5.55:1,
+  ink-muted on surface 5.05:1, danger 6.54:1, success 5.91:1.
 - **No real product photography yet.** `PlaceholderTile`
   (`src/components/ui/PlaceholderTile.tsx`) renders a deterministic
   color-block + initials standing in for every product/category image. Swapping
@@ -141,6 +151,27 @@ nested Turborepo/pnpm workspace):
 
 ## SEO strategy
 
+- **Metadata is inherited from the root layout, and that includes
+  `alternates.canonical`.** Any route that doesn't declare its own
+  `alternates` silently emits the root layout's `canonical: "/"` — i.e. it
+  tells crawlers it *is* the homepage. This was a real, shipped bug on
+  `/anazitisi` and `/checkout/epibebaiosi`, found during the production
+  readiness audit by reading the rendered HTML, not by inspecting the code.
+  **Every new route needs its own `alternates.canonical`**, even a noindex
+  one.
+- **Listing pages self-canonicalise per page** via `canonicalListingPath()`
+  (`lib/search-params.ts`): page 2+ canonicalises to itself, not to page 1
+  (pointing deeper pages at page 1 tells Google they're duplicates and drops
+  any product only reachable past page 1). `sort` is deliberately *not* in
+  the canonical — the sort variants genuinely are duplicates of each other,
+  so they all collapse onto the unsorted page.
+- **`robots.txt` blocks and `noindex` meta tags are mutually exclusive
+  tools, not complementary ones.** A `robots.txt` `Disallow` stops the crawl,
+  which means the `noindex` on that page is never read. `/anazitisi` is
+  therefore `noindex, follow` and deliberately *absent* from `robots.ts`;
+  `/kalathi` and `/checkout` are robots-blocked (nothing links to them from
+  outside, so there's nothing to de-index).
+
 - `generateMetadata` per dynamic route (category, subcategory, product) — title
   via the root layout's template (`%s | STIA`), description, canonical URL,
   Open Graph.
@@ -168,6 +199,23 @@ nested Turborepo/pnpm workspace):
   featured), not "Τα πιο δημοφιλή" (best sellers) — there is no order history to
   back a real popularity claim yet. Revisit both labels once real
   review/order data exists.
+  - This rule has now caught the same mistake **twice**: the fabricated 4.6-star
+    product ratings (Phase 3 audit) and a whole homepage "Τι λένε οι πελάτες
+    μας" section of three invented, *named* customer testimonials with
+    hardcoded star ratings (`components/home/Reviews.tsx`, deleted in the
+    production readiness audit). Treat any hardcoded array of human-sounding
+    social proof as a bug on sight. Beyond the project's own rule, fake
+    consumer reviews are a **prohibited unfair commercial practice under the
+    EU Omnibus Directive (2019/2161)**, transposed in Greece — this isn't
+    only a taste question.
+  - **Customer-facing claims must match what the system can actually do.**
+    Three separate places (homepage `TrustStrip`, the PDP delivery block,
+    and — undocumented until the audit — the footer's payment-badge row)
+    advertised card/Viva Wallet payment when the only configured Medusa
+    provider is `pp_system_default` ("Αντικαταβολή"). Delivery windows are
+    now sourced from the real `Standard Shipping` option's own estimate
+    (2-3 εργάσιμες) rather than a separately invented number. When adding
+    marketing copy, check it against live Medusa config first.
 - Max 3 clicks from homepage to any product (Home → Category → Subcategory →
   Product), enforced by the IA, not just a design aspiration.
 - Mega menu (desktop) and a separate accessible drawer (mobile) rather than one
@@ -178,6 +226,30 @@ nested Turborepo/pnpm workspace):
   mobile drawer has real focus management (initial focus, Tab trap, Escape to
   close, focus returns to the trigger button on close) — this was originally
   missing and was added as a real accessibility bug fix, not a nice-to-have.
+- **Never disable a form input to indicate a background save.** Disabling an
+  element that currently has focus moves focus to `<body>` — so an autosave
+  that fires on blur destroys the customer's keyboard position on the field
+  they just tabbed *into*. This was a real, measured bug across checkout's
+  email/contact/address sections
+  (`document.activeElement` went `checkout-area` → `BODY` and stayed there).
+  Saving state is now announced via a `role="status"` "Αποθήκευση…" label on
+  `SectionHeading`, and the inputs stay live. `ShippingSection`'s radios are
+  the one deliberate exception — they guard against racing two
+  shipping-method writes, and they disable the control just *clicked* rather
+  than one tabbed into.
+- **Don't reach for `role="menu"`/`role="menuitem"` on a nav menu of links.**
+  The desktop mega menu had both; the role promises arrow-key roving-focus
+  semantics that aren't implemented and makes screen readers announce
+  ordinary links as menu items. A list of links is what it actually is —
+  removed in the production readiness audit, don't reintroduce.
+- **The mega-menu trigger opens on click, it does not toggle.** A mouse
+  click arrives *after* `mouseenter`/`onFocus` have already opened the
+  panel, so a toggle closes it under the cursor — verified live as a
+  self-introduced regression during the audit and corrected the same
+  session. Escape closes (handled on the `<header>`).
+- `aria-label` on a bare `<div>` is ignored by most screen readers — there's
+  no role for it to attach to. `Stars` needed `role="img"` to be announced
+  at all.
 - "Add to cart" (`ProductCard` quick-add, PDP's `AddToCartButton`) is now
   **real** (Phase 4A) — both call the same `addLineItemAction` Server
   Action. Clicking never force-opens the cart drawer; it shows a small,

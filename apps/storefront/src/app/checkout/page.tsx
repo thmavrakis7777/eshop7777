@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCart } from "@/lib/data/cart";
 import { getPaymentProviders } from "@/lib/data/checkout";
-import { getDefaultRegionId } from "@/lib/medusa";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 
 export const metadata: Metadata = {
@@ -19,8 +18,10 @@ export default async function CheckoutPage() {
     redirect("/kalathi");
   }
 
-  const regionId = await getDefaultRegionId();
-  const paymentProviders = await getPaymentProviders(regionId);
+  // The cart already carries its own region — no need to resolve "the"
+  // default region separately, which was both an extra request and wrong
+  // the moment a second region exists.
+  const paymentProviders = await getPaymentProviders(cart.regionId);
 
   return (
     <div className="container-shell py-8 md:py-12">

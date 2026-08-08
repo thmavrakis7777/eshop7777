@@ -1,6 +1,11 @@
+// Claims here must match what the store can actually deliver today: the
+// delivery window mirrors the real Medusa "Standard Shipping" option, and
+// the payment line names the only configured provider (pp_system_default,
+// shown at checkout as "Αντικαταβολή"). The earlier "Κάρτα, Viva Wallet ή
+// αντικαταβολή" promised two methods checkout can't offer.
 const items = [
   {
-    title: "Παράδοση σε 2-4 εργάσιμες",
+    title: "Παράδοση σε 2-3 εργάσιμες",
     desc: "Σε όλη την Ελλάδα, με courier συνεργάτη",
     icon: (
       <path d="M3 7h11v9H3zM14 10h4l3 3v3h-7zM7 20a2 2 0 100-4 2 2 0 000 4zM17.5 20a2 2 0 100-4 2 2 0 000 4z" />
@@ -12,8 +17,8 @@ const items = [
     icon: <path d="M4 4v6h6M4 10a8 8 0 1 1 2.3 5.6" />,
   },
   {
-    title: "Ασφαλείς πληρωμές",
-    desc: "Κάρτα, Viva Wallet ή αντικαταβολή",
+    title: "Πληρωμή με αντικαταβολή",
+    desc: "Πληρώνεις όταν παραλάβεις την παραγγελία σου",
     icon: <path d="M3 8h18M3 8v10h18V8M3 8l2-4h14l2 4M7 15h4" />,
   },
   {

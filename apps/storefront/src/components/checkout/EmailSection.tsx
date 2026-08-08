@@ -21,7 +21,7 @@ export function EmailSection({
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <SectionHeading number={1} title="Email" />
+      <SectionHeading number={1} title="Email" saving={saving} />
       <FormField
         id="checkout-email"
         label="Email"
@@ -31,7 +31,6 @@ export function EmailSection({
         onChange={onChange}
         onBlur={onBlur}
         error={error}
-        disabled={saving}
       />
       <p className="text-xs text-ink-muted">
         Θα σου στείλουμε την επιβεβαίωση της παραγγελίας σε αυτό το email.

@@ -96,5 +96,3 @@ export function useCartController(initialCart: Cart | null) {
     removeCoupon,
   };
 }
-
-export type CartController = ReturnType<typeof useCartController>;

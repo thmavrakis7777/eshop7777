@@ -36,15 +36,23 @@ export default async function ProductPage({ params }: Props) {
   const product = await getProductByHandle(handle);
   if (!product) notFound();
 
-  const category = product.categoryHandle ? await getCategoryByHandle(product.categoryHandle) : undefined;
+  // Related products don't depend on the category lookups, so they're
+  // fetched alongside rather than after them — this was a three-deep
+  // request waterfall before.
+  const [category, relatedProducts] = await Promise.all([
+    product.categoryHandle ? getCategoryByHandle(product.categoryHandle) : undefined,
+    getRelatedProducts(product),
+  ]);
   const parentCategory = category?.parentHandle ? await getCategoryByHandle(category.parentHandle) : undefined;
-  const relatedProducts = await getRelatedProducts(product);
 
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.title,
     description: product.shortDescription || product.title,
+    // Medusa's real variant SKU — the same value shown as "Κωδικός
+    // προϊόντος" below. Omitted rather than faked when a variant has none.
+    ...(product.code ? { sku: product.code } : {}),
     offers: {
       "@type": "Offer",
       priceCurrency: product.price.currencyCode,
@@ -112,15 +120,20 @@ export default async function ProductPage({ params }: Props) {
             )}
             <div className="flex justify-between">
               <dt className="text-ink-muted">Παράδοση</dt>
-              <dd className="text-ink">2-4 εργάσιμες σε όλη την Ελλάδα</dd>
+              <dd className="text-ink">2-3 εργάσιμες σε όλη την Ελλάδα</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-ink-muted">Επιστροφές</dt>
               <dd className="text-ink">Δωρεάν εντός 30 ημερών</dd>
             </div>
+            {/* Reconciled with what checkout can actually offer: the only
+                configured Medusa payment provider is pp_system_default,
+                presented as "Αντικαταβολή". The previous "Κάρτα, Viva
+                Wallet, αντικαταβολή" was aspirational copy that checkout
+                visibly contradicted. */}
             <div className="flex justify-between">
               <dt className="text-ink-muted">Πληρωμή</dt>
-              <dd className="text-ink">Κάρτα, Viva Wallet, αντικαταβολή</dd>
+              <dd className="text-ink">Αντικαταβολή κατά την παράδοση</dd>
             </div>
           </dl>
         </div>

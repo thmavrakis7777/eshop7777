@@ -4,9 +4,13 @@ import { getOrder } from "@/lib/data/checkout";
 import { formatPrice } from "@/lib/format";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 
+// The explicit canonical matters even on a noindex page: without it this
+// route inherits the root layout's `canonical: "/"` and tells crawlers the
+// order confirmation *is* the homepage.
 export const metadata: Metadata = {
   title: "Η παραγγελία σου",
   robots: { index: false, follow: true },
+  alternates: { canonical: "/checkout/epibebaiosi" },
 };
 
 const TIMELINE_STEPS = ["Παραλάβαμε την παραγγελία", "Προετοιμασία", "Αποστολή", "Παράδοση"];

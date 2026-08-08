@@ -21,7 +21,17 @@ async function getOrCreateCartId(): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ region_id: regionId }),
   });
-  jar.set(CART_ID_COOKIE, cart.id, { maxAge: CART_COOKIE_MAX_AGE, sameSite: "lax", path: "/" });
+  // httpOnly: nothing client-side reads this cookie — the cart is always
+  // resolved server-side (Server Components via getCart(), mutations via the
+  // actions in this file) — so keeping it out of `document.cookie` removes
+  // it as an XSS target without costing any functionality.
+  jar.set(CART_ID_COOKIE, cart.id, {
+    maxAge: CART_COOKIE_MAX_AGE,
+    sameSite: "lax",
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+  });
   return cart.id;
 }
 

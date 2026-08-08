@@ -7,7 +7,10 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/kalathi", "/logariasmos", "/api/"],
+        // `/anazitisi` is deliberately absent: it carries a `noindex` meta
+        // tag instead, and a robots.txt block would stop crawlers reaching
+        // the page at all — meaning they'd never see the noindex.
+        disallow: ["/kalathi", "/checkout", "/logariasmos", "/api/"],
       },
     ],
     sitemap: `${siteUrl}/sitemap.xml`,

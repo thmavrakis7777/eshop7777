@@ -3,6 +3,176 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Production readiness audit — Phases 1–5 (2026-08-08)
+
+A gated, whole-codebase audit before any further feature work: code review,
+performance, SEO, Core Web Vitals, accessibility, Medusa architecture,
+cleanup, and the full `tsc`/`eslint`/`next build`/`medusa lint` gate.
+Everything below was verified against the running app (real backend, real
+catalog) rather than reasoned about — the two most valuable findings were
+both invisible to the type checker and the linter, same pattern as every
+previous phase.
+
+**The single worst finding: the homepage was publishing three fabricated
+customer reviews.** `components/home/Reviews.tsx` rendered a
+"Τι λένε οι πελάτες μας" section with three invented, *named* testimonials
+("Ελένη Κ.", "Γιώργος Π.", "Μαρία Δ.") and hardcoded 5/5/4-star ratings.
+This is the same class of bug the Phase 3 audit already treated as a
+correctness issue when it removed the fabricated 4.6-star product ratings —
+only worse, because attributed quotes read as specific factual claims about
+real people rather than a generic aggregate. It also carries real legal
+exposure: fake consumer reviews are a prohibited unfair commercial practice
+under the EU Omnibus Directive (2019/2161), which Greece has transposed. The
+whole section was **deleted**, not softened — there is no honest version of
+"what our customers say" for a store with zero customers. `Stars` stays in
+place for the day real review data exists; it already only renders when a
+rating is genuinely present. Restoring the section is a one-import revert if
+that call is disagreed with, but it shouldn't be restored with invented
+content.
+
+**A real keyboard-accessibility bug in checkout, confirmed live.** Every
+field in "Στοιχεία παραλήπτη" and "Διεύθυνση παράδοσης" (and the email
+field) carried `disabled={saving}` while the section auto-saved to the
+Medusa cart in the background. Disabling an element that currently has focus
+moves focus to `<body>` — so the moment a customer finished the last address
+field and tabbed onward, the autosave fired, every field went disabled, and
+their keyboard position was destroyed; they landed back at the top of the
+document. Measured on the live checkout: `document.activeElement` went
+`checkout-area` → `BODY` and stayed there. Fixed by no longer disabling
+inputs during a background save at all (the save is a convenience — it
+re-fires on the next blur, and `details` is client state that the server
+response never clobbers) and moving the feedback to a `role="status"`
+"Αποθήκευση…" indicator on `SectionHeading` instead. Re-measured after the
+fix: focus stays on `checkout-area` throughout, and shipping options still
+resolve normally. `ShippingSection`'s radio `disabled={saving}` was left
+alone deliberately — it guards against racing two shipping-method writes,
+and it disables the control the customer just clicked rather than one they
+tabbed into.
+
+**Three places were promising payment methods checkout cannot take.**
+`TrustStrip` (homepage) and the PDP's delivery block were already flagged in
+`TASKS.md` as needing reconciliation; auditing turned up a **third,
+undocumented one** — the footer's "Αποδεκτοί τρόποι πληρωμής" badge row
+listing Visa, Mastercard and Viva Wallet. The only configured Medusa payment
+provider is still `pp_system_default`, presented at checkout as
+"Αντικαταβολή". All three now say only what the store can actually do. The
+PDP and `TrustStrip` delivery windows were also moved from "2-4 εργάσιμες"
+to "2-3 εργάσιμες" so they match the real Medusa `Standard Shipping`
+option's own estimate instead of contradicting it two clicks later.
+
+**Two broken links on the most important page.** The homepage's
+"Προτεινόμενα" and "Νέες αφίξεις" rails both had a "Δες όλα →" link —
+`/prosfores` and `/nea-afiksi` — and neither route has ever existed
+(verified: both 404 through `[category]`'s `notFound()`). Unlike the
+footer's not-yet-built content pages, these were never documented as known
+gaps. `ProductRail` already treats `viewAllHref` as optional, so both links
+were simply dropped; a missing affordance beats a broken one.
+
+**SEO: four real defects, all verified by reading the rendered HTML.**
+
+- `/anazitisi` was **indexable and canonicalised to the homepage.** Because
+  it declared no `alternates` of its own, it inherited the root layout's
+  `canonical: "/"` — so every search-results URL told Google it *was* the
+  homepage. Now `noindex, follow` with a self-referencing canonical. It is
+  deliberately *not* added to `robots.txt`: blocking the crawl would stop
+  crawlers ever seeing the `noindex`.
+- `/checkout/epibebaiosi` had the same inherited-canonical bug (noindex, so
+  lower blast radius, but still wrong). Fixed the same way.
+- **Paginated category/subcategory pages did not self-canonicalise** — page
+  2 pointed at page 1, which tells Google the deeper pages are duplicates
+  and drops any product only reachable past page 1. `canonicalListingPath()`
+  in `lib/search-params.ts` now makes the canonical page-aware. `sort` is
+  deliberately excluded: the sort variants genuinely *are* duplicates of
+  each other, so they should all collapse onto the unsorted page.
+- `/checkout` was crawlable — added to `robots.txt`.
+
+**SEO improvement, not a bug fix**: the PDP's `Product` JSON-LD now carries
+`sku`, using the real Medusa variant SKU already displayed as "Κωδικός
+προϊόντος" (Phase 5). It's omitted rather than faked when a variant has
+none. Still no `brand`, no `image` and no `AggregateRating` — none of those
+have real data behind them.
+
+**Security hardening** (both cheap, neither changing behaviour): the
+`cart_id` cookie is now `httpOnly` + `secure` in production — nothing
+client-side has ever read it (the cart is resolved server-side via
+`getCart()` and mutated via Server Actions), so this costs nothing and
+removes it as an XSS target. And `next.config.ts` gained a baseline header
+set (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+`X-DNS-Prefetch-Control`) plus `poweredByHeader: false`. **No CSP yet, on
+purpose**: the app emits inline JSON-LD `<script>` tags on nearly every
+page, so a real policy needs per-request nonces threaded through those —
+worth doing, but it's its own change, not a header list. HSTS was left to
+the hosting layer since no deployment target is decided.
+
+**Redundant Medusa requests removed.** `completeCheckoutAction` re-fetched
+the whole cart from Medusa just to read `region_id` back, immediately after
+`getCart()` had already fetched it (with `region_id` in `CART_FIELDS`, but
+the domain `Cart` type dropped it). `Cart` now carries `regionId`, and
+`regionIdForCart()` is gone. The same field also let `/checkout` stop
+calling `getDefaultRegionId()` — which was both an extra request *and*
+subtly wrong, since it would resolve "the first region" rather than the
+cart's own the moment a second region exists. The PDP's three-deep request
+waterfall (category → parent category → related products) was flattened:
+related products don't depend on the category lookups, so they now run
+alongside them.
+
+Also: `CategoryPLPView`'s subcategory chips were plain `<a>` tags — a full
+document reload and no prefetch on the one navigation a category page most
+expects. Switched to `next/link`, matching every other link in the app.
+
+**Accessibility, beyond the checkout fix.** The desktop mega menu declared
+`role="menu"` / `role="menuitem"` on what is a list of ordinary navigation
+links. That role promises arrow-key roving-focus semantics the panel doesn't
+implement and makes screen readers announce links as menu items — both roles
+removed. Its trigger buttons also did nothing on activation despite
+reporting `aria-expanded`; they now open the panel on click. That was
+initially written as a *toggle*, which turned out to be a regression —
+verified live that a mouse click arrives after `mouseenter`/`focus` have
+already opened the panel, so toggling slammed it shut under the cursor — so
+it opens only, and Escape (already wired) closes. `Stars` had `aria-label`
+on a bare `<div>`, which most screen readers ignore because there's no role
+to attach it to; it's now `role="img"`. And the header search dropdown
+appeared and changed completely silently for screen-reader users — added a
+polite live region announcing the result count of each debounced search.
+
+**Colour contrast was checked and is clean** — every token pair in
+`globals.css` was computed against WCAG AA rather than eyeballed. The
+tightest real combination is `--color-ink-muted` on `--color-surface-strong`
+at **4.58:1** (the checkout section numbers and the confirmation timeline),
+which passes 4.5:1 with very little margin — worth remembering before either
+token is nudged lighter. `--color-accent` on white is 5.06:1, ink-muted on
+white 5.55:1, danger 6.54:1, success 5.91:1.
+
+**Dead code removed**: `StarIcon` (`ui/Icons.tsx` — `Stars` inlines its own
+path and nothing else imported it), the exported `CartController` type
+(never referenced), the `disabled` prop on `FormField` (dead after the
+checkout fix, along with its `disabled:` classes), and the
+`--color-accent-strong` / `--color-accent-soft` CSS tokens — declared,
+mapped into Tailwind's theme, referenced nowhere. Same finding and same
+resolution as the dead `--space-*` tokens the Phase 3 audit removed.
+
+**What was found and deliberately *not* changed** is in `NEXT_STEPS.md` §7
+and `TASKS.md` — the short list: the newsletter form silently no-ops on
+submit, `PaymentSection`'s multi-provider UI is structurally broken (N
+always-`checked` `readOnly` radios, and `completeCheckoutAction` uses
+`providers[0]` regardless), the favicon is still Next.js's own default
+logo, and `MobileMenu`/`CartDrawer` carry two near-identical hand-rolled
+focus traps. None were touched: the first three need business/brand
+decisions or a second real payment provider to design against, and the
+fourth would refactor two components whose focus behaviour is verified
+working, for a ~30-line dedupe.
+
+**Verified**: `tsc --noEmit`, `eslint`, and `next build` all clean for
+`apps/storefront`; `medusa lint` clean for `apps/backend/apps/backend`.
+Live in-browser against the real backend: canonical/robots tags and security
+headers read straight off the wire on `/`, `/kouzina`, `/kouzina?page=2`,
+`/anazitisi`, `/checkout/epibebaiosi`; the checkout focus fix measured
+before and after via `document.activeElement` with real shipping options
+still resolving afterwards; the mega menu re-verified after its own
+regression was caught and corrected; cart drawer open → focus moves inside →
+Escape closes still intact; homepage heading hierarchy and zero remaining
+dead links.
+
 ## Phase 5 — Product code (SKU), add-to-cart everywhere, search (2026-08-08)
 
 User brief: every product needs a permanent, unique product code, searchable

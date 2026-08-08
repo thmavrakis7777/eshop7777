@@ -13,8 +13,6 @@
 
   /* Brand accent (CTA) — muted terracotta */
   --color-accent: #b5502e;
-  --color-accent-strong: #963f22;
-  --color-accent-soft: #f4e3dc;
 
   /* Semantic */
   --color-success: #3f6e4e;
@@ -35,8 +33,6 @@
   --color-ink: var(--color-ink);
   --color-ink-muted: var(--color-ink-muted);
   --color-accent: var(--color-accent);
-  --color-accent-strong: var(--color-accent-strong);
-  --color-accent-soft: var(--color-accent-soft);
   --color-success: var(--color-success);
   --color-danger: var(--color-danger);
 

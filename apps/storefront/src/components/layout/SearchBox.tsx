@@ -86,6 +86,17 @@ export function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
         />
       </form>
 
+      {/* The dropdown appears and changes silently for a screen-reader user —
+          results are only discoverable by tabbing forward and finding them.
+          This announces the outcome of each debounced search instead. */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {isOpen && query.trim().length >= MIN_QUERY_LENGTH && !isLoading
+          ? results.length === 0
+            ? "Δεν βρέθηκαν προϊόντα."
+            : `${results.length} αποτελέσματα αναζήτησης.`
+          : ""}
+      </p>
+
       {isOpen && query.trim().length >= MIN_QUERY_LENGTH && (
         <div className="absolute inset-x-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-md border border-border bg-bg shadow-lg">
           {isLoading ? (

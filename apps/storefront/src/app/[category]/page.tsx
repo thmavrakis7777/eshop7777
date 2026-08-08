@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CategoryPLPView, PAGE_SIZE } from "@/components/category/CategoryPLPView";
 import { getCategoryByHandle, getNavCategories } from "@/lib/data/categories";
 import { getProductsByCategoryHandle } from "@/lib/data/products";
-import { parsePage, parseSort } from "@/lib/search-params";
+import { canonicalListingPath, parsePage, parseSort } from "@/lib/search-params";
 import { siteUrl } from "@/lib/site-config";
 
 type Props = {
@@ -11,19 +11,21 @@ type Props = {
   searchParams: Promise<{ sort?: string; page?: string }>;
 };
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { category: categoryHandle } = await params;
+  const { page: pageParam } = await searchParams;
   const category = await getCategoryByHandle(categoryHandle);
   if (!category) return {};
 
   const title = category.name;
   const description = `${category.name} — ποιοτικά προϊόντα για το σπίτι σου, με γρήγορη παράδοση σε όλη την Ελλάδα.`;
+  const path = canonicalListingPath(`/${category.handle}`, parsePage(pageParam));
 
   return {
     title,
     description,
-    alternates: { canonical: `/${category.handle}` },
-    openGraph: { title, description, url: `${siteUrl}/${category.handle}` },
+    alternates: { canonical: path },
+    openGraph: { title, description, url: `${siteUrl}${path}` },
   };
 }
 

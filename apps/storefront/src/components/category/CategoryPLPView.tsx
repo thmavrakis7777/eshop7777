@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
 import { SortControl } from "@/components/category/SortControl";
 import { Pagination } from "@/components/category/Pagination";
@@ -51,13 +52,13 @@ export function CategoryPLPView({
         {subcategories && subcategories.length > 0 && (
           <div className="mt-6 flex flex-wrap gap-2">
             {subcategories.map((sub) => (
-              <a
+              <Link
                 key={sub.href}
                 href={sub.href}
                 className="rounded-full border border-border px-4 py-2 text-sm text-ink hover:border-accent hover:text-accent transition-colors"
               >
                 {sub.label}
-              </a>
+              </Link>
             ))}
           </div>
         )}

@@ -7,50 +7,43 @@ the pointer to exactly where to resume, those three have the detail behind it. D
 not restart the project, do not regenerate completed features, do not re-analyze
 the whole codebase from zero — everything needed is in these five files.
 
-1. **Exact phase we are currently in**: Phase 5 (permanent unique product
-   code / SKU, add-to-cart from every product grid, search by name or
-   code) is **built and verified**, including a live out-of-stock test via
-   the admin. Same pattern as every prior phase: spec proposed and
-   approved (`PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`) before any code, then
-   built, then verified live. Checkout (Phase 4B) is still sitting behind
-   the user's own instruction to review it themselves before moving on —
-   that checkpoint has **not** been explicitly cleared yet, it's just no
-   longer the only thing waiting; Phase 5 landed in the same session
-   without an explicit "checkout looks good" from the user first, at their
-   own direction ("it's ok continue").
-2. **Last completed action**: Phase 4 through 4B (related products,
-   recently viewed, full cart, cart clarity revision, checkout) was
-   **committed to local `main` this session** as `3de52dc` — **not pushed**
-   to `origin/main` (last pushed commit is still `781c132`, Phase 3). Then
-   Phase 5 was designed, built, and verified on top of that, but is **not
-   yet committed** — check `git status`/`git log` before assuming otherwise.
-   A real payment processor (Stripe vs. Viva Wallet) was researched but
-   explicitly put on hold — the user wants to set up the account
-   themselves first; see §7 below, do not pick a processor or start
-   integrating without them providing real (test-mode) keys.
-3. **Next action to execute**: no unfulfilled build-approval gate is
-   blocking new work — "next" is genuinely open. But two review checkpoints
-   are still outstanding and worth surfacing to the user rather than
-   silently building past them again: (a) checkout (Phase 4B) still hasn't
-   had its own explicit "looks good" from the user, (b) neither has Phase
-   5. If the user gives another "continue"-style go-ahead: reasonable
-   next candidates are committing Phase 5, pushing to `origin/main` (ask
-   first — pushing is a should-confirm action, unlike a local commit), or
-   picking the next item from `TASKS.md` → "Future" (account/wishlist
-   pages, content pages, or the payment processor once the user has an
-   account). Say explicitly what you're doing rather than assuming a
-   review happened that didn't.
-4. **First files to inspect**: `PROJECT_MEMORY.md` → "Product code /
-   add-to-cart-everywhere / search architecture" (right after "Checkout
-   architecture" — read all three cart/checkout/Phase-5 sections, Phase 5
-   depends on the cart's `ProductCard`/`AddToCartButton` foundation),
-   `CURRENT_STATE.md`, `TASKS.md`, then `PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`
-   if revisiting a Phase 5 UI decision.
-5. **Warnings / important context**: see section 5 below — the corrected
-   inventory-quantity finding (an earlier phase's note that per-variant
-   stock wasn't readable via the Store API was wrong) and the
-   `CategoryPLPView` `basePath`-must-be-query-free contract are the two new
-   things most likely to matter again.
+1. **Exact phase we are currently in**: Phases 0–5 are built and verified,
+   and a **production readiness audit of the whole codebase has just been
+   completed** — that audit was explicitly gated ("no further development
+   until it's done"), and it is done. Its findings and fixes are in
+   `CHANGELOG.md` (newest entry); what it deliberately did *not* fix is in
+   `TASKS.md` → "Found by the production readiness audit, deliberately not
+   fixed". Checkout (Phase 4B) and Phase 5 both still lack an explicit
+   "looks good" from the user — don't narrate either as approved.
+2. **Last completed action**: the production readiness audit. Its changes
+   are **uncommitted working-tree changes** (29 files, one deletion —
+   `components/home/Reviews.tsx`), left that way on purpose for the user to
+   review. Phase 5 itself is committed as `a76a8ed`; `3de52dc` is Phase
+   4–4B. Nothing has been pushed since `781c132` (Phase 3) — **check
+   `git status`/`git log` before assuming otherwise.** A real payment
+   processor (Stripe vs. Viva Wallet) was researched but explicitly put on
+   hold — the user wants to set up the account themselves first; see §7
+   below, do not pick a processor or start integrating without them
+   providing real (test-mode) keys.
+3. **Next action to execute**: surface the audit's results to the user and
+   let them review the working tree before anything is committed. After
+   that: committing the audit, pushing to `origin/main` (ask first —
+   pushing is a should-confirm action, unlike a local commit), or picking
+   from `TASKS.md`. The audit's own "deliberately not fixed" list is the
+   most honest source of near-term candidates — the newsletter form's
+   silent no-op and the broken multi-provider payment UI are the two with
+   real customer impact. Say explicitly what you're doing rather than
+   assuming a review happened that didn't.
+4. **First files to inspect**: `CHANGELOG.md`'s production-readiness-audit
+   entry (the most recent state of the codebase), then `PROJECT_MEMORY.md`
+   → "SEO strategy", "UX decisions" and "Cart/Checkout/Product-code
+   architecture" sections, `CURRENT_STATE.md`, `TASKS.md`.
+5. **Warnings / important context**: see section 5 below. The newest
+   things most likely to matter again: **metadata (including
+   `alternates.canonical`) is inherited from the root layout**, so every new
+   route needs its own canonical or it silently claims to be the homepage;
+   and **never disable a form input to signal a background save** — it
+   drops focus to `<body>`.
 
 ---
 
@@ -58,13 +51,24 @@ the whole codebase from zero — everything needed is in these five files.
 
 ## 1. Exact last action completed
 
-Committed on `main` (`781c132`): Phase 3 (audit + real Medusa data wiring).
-Committed on `main` this session (`3de52dc`, **local only, not pushed**):
-Phase 4 (related products, recently viewed), Phase 4A (the full cart), Phase
-4A.1 (cart clarity revision), and Phase 4B (checkout) — see the previous
-session's `CHANGELOG.md` entries for the full story on each.
+Committed on `main` (`781c132`, **the last pushed commit**): Phase 3 (audit
++ real Medusa data wiring). Committed locally, not pushed: `3de52dc` (Phase
+4 / 4A / 4A.1 / 4B — related products, recently viewed, the full cart, the
+cart clarity revision, checkout) and `a76a8ed` (Phase 5).
 
-Then, this session, **not yet committed**, Phase 5:
+**Then, this session, and left uncommitted on purpose: the production
+readiness audit.** A gated whole-codebase pass (code review, performance,
+SEO, Core Web Vitals, accessibility, Medusa architecture, cleanup, full test
+gate) covering Phases 1–5. 29 files changed, one deleted
+(`components/home/Reviews.tsx` — three fabricated named customer
+testimonials). The single most user-visible fix was a real checkout
+keyboard-focus bug measured live; the most consequential judgement call was
+deleting the fake reviews section outright rather than softening it. Full
+narrative in `CHANGELOG.md`; the honest "found but deliberately not fixed"
+list is in `TASKS.md`. The working tree was left dirty so the user can
+review it before anything is committed.
+
+Phase 5, for context (now committed as `a76a8ed`):
 
 1. User gave two new requirements in one brief: a permanent unique product
    code (SKU) searchable by code or name, and add-to-cart from every
@@ -101,29 +105,36 @@ Then, this session, **not yet committed**, Phase 5:
 6. All five handoff files updated to reflect the above (this file
    included).
 
-**Check `git status` first thing.** Phase 4 through 4B is committed
-locally but not pushed; Phase 5 isn't committed at all yet.
+**Check `git status` first thing.** Phase 4–4B (`3de52dc`) and Phase 5
+(`a76a8ed`) are committed locally but not pushed; the production readiness
+audit is uncommitted in the working tree.
 
 ## 2. What "next" actually means here
 
-No unfulfilled "build it" authorization gate is blocking new work right
-now. What's outstanding is the same kind of checkpoint this project has
-honored at every phase boundary — the user reviewing a *result* themselves
-— stacked twice: checkout (Phase 4B) never got an explicit "looks good"
-before Phase 5 started (the user said "it's ok continue" without
-specifically reviewing checkout first), and now Phase 5 is in the same
-position. This isn't a blocker to keep building, but don't narrate it as
-"checkout is approved" or "Phase 5 is approved" — say what's actually true
-(built and verified from this session's side, not yet reviewed by the
-user) if it comes up.
+The audit gate ("no further development until the production readiness
+audit is complete") has been satisfied. What's outstanding is the same kind
+of checkpoint this project has honored at every phase boundary — the user
+reviewing a *result* themselves — now stacked three deep: checkout (Phase
+4B) never got an explicit "looks good", Phase 5 didn't either, and the
+audit's working-tree changes haven't been reviewed. This isn't a blocker to
+keep building, but don't narrate any of them as approved — say what's
+actually true (built and verified from this session's side, not yet
+reviewed by the user) if it comes up.
 
-See `TASKS.md` → "Future" for the honest list of what's next: a real
-payment processor (on hold, see §7), account/wishlist pages, footer content
-pages, or housekeeping (delete the two temporary admin users, decide the
-free-shipping threshold, re-run responsive verification, etc.).
+See `TASKS.md` → "Found by the production readiness audit, deliberately not
+fixed" for the sharpest near-term list (the newsletter form's silent no-op
+and the structurally broken multi-provider payment UI are the two with real
+customer impact), and → "Future" for the longer roadmap: a real payment
+processor (on hold, see §7), account/wishlist pages, footer content pages,
+or housekeeping (delete the two temporary admin users, decide the
+free-shipping threshold, re-run responsive verification, run axe/Lighthouse
+for the first time, etc.).
 
 ## 3. Which files should be opened first
 
+- `CHANGELOG.md` — the production readiness audit entry at the top is the
+  most current description of the codebase and of what was deliberately
+  left alone.
 - `PROJECT_MEMORY.md` — read "Cart architecture," "Checkout architecture,"
   and "Product code / add-to-cart-everywhere / search architecture" in
   order (adjacent, each depends on the one before it). Real, non-obvious
@@ -176,6 +187,19 @@ free-shipping threshold, re-run responsive verification, etc.).
   md:group-hover:opacity-100`) is deliberate — collapsing it back to a
   single `hidden md:flex` would silently reintroduce the "unusable on
   mobile" bug this session found and fixed.
+- Don't reintroduce `disabled={saving}` on checkout's email/contact/address
+  `FormField`s — it drops keyboard focus to `<body>` mid-form. The
+  `role="status"` "Αποθήκευση…" label on `SectionHeading` is the
+  replacement, and `FormField` no longer has a `disabled` prop at all.
+- Don't drop the per-route `alternates.canonical` on `/anazitisi` or
+  `/checkout/epibebaiosi`, and don't "simplify" `canonicalListingPath()`
+  away — without them those routes inherit the root layout's
+  `canonical: "/"` and claim to be the homepage.
+- Don't re-add `role="menu"`/`role="menuitem"` to the desktop mega menu, and
+  don't turn its trigger's `onClick` back into a toggle (see §5).
+- Don't restore `components/home/Reviews.tsx` with invented testimonials, or
+  re-add card/Viva Wallet payment claims to `TrustStrip`, the PDP delivery
+  block, or the footer badge row — checkout can only do "Αντικαταβολή".
 
 ## 5. Warnings / things to remember
 
@@ -218,6 +242,24 @@ free-shipping threshold, re-run responsive verification, etc.).
   registered) — if a click seems to hang or silently no-op, verify via
   `javascript_tool` (`element.click()` + checking the resulting state)
   before concluding the app itself is broken.
+- **Next.js metadata is inherited from the root layout, `alternates`
+  included.** A route that declares no `alternates` emits the root layout's
+  `canonical: "/"` — it tells crawlers it *is* the homepage. This was a real
+  shipped bug on `/anazitisi` and `/checkout/epibebaiosi`, found only by
+  reading the rendered HTML. Give every new route its own canonical, even a
+  noindex one.
+- **Never use `disabled` to indicate a background save on a form input.**
+  Disabling a focused element moves focus to `<body>`; an autosave firing on
+  blur then destroys the customer's keyboard position. Announce saving state
+  instead (`role="status"` on `SectionHeading`).
+- **A `robots.txt` `Disallow` prevents the `noindex` meta tag from ever
+  being read.** Pick one per route: `/anazitisi` uses `noindex` and is
+  deliberately absent from `robots.ts`; `/kalathi` and `/checkout` are
+  robots-blocked.
+- **The mega-menu trigger opens, it does not toggle** — a mouse click
+  arrives after `mouseenter`/`onFocus` have already opened the panel, so a
+  toggle closes it under the cursor. Caught live as a self-introduced
+  regression during the audit.
 - **No admin rights on this machine** — see "Environment setup" in
   `PROJECT_MEMORY.md` for exact portable-install `PATH` prepends if a fresh
   shell is missing Node/gh.
@@ -231,7 +273,14 @@ free-shipping threshold, re-run responsive verification, etc.).
 
 ## 6. Known bugs
 
-**None currently open.** Things worth tracking that aren't bugs: two
+**No unfixed defects in shipped user flows.** The production readiness
+audit's own "found but deliberately not fixed" list (`TASKS.md`) is the
+honest exception list — the two with real customer impact are the
+newsletter form silently no-opping on submit, and `PaymentSection`'s
+multi-provider UI being structurally broken (harmless only because exactly
+one provider exists today). Both need a decision, not a code fix.
+
+Things worth tracking that aren't bugs: two
 temporary admin users (`test-agent@stia.gr`, `qa-agent@stia.gr`) and two
 real test orders (`display_id` 1, 2) in the local dev database from live
 verification work — all harmless, documented in `PROJECT_MEMORY.md`/
@@ -260,9 +309,14 @@ every other abandoned test cart already documented, harmless.
   free-shipping messaging is currently disabled entirely (not just
   unconfigured) until a real backend rule exists to back it — see
   `PROJECT_MEMORY.md`.
-- **Reconciling `TrustStrip`/PDP payment copy** — both still claim "Κάρτα,
-  Viva Wallet ή αντικαταβολή," which overclaims relative to what checkout
-  can actually offer today. Flagged, not fixed.
+- ~~**Reconciling `TrustStrip`/PDP payment copy**~~ — **done** in the
+  production readiness audit, along with a third, previously undocumented
+  instance in the footer's payment-badge row. All three now say only
+  "Αντικαταβολή". Re-open when a real processor is configured.
+- **Review the production readiness audit's working-tree changes** — 29
+  files, one deletion, left uncommitted on purpose. The judgement call most
+  worth a second opinion: deleting the homepage's fabricated customer
+  reviews section outright rather than keeping it as a placeholder.
 - **Backend hosting** — Vercel connected but can't run Medusa's persistent
   server; deferred until actually needed (prior explicit user decision).
 - **Real brand name / domain** — "STIA" / `stia.gr` are placeholders, never

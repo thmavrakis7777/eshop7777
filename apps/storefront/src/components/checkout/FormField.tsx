@@ -10,7 +10,6 @@ export function FormField({
   error,
   autoComplete,
   inputMode,
-  disabled,
   className = "",
 }: {
   id: string;
@@ -22,7 +21,6 @@ export function FormField({
   error?: string;
   autoComplete?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
-  disabled?: boolean;
   className?: string;
 }) {
   return (
@@ -38,10 +36,9 @@ export function FormField({
         onBlur={onBlur}
         autoComplete={autoComplete}
         inputMode={inputMode}
-        disabled={disabled}
         aria-invalid={!!error}
         aria-describedby={error ? `${id}-error` : undefined}
-        className="h-11 rounded-sm border border-border px-3 text-sm text-ink outline-none focus:border-accent disabled:bg-surface disabled:text-ink-muted"
+        className="h-11 rounded-sm border border-border px-3 text-sm text-ink outline-none focus:border-accent"
       />
       {error && (
         <p id={`${id}-error`} role="alert" className="text-xs text-danger">
