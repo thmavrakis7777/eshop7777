@@ -20,6 +20,15 @@ export type MedusaVariant = {
   title: string;
   sku: string | null;
   calculated_price: MedusaCalculatedPrice;
+  // Only meaningful together: a variant is out of stock if manage_inventory
+  // is true, allow_backorder is false, and inventory_quantity <= 0. Fetched
+  // via explicit `+variants.*` fields — Medusa doesn't return these by
+  // default. Confirmed live against the real backend (2026-08-08): a
+  // regular product has manage_inventory: true, allow_backorder: false,
+  // inventory_quantity: a real positive count (99, 100, ...).
+  inventory_quantity: number | null;
+  manage_inventory: boolean;
+  allow_backorder: boolean;
 };
 
 export type MedusaImage = { id: string; url: string };

@@ -236,11 +236,61 @@ backend, including a real, complete guest order.
       redirects to `/kalathi`; 375/768/1280px widths, no horizontal scroll
       at any of them. `tsc`/`eslint`/`next build` all clean throughout.
 
+## Completed (continued)
+
+**Phase 5 — Product code (SKU), add-to-cart everywhere, search.** Explicit
+instruction to inspect the current implementation and propose an
+architecture before writing code — `PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`
+written and approved (three open decisions: multi-variant grid behavior,
+code display location, search UI shape) before any implementation, same
+pattern as cart/checkout.
+
+- [x] Product code = Medusa's native `variant.sku`, not a new field —
+      confirmed live all 16 real products already have unique, non-null
+      SKUs and Medusa enforces uniqueness at the DB level itself. Mapped
+      through as `ProductVariant.code`/`Product.code`; displayed as
+      `Κωδικός προϊόντος` on the PDP only (not grid cards, by design).
+- [x] Search reuses Medusa's own `q` full-text search (confirmed live it
+      already indexes both title and variant SKU) — no new search
+      index/service. `searchProducts()` in `lib/data/products.ts`, a
+      debounced header dropdown (`SearchBox.tsx`, `lib/actions/search.ts`),
+      and a full `/anazitisi` results page reusing `CategoryPLPView`
+      (which gained `extraParams`/`emptyMessage` props for this without
+      breaking the category pages).
+- [x] Real per-variant stock now fetched (`+variants.inventory_quantity`,
+      `manage_inventory`, `allow_backorder`) and mapped to
+      `ProductVariant.isAvailable` — corrects an earlier (wrong) note that
+      this field was unavailable via the Store API. `ProductCard` and
+      `AddToCartButton` gate on it: `Εξαντλήθηκε`, disabled, both as a grid
+      badge and on the PDP.
+- [x] Multi-variant guard: `ProductCard` no longer blindly adds
+      `variants[0]` — a product with >1 variant shows an `Επιλογές` link to
+      the PDP on grid cards (user decision, over building a speculative
+      inline popover selector with no real multi-variant product to verify
+      it against) and a plain radio-group picker on the PDP itself
+      (`AddToCartButton` reworked to take `product`, not `variantId`).
+- [x] **Real, separate bug found during verification**: the quick-add
+      button was `hidden` below Tailwind's `md` breakpoint (a leftover
+      desktop-hover-reveal pattern from Phase 4A) — `display: none` on an
+      actual mobile viewport, not just less discoverable. Mobile users
+      could not add to cart from any grid before this fix. Confirmed via
+      `getComputedStyle()`, fixed by making the control unconditionally
+      visible below `md`.
+- [x] Verified live: search by exact SKU/partial SKU/Greek name (dropdown
+      and results page); code displays on PDP; a real product's stock
+      zeroed via the admin and `Εξαντλήθηκε` confirmed on both PDP and grid
+      card, then restored; quick-add from a grid card confirmed at a real
+      375px mobile viewport (cart badge updated, no drawer auto-opened).
+      `tsc`/`eslint`/`next build` all clean. Not re-verified: discounted
+      product + coupon-after-quick-add (no active promotion in the live
+      catalog to test against; neither code path was touched this phase).
+
 ## Next
 
 Checkout is built, verified, and stable — but per the user's own
 instructions for this phase, it doesn't move to the next phase until they've
-had a chance to review it themselves. See `NEXT_STEPS.md`.
+had a chance to review it themselves. Product code, add-to-cart-everywhere,
+and search (Phase 5) are also built and verified. See `NEXT_STEPS.md`.
 
 ## Future
 
@@ -248,9 +298,13 @@ had a chance to review it themselves. See `NEXT_STEPS.md`.
 
 - [ ] Real product gallery (multiple images, zoom) — **blocked**: needs real
       photography, which doesn't exist yet
-- [ ] Variant/option selection UI — **blocked**: today's catalog is 100%
-      single-variant, there's nothing to select and no way to test a selector
-      against real data
+- [x] Variant/option selection UI — **partially unblocked (Phase 5)**: a
+      plain radio-group picker exists in `AddToCartButton` for any product
+      with >1 variant, and grid cards route multi-variant products to the
+      PDP instead of guessing. Still genuinely untested against real data —
+      today's catalog remains 100% single-variant — so treat this as
+      forward design, not verified UX, until a real multi-variant product
+      exists to click through.
 - [x] Related products — implemented as **same-category** cross-sell
       (`getRelatedProducts` in `lib/data/products.ts`), not literal "frequently
       bought together": there is no order history yet, so a real co-purchase
@@ -279,10 +333,13 @@ had a chance to review it themselves. See `NEXT_STEPS.md`.
       block — both still say "Κάρτα, Viva Wallet ή αντικαταβολή," which
       overclaims relative to what checkout can actually offer today
 
-**Phase 6+ — Search, account, wishlist, content pages**
+**Phase 6+ — Account, wishlist, content pages**
 
-- [ ] Predictive search (header search input is currently a plain text field
-      with no backend)
+- [x] Search — **done (Phase 5)**: header live-dropdown + `/anazitisi`
+      results page, backed by Medusa's own `q` search (title + SKU
+      together). No fuzzy/typo-tolerant matching (Postgres `ILIKE`-style,
+      not a real search engine) — acceptable at today's catalog size,
+      revisit only if the catalog grows substantially.
 - [ ] Account area, wishlist (header icons link to `/logariasmos`,
       `/lista-epithymion` — real pages, currently 404)
 - [ ] About/legal/help content pages (footer links to these — real pages,
@@ -301,8 +358,9 @@ had a chance to review it themselves. See `NEXT_STEPS.md`.
       real product counts exist — last full pass was Phase 1, before real data
 - [ ] Run an actual Lighthouse/axe pass — nothing has been run yet, only manual
       review
-- [ ] Delete the `test-agent@stia.gr` admin user (created during Phase 4A API
-      verification, harmless but unnecessary — see `PROJECT_MEMORY.md`)
+- [ ] Delete the `test-agent@stia.gr` and `qa-agent@stia.gr` admin users
+      (created during Phase 4A and Phase 5 API/UI verification respectively,
+      harmless but unnecessary — see `PROJECT_MEMORY.md`)
 - [ ] Decide the real free-shipping threshold and set
       `NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD_EUR` accordingly (currently a €50
       placeholder default), then flip `FREE_SHIPPING_MESSAGE_ENABLED` back

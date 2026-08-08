@@ -3,6 +3,78 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Phase 5 — Product code (SKU), add-to-cart everywhere, search (2026-08-08)
+
+User brief: every product needs a permanent, unique product code, searchable
+by code or name; and add-to-cart must work from every product grid in the
+app, not just the PDP. Explicit instruction to inspect the current
+implementation and propose an architecture before writing any code — written
+up and approved as `PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`.
+
+**Both features turned out to be smaller than they looked**, because Medusa
+and the existing codebase already did most of the work — this is the finding
+that shaped the whole approach, not an assumption going in:
+
+- **Product code = Medusa's native `variant.sku`, not a new field.** Live
+  Store API testing found all 16 real products already carry unique,
+  non-null SKUs, and Medusa enforces SKU uniqueness at the database level
+  itself. No custom identifier, no custom uniqueness validation.
+- **Search = Medusa's own `q` full-text search, not a new search index.**
+  Live-tested `/store/products?q=` and confirmed it already indexes *both*
+  title and variant SKU together (exact SKU, partial SKU, Greek title word
+  all matched correctly). The gap was purely storefront-side: the header's
+  search input has existed since Phase 1 but was never wired to anything.
+- **Add-to-cart infrastructure already existed** — `ProductCard` was already
+  the one shared card component rendering on every product grid in the app,
+  and its quick-add already used the toast (not the drawer) and already
+  revalidated cart count/totals immediately. The real gaps were narrower
+  than "add it everywhere": no stock-awareness (inventory hardcoded to `1`
+  sitewide) and no multi-variant guard (blindly added `variants[0]`).
+
+**What was built**: `+variants.sku`/`inventory_quantity`/`manage_inventory`/
+`allow_backorder` added to the product fetch and mapped into
+`ProductVariant.code`/`.isAvailable`; `Κωδικός προϊόντος` shown on the PDP
+only (not grid cards, by design — keeps grids uncluttered); `ProductCard`
+and `AddToCartButton` now gate on real availability (`Εξαντλήθηκε`, disabled)
+and variant count (`>1` variants routes to the PDP via an `Επιλογές` link on
+grid cards, or a plain radio-group picker on the PDP itself — an inline
+popover selector on grid cards was deliberately not built, since no real
+multi-variant product exists yet to design or verify one against);
+`searchProducts()` + a debounced header dropdown + a `/anazitisi` results
+page (reusing `CategoryPLPView`, which gained `extraParams`/`emptyMessage`
+props to support a non-category listing without breaking the existing
+category pages).
+
+**A real, separate bug found during verification, unrelated to the original
+ask**: the quick-add/`Επιλογές` button was `hidden` below Tailwind's `md`
+breakpoint — a leftover desktop-hover-reveal pattern from Phase 4A. On an
+actual mobile viewport this meant `display: none`, not just "less
+discoverable" — mobile users could not add to cart from *any* product grid
+before this fix, despite the feature otherwise working. Confirmed via
+`getComputedStyle()` before and after, not just visually. Fixed by making
+the control unconditionally visible below `md`, hover-reveal preserved only
+at `md+`.
+
+**Also corrected a stale note in `PROJECT_MEMORY.md`**: an earlier phase's
+finding that `+variants.inventory_quantity` was "silently ignored" by the
+Store API turned out to be wrong (or no longer true) — re-tested live and it
+returns real per-variant stock. The reactive `insufficient_inventory`
+handling in `lib/actions/cart.ts` stays in place either way; the new
+UI-layer availability flag is a prediction of the same rule Medusa enforces,
+not a replacement for the real check.
+
+**Verified live against the real backend**: search by exact SKU, partial
+SKU, and Greek product name (both the header dropdown and `/anazitisi`);
+product code displays correctly on the PDP; zeroed a real product's stock
+via the admin (temporary `qa-agent@stia.gr` user, same pattern as Phase 4A's
+`test-agent@stia.gr`) and confirmed `Εξαντλήθηκε` on both the PDP and grid
+card, then restored it; quick-add from a grid card confirmed working at a
+real 375px mobile viewport (cart badge incremented, no drawer auto-opened).
+`tsc`/`eslint`/`next build` all clean. Not re-verified this session:
+discounted-product and coupon-after-quick-add behavior (no active promotion
+exists in the live catalog right now, and neither code path was touched by
+this phase) — see `PROJECT_MEMORY.md` for the full honest list.
+
 ## Phase 4B — Checkout, build (2026-08-08)
 
 Follows directly from the research/groundwork entry below (same day) — that

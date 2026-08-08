@@ -19,6 +19,8 @@ export function CategoryPLPView({
   sort,
   page,
   basePath,
+  extraParams,
+  emptyMessage,
 }: {
   title: string;
   description?: string;
@@ -28,7 +30,13 @@ export function CategoryPLPView({
   count: number;
   sort: ProductSort;
   page: number;
+  // Pure path, no query string — e.g. "/kouzina", not "/kouzina?sort=...".
   basePath: string;
+  // Fixed params every page link must keep (e.g. the search query `q`) —
+  // separate from `basePath` so pagination/sort links don't end up with a
+  // malformed second "?" when basePath itself would otherwise carry a query.
+  extraParams?: Record<string, string>;
+  emptyMessage?: string;
 }) {
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
@@ -61,7 +69,7 @@ export function CategoryPLPView({
 
         {products.length === 0 ? (
           <p className="py-16 text-center text-sm text-ink-muted">
-            Δεν βρέθηκαν προϊόντα σε αυτή την κατηγορία αυτή τη στιγμή.
+            {emptyMessage ?? "Δεν βρέθηκαν προϊόντα σε αυτή την κατηγορία αυτή τη στιγμή."}
           </p>
         ) : (
           <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
@@ -75,7 +83,7 @@ export function CategoryPLPView({
           currentPage={page}
           totalPages={totalPages}
           buildHref={(p) => {
-            const params = new URLSearchParams();
+            const params = new URLSearchParams(extraParams);
             if (sort !== "newest") params.set("sort", sort);
             if (p > 1) params.set("page", String(p));
             const qs = params.toString();

@@ -49,7 +49,9 @@ export default async function ProductPage({ params }: Props) {
       "@type": "Offer",
       priceCurrency: product.price.currencyCode,
       price: product.price.amount,
-      availability: "https://schema.org/InStock",
+      availability: product.isAvailable
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
       url: `${siteUrl}/proionta/${product.handle}`,
     },
   };
@@ -96,12 +98,18 @@ export default async function ProductPage({ params }: Props) {
 
           <div className="mt-8">
             <AddToCartButton
-              variantId={product.variants[0].id}
-              className="w-full rounded-sm bg-ink px-6 py-4 text-sm font-medium text-white transition-colors hover:bg-accent disabled:opacity-60 md:w-auto md:px-10"
+              product={product}
+              className="w-full rounded-sm bg-ink px-6 py-4 text-sm font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 md:w-auto md:px-10"
             />
           </div>
 
           <dl className="mt-10 flex flex-col gap-3 border-t border-border pt-6 text-sm">
+            {product.code && (
+              <div className="flex justify-between">
+                <dt className="text-ink-muted">Κωδικός προϊόντος</dt>
+                <dd className="text-ink">{product.code}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-ink-muted">Παράδοση</dt>
               <dd className="text-ink">2-4 εργάσιμες σε όλη την Ελλάδα</dd>

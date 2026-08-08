@@ -1,4 +1,4 @@
-import { getDefaultRegionId, medusaFetch, type MedusaProduct } from "@/lib/medusa";
+import { getDefaultRegionId, medusaFetch, type MedusaProduct, type MedusaVariant } from "@/lib/medusa";
 import { getCategoryIdByHandle, getCategoryIdsForHandle } from "@/lib/data/categories";
 import type { Product, Tone } from "@/lib/types";
 
@@ -20,12 +20,34 @@ function isNewArrival(createdAt: string): boolean {
   return ageDays <= NEW_ARRIVAL_WINDOW_DAYS;
 }
 
+// A variant is purchasable unless Medusa is tracking its stock, backorders
+// aren't allowed, and there's none left. Mirrors the exact rule Medusa's
+// own cart/order completion enforces server-side — this is a UI-layer
+// prediction of that rule, not a replacement for it (the real check still
+// happens in the cart action; see CART_UX_SPEC.md/CHECKOUT_UX_SPEC.md for
+// the reactive insufficient_inventory handling that stays in place either
+// way).
+function isVariantAvailable(v: MedusaVariant): boolean {
+  if (!v.manage_inventory) return true;
+  if (v.allow_backorder) return true;
+  return (v.inventory_quantity ?? 0) > 0;
+}
+
 function toDomainProduct(p: MedusaProduct): Product {
   const variant = p.variants[0];
   const price = variant?.calculated_price;
   const amount = price?.calculated_amount ?? 0;
   const originalAmount = price?.original_amount ?? amount;
   const onSale = originalAmount > amount;
+
+  const variants = p.variants.map((v) => ({
+    id: v.id,
+    title: v.title,
+    price: { amount: v.calculated_price?.calculated_amount ?? 0, currencyCode: "EUR" as const },
+    inventoryQuantity: v.inventory_quantity ?? 0,
+    code: v.sku,
+    isAvailable: isVariantAvailable(v),
+  }));
 
   return {
     id: p.id,
@@ -39,21 +61,18 @@ function toDomainProduct(p: MedusaProduct): Product {
       ...(onSale ? (["sale"] as const) : []),
       ...(isNewArrival(p.created_at) ? (["new"] as const) : []),
     ],
-    variants: p.variants.map((v) => ({
-      id: v.id,
-      title: v.title,
-      price: { amount: v.calculated_price?.calculated_amount ?? 0, currencyCode: "EUR" },
-      // Store API doesn't expose per-variant stock on this endpoint without
-      // extra fields wiring; treat as available until real inventory display
-      // is built (Phase 4).
-      inventoryQuantity: 1,
-    })),
+    variants,
     placeholderTone: toneFor(p.handle),
+    code: variants[0]?.code ?? null,
+    isAvailable: variants.some((v) => v.isAvailable),
   };
 }
 
 const PRODUCT_FIELDS =
-  "id,title,handle,description,thumbnail,created_at,status,+variants.calculated_price,+categories.handle,+categories.name";
+  "id,title,handle,description,thumbnail,created_at,status," +
+  "+variants.calculated_price,+variants.sku,+variants.inventory_quantity," +
+  "+variants.manage_inventory,+variants.allow_backorder," +
+  "+categories.handle,+categories.name";
 
 export type ProductSort = "newest" | "title-asc" | "price-asc" | "price-desc";
 
@@ -234,6 +253,37 @@ export async function getCartCrossSell(cartProductHandles: string[], limit = 4):
     .filter((p) => !cartProductHandles.includes(p.handle))
     .slice(0, limit)
     .map(toDomainProduct);
+}
+
+// Medusa's own `q` full-text search already indexes both product
+// title/description *and* variant SKU — confirmed live against the real
+// backend (exact SKU, partial SKU substring, and a Greek title word all
+// matched correctly). No separate search index/service to build or keep in
+// sync; this just calls the same Store API endpoint every other product
+// list already uses, with `q` added.
+export async function searchProducts(
+  query: string,
+  opts: { limit?: number; offset?: number } = {}
+): Promise<{ products: Product[]; count: number }> {
+  const trimmed = query.trim();
+  if (!trimmed) return { products: [], count: 0 };
+
+  const { limit = 24, offset = 0 } = opts;
+  const regionId = await getDefaultRegionId();
+  const params = new URLSearchParams({
+    q: trimmed,
+    region_id: regionId,
+    fields: PRODUCT_FIELDS,
+    limit: String(limit),
+    offset: String(offset),
+  });
+
+  const { products, count } = await medusaFetch<{ products: MedusaProduct[]; count: number }>(
+    `/store/products?${params.toString()}`,
+    { next: { revalidate: 30 } }
+  );
+
+  return { products: products.map(toDomainProduct), count };
 }
 
 export async function getAllProductHandles(): Promise<{ handle: string; updatedAt: string }[]> {

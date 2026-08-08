@@ -235,13 +235,21 @@ nested Turborepo/pnpm workspace):
     and accepts).
   - Medusa **does enforce inventory limits server-side** on line-item add/
     update, returning `{ code: "insufficient_inventory", type: "not_allowed" }`
-    on overflow — confirmed live. However **the Store API does not expose a
-    per-variant stock count** on the products endpoint in this setup
-    (`+variants.inventory_quantity` is silently ignored), so the UI cannot
-    proactively show "only N left" or disable "+" at a known ceiling — it
-    can only react to the real error after the fact. Don't try to fabricate
-    a stock number to work around this; the honest behavior is reactive,
-    not proactive, until inventory data is actually wired up.
+    on overflow — confirmed live.
+  - **Correction (Phase 5, 2026-08-08): the previous note here — that
+    `+variants.inventory_quantity` is silently ignored — was wrong**, or at
+    least no longer true. Re-tested live: `fields=+variants.inventory_quantity,
+    +variants.manage_inventory,+variants.allow_backorder` on
+    `/store/products` returns real per-variant numbers (confirmed 99/100 on
+    real products). `lib/data/products.ts` now fetches and maps these into
+    `ProductVariant.isAvailable`/`inventoryQuantity`, and `ProductCard`/
+    `AddToCartButton` gate on it (disabled + "Εξαντλήθηκε" at zero stock).
+    This *doesn't* replace the reactive `insufficient_inventory` handling in
+    `lib/actions/cart.ts` — both stay in place: the UI-layer flag is a
+    prediction using the same rule Medusa enforces
+    (`!manage_inventory || allow_backorder || inventory_quantity > 0`), the
+    cart action is still the real source of truth if stock changes between
+    page load and click. See `PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`.
   - No Medusa shipping option currently has a conditional free-shipping
     rule (both seeded options are flat-rate, confirmed live) — the
     free-shipping progress bar's threshold (`lib/cart-config.ts`,
@@ -423,6 +431,108 @@ nested Turborepo/pnpm workspace):
   reintroduce CSS gotcha — if a future change needs another `fixed`-positioned
   overlay near the header, check for this before assuming a portal is
   unnecessary.
+
+- **Product code / add-to-cart-everywhere / search architecture (Phase 5)**,
+  proposed and approved (`PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`) before any
+  code — same design-first discipline as cart/checkout:
+  - **The product code *is* Medusa's native `variant.sku`** — no custom
+    field. Confirmed live: all 16 real products already had unique,
+    non-null SKUs (`ANTIKOLLITIKO-TIGANI-28`, etc. — auto-populated from
+    the handle when created in the admin), and Medusa enforces SKU
+    uniqueness at the database level itself, so the storefront never needs
+    its own uniqueness check. `sku` lives on the **variant**, not the
+    product — today's catalog is 100% single-variant so in practice each
+    product has exactly one code; a future multi-variant product would
+    give each variant its own code (e.g. `PAN-10284-RED`), which is
+    forward design, not yet exercised against real data. Mapped through as
+    `ProductVariant.code`/`Product.code` — requires `+variants.sku` in the
+    `PRODUCT_FIELDS` fetch (it's declared on `MedusaVariant` but wasn't
+    actually being requested before this phase, so it would have come back
+    `undefined` at runtime despite the type claiming `string | null`).
+    Displayed **PDP only** (`Κωδικός προϊόντος` row in the existing
+    delivery/returns/payment `dl` block) — deliberately not on `ProductCard`
+    grid tiles, to avoid cluttering already-dense grids (user decision).
+  - **Search reuses Medusa's own `q` full-text search** — confirmed live
+    that `/store/products?q=` already indexes **both** title/description
+    *and* variant SKU together (tested exact SKU, partial SKU substring,
+    and a Greek title word, all correct). No separate search index/service
+    was built. `searchProducts()` in `lib/data/products.ts` just calls the
+    same endpoint every other product list uses, with `q` added. The header
+    search input (visually present since Phase 1 but never wired to
+    anything) now drives a debounced live-preview dropdown
+    (`lib/actions/search.ts` Server Action, small `PREVIEW_LIMIT`) plus a
+    real results page at `/anazitisi` reusing `CategoryPLPView`. No
+    fuzzy/typo-tolerant matching (Postgres `ILIKE`-style via Medusa, not a
+    real search engine) — acceptable scoping at 16 products, not a silent
+    gap.
+  - `CategoryPLPView` gained two new props to support this without
+    breaking the category pages: `extraParams` (fixed query params every
+    pagination/sort link must preserve, e.g. `q`) and `emptyMessage`
+    (override the category-specific empty-state copy). **`basePath` is now
+    a contract**: pure path, no query string of its own (e.g. `/anazitisi`,
+    not `/anazitisi?q=...`) — passing a path with an embedded query would
+    double up into a malformed `?...?...` URL in the pagination links.
+  - **`ProductCard` (used on every product grid in the app — home,
+    category/subcategory PLP, PDP related/recently-viewed, cart cross-sell,
+    and now search) is the single place add-to-cart gating logic lives.**
+    Real gaps found and fixed: it previously called `addLineItemAction(
+    product.variants[0].id)` unconditionally — no stock check (inventory was
+    hardcoded to `1`, see the corrected note above), no multi-variant guard.
+    Now: a single-variant, in-stock product keeps the exact original
+    quick-add UX (toast, no drawer — unchanged, already correct);
+    zero-stock disables the button and shows `Εξαντλήθηκε` (also as a grid
+    badge, not just the hover button, so it's visible without hovering);
+    >1 variant swaps the quick-add button for an `Επιλογές` link to the PDP
+    instead of guessing a variant (user decision — an inline popover
+    selector was explicitly *not* built, since there's no real multi-variant
+    product yet to design or verify one against).
+  - **Real, separate bug found during verification, not part of the
+    original ask**: the quick-add/`Επιλογές` control was `hidden` below
+    Tailwind's `md` breakpoint (a pure desktop-hover-reveal pattern from
+    Phase 4A) — meaning on an actual mobile viewport it was `display:none`
+    entirely, not just less discoverable. Mobile users could not add to
+    cart from *any* grid before this fix. Now unconditionally visible on
+    mobile, hover-reveal preserved only at `md+`. Confirmed via
+    `getComputedStyle().display`/`.opacity` at both 375px and 1280px, not
+    just visually — a hover-only control can look present in a screenshot
+    while still being unclickable on touch.
+  - `AddToCartButton` (PDP) was reworked from `variantId: string` to
+    `product: Product` so it can manage variant-selection state internally
+    — for a single-variant product this is invisible/unchanged; for a
+    future multi-variant product it renders a plain radio-group picker
+    (intentionally not a fancier swatch/size UI, same "no real data to
+    verify a fancier one against" reasoning as the grid-card decision) and
+    keeps the button disabled until a variant is chosen.
+  - Verified live (not just `tsc`/`eslint`/`next build`, though those are
+    all clean too): searched by exact SKU and by partial Greek name from
+    the header, both returned the correct product(s); visited `/anazitisi`
+    directly; zeroed a real product's stock via the admin (`European
+    Warehouse` location, `In stock` → `1` to make `Available` `0`, since a
+    reserved-quantity-1 leftover from earlier order testing meant `0`
+    in-stock wouldn't itself zero availability) and confirmed
+    `Εξαντλήθηκε` appeared and was disabled on both the PDP and the grid
+    card, then restored it to `100`; confirmed quick-add from a grid card
+    at a real 375px mobile viewport actually adds and updates the header
+    badge (had to dispatch the click via `element.click()` — the browser
+    automation's `computer` click tool was timing out/hanging in this
+    session for reasons unrelated to the app, confirmed by checking
+    `getComputedStyle` and the resulting cart count directly rather than
+    trusting the tool's own success/failure signal).
+  - **Not re-verified this session** (honest gap, not an oversight): a
+    discounted product's code/add-to-cart behavior end-to-end (no active
+    promotion exists in the live catalog right now to test against — the
+    discount/compareAtPrice code path itself was not touched by this
+    phase, so risk is low, but it wasn't re-clicked-through); coupon
+    persistence specifically through a *quick-add* (only ever verified
+    through the PDP's main button in earlier phases); the multi-variant
+    picker and `Επιλογές` routing (no real multi-variant product exists to
+    click through).
+  - A temporary admin user, `qa-agent@stia.gr`, was created (same pattern
+    as `test-agent@stia.gr` in Phase 4A) to reach the inventory-editing UI
+    for the out-of-stock verification above. Medusa won't let a user delete
+    itself and the real `admin@stia.gr` password isn't available to remove
+    it with — harmless local-dev-only leftover, safe to delete via the
+    admin UI whenever convenient, same as its Phase 4A predecessor.
 
 ## Environment setup
 

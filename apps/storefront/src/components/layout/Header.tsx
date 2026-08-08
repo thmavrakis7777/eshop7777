@@ -13,6 +13,7 @@ import {
   UserIcon,
 } from "@/components/ui/Icons";
 import { MobileMenu } from "./MobileMenu";
+import { SearchBox } from "./SearchBox";
 import { useCartUI } from "@/components/cart/CartUIProvider";
 
 export function Header({
@@ -146,19 +147,7 @@ export function Header({
       {searchOpen && (
         <div className="border-t border-border bg-bg">
           <div className="container-shell py-4">
-            <label htmlFor="site-search" className="sr-only">
-              Αναζήτηση προϊόντων
-            </label>
-            <div className="flex items-center gap-3 rounded-md border border-border px-4 py-2.5 focus-within:border-accent">
-              <SearchIcon className="h-4 w-4 text-ink-muted" />
-              <input
-                id="site-search"
-                type="search"
-                placeholder="Αναζήτησε π.χ. τηγάνι, κατσαρόλα, οργάνωση..."
-                className="w-full bg-transparent text-sm outline-none placeholder:text-ink-muted"
-                autoFocus
-              />
-            </div>
+            <SearchBox onNavigate={() => setSearchOpen(false)} />
           </div>
         </div>
       )}

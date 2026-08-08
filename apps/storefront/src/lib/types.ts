@@ -21,6 +21,15 @@ export type ProductVariant = {
   title: string;
   price: Money;
   inventoryQuantity: number;
+  // Medusa's variant SKU — the permanent, unique product/reference code.
+  // Stable across title/category/price/image/description edits since it's
+  // its own DB column, and uniqueness is enforced by Medusa itself. See
+  // PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md §1.1.
+  code: string | null;
+  // Derived once in the data layer (see isVariantAvailable in
+  // lib/data/products.ts) so every consumer (ProductCard, PDP) checks the
+  // same rule instead of re-deriving it and risking drift.
+  isAvailable: boolean;
 };
 
 export type Product = {
@@ -38,6 +47,12 @@ export type Product = {
   badges?: Array<"new" | "sale">;
   variants: ProductVariant[];
   placeholderTone: Tone;
+  // The default (first) variant's code — convenience for single-variant
+  // display (100% of the catalog today) so callers don't need to reach
+  // into `variants[0]` just to show a product code.
+  code: string | null;
+  // True if at least one variant is purchasable.
+  isAvailable: boolean;
 };
 
 export type NavCategory = Category & {

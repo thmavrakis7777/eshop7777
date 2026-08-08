@@ -1,17 +1,19 @@
 # Current State
 
-Snapshot as of 2026-08-08 (Phase 4B: checkout, designed and built). This
-documents **what exists right now**, verified by inspection — not
-aspiration. Cross-check against `git log` / the actual file tree if this
-ever feels stale; update it whenever a session ends.
+Snapshot as of 2026-08-08 (Phase 5: product code/SKU, add-to-cart
+everywhere, search — designed and built). This documents **what exists
+right now**, verified by inspection — not aspiration. Cross-check against
+`git log` / the actual file tree if this ever feels stale; update it
+whenever a session ends.
 
-Git state as of the last commit (`781c132`, Phase 3): `main` branch, clean,
-pushed and in sync with `origin/main`. Everything from Phase 4 (related
-products, recently viewed) through Phase 4B (checkout) described below has
-been built and verified (`tsc`/`eslint`/`next build`, manual in-browser
-checks against the real backend, and — for checkout specifically — a real
-completed guest order through the actual UI) but **not yet committed** —
-check `git status` before assuming any of it is on `origin/main`.
+Git state as of the last commit (`3de52dc`, Phase 4 through 4B): committed
+to local `main`, **not yet pushed to `origin/main`** (last pushed commit is
+`781c132`, Phase 3) — check `git status`/`git log` before assuming otherwise.
+Phase 5 (this snapshot — product code, add-to-cart everywhere, search)
+described below has been built and verified (`tsc`/`eslint`/`next build`,
+manual in-browser checks against the real backend including a live
+out-of-stock test via the admin) but is **not yet committed** on top of
+`3de52dc`.
 
 ## What has been completed
 
@@ -42,10 +44,19 @@ check `git status` before assuming any of it is on `origin/main`.
   one real payment method decided), then built end-to-end and verified with
   a real completed guest order through the actual UI. See "What is working"
   and `PROJECT_MEMORY.md` → "Checkout architecture" for the details.
+- **Phase 5**: permanent unique product code (Medusa's native `variant.sku`,
+  no new field), search by code or name (Medusa's own `q` full-text search,
+  no new search index), and add-to-cart from every product grid in the app
+  with real stock-awareness and multi-variant gating — spec written and
+  approved (`PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`) before any code, built,
+  and verified live including a real out-of-stock test via the admin. See
+  "What is working" and `PROJECT_MEMORY.md` → "Product code /
+  add-to-cart-everywhere / search architecture" for the details.
 
 Phase 3 is committed on `main` and pushed to
 [thmavrakis7777/eshop7777](https://github.com/thmavrakis7777/eshop7777).
-Phases 4 through 4B are **not yet committed** (see git state note above).
+Phases 4 through 4B are committed locally (`3de52dc`) but not pushed. Phase 5
+is **not yet committed** (see git state note above).
 
 ## What is working (verified in-browser this session)
 
@@ -55,8 +66,11 @@ Phases 4 through 4B are **not yet committed** (see git state note above).
   testimonials, not tied to a review system).
 - Header: sticky, mega menu (desktop, real subcategories + featured tile per
   category), mobile hamburger → drawer (real categories, working focus trap,
-  Escape-to-close, focus return), search icon toggles a plain input (no
-  predictive search backend).
+  Escape-to-close, focus return), search icon toggles a **real, working**
+  search box (Phase 5 — no longer an inert input): debounced live-results
+  dropdown as you type (matches by product name *or* code, backed by
+  Medusa's own full-text search), Enter/submit or "Δες όλα" goes to a full
+  `/anazitisi` results page.
 - Footer: real category links, static help/company/legal links (those target
   pages don't exist yet — see "Known gaps" below).
 - Category pages `/[category]` — e.g. `/kouzina`: real products (including
@@ -66,9 +80,15 @@ Phases 4 through 4B are **not yet committed** (see git state note above).
 - Subcategory pages `/[category]/[subcategory]` — e.g. `/kouzina/tigania`:
   same as above, scoped to one subcategory.
 - Product detail page `/proionta/[handle]`: real title/price/description,
-  breadcrumb, `Product` JSON-LD, a **real, working** "Add to cart" button
-  (Phase 4A — no longer inert). A "Σχετικά προϊόντα" (related products) rail
-  — same-category cross-sell, server-fetched — and a "Είδατε πρόσφατα"
+  breadcrumb, `Product` JSON-LD (availability now reflects real stock, not
+  hardcoded `InStock`), a **real, working** "Add to cart" button (Phase 4A —
+  no longer inert; Phase 5 adds real stock-awareness — disabled +
+  "Εξαντλήθηκε" at zero stock — and a plain radio-group variant picker for
+  any product with >1 variant, untested against real data since the catalog
+  is still 100% single-variant). A quiet "Κωδικός προϊόντος" row (Phase 5 —
+  Medusa's native variant SKU) sits in the existing delivery/returns/payment
+  metadata block. A "Σχετικά προϊόντα" (related products) rail —
+  same-category cross-sell, server-fetched — and a "Είδατε πρόσφατα"
   (recently viewed) rail — client-side, `localStorage`-backed, resolved to
   real product data via a Server Action. See `CHANGELOG.md` for why
   "related" rather than "frequently bought together."
@@ -96,6 +116,20 @@ Phases 4 through 4B are **not yet committed** (see git state note above).
   shows the order number, itemized totals, delivery address, and a
   non-blocking "create an account?" link. Mobile: order summary collapsed
   at the top (total always visible), submit CTA a real fixed bottom bar.
+- **Add to cart from every product grid** (Phase 5): `ProductCard` — the one
+  shared card component rendering on home, category/subcategory PLPs, PDP
+  related/recently-viewed, cart cross-sell, and search results — now gates
+  its quick-add on real stock (`Εξαντλήθηκε` badge + disabled button, not
+  just a hover-only affordance) and real variant count (a product with >1
+  variant shows an "Επιλογές" link to the PDP instead of guessing a
+  variant). The quick-add/`Επιλογές` control is unconditionally visible on
+  mobile (a desktop-only hover-reveal bug from Phase 4A meant it was
+  literally unclickable on touch before this fix) and hover-revealed only
+  at `md+`, matching the original desktop design.
+- **Search** (Phase 5): `/anazitisi` results page — real product grid (same
+  `CategoryPLPView`/`ProductCard` as category pages, so add-to-cart works
+  from search results too), sort control, pagination, matches by product
+  name or code.
 - `robots.txt` and `sitemap.xml`: dynamic, enumerate the real catalog.
 - Medusa admin dashboard (`localhost:9000/app`): login works, products/
   categories visible and match the storefront.
@@ -151,6 +185,26 @@ Phases 4 through 4B are **not yet committed** (see git state note above).
   that crashed `getCart()` (and therefore every page, since `RootLayout`
   calls it) — see `CHANGELOG.md`. All test artifacts (sale price list,
   promotion code, cart contents) were cleaned up after verification.
+- (2026-08-08) Product code, add-to-cart everywhere, search (Phase 5):
+  `tsc`/`eslint`/`next build` all clean with the real backend running.
+  Manually verified: searched the header dropdown by exact SKU, partial SKU
+  substring, and a Greek product name — all returned the correct product(s);
+  visited `/anazitisi` directly and via "Δες όλα"; confirmed "Κωδικός
+  προϊόντος" displays correctly on the PDP; used a temporary admin user
+  (`qa-agent@stia.gr`) to zero a real product's stock (`European Warehouse`
+  location) and confirmed `Εξαντλήθηκε` appeared, disabled, on both the PDP
+  button and the grid card's badge/button, then restored the stock;
+  confirmed quick-add from a grid card at a real 375px mobile viewport
+  actually adds the item (cart badge incremented) without opening the
+  drawer; confirmed the same quick-add button is hover-revealed (not
+  permanently visible) at a real 1280px desktop width via
+  `getComputedStyle()`. **Not re-verified this session**: a discounted
+  product's behavior end-to-end (no active promotion exists in the live
+  catalog right now, and the discount/`compareAtPrice` code path itself
+  wasn't touched by this phase); a coupon surviving a quick-add specifically
+  (only ever verified via the PDP's main add-to-cart button in earlier
+  phases); the multi-variant radio picker and grid-card "Επιλογές" routing
+  (no real multi-variant product exists in the catalog to click through).
 - (2026-08-08) Checkout (Phase 4B): `tsc`/`eslint`/`next build` all clean
   with the real backend running. Manually verified **with a real completed
   order through the actual UI**: added a product, filled the form,
@@ -187,22 +241,29 @@ Phases 4 through 4B are **not yet committed** (see git state note above).
   (confirmed live); there's no way to force a real payment failure without
   a second, failure-capable provider, so `completeCheckoutAction`'s failure
   branch is coded per Medusa's documented contract but not force-triggered.
-- **Stock disappearing mid-checkout** — same limitation as the cart's own
-  untested insufficient-stock UI path (below): the Store API doesn't expose
-  per-variant stock counts, so there's no way to deliberately reduce a
-  product to zero and retry checkout without directly manipulating the
-  database.
+- **Stock disappearing mid-checkout** — Phase 5 confirmed real per-variant
+  stock *is* readable via the Store API (`+variants.inventory_quantity`,
+  see `PROJECT_MEMORY.md` for the corrected note), so this is no longer
+  blocked the way it used to be — just not yet exercised: no test has
+  actually zeroed a product's stock *while* a checkout was already in
+  progress with it in the cart.
 - **The "insufficient stock" cart error path in-browser** — verified
   directly against the live API (confirmed Medusa returns
-  `insufficient_inventory` and the action maps it to the right Greek copy),
-  but not re-confirmed by clicking "+" enough times in the actual UI to hit
-  a real ceiling, since the Store API doesn't expose per-variant stock
-  counts to know where that ceiling is (see `PROJECT_MEMORY.md`).
+  `insufficient_inventory` and the action maps it to the right Greek copy).
+  Phase 5's out-of-stock testing (zeroing a product via the admin, see "What
+  has been tested" above) confirmed the *pre-emptive* UI (disabled button,
+  `Εξαντλήθηκε`) works, which covers most of what this gap was about — but
+  still not re-confirmed by clicking "+" enough times on an *in-stock* item
+  to hit its real ceiling from the cart's quantity stepper specifically.
 - **Cart under multiple concurrent tabs/sessions** — not tested; the cookie-
   based single-guest-cart model is standard Medusa practice but hasn't been
   stress-tested here.
-- **Search** — the header search input has no backend; typing into it does
-  nothing beyond local input state.
+- **Search relevance/typo-tolerance** — Phase 5 built real search (name and
+  product code both work, see "What is working" above), but it's Medusa's
+  own `q` param, which is Postgres `ILIKE`-style matching, not a real search
+  engine — no fuzzy/typo-tolerant matching, no relevance ranking beyond
+  Medusa's default. Acceptable scoping choice at today's 16-product catalog;
+  revisit only if the catalog grows substantially.
 - **Account / wishlist pages** — `/logariasmos`, `/lista-epithymion` are linked
   from the header but don't exist as routes yet (404).
 - **Footer content pages** — `/sxetika`, `/oroi-xrisis`, `/aporrito`, `/cookies`,
@@ -218,8 +279,11 @@ Phases 4 through 4B are **not yet committed** (see git state note above).
   pane available in this environment. Not tested in real Chrome/Safari/Firefox,
   not tested on a real mobile device.
 - **Multi-variant products** — the catalog is 100% single-variant products
-  today, so the variant-selection code path (if any is ever built) is
-  completely unexercised.
+  today. Phase 5 built the forward-design UI for this (a plain radio-group
+  picker in `AddToCartButton`, an "Επιλογές" link on grid cards instead of a
+  blind quick-add), but with no real multi-variant product to click through,
+  none of it has been exercised against real data — verified by code
+  inspection and the `tsc`/`eslint`/`next build` gate only.
 - **What happens if the Medusa backend is unreachable** — the storefront has no
   fallback/error UI for a failed Store API call; an outage would currently
   surface as Next.js's generic error page, not a graceful degraded state.
@@ -241,12 +305,24 @@ app/
   kalathi/page.tsx              Full cart page
   checkout/page.tsx             Checkout — redirects to /kalathi if cart is empty
   checkout/epibebaiosi/page.tsx Order confirmation — reads ?order= search param
+  anazitisi/page.tsx            Search results — searchProducts(q), reuses CategoryPLPView
 
 components/
-  layout/     AnnouncementBar, Header, Footer, MobileMenu
+  layout/     AnnouncementBar, Header, Footer, MobileMenu, SearchBox
+              (debounced live-results dropdown, backed by
+              lib/actions/search.ts — Header renders it inside its existing
+              search-toggle panel)
   home/       Hero, CategoryGrid, ProductRail, EditorialBanner, TrustStrip, Reviews, Newsletter
-  category/   Breadcrumbs, CategoryPLPView, Pagination, SortControl
-  product/    ProductCard, AddToCartButton, RecentlyViewedTracker, RecentlyViewed
+  category/   Breadcrumbs, CategoryPLPView (also powers /anazitisi — takes
+              optional extraParams/emptyMessage so a non-category listing
+              doesn't need its own copy of the grid+pagination+sort chrome;
+              basePath must be a pure path with no query string of its own),
+              Pagination, SortControl
+  product/    ProductCard (single shared card on every product grid in the
+              app — real stock + multi-variant gating lives here, Phase 5),
+              AddToCartButton (PDP — takes `product`, not `variantId`, since
+              Phase 5; manages its own variant-selection state),
+              RecentlyViewedTracker, RecentlyViewed
   cart/       CartUIProvider, CartDrawer, CartPageView, AddToCartToast,
               CartLineItemRow (labeled card — drawer + mobile),
               CartLineItemTableRow (5-column table row — desktop full page),
@@ -264,10 +340,16 @@ components/
 lib/
   types.ts           Domain types (Product, Category, NavCategory, Money, Cart,
                       CartLineItem, AppliedPromotion, Address, AddressSummary,
-                      ShippingOption, PaymentProvider, Order, OrderLineItem)
+                      ShippingOption, PaymentProvider, Order, OrderLineItem).
+                      Product/ProductVariant gained `code` (Medusa's variant
+                      SKU) and `isAvailable` (real stock, Phase 5).
   medusa.ts           Store API fetch client + raw Medusa response types +
                        MedusaApiError (typed error class), MedusaCartCompleteResponse
-                       (discriminated union for /carts/:id/complete)
+                       (discriminated union for /carts/:id/complete).
+                       MedusaVariant gained inventory_quantity/
+                       manage_inventory/allow_backorder (Phase 5 — these
+                       require explicit `+variants.*` fields, not returned by
+                       default).
   format.ts           Price formatting (el-GR locale) + discountPercent()
   checkout-validation.ts   isValidEmail/isValidPhone/isValidPostalCode/isRequired
   site-config.ts       siteUrl / siteName (single source)
@@ -282,12 +364,17 @@ lib/
   data/
     categories.ts       Medusa → domain adapters for categories/nav
     products.ts          Medusa → domain adapters for products, sorting, pagination,
-                          getProductsByHandles, getRelatedProducts, getCartCrossSell
+                          getProductsByHandles, getRelatedProducts, getCartCrossSell,
+                          searchProducts (Phase 5 — Medusa's own `q` full-text
+                          search, indexes title + variant SKU together),
+                          isVariantAvailable (Phase 5 — the real-stock rule)
     cart.ts               getCart() — read-only, cookie-based, Server-Component-safe;
                           toDomainCart()/toAddressSummary() also used by lib/data/checkout.ts
     checkout.ts            getShippingOptionsForCart, getPaymentProviders, getOrder
   actions/
     recently-viewed.ts   Server Action bridging client-known handles → real product data
+    search.ts             Server Action (Phase 5) — small-limit preview wrapper
+                          around searchProducts, backs SearchBox's live dropdown
     cart.ts               Server Actions: addLineItemAction, updateLineItemQuantityAction,
                           removeLineItemAction, applyPromoCodeAction, removePromoCodeAction,
                           getCartAction — all revalidatePath("/", "layout") on success
@@ -322,9 +409,12 @@ that's stale and needs fixing.
   (in `apps/storefront/.env.local`, gitignored), **1 stock location**
   ("European Warehouse"), default shipping profile/options from Medusa's
   built-in demo seed.
-- **2 admin users**: `admin@stia.gr` (real, password not recorded in the
-  repo) and `test-agent@stia.gr` (temporary, created during Phase 4A API
-  verification — see `PROJECT_MEMORY.md`, safe to delete).
+- **3 admin users**: `admin@stia.gr` (real, password not recorded in the
+  repo), `test-agent@stia.gr` (temporary, created during Phase 4A API
+  verification), and `qa-agent@stia.gr` (temporary, created during Phase 5
+  to reach the inventory-editing UI for a live out-of-stock test — see
+  `PROJECT_MEMORY.md`; both temporary accounts are safe to delete whenever
+  convenient).
 - **0 active promotions** — a test promotion was created and activated to
   verify the coupon flow, then deleted after verification. No real coupon
   campaigns exist.
@@ -365,9 +455,9 @@ current scope. `AddToCartButton` and `ProductCard`'s quick-add are now real
 ## Current pages completed
 
 `/`, `/[category]`, `/[category]/[subcategory]`, `/proionta/[handle]`,
-`/kalathi`, `/checkout`, `/checkout/epibebaiosi`, `/robots.txt`,
-`/sitemap.xml`. Everything else linked from the header/footer (account,
-wishlist, search, footer content pages) is a real link to a route that
+`/kalathi`, `/checkout`, `/checkout/epibebaiosi`, `/anazitisi`,
+`/robots.txt`, `/sitemap.xml`. Everything else linked from the header/footer
+(account, wishlist, footer content pages) is a real link to a route that
 doesn't exist yet.
 
 ## Current integrations completed

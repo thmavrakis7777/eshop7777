@@ -7,50 +7,50 @@ the pointer to exactly where to resume, those three have the detail behind it. D
 not restart the project, do not regenerate completed features, do not re-analyze
 the whole codebase from zero — everything needed is in these five files.
 
-1. **Exact phase we are currently in**: Phase 4B (checkout) is **built and
-   verified**, including a real completed guest order through the actual
-   UI. Unlike the cart phases, the user already said "approved, built it"
-   for this one — that authorization has been fulfilled, this isn't
-   sitting behind an unfulfilled build-approval gate. What it *is* sitting
-   behind: the user's own explicit instruction not to move to the next
-   phase until they've had a chance to review the checkout themselves —
-   same spirit as every prior phase boundary in this project.
-2. **Last completed action**: full checkout built end-to-end against the
-   real Medusa backend — single scrolling page, guest-only, real shipping
-   options, real order completion, order confirmation page. Along the way:
-   fixed a real backend gap (Greece missing from the shipping fulfillment
-   service zone — nothing to do with checkout code, a live data-config
-   issue), fixed a real bug in the **already-shipped** cart (`subtotal`
-   silently included shipping once a method was set, invisible until
-   checkout started setting real ones), and fixed two real bugs found only
-   by clicking through the built UI (a shared-transition-state bug that
-   made the submit button falsely read "processing," and a CSS-`order`-vs-
-   DOM-order mistake that broke desktop while fixing mobile). Full story in
-   `CHANGELOG.md`. All five handoff files updated. **Nothing from this
-   session is committed** — check `git status`/`git log` before assuming
-   any of Phase 4 through 4B is on `origin/main` (only Phase 3, `781c132`,
-   is).
-3. **Next action to execute**: **let the user review the checkout
-   themselves** before starting anything else — point them at `/checkout`
-   with something in the cart, or just ask. If they confirm it's good:
-   next is genuinely open (Phase 5+ follow-ups like a real payment
-   processor, or Phase 6+ search/account/wishlist/content pages — see
-   `TASKS.md` "Future" for the honest list, none of it blocking). If no
-   human is available and a call must be made autonomously: the checkout
-   was built exactly to the approved spec and verified with a real
-   completed order, so it's reasonable to consider it done — but say so
-   explicitly rather than silently starting Phase 5+, same standard as
-   every prior phase.
-4. **First files to inspect**: `PROJECT_MEMORY.md` → "Checkout
-   architecture" section (right after "Cart architecture" — read both,
-   checkout depends on several cart-layer fixes), `CURRENT_STATE.md`,
-   `TASKS.md`, then `CHECKOUT_UX_SPEC.md` if revisiting checkout design
-   decisions.
-5. **Warnings / important context**: see section 5 below — several new
-   gotchas from this phase (the service-zone fix pattern, the
-   `cart.complete()` discriminated-union response shape, the `innerText`-
-   vs-CSS-`order` verification trap) will matter again for any future work
-   touching shipping, order completion, or responsive layout reordering.
+1. **Exact phase we are currently in**: Phase 5 (permanent unique product
+   code / SKU, add-to-cart from every product grid, search by name or
+   code) is **built and verified**, including a live out-of-stock test via
+   the admin. Same pattern as every prior phase: spec proposed and
+   approved (`PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`) before any code, then
+   built, then verified live. Checkout (Phase 4B) is still sitting behind
+   the user's own instruction to review it themselves before moving on —
+   that checkpoint has **not** been explicitly cleared yet, it's just no
+   longer the only thing waiting; Phase 5 landed in the same session
+   without an explicit "checkout looks good" from the user first, at their
+   own direction ("it's ok continue").
+2. **Last completed action**: Phase 4 through 4B (related products,
+   recently viewed, full cart, cart clarity revision, checkout) was
+   **committed to local `main` this session** as `3de52dc` — **not pushed**
+   to `origin/main` (last pushed commit is still `781c132`, Phase 3). Then
+   Phase 5 was designed, built, and verified on top of that, but is **not
+   yet committed** — check `git status`/`git log` before assuming otherwise.
+   A real payment processor (Stripe vs. Viva Wallet) was researched but
+   explicitly put on hold — the user wants to set up the account
+   themselves first; see §7 below, do not pick a processor or start
+   integrating without them providing real (test-mode) keys.
+3. **Next action to execute**: no unfulfilled build-approval gate is
+   blocking new work — "next" is genuinely open. But two review checkpoints
+   are still outstanding and worth surfacing to the user rather than
+   silently building past them again: (a) checkout (Phase 4B) still hasn't
+   had its own explicit "looks good" from the user, (b) neither has Phase
+   5. If the user gives another "continue"-style go-ahead: reasonable
+   next candidates are committing Phase 5, pushing to `origin/main` (ask
+   first — pushing is a should-confirm action, unlike a local commit), or
+   picking the next item from `TASKS.md` → "Future" (account/wishlist
+   pages, content pages, or the payment processor once the user has an
+   account). Say explicitly what you're doing rather than assuming a
+   review happened that didn't.
+4. **First files to inspect**: `PROJECT_MEMORY.md` → "Product code /
+   add-to-cart-everywhere / search architecture" (right after "Checkout
+   architecture" — read all three cart/checkout/Phase-5 sections, Phase 5
+   depends on the cart's `ProductCard`/`AddToCartButton` foundation),
+   `CURRENT_STATE.md`, `TASKS.md`, then `PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`
+   if revisiting a Phase 5 UI decision.
+5. **Warnings / important context**: see section 5 below — the corrected
+   inventory-quantity finding (an earlier phase's note that per-variant
+   stock wasn't readable via the Store API was wrong) and the
+   `CategoryPLPView` `basePath`-must-be-query-free contract are the two new
+   things most likely to matter again.
 
 ---
 
@@ -59,79 +59,88 @@ the whole codebase from zero — everything needed is in these five files.
 ## 1. Exact last action completed
 
 Committed on `main` (`781c132`): Phase 3 (audit + real Medusa data wiring).
+Committed on `main` this session (`3de52dc`, **local only, not pushed**):
+Phase 4 (related products, recently viewed), Phase 4A (the full cart), Phase
+4A.1 (cart clarity revision), and Phase 4B (checkout) — see the previous
+session's `CHANGELOG.md` entries for the full story on each.
 
-Since then, **not yet committed**, in order: Phase 4 (related products,
-recently viewed), Phase 4A (the full cart), Phase 4A.1 (cart clarity
-revision), and now Phase 4B (checkout):
+Then, this session, **not yet committed**, Phase 5:
 
-1. User asked for full research + design on checkout, mirroring the cart's
-   process. Live Medusa research surfaced three groundwork issues serious
-   enough to present as explicit decisions (`CHECKOUT_UX_SPEC.md` §0):
-   Greece missing from the shipping service zone, the cart's free-shipping
-   promise not backed by a real rule (a *second*, separately hardcoded
-   instance was found on `AnnouncementBar` while investigating this), and
-   only one payment provider existing.
-2. User decided all three (fix the zone now; soften the free-shipping
-   message; present the one payment method as "Αντικαταβολή"). The first
-   two were applied immediately as groundwork; the third became a build
-   decision.
-3. Full design written and presented (`CHECKOUT_UX_SPEC.md`, all 16
-   requested sections). User approved and said "built it" — direct
-   authorization to proceed, not another design-approval gate.
-4. Built: cart-layer bug fix first (`item_subtotal` vs `subtotal` — see
-   §5 below, this was necessary before checkout's order summary could be
-   correct), then the checkout data/actions layer
-   (`lib/data/checkout.ts`, `lib/actions/checkout.ts`) verified against a
-   full live dry-run (cart → address → shipping method → payment
-   collection → payment session → complete → order lookup) *before* any
-   component code, then the UI (`CheckoutForm` and its section
-   components), then the two pages (`/checkout`, `/checkout/epibebaiosi`).
-5. Full verification: `tsc`/`eslint`/`next build` clean; a **real
-   completed guest order through the actual UI** (not just direct API
-   calls) — see `CURRENT_STATE.md` for the itemized test list. Found and
-   fixed two real bugs only visible by actually clicking through the flow
-   (§5 below).
+1. User gave two new requirements in one brief: a permanent unique product
+   code (SKU) searchable by code or name, and add-to-cart from every
+   product grid in the app (not just the PDP) — with explicit instruction
+   to inspect the current implementation and propose an architecture
+   before writing any code.
+2. Live Store API testing (against the real backend, real 16-product
+   catalog) found both features were smaller than they looked: Medusa's
+   native `variant.sku` was already the right field (unique, non-null,
+   DB-enforced uniqueness — no new field needed), and Medusa's own `q`
+   full-text search already indexed both title and SKU together — no new
+   search index needed. `ProductCard` was already the one shared card
+   component on every product grid; the real gaps were stock-awareness and
+   a multi-variant guard, not "add it everywhere."
+3. Full architecture written and presented
+   (`PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`). Three open decisions
+   presented explicitly rather than assumed; user picked the recommended
+   option on all three (route multi-variant products to the PDP rather
+   than a speculative inline selector; show the code on the PDP only, not
+   grid cards; build both a live search dropdown and a results page).
+4. Built: data layer first (`+variants.sku`/`inventory_quantity`/
+   `manage_inventory`/`allow_backorder` fields, `isVariantAvailable`,
+   `searchProducts`), then `ProductCard`/`AddToCartButton` gating, then the
+   search UI (`SearchBox.tsx`, `lib/actions/search.ts`, `/anazitisi`).
+5. Full verification: `tsc`/`eslint`/`next build` clean; live search by
+   exact SKU, partial SKU, and Greek name; a real out-of-stock test (zeroed
+   a product's stock via a temporary admin user, `qa-agent@stia.gr`,
+   confirmed `Εξαντλήθηκε` on both the PDP and grid card, restored it);
+   quick-add from a grid card confirmed working at a real 375px mobile
+   width. Found and fixed a real, separate bug along the way: the
+   quick-add button was `display:none` on mobile entirely (a
+   desktop-hover-reveal leftover from Phase 4A) — mobile users couldn't
+   add to cart from any grid before this fix.
 6. All five handoff files updated to reflect the above (this file
    included).
 
-**Check `git status` first thing.** Four rounds of real, working, verified
-work (Phase 4, 4A, 4A.1, 4B) are sitting uncommitted.
+**Check `git status` first thing.** Phase 4 through 4B is committed
+locally but not pushed; Phase 5 isn't committed at all yet.
 
 ## 2. What "next" actually means here
 
-Unlike the cart, this phase doesn't have an unfulfilled "build it" gate —
-the user already authorized the build and it happened. What's still
-pending is the same kind of checkpoint this project has honored at every
-phase boundary: the user reviewing the *result* themselves before the
-project moves on, per their own explicit "do not move to the next phase
-until the checkout is fully tested and stable" instruction. It's tested
-and stable from this session's perspective; it hasn't had their own
-hands-on look yet.
+No unfulfilled "build it" authorization gate is blocking new work right
+now. What's outstanding is the same kind of checkpoint this project has
+honored at every phase boundary — the user reviewing a *result* themselves
+— stacked twice: checkout (Phase 4B) never got an explicit "looks good"
+before Phase 5 started (the user said "it's ok continue" without
+specifically reviewing checkout first), and now Phase 5 is in the same
+position. This isn't a blocker to keep building, but don't narrate it as
+"checkout is approved" or "Phase 5 is approved" — say what's actually true
+(built and verified from this session's side, not yet reviewed by the
+user) if it comes up.
 
-Once that happens, "next" is genuinely open — nothing is blocking. See
-`TASKS.md` → "Future" for the honest list: a real payment processor,
-ΑΦΜ/ΔΟΥ + invoice choice, reconciling the homepage/PDP payment copy, or
-skipping ahead to Phase 6+ (search, account, wishlist, content pages).
+See `TASKS.md` → "Future" for the honest list of what's next: a real
+payment processor (on hold, see §7), account/wishlist pages, footer content
+pages, or housekeeping (delete the two temporary admin users, decide the
+free-shipping threshold, re-run responsive verification, etc.).
 
 ## 3. Which files should be opened first
 
-- `PROJECT_MEMORY.md` — read "Cart architecture" *and* "Checkout
-  architecture" (they're adjacent, checkout depends on several of the
-  cart-layer fixes/decisions documented in the first one). Real,
-  non-obvious Medusa shapes are documented there — the shipping
-  service-zone fix pattern, `cart.complete()`'s discriminated-union
-  response, the `item_subtotal` vs `subtotal` distinction — don't
-  re-derive these from scratch if they resurface.
+- `PROJECT_MEMORY.md` — read "Cart architecture," "Checkout architecture,"
+  and "Product code / add-to-cart-everywhere / search architecture" in
+  order (adjacent, each depends on the one before it). Real, non-obvious
+  Medusa shapes are documented there — don't re-derive these from scratch
+  if they resurface.
 - `CURRENT_STATE.md` — what's actually built and tested, including the
-  full checkout verification list.
-- `TASKS.md` — the full roadmap; Phase 4B's completed checklist is there.
-- `CHECKOUT_UX_SPEC.md` — the approved design reference for any checkout
-  UI decision that needs revisiting or extending (e.g. a second payment
-  provider, ΑΦΜ/ΔΟΥ fields).
+  full Phase 5 verification list and the honest "not tested" list.
+- `TASKS.md` — the full roadmap; Phase 5's completed checklist is there.
+- `PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md` — the approved design reference
+  for product code/search/add-to-cart decisions (e.g. a real multi-variant
+  product finally existing, which would unblock testing the variant
+  picker for real).
 - For anything touching payment: `lib/actions/checkout.ts`'s
   `completeCheckoutAction` — the provider ID is read live from
   `/store/payment-providers`, never hardcoded, so adding a real processor
-  is mostly a backend/config change, not a storefront redesign.
+  is mostly a backend/config change, not a storefront redesign. But see §7
+  — don't start this without the user's own processor account.
 
 ## 4. Which files should NOT be modified
 
@@ -147,8 +156,9 @@ skipping ahead to Phase 6+ (search, account, wishlist, content pages).
 - `apps/backend/pnpm-workspace.yaml`'s exclusion of `apps/backend` from the
   root workspace — deliberate, don't "fix" it.
 - Don't rename/restructure `lib/types.ts`'s domain types casually — `Cart`,
-  `Order`, `Address`/`AddressSummary` are now depended on by both the cart
-  and checkout surfaces.
+  `Order`, `Address`/`AddressSummary`, `Product`/`ProductVariant` are now
+  depended on by the cart, checkout, and Phase 5 (product code/search)
+  surfaces.
 - `lib/data/cart.ts`'s mapping of `subtotal` from Medusa's `item_subtotal`
   field is deliberate, not a simplification opportunity — see
   `PROJECT_MEMORY.md` for exactly why reverting it would silently
@@ -156,7 +166,16 @@ skipping ahead to Phase 6+ (search, account, wishlist, content pages).
 - The mobile order-summary reordering in `CheckoutForm.tsx` uses CSS
   `order-first lg:order-none` with the DOM kept in desktop reading order —
   don't "simplify" this by moving the JSX position instead; that exact
-  change broke the desktop layout once already this session.
+  change broke the desktop layout once already.
+- `CategoryPLPView`'s `basePath` prop must stay a pure path with no query
+  string of its own (`/anazitisi`, not `/anazitisi?q=...`) — pagination/
+  sort links build on top of it with `extraParams`; a query-string
+  `basePath` would produce a malformed double-`?` URL.
+- `ProductCard`'s quick-add/`Επιλογές` button classes: the mobile-visible-
+  by-default / desktop-hover-reveal split (`flex ... md:opacity-0
+  md:group-hover:opacity-100`) is deliberate — collapsing it back to a
+  single `hidden md:flex` would silently reintroduce the "unusable on
+  mobile" bug this session found and fixed.
 
 ## 5. Warnings / things to remember
 
@@ -170,32 +189,35 @@ skipping ahead to Phase 6+ (search, account, wishlist, content pages).
 - **A Medusa fulfillment service zone's `geo_zones` update via the Admin
   API is a full replace, not an append** — `POST /admin/fulfillment-sets/
   :id/service-zones/:id` needs the *entire* desired `geo_zones` array, or
-  it'll silently drop whichever countries you don't include. Bit this
-  project once already at the sales-region level (Phase 2/3) and again at
-  the fulfillment level (Phase 4B) — if shipping options for a country ever
-  go empty, check the service zone's geo_zones before assuming a frontend
-  bug.
+  it'll silently drop whichever countries you don't include.
 - **`/store/carts/:id/complete` returns a discriminated union**, not a
   thrown error on failure — `{type:"order", order}` on success (the real
   order comes back directly, no need to re-fetch), `{type:"cart", cart,
   error}` on a workflow-level failure. Code defensively for both branches.
 - **`innerText` (and therefore `get_page_text`/`read_page`'s text output)
   follows DOM order, not CSS `order`.** If verifying a CSS-`order`-based
-  responsive reorder, check real `getBoundingClientRect()` positions —
-  text-order tools will report a correctly-reordered layout as "wrong" and
-  can't tell a real desktop-layout regression from a mobile-only reorder
-  working as intended. Cost real time this session.
+  responsive reorder, check real `getBoundingClientRect()` positions.
 - **`blur` doesn't bubble; React's `onBlur` actually listens for
   `focusout`.** When driving a form via `element.dispatchEvent(...)` in
-  browser automation (not a real user interaction), dispatch
-  `new FocusEvent('focusout', {bubbles:true})`, not `new Event('blur',
-  {bubbles:true})` — the latter silently no-ops against React's synthetic
-  event system.
-- **The Store API still doesn't expose per-variant stock counts** (same
-  finding as Phase 4A) — this is why several stock-related states (both in
-  the cart and now checkout) are reactive (react to a real
-  `insufficient_inventory` error) rather than proactive (show "only N
-  left" ahead of time).
+  browser automation, dispatch `new FocusEvent('focusout', {bubbles:true})`,
+  not `new Event('blur', {bubbles:true})`.
+- **Correction (Phase 5): the Store API *does* expose real per-variant
+  stock** — an earlier phase's note claiming `+variants.inventory_quantity`
+  was silently ignored was wrong (or no longer true). Fetch it explicitly
+  with `+variants.inventory_quantity,+variants.manage_inventory,
+  +variants.allow_backorder` — it's not returned by default. See
+  `PROJECT_MEMORY.md` for the full corrected note and the availability rule
+  now used (`isVariantAvailable`).
+- **Medusa's own `/store/products?q=` already searches variant SKU, not
+  just title/description** — confirmed live. Don't build a separate search
+  index or duplicate this matching logic; `searchProducts()` in
+  `lib/data/products.ts` is the one place this lives.
+- **Browser-automation `computer` click actions were unreliable this
+  session** (timed out/hung on a mobile-viewport click that, per
+  `getComputedStyle`/cart-count checks afterward, may have actually
+  registered) — if a click seems to hang or silently no-op, verify via
+  `javascript_tool` (`element.click()` + checking the resulting state)
+  before concluding the app itself is broken.
 - **No admin rights on this machine** — see "Environment setup" in
   `PROJECT_MEMORY.md` for exact portable-install `PATH` prepends if a fresh
   shell is missing Node/gh.
@@ -203,28 +225,34 @@ skipping ahead to Phase 6+ (search, account, wishlist, content pages).
   `pnpm run backend:dev` from `apps/backend`, `pnpm dev` from the repo root
   (or the `backend`/`storefront` entries in `.claude/launch.json` with the
   preview tools). The backend takes **~45 seconds** to boot to "Server is
-  ready" — don't judge it broken before then. Per explicit user preference
-  this session, **leave both dev servers running by default** between
-  turns rather than stopping them — stopping them without saying so caused
-  real confusion once already.
+  ready" — don't judge it broken before then. Per explicit user preference,
+  **leave both dev servers running by default** between turns rather than
+  stopping them.
 
 ## 6. Known bugs
 
-**None currently open.** Two things worth tracking that aren't bugs: a
-temporary admin user (`test-agent@stia.gr`) and two real test orders
-(`display_id` 1, 2) in the local dev database from live verification work
-this session — both harmless, documented in `PROJECT_MEMORY.md`/`TASKS.md`,
-cleanup is housekeeping whenever convenient, not urgent.
+**None currently open.** Things worth tracking that aren't bugs: two
+temporary admin users (`test-agent@stia.gr`, `qa-agent@stia.gr`) and two
+real test orders (`display_id` 1, 2) in the local dev database from live
+verification work — all harmless, documented in `PROJECT_MEMORY.md`/
+`TASKS.md`, cleanup is housekeeping whenever convenient, not urgent. A
+handful of extra items may also sit in leftover guest carts from this
+session's quick-add testing (mobile grid card, PDP) — same category as
+every other abandoned test cart already documented, harmless.
 
 ## 7. Pending decisions
 
-- **Checkout review** — the actual next step; see section 2 above.
-- **Commit everything now, or hold until further follow-ups land?** — not
-  decided; ask the user rather than assuming either way.
-- **A real payment processor** (Viva Wallet, Stripe, etc.) — checkout is
-  architected to support one the moment it's configured (the payment UI
-  reads its options live), but none exists yet, so "Αντικαταβολή" is the
-  only real option today.
+- **Checkout review, and now Phase 5 review too** — the actual next step;
+  see section 2 above.
+- **Commit Phase 5, and push everything to `origin/main`?** — not decided;
+  ask the user rather than assuming either way. Phase 4 through 4B is
+  already committed locally (`3de52dc`) but still not pushed.
+- **A real payment processor** (Stripe vs. Viva Wallet) — researched this
+  session (see `CHANGELOG.md`/`PROJECT_MEMORY.md` for the comparison), but
+  the user explicitly chose to hold off and set up the processor account
+  themselves first. **Do not pick a processor or start integrating on your
+  own initiative** — wait for the user to share which one and real
+  (test-mode) API keys.
 - **ΑΦΜ/ΔΟΥ + receipt-vs-invoice choice** — explicitly out of scope for the
   approved checkout spec (no business decision on it yet); revisit if
   needed.
@@ -234,10 +262,12 @@ cleanup is housekeeping whenever convenient, not urgent.
   `PROJECT_MEMORY.md`.
 - **Reconciling `TrustStrip`/PDP payment copy** — both still claim "Κάρτα,
   Viva Wallet ή αντικαταβολή," which overclaims relative to what checkout
-  can actually offer today. Flagged, not fixed (out of scope for the
-  checkout build itself).
+  can actually offer today. Flagged, not fixed.
 - **Backend hosting** — Vercel connected but can't run Medusa's persistent
   server; deferred until actually needed (prior explicit user decision).
 - **Real brand name / domain** — "STIA" / `stia.gr` are placeholders, never
   trademark-checked.
 - **Real product photography** — no plan yet for sourcing it.
+- **A real multi-variant product** — would be the first real test of
+  Phase 5's variant picker (`AddToCartButton`) and grid-card `Επιλογές`
+  routing, both currently verified by code inspection only.
