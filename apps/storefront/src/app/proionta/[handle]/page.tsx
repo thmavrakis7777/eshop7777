@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/category/Breadcrumbs";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
+import { RecentlyViewed } from "@/components/product/RecentlyViewed";
+import { RecentlyViewedTracker } from "@/components/product/RecentlyViewedTracker";
+import { ProductRail } from "@/components/home/ProductRail";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 import { Stars } from "@/components/ui/Stars";
 import { getCategoryByHandle } from "@/lib/data/categories";
-import { getProductByHandle } from "@/lib/data/products";
+import { getProductByHandle, getRelatedProducts } from "@/lib/data/products";
 import { formatPrice } from "@/lib/format";
 import { siteUrl } from "@/lib/site-config";
 
@@ -35,6 +38,7 @@ export default async function ProductPage({ params }: Props) {
 
   const category = product.categoryHandle ? await getCategoryByHandle(product.categoryHandle) : undefined;
   const parentCategory = category?.parentHandle ? await getCategoryByHandle(category.parentHandle) : undefined;
+  const relatedProducts = await getRelatedProducts(product);
 
   const productJsonLd = {
     "@context": "https://schema.org",
@@ -64,6 +68,7 @@ export default async function ProductPage({ params }: Props) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
+      <RecentlyViewedTracker handle={product.handle} />
       <Breadcrumbs items={breadcrumbItems} />
 
       <div className="container-shell mt-4 grid grid-cols-1 gap-8 md:mt-8 md:grid-cols-2 md:gap-12">
@@ -89,7 +94,12 @@ export default async function ProductPage({ params }: Props) {
             <p className="mt-6 text-sm leading-relaxed text-ink-muted md:text-base">{product.shortDescription}</p>
           )}
 
-          <AddToCartButton className="mt-8 w-full rounded-sm bg-ink px-6 py-4 text-sm font-medium text-white transition-colors hover:bg-accent md:w-auto md:px-10" />
+          <div className="mt-8">
+            <AddToCartButton
+              variantId={product.variants[0].id}
+              className="w-full rounded-sm bg-ink px-6 py-4 text-sm font-medium text-white transition-colors hover:bg-accent disabled:opacity-60 md:w-auto md:px-10"
+            />
+          </div>
 
           <dl className="mt-10 flex flex-col gap-3 border-t border-border pt-6 text-sm">
             <div className="flex justify-between">
@@ -107,6 +117,9 @@ export default async function ProductPage({ params }: Props) {
           </dl>
         </div>
       </div>
+
+      <ProductRail title="Σχετικά προϊόντα" products={relatedProducts} />
+      <RecentlyViewed excludeHandle={product.handle} />
     </>
   );
 }

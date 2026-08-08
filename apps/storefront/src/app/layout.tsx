@@ -4,8 +4,12 @@ import "./globals.css";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { CartUIProvider } from "@/components/cart/CartUIProvider";
+import { CartDrawer } from "@/components/cart/CartDrawer";
+import { AddToCartToast } from "@/components/cart/AddToCartToast";
 import { siteName, siteUrl } from "@/lib/site-config";
 import { getNavCategories } from "@/lib/data/categories";
+import { getCart } from "@/lib/data/cart";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -66,7 +70,7 @@ const organizationJsonLd = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const categories = await getNavCategories();
+  const [categories, cart] = await Promise.all([getNavCategories(), getCart()]);
 
   return (
     <html lang="el" className={`${inter.variable} ${literata.variable} antialiased`}>
@@ -78,12 +82,16 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <a href="#main-content" className="sr-only-focusable fixed left-4 top-4 z-50 rounded-sm bg-ink px-4 py-2 text-sm text-white">
           Μετάβαση στο περιεχόμενο
         </a>
-        <AnnouncementBar />
-        <Header categories={categories} />
-        <main id="main-content" className="flex-1">
-          {children}
-        </main>
-        <Footer categories={categories} />
+        <CartUIProvider>
+          <AnnouncementBar />
+          <Header categories={categories} cartItemCount={cart?.itemCount ?? 0} />
+          <main id="main-content" className="flex-1">
+            {children}
+          </main>
+          <Footer categories={categories} />
+          <CartDrawer />
+          <AddToCartToast />
+        </CartUIProvider>
       </body>
     </html>
   );

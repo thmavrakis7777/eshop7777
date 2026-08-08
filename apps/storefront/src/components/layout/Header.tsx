@@ -13,8 +13,16 @@ import {
   UserIcon,
 } from "@/components/ui/Icons";
 import { MobileMenu } from "./MobileMenu";
+import { useCartUI } from "@/components/cart/CartUIProvider";
 
-export function Header({ categories: navCategories }: { categories: NavCategory[] }) {
+export function Header({
+  categories: navCategories,
+  cartItemCount,
+}: {
+  categories: NavCategory[];
+  cartItemCount: number;
+}) {
+  const { openDrawer } = useCartUI();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -76,12 +84,19 @@ export function Header({ categories: navCategories }: { categories: NavCategory[
             <Link href="/logariasmos" className="hidden sm:block p-2 hover:text-accent transition-colors" aria-label="Λογαριασμός">
               <UserIcon />
             </Link>
-            <Link href="/kalathi" className="relative p-2 hover:text-accent transition-colors" aria-label="Καλάθι, 0 προϊόντα">
+            <button
+              type="button"
+              className="relative p-2 hover:text-accent transition-colors"
+              aria-label={`Καλάθι, ${cartItemCount} προϊόντα`}
+              onClick={openDrawer}
+            >
               <BagIcon />
-              <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-white">
-                0
-              </span>
-            </Link>
+              {cartItemCount > 0 && (
+                <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-white tabular-nums">
+                  {cartItemCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 

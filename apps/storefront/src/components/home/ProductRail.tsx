@@ -8,7 +8,7 @@ export function ProductRail({
   products,
 }: {
   title: string;
-  viewAllHref: string;
+  viewAllHref?: string;
   products: Product[];
 }) {
   if (products.length === 0) return null;
@@ -17,9 +17,11 @@ export function ProductRail({
     <section className="container-shell mt-16 md:mt-24">
       <div className="flex items-end justify-between">
         <h2 className="text-2xl text-ink md:text-3xl">{title}</h2>
-        <Link href={viewAllHref} className="text-sm font-medium text-accent hover:underline">
-          Δες όλα →
-        </Link>
+        {viewAllHref && (
+          <Link href={viewAllHref} className="text-sm font-medium text-accent hover:underline">
+            Δες όλα →
+          </Link>
+        )}
       </div>
       <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
         {products.map((p) => (

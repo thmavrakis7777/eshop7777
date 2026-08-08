@@ -1,10 +1,13 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 import { Stars } from "@/components/ui/Stars";
+import { addLineItemAction } from "@/lib/actions/cart";
+import { useCartUI } from "@/components/cart/CartUIProvider";
 
 const BADGE_LABEL: Record<NonNullable<Product["badges"]>[number], string> = {
   new: "Νέο",
@@ -12,6 +15,23 @@ const BADGE_LABEL: Record<NonNullable<Product["badges"]>[number], string> = {
 };
 
 export function ProductCard({ product }: { product: Product }) {
+  const { showAddedToast } = useCartUI();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function handleQuickAdd(e: React.MouseEvent) {
+    e.preventDefault();
+    setError(null);
+    startTransition(async () => {
+      const result = await addLineItemAction(product.variants[0].id, 1);
+      if (result.ok) {
+        showAddedToast();
+      } else {
+        setError(result.error);
+      }
+    });
+  }
+
   return (
     <article className="group relative flex flex-col">
       <div className="relative overflow-hidden rounded-md">
@@ -38,15 +58,21 @@ export function ProductCard({ product }: { product: Product }) {
         </Link>
         <button
           type="button"
-          className="absolute bottom-2 right-2 hidden translate-y-1 items-center rounded-sm bg-ink px-3 py-2 text-xs font-medium text-white opacity-0 transition-all duration-150 ease-out group-hover:translate-y-0 group-hover:opacity-100 md:flex"
+          className="absolute bottom-2 right-2 hidden translate-y-1 items-center rounded-sm bg-ink px-3 py-2 text-xs font-medium text-white opacity-0 transition-all duration-150 ease-out group-hover:translate-y-0 group-hover:opacity-100 disabled:opacity-100 md:flex"
           aria-label={`Γρήγορη προσθήκη ${product.title} στο καλάθι`}
-          onClick={(e) => e.preventDefault()}
+          onClick={handleQuickAdd}
+          disabled={isPending}
         >
-          + Καλάθι
+          {isPending ? "…" : "+ Καλάθι"}
         </button>
       </div>
 
       <div className="mt-3 flex flex-col gap-1">
+        {error && (
+          <p role="alert" className="text-xs text-danger">
+            {error}
+          </p>
+        )}
         <Link
           href={`/proionta/${product.handle}`}
           className="text-sm font-medium text-ink hover:underline underline-offset-2"

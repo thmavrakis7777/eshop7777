@@ -41,9 +41,16 @@ nested Turborepo/pnpm workspace):
   passes them down as props — `Header`/`Footer`/`MobileMenu`/`CategoryGrid` take
   `categories`/`NavCategory[]` as props, they don't fetch their own data.
   See `apps/storefront/src/app/layout.tsx`.
-- No global state library, no cart state yet (there is no cart — see Phase 5 in
-  `TASKS.md`). No CSS-in-JS. No component library dependency (all UI is
-  hand-built in `src/components`).
+- No global state library (no Redux/Zustand). The cart (Phase 4A) uses a
+  small React Context (`CartUIProvider`) for **UI-only** state — is the
+  drawer open, the add-to-cart toast — never the cart's actual data. Cart
+  data itself is server-fetched (Server Components read it via
+  `lib/data/cart.ts`'s `getCart()`) and mutated via Server Actions
+  (`lib/actions/cart.ts`) that call `revalidatePath("/", "layout")`, so the
+  header's item-count badge updates by React re-rendering the Server
+  Component tree after a mutation, not by a client store. See "Cart
+  architecture" below. No CSS-in-JS. No component library dependency (all UI
+  is hand-built in `src/components`).
 
 ### Backend architecture
 
@@ -171,11 +178,15 @@ nested Turborepo/pnpm workspace):
   mobile drawer has real focus management (initial focus, Tab trap, Escape to
   close, focus returns to the trigger button on close) — this was originally
   missing and was added as a real accessibility bug fix, not a nice-to-have.
-- "Add to cart" buttons exist in the UI (`ProductCard` quick-add,
-  `AddToCartButton` on the PDP) but are **intentionally inert**
-  (`preventDefault()`, no-op) — there is no cart system yet. This is consistent
-  across the site on purpose, not a bug; don't "fix" one without building the
-  other, and don't ship a cart button that pretends to work when clicked.
+- "Add to cart" (`ProductCard` quick-add, PDP's `AddToCartButton`) is now
+  **real** (Phase 4A) — both call the same `addLineItemAction` Server
+  Action. Clicking never force-opens the cart drawer; it shows a small,
+  self-dismissing toast ("Προστέθηκε στο καλάθι" + an opt-in "Προβολή
+  καλαθιού") so browsing isn't interrupted — see `CART_UX_SPEC.md` §2 for
+  the full reasoning. The checkout CTA (`/checkout`) is a real link to a
+  route that doesn't exist yet — same accepted pattern as the footer's
+  not-yet-built content pages, not a fake/inert button; checkout is
+  deliberately Phase 5, out of scope until the cart itself is approved.
 
 ## Important technical decisions (things that would be expensive to re-derive)
 
@@ -206,6 +217,205 @@ nested Turborepo/pnpm workspace):
   `pnpm-workspace.yaml`, lockfile, `turbo.json`). Don't try to "fix" this by
   merging it into the root workspace — that was evaluated and rejected because
   Medusa's own tooling expects to own its workspace root.
+- **Cart architecture (Phase 4A)**, verified against the live Medusa Store
+  API before building (same discipline as the region/category findings
+  above — see `CHANGELOG.md` for the full verification session):
+  - Guest cart identity is a `cart_id` **cookie** (`lib/data/cart.ts`'s
+    `CART_ID_COOKIE`), not `localStorage` — readable from Server Components,
+    writable only from Server Actions (`lib/actions/cart.ts`), 30-day
+    max-age.
+  - Medusa's cart mutation endpoints: line-item **update is `POST`**, not
+    `PATCH` (`/store/carts/:id/line-items/:line_id`); line-item **delete
+    returns the updated cart under a `parent` key**, not `cart`
+    (`{ id, object, deleted, parent: {...cart} }`) — different shape from
+    every other cart endpoint, easy to get wrong if assumed instead of
+    checked. Promotions: `POST .../promotions` to apply, **`DELETE`
+    `.../promotions` with a `{ promo_codes: [...] }` body** to remove (DELETE
+    with a body is unusual but this is what the live API actually expects
+    and accepts).
+  - Medusa **does enforce inventory limits server-side** on line-item add/
+    update, returning `{ code: "insufficient_inventory", type: "not_allowed" }`
+    on overflow — confirmed live. However **the Store API does not expose a
+    per-variant stock count** on the products endpoint in this setup
+    (`+variants.inventory_quantity` is silently ignored), so the UI cannot
+    proactively show "only N left" or disable "+" at a known ceiling — it
+    can only react to the real error after the fact. Don't try to fabricate
+    a stock number to work around this; the honest behavior is reactive,
+    not proactive, until inventory data is actually wired up.
+  - No Medusa shipping option currently has a conditional free-shipping
+    rule (both seeded options are flat-rate, confirmed live) — the
+    free-shipping progress bar's threshold (`lib/cart-config.ts`,
+    `FREE_SHIPPING_THRESHOLD_EUR`) is therefore genuinely frontend-only
+    config right now, not a mirror of a backend rule. Revisit if a real
+    conditional shipping rule is ever added on the backend.
+  - **`FreeShippingProgress` is currently disabled** (a module-level
+    `FREE_SHIPPING_MESSAGE_ENABLED = false` flag, not deleted) and
+    `AnnouncementBar`'s sitewide banner had its own, separately-hardcoded
+    and *mismatched* free-shipping claim removed entirely — found during
+    Phase 4B checkout research: neither was backed by a real shipping rule
+    (previous bullet), so checkout would have visibly contradicted both.
+    Explicit user decision was to soften the promise rather than build a
+    real backend rule immediately. Don't re-enable either without a real
+    conditional shipping rule behind them — see `CHECKOUT_UX_SPEC.md` §0.2.
+  - **The Medusa fulfillment service zone did not include Greece** —
+    same bug class as the region gap above, different subsystem: Greece
+    was added to the sales region and tax region in Phase 2/3, but nobody
+    exercised "resolve real shipping options for a Greek address" until
+    Phase 4B checkout research, where it surfaced as zero available
+    shipping options for any Greek address. Fixed via the Admin API
+    (`POST /admin/fulfillment-sets/:id/service-zones/:id` with the full
+    `geo_zones` array — this endpoint replaces the whole list, it doesn't
+    append) and reverified live. If shipping options for Greece ever go
+    empty again, check the service zone's geo_zones before assuming a
+    frontend bug.
+  - **Only one Medusa payment provider is configured**: `pp_system_default`
+    (the generic manual/system provider) — no Stripe/Viva Wallet/Everypay
+    exists yet, confirmed live via `/store/payment-providers`. Checkout
+    presents this as "Αντικαταβολή" (Cash on Delivery), an explicit user
+    decision, not an assumption. `TrustStrip` (homepage) and the PDP's
+    delivery-info block both still say "Κάρτα, Viva Wallet ή αντικαταβολή" —
+    aspirational copy from earlier phases that now overclaims relative to
+    what's actually configured; needs reconciling as part of the checkout
+    build, not fixed yet.
+  - `RootLayout` now reads the cart cookie via `cookies()` (through
+    `getCart()`) to compute the header badge count. This makes **every route
+    dynamically rendered** (`ƒ` instead of `○` in `next build` output,
+    including the homepage) — an expected, correct consequence of
+    per-request cart state, not a regression to "fix."
+  - Full spec: `CART_UX_SPEC.md`. Shared pieces: `useCartController`
+    (`lib/hooks/use-cart-controller.ts` — optimistic per-row quantity/removal
+    updates, reconciled by the server response) and `CartTotals.tsx` (the
+    Υποσύνολο/Έκπτωση/Μεταφορικά/Σύνολο breakdown), used identically by both
+    the drawer (`CartDrawer.tsx`) and the full page (`CartPageView.tsx`,
+    `/kalathi`).
+  - **Two line-item layouts, not one compressed into the other** (added in
+    the Phase 4A.1 clarity pass): `CartLineItemRow.tsx` is a labeled card
+    ("Αρχική τιμή:"/"Τιμή:"/"Ποσότητα:"/"Σύνολο:") used by the drawer at
+    every width and by the full page below `lg`; `CartLineItemTableRow.tsx`
+    is a true 5-column table row (`ΠΡΟΪΟΝ`/`ΑΡΧΙΚΗ ΤΙΜΗ`/`ΤΙΜΗ`/`ΠΟΣΟΤΗΤΑ`/
+    `ΣΥΝΟΛΟ`, paired with `CartTableHeader.tsx`) used only on the full page
+    at `lg`+. Both read the shared column-width constant in
+    `cart-table-grid.ts` so the header and rows can never drift out of
+    alignment. Don't try to unify these into one responsive component —
+    a fixed ~440px drawer panel and a 375px phone both genuinely can't fit
+    five aligned columns without forcing tiny text, which is exactly what
+    the clarity pass was fixing.
+  - **Two real CSS layout gotchas found and fixed in the desktop table's
+    grid** (`cart-table-grid.ts` has the full explanation, don't re-derive
+    this from scratch if it recurs):
+    1. `ΠΡΟΪΟΝ`'s column must have a real floor (`minmax(14rem,1fr)`), not
+       `minmax(0,1fr)` — an unbounded `0` let the four fixed price/quantity
+       columns starve it down to single-digit pixels inside the page's
+       two-column layout, and the `shrink-0` product image then visually
+       overflowed onto the neighboring column. This was a real, live bug
+       (not a hypothetical) — a customer reported the product title
+       appearing associated with the wrong column.
+    2. **Never add `min-w-max`/`w-max` to the header, a row, or their
+       shared wrapper** to try to force the overflow-scroll fallback to
+       trigger. It forces max-content sizing, which measures each grid
+       instance (the header is one grid container, each row is another)
+       against *only its own content* — the header's short "ΠΡΟΪΟΝ" label
+       vs. a row's actual unwrapped product title compute *different*
+       pixel widths for what must be the same column, and the columns
+       visibly desync between the header and the rows. Without it, every
+       instance sizes against the shared container width instead, which is
+       what keeps them identical. Found this exact regression while fixing
+       gotcha #1 above — it's an easy trap to reach for since it looks like
+       the "obvious" way to guarantee an intrinsic minimum, don't reach for
+       it here.
+  - **`cart.promotions` can contain `null`** — Medusa leaves a dangling
+    entry if a promotion applied to a cart is later deleted/deactivated
+    (confirmed live, not hypothetical: this crashed every page once, since
+    `getCart()` is called from `RootLayout`). `lib/data/cart.ts` filters
+    nulls before mapping; `MedusaCart.promotions`'s type in `lib/medusa.ts`
+    is `(MedusaPromotion | null)[]` on purpose — don't "simplify" it back to
+    non-nullable.
+  - **The cart summary has no real shipping figure until checkout sets a
+    shipping method** — Medusa doesn't calculate `shipping_total` before
+    that. `CartTotals.tsx` shows `Μεταφορικά: Υπολογίζεται στο checkout`
+    (a fake `0,00€` would be worse) until `cart.hasShippingMethod` is true,
+    at which point it shows the real amount — the same component serves
+    both the cart (pre-checkout) and checkout's order summary (Phase 4B).
+  - **`cart.subtotal` is NOT items-only — a real bug, found live, fixed**:
+    confirmed by setting a real shipping method on a cart and re-fetching —
+    `subtotal` silently folds in `shipping_total` (and is *pre*-discount,
+    unlike `total`), so `item_subtotal` (i) − `discount_total` (ii) +
+    `shipping_total` (iii) + `tax_total` = `total`, but `subtotal` alone
+    equals `item_subtotal + shipping_total`, not just item_subtotal. This
+    was invisible throughout Phase 4A/4A.1 because no cart ever had a real
+    shipping method (that only starts happening in checkout) — the bug was
+    latent, not new. `lib/data/cart.ts`'s `toDomainCart` now maps
+    `subtotal` from Medusa's `item_subtotal` field, not `subtotal` — don't
+    "simplify" this back, it will silently double-count shipping into the
+    Υποσύνολο row the moment a cart has a shipping method.
+- **Checkout architecture (Phase 4B)**, built after the cart-architecture
+  gaps above were found and resolved, following the same
+  verify-live-before-coding discipline:
+  - **Single scrolling page** (`/checkout`), not a multi-step wizard —
+    numbered sections (`SectionHeading.tsx`), each auto-saving to the
+    *same* Medusa cart as the customer fills them in, not a separate
+    checkout-only data model. Full design rationale: `CHECKOUT_UX_SPEC.md`.
+  - Email and "Στοιχεία παραλήπτη"/"Διεύθυνση παράδοσης" are two visual
+    sections but **one Medusa write** — first/last name and phone live on
+    `cart.shipping_address`, there's no separate "customer info" field on
+    a guest cart. `lib/actions/checkout.ts`'s `updateCheckoutDetailsAction`
+    saves both sections' fields together. Οδός/Αριθμός are two form fields
+    that get concatenated into Medusa's single `address_1` string on save
+    — not reliably reversible, so `AddressSummary` (display-only, used for
+    order confirmation) is a deliberately different type from `Address`
+    (the form's own shape) rather than trying to split `address_1` back
+    apart when reading a saved address back.
+  - Shipping options are fetched **scoped to the cart's current shipping
+    address** (`GET /store/shipping-options?cart_id=...`) — resolving them
+    requires the address to already be saved on the cart first, confirmed
+    live. Country is hardcoded to `"gr"` on save, never a form field — the
+    region's 8-country list is the Phase 2 demo-seed leftover, not a real
+    serviceable market.
+  - **Order completion is a 3-step real Medusa flow**, each step verified
+    live before coding against it: create a payment collection
+    (`POST /store/payment-collections`) → open a payment session against
+    whichever provider is actually configured
+    (`POST /store/payment-collections/:id/payment-sessions`, provider ID
+    read from the live `/store/payment-providers` list, never hardcoded) →
+    complete the cart (`POST /store/carts/:id/complete`). That last call
+    **returns a discriminated union**, not a thrown error on failure:
+    `{ type: "order", order }` on success (confirmed live — the real order
+    comes back directly in this response, no need to re-fetch it), or
+    `{ type: "cart", cart, error }` on a workflow-level failure (e.g. stock
+    vanished between checkout and submission) — this failure shape is coded
+    defensively per Medusa's documented contract, not force-triggered live
+    (would have meant deliberately corrupting stock data to test).
+  - On successful completion, the `cart_id` cookie is deleted — the
+    completed cart shouldn't linger as "the current cart" for the next
+    add-to-cart. Confirmed live: the header badge correctly resets to 0
+    immediately after.
+  - **Guest order lookup by ID works with just the publishable key** — no
+    customer session required, confirmed live
+    (`GET /store/orders/:id`). This is what makes `/checkout/epibebaiosi`
+    (the confirmation page) a real, refreshable/bookmarkable URL instead of
+    a modal that loses its data on reload — the order ID (a long ULID) is
+    the de facto access token, the same trust model most hosted "thank you"
+    pages use.
+  - **Two real bugs found only by clicking through the UI, not by
+    `tsc`/`eslint`**: (1) email/address/shipping background saves originally
+    shared one `useTransition` with the final-submit button, so the submit
+    button flashed "Επεξεργασία…" (implying the *order* was processing)
+    while the address was just autosaving in the background — each save
+    now tracks its own `*Saving` boolean, and only the final submit uses a
+    dedicated `useTransition`. (2) An early attempt to reorder the mobile
+    layout (order summary above the form) moved its *DOM* position instead
+    of using CSS `order` — this fixed mobile but silently swapped the
+    desktop two-column layout's sides too, since with no explicit order at
+    `lg+` both columns fall back to DOM order. Fixed by keeping DOM order
+    matching the desktop reading order (form, then summary) and using
+    `order-first lg:order-none` on the summary for a mobile-only *visual*
+    reorder — don't reorder the DOM to solve a mobile-only layout need,
+    reach for CSS `order` instead. Caught by comparing real
+    `getBoundingClientRect()` positions, not `innerText`/`get_page_text`
+    output — **`innerText` follows DOM order, not CSS `order`**, so
+    text-order-based checks will look "wrong" for a correctly
+    CSS-reordered layout; verify visual position with bounding rects
+    instead when `order` utilities are involved.
 - The mobile menu is rendered via `createPortal` into `document.body`, not
   inline in the component tree — the header's `backdrop-blur` (`backdrop-filter`)
   creates a CSS containing block that traps `position: fixed` descendants inside
@@ -241,6 +451,14 @@ no-admin extracts:
   at `localhost:9000/app`), `pnpm dev` from the repo root (storefront at
   `localhost:3000`). Admin login: `admin@stia.gr` — password is not written down
   anywhere in the repo (rotate it if forgotten rather than searching for it).
+  A second admin user, `test-agent@stia.gr`, was created during Phase 4A to
+  test the promotions/coupon flow end-to-end against the live API (Medusa
+  won't let a user delete itself, and the real admin password wasn't
+  available to remove it with) — harmless local-dev-only leftover, safe to
+  delete via the admin UI whenever convenient. Two real orders (`display_id`
+  1 and 2) also exist from Phase 4B checkout verification — a completed
+  guest order was the only way to actually confirm the full flow works, not
+  just each step in isolation; also harmless, local-dev-only.
 
 ## Development rules
 
@@ -289,3 +507,11 @@ no-admin extracts:
   deployment.
 - Admin password (`admin@stia.gr`) — a real dev-only password, not written down
   in the repo; rotate before any real deployment regardless.
+- Free-shipping threshold (`lib/cart-config.ts`,
+  `FREE_SHIPPING_THRESHOLD_EUR`) — currently a placeholder default (€50),
+  overridable via `NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD_EUR`; needs a real
+  business decision before launch.
+- Coupon codes — the coupon UI/flow is real and verified end-to-end
+  (`CART_UX_SPEC.md` §7), but no real promotion campaigns have been decided
+  or created in the admin; only a temporary test code was used for
+  verification and has since been deleted.

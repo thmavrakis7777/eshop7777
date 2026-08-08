@@ -39,6 +39,123 @@ export type MedusaProduct = {
 
 export type MedusaRegion = { id: string; name: string; currency_code: string };
 
+export type MedusaLineItemAdjustment = { code: string; amount: number };
+
+export type MedusaLineItem = {
+  id: string;
+  product_handle: string;
+  title: string;
+  thumbnail: string | null;
+  quantity: number;
+  unit_price: number;
+  compare_at_unit_price: number | null;
+  adjustments: MedusaLineItemAdjustment[];
+};
+
+export type MedusaPromotion = {
+  id: string;
+  code: string;
+  application_method: { type: string; value: number } | null;
+};
+
+export type MedusaCart = {
+  id: string;
+  email: string | null;
+  region_id: string;
+  items: MedusaLineItem[];
+  // `subtotal` is NOT items-only — confirmed live, it's item_subtotal +
+  // shipping_total (pre-tax). Use `item_subtotal` for an items-only figure
+  // (the cart/checkout UI's "Υποσύνολο" row) — see PROJECT_MEMORY.md "Cart
+  // architecture" for the full reconciliation against `total`.
+  subtotal: number;
+  item_subtotal: number;
+  discount_total: number;
+  shipping_total: number;
+  total: number;
+  shipping_address: MedusaAddress | null;
+  shipping_methods: Array<{ id: string; name: string; amount: number }>;
+  // Can contain `null` for a promotion that was deleted/deactivated while
+  // still applied to this cart — confirmed live, not a hypothetical.
+  promotions: (MedusaPromotion | null)[];
+};
+
+export type MedusaAddress = {
+  first_name: string | null;
+  last_name: string | null;
+  address_1: string | null;
+  address_2: string | null;
+  city: string | null;
+  postal_code: string | null;
+  country_code: string | null;
+  province: string | null;
+  phone: string | null;
+};
+
+export type MedusaShippingOption = {
+  id: string;
+  name: string;
+  amount: number;
+  // `type.code` is real, stable backend content ("standard"/"express") —
+  // `type.description` also exists but only in English ("Ship in 2-3
+  // days."), so the storefront translates by code rather than rendering
+  // untranslated English or fabricating a claim the data doesn't back.
+  type: { code: string } | null;
+};
+
+export type MedusaPaymentProvider = {
+  id: string;
+  is_enabled: boolean;
+};
+
+export type MedusaOrderLineItem = {
+  id: string;
+  title: string;
+  thumbnail: string | null;
+  quantity: number;
+  unit_price: number;
+  total: number;
+};
+
+export type MedusaOrder = {
+  id: string;
+  display_id: number;
+  email: string | null;
+  total: number;
+  item_subtotal: number;
+  discount_total: number;
+  shipping_total: number;
+  currency_code: string;
+  created_at: string;
+  items: MedusaOrderLineItem[];
+  shipping_address: MedusaAddress | null;
+  shipping_methods: Array<{ id: string; name: string; amount: number }>;
+};
+
+// Medusa's `/store/carts/:id/complete` returns a discriminated union: a
+// successful completion produces the order; a workflow-level failure (e.g.
+// stock disappeared between checkout and submission) returns the cart back
+// with an `error` describing what went wrong — not a thrown HTTP error.
+// Confirmed the success shape live; the failure shape is coded defensively
+// against Medusa's documented contract (not force-triggered live — see
+// CHECKOUT_UX_SPEC.md for what was and wasn't verified).
+export type MedusaCartCompleteResponse =
+  | { type: "order"; order: MedusaOrder }
+  | { type: "cart"; cart: MedusaCart; error?: { message?: string } };
+
+// Medusa's known error shapes for cart mutations — narrower than `Error`
+// so callers can map specific failures to the Greek copy table in
+// CART_UX_SPEC.md §14 instead of showing a generic message for everything.
+export class MedusaApiError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string | undefined,
+    public readonly type: string | undefined,
+    public readonly status: number
+  ) {
+    super(message);
+  }
+}
+
 type FetchOptions = RequestInit & { next?: { revalidate?: number | false; tags?: string[] } };
 
 export class MedusaConfigError extends Error {}
@@ -67,7 +184,19 @@ export async function medusaFetch<T>(path: string, options: FetchOptions = {}): 
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Medusa request failed: GET ${path} -> ${res.status} ${body}`.trim());
+    const parsed = (() => {
+      try {
+        return JSON.parse(body) as { message?: string; code?: string; type?: string };
+      } catch {
+        return undefined;
+      }
+    })();
+    throw new MedusaApiError(
+      parsed?.message ?? `Medusa request failed: ${path} -> ${res.status} ${body}`.trim(),
+      parsed?.code,
+      parsed?.type,
+      res.status
+    );
   }
 
   return res.json() as Promise<T>;

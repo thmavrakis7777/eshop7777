@@ -1,5 +1,5 @@
 import { getDefaultRegionId, medusaFetch, type MedusaProduct } from "@/lib/medusa";
-import { getCategoryIdsForHandle } from "@/lib/data/categories";
+import { getCategoryIdByHandle, getCategoryIdsForHandle } from "@/lib/data/categories";
 import type { Product, Tone } from "@/lib/types";
 
 const TONES: Tone[] = ["clay", "sage", "stone", "linen"];
@@ -11,7 +11,7 @@ function hash(s: string): number {
   return h;
 }
 
-function toneFor(handle: string): Tone {
+export function toneFor(handle: string): Tone {
   return TONES[Math.abs(hash(handle)) % TONES.length];
 }
 
@@ -142,6 +142,98 @@ export async function getFeaturedProducts(limit = 4): Promise<Product[]> {
     { next: { revalidate: 30 } }
   );
   return products.map(toDomainProduct);
+}
+
+export async function getProductsByHandles(handles: string[]): Promise<Product[]> {
+  if (handles.length === 0) return [];
+  const regionId = await getDefaultRegionId();
+  const params = new URLSearchParams({ region_id: regionId, fields: PRODUCT_FIELDS });
+  handles.forEach((h) => params.append("handle[]", h));
+
+  const { products } = await medusaFetch<{ products: MedusaProduct[] }>(
+    `/store/products?${params.toString()}`,
+    { next: { revalidate: 30 } }
+  );
+
+  // Medusa doesn't guarantee response order matches the requested handle
+  // order — re-sort to match, since callers (recently-viewed) rely on it
+  // being most-recent-first.
+  const byHandle = new Map(products.map((p) => [p.handle, p]));
+  return handles.flatMap((h) => {
+    const p = byHandle.get(h);
+    return p ? [toDomainProduct(p)] : [];
+  });
+}
+
+// No order history exists yet, so there's no real "frequently bought
+// together" signal to show — that would be fabricating a trust/relevance
+// claim the same way a fake bestseller label or star rating would (see
+// "UX decisions" in PROJECT_MEMORY.md). Same-category is a real, honest
+// substitute until actual order data exists to compute real co-purchase
+// pairs.
+export async function getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {
+  if (!product.categoryHandle) return [];
+  const [categoryId, regionId] = await Promise.all([
+    getCategoryIdByHandle(product.categoryHandle),
+    getDefaultRegionId(),
+  ]);
+  if (!categoryId) return [];
+
+  const params = new URLSearchParams({
+    region_id: regionId,
+    fields: PRODUCT_FIELDS,
+    order: "-created_at",
+    limit: String(limit + 1),
+  });
+  params.append("category_id[]", categoryId);
+
+  const { products } = await medusaFetch<{ products: MedusaProduct[] }>(
+    `/store/products?${params.toString()}`,
+    { next: { revalidate: 30 } }
+  );
+
+  return products
+    .filter((p) => p.id !== product.id)
+    .slice(0, limit)
+    .map(toDomainProduct);
+}
+
+// Same honest signal as getRelatedProducts (same-category, real, not a
+// fabricated "customers also bought" claim — see CART_UX_SPEC.md §12 and
+// the identical reasoning already applied to PDP related products): here
+// scoped to the categories actually represented in the cart, excluding
+// products already in it.
+export async function getCartCrossSell(cartProductHandles: string[], limit = 4): Promise<Product[]> {
+  if (cartProductHandles.length === 0) return [];
+
+  const cartProducts = await getProductsByHandles(cartProductHandles);
+  const categoryHandles = [...new Set(cartProducts.map((p) => p.categoryHandle).filter(Boolean))];
+  if (categoryHandles.length === 0) return [];
+
+  const [regionId, categoryIds] = await Promise.all([
+    getDefaultRegionId(),
+    Promise.all(categoryHandles.map(getCategoryIdByHandle)),
+  ]);
+  const resolvedCategoryIds = categoryIds.filter((id): id is string => Boolean(id));
+  if (resolvedCategoryIds.length === 0) return [];
+
+  const params = new URLSearchParams({
+    region_id: regionId,
+    fields: PRODUCT_FIELDS,
+    order: "-created_at",
+    limit: String(limit + cartProductHandles.length),
+  });
+  resolvedCategoryIds.forEach((id) => params.append("category_id[]", id));
+
+  const { products } = await medusaFetch<{ products: MedusaProduct[] }>(
+    `/store/products?${params.toString()}`,
+    { next: { revalidate: 30 } }
+  );
+
+  return products
+    .filter((p) => !cartProductHandles.includes(p.handle))
+    .slice(0, limit)
+    .map(toDomainProduct);
 }
 
 export async function getAllProductHandles(): Promise<{ handle: string; updatedAt: string }[]> {
