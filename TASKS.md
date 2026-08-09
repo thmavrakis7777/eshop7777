@@ -485,6 +485,23 @@ this phase. Phase 1 (Store Pickup) then built and verified:
       this session) and the "map pin confirmation" visual from the
       original spec. `tsc`/`eslint`/`next build` clean regardless.
 
+**Premium Greek checkout, Phase 4 — ΓΕΜΗ business lookup.**
+
+- [x] `lib/actions/afm-lookup.ts`'s `lookupCompanyByAfm` — real API
+      contract (endpoint, auth header, response shape) confirmed live
+      against ΓΕΜΗ's own public Swagger spec, not guessed. Autofills
+      Επωνυμία/Δραστηριότητα (only ΓΕΜΗ fields available — confirmed live
+      there's no ΔΟΥ field at all) the moment a valid ΑΦΜ is entered,
+      non-destructively (never overwrites an already-filled field).
+- [x] **Real correction to the original research**: a working `GEMI_API_KEY`
+      needs registration + approval, not instant self-serve as first
+      assumed — still much lower friction than AADE/TAXISnet.
+- [ ] **Not yet done**: real end-to-end verification against a real
+      approved ΓΕΜΗ key (none available this session — confirmed the
+      Swagger docs' own displayed test key is documentation-only and
+      correctly 401s on a real call). Graceful no-key degrade path verified
+      live. `tsc`/`eslint`/`next build` clean.
+
 ## Next
 
 Premium checkout Phases 2-6 (billing address + tax documents, address
@@ -534,8 +551,8 @@ above for the current, real plan:
       validation — **done**, see "Completed" above.
 - [x] Address autocomplete — **built**, see "Completed" above. Not yet
       verified against a real Google API key.
-- [ ] ΑΦΜ/business lookup — ΓΕΜΗ Open Data recommended over direct
-      AADE/TAXISnet (Phase 4)
+- [x] ΑΦΜ/business lookup — **built**, see "Completed" above. Not yet
+      verified against a real approved ΓΕΜΗ key.
 - [ ] Order confirmation emails — Medusa notification module + Resend +
       `order.placed` subscriber (Phase 5)
 - [ ] A real payment processor — **Stripe first** (decided), official

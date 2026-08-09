@@ -303,16 +303,24 @@ directly:
   up on a developer portal), and I could not verify rate limits or exact
   response SLAs live.
 - **Recommended alternative: ΓΕΜΗ Open Data API**
-  (`opendata.businessportal.gr`) — free, registers via a simple `api_key`
-  request (no TAXISnet), returns company registry data by ΑΦΜ/ΓΕΜΗ number
-  (name, address, registration status). Lower friction, faster to actually
-  get working, and covers the core ask (autofill Επωνυμία + Έδρα from a valid
-  ΑΦΜ). It won't return ΔΟΥ or Δραστηριότητα/ΚΑΔ as reliably as the AADE
-  registry service might — **this is the "some fields cannot legally or
-  technically be retrieved" case your brief already anticipates**: ship ΓΕΜΗ
-  lookup for what it covers, leave ΔΟΥ/Δραστηριότητα as manual-entry fields
-  always, with a small helper note, rather than blocking the whole feature on
-  the harder AADE integration.
+  (`opendata-api.businessportal.gr`) — free, no TAXISnet needed. **Update
+  after actually building this (2026-08-09)**: access still needs a real
+  registration + approval step (`opendata.businessportal.gr/register/`,
+  contact `support@uhc.gr`) — not the instant self-serve signup this
+  section originally assumed, though still far lower friction than AADE's
+  TAXISnet requirement. The real API contract was confirmed live against
+  ΓΕΜΗ's own public Swagger 2.0 spec
+  (`opendata-api.businessportal.gr/api-docs`):
+  `GET /companies?afm={9-digit-afm}` with an `api_key` header, returning
+  `{ searchResults: [{ coNameEl, activities: [{ activity: { descr } }], ... }] }`.
+  **Confirmed live: there is no ΔΟΥ field anywhere in ΓΕΜΗ's Company
+  schema** — this is the "some fields cannot legally or technically be
+  retrieved" case your brief already anticipated, now confirmed rather than
+  assumed. Built: autofill Επωνυμία + Δραστηριότητα only, from a valid
+  ΑΦΜ. ΔΟΥ stays manual-entry always; Έδρα/address autofill from ΓΕΜΗ was
+  deliberately not wired up this pass (it would need to reach into the
+  separate billing-address section/toggle) — a small, well-scoped future
+  enhancement, not started.
 - Either way: **the lookup call happens server-side only** (a small Medusa
   custom API route, e.g. `POST /store/afm-lookup`, proxying to ΓΕΜΗ/AADE) —
   the storefront never holds the API key. This satisfies your "never expose
@@ -583,7 +591,12 @@ Given the size, I'd sequence this so each phase is independently testable
    degrade gracefully with no API key configured (the state today — no key
    has been provided). Real end-to-end verification against Google's
    actual API needs a real `GOOGLE_PLACES_API_KEY` — see `CHANGELOG.md`.
-4. ΑΦΜ/business lookup (ΓΕΜΗ Open Data)
+4. ~~ΑΦΜ/business lookup (ΓΕΜΗ Open Data)~~ — **built (2026-08-09), not
+   yet live-verified.** The real API contract (endpoint, auth header,
+   response shape) was confirmed live against ΓΕΜΗ's own public Swagger
+   spec this session — a real correction to §4.3 below: getting a working
+   `GEMI_API_KEY` needs registration + approval, not an instant self-serve
+   key as first characterized. See `CHANGELOG.md`.
 5. Order confirmation emails (Resend + `order.placed` subscriber)
 6. Stripe payment integration (needs your test-mode credentials)
 

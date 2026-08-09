@@ -649,6 +649,44 @@ nested Turborepo/pnpm workspace):
     built yet — needs a real API key to build and verify a Static Maps
     proxy against, not worth wiring up speculatively.
 
+- **Premium Greek checkout — ΓΕΜΗ business lookup (Phase 4 of
+  `CHECKOUT_PREMIUM_SPEC.md`)**:
+  - **Real ΓΕΜΗ Open Data API contract confirmed live** against the actual
+    public Swagger 2.0 spec at
+    `https://opendata-api.businessportal.gr/api-docs` (viewable without a
+    registered key — only real calls need one): base
+    `https://opendata-api.businessportal.gr/api/opendata/v1`, endpoint
+    `GET /companies?afm={9-digit, zero-padded}`, auth via an `api_key`
+    header (not a query param or Bearer token), response
+    `{ searchResults: [Company] }` where `Company.coNameEl` is the Greek
+    company name and `Company.activities[].activity.descr` is business
+    activity. **Confirmed by reading the real schema: ΓΕΜΗ has no ΔΟΥ field
+    at all** — don't spend time later looking for one, it doesn't exist in
+    this API.
+  - **Getting a real `GEMI_API_KEY` needs registration + approval**
+    (`opendata.businessportal.gr/register/`) — a correction to the
+    original Phase 4 research, which assumed instant self-serve like
+    Google's key. Confirmed live: the Swagger UI's own displayed test key
+    (`api-docs-key`) is documentation-only and correctly 401s on a real API
+    call — don't mistake it for a working key if this comes up again.
+  - `lib/actions/afm-lookup.ts`'s `lookupCompanyByAfm` follows the same
+    never-throw/degrade-to-`null` contract as the Phase 3 address-
+    autocomplete actions — an unset key or any failure must look identical
+    to "no match found," never an error the customer sees.
+  - Triggered automatically in `CheckoutForm.tsx`'s `handleInvoiceFieldBlur`
+    the moment ΑΦΜ passes checksum — **not gated on the rest of the invoice
+    form being valid yet**, since the whole point is autofilling Επωνυμία/
+    Δραστηριότητα before the customer types them. Uses a locally-computed
+    `currentFields` variable (not the `invoiceFields` closure) so a
+    successful lookup can save in the same blur instead of needing a second
+    one — `setState` doesn't update the closure synchronously, a real gotcha
+    worth remembering for any similar "async side-effect then immediately
+    validate/save" flow.
+  - Autofill is non-destructive, same rule as address autocomplete: only
+    fills Επωνυμία/Δραστηριότητα if they're still empty.
+  - **Not yet live-verified against a real approved key** — same honest gap
+    as Phase 3's Google integration.
+
 - **Product code / add-to-cart-everywhere / search architecture (Phase 5)**,
   proposed and approved (`PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`) before any
   code — same design-first discipline as cart/checkout:
@@ -945,6 +983,10 @@ no-admin extracts:
 - `GOOGLE_PLACES_API_KEY` (`apps/storefront/.env.local`) — not yet set; the
   address autocomplete (Phase 3) degrades gracefully without it, but needs
   a real key to actually verify/use.
+- `GEMI_API_KEY` (`apps/storefront/.env.local`) — not yet set; requires
+  registering at `opendata.businessportal.gr/register/` and waiting for
+  approval (not instant). The ΑΦΜ-triggered business lookup (Phase 4)
+  degrades gracefully without it.
 - Coupon codes — the coupon UI/flow is real and verified end-to-end
   (`CART_UX_SPEC.md` §7), but no real promotion campaigns have been decided
   or created in the admin; only a temporary test code was used for

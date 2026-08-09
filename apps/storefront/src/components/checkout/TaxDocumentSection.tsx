@@ -7,9 +7,11 @@ import type { TaxDocumentType } from "@/lib/types";
 
 // Απόδειξη is the default (CHECKOUT_PREMIUM_SPEC.md §4) — Τιμολόγιο reveals
 // the invoice fields via the same grid-rows expand pattern as
-// BillingAddressSection. ΑΦΜ is checksum-validated on blur only in this
-// phase; a live ΓΕΜΗ lookup that autofills Επωνυμία/Έδρα is a later phase
-// (§4.3) — these fields are honest manual entry until then.
+// BillingAddressSection. ΑΦΜ is checksum-validated on blur; a valid ΑΦΜ
+// then triggers a ΓΕΜΗ lookup (CheckoutForm.tsx's handleInvoiceFieldBlur)
+// that autofills Επωνυμία/Δραστηριότητα when found — Έδρα still isn't
+// autofilled (it reuses the billing address, a separate section/toggle),
+// and ΔΟΥ has no equivalent in ΓΕΜΗ's data at all, so both stay manual.
 export function TaxDocumentSection({
   type,
   onTypeChange,
@@ -18,6 +20,7 @@ export function TaxDocumentSection({
   onFieldChange,
   onFieldBlur,
   saving,
+  afmLookupLoading,
 }: {
   type: TaxDocumentType;
   onTypeChange: (type: TaxDocumentType) => void;
@@ -26,6 +29,7 @@ export function TaxDocumentSection({
   onFieldChange: (field: keyof InvoiceFormFields, value: string) => void;
   onFieldBlur: (field: keyof InvoiceFormFields) => void;
   saving?: boolean;
+  afmLookupLoading?: boolean;
 }) {
   const isInvoice = type === "invoice";
 
@@ -99,6 +103,11 @@ export function TaxDocumentSection({
               error={errors.doy}
             />
           </div>
+          {afmLookupLoading && (
+            <p role="status" className="text-xs text-ink-muted">
+              Αναζήτηση στοιχείων επιχείρησης…
+            </p>
+          )}
           <FormField
             id="invoice-activity"
             label="Δραστηριότητα"

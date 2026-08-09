@@ -3,6 +3,49 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Premium Greek checkout, Phase 4 — ΓΕΜΗ business lookup (2026-08-09)
+
+Fourth phase of `CHECKOUT_PREMIUM_SPEC.md`: a valid ΑΦΜ in the invoice
+section now triggers a ΓΕΜΗ Open Data lookup that autofills Επωνυμία and
+Δραστηριότητα — the recommended alternative to direct AADE/TAXISnet
+integration (§4.3), now actually built rather than just proposed.
+
+**Real API contract confirmed live, not guessed**: rather than build
+against assumed field names (a real risk with any "found via general
+research" API), the actual ΓΕΜΗ Swagger 2.0 spec was fetched live this
+session from `opendata-api.businessportal.gr/api-docs` (its Swagger UI is
+public even without a registered key — only real API *calls* need one).
+Confirmed: `GET /companies?afm={9-digit}` with an `api_key` header, and the
+real `Company` response schema — `coNameEl` for the Greek company name,
+`activities[].activity.descr` for business activity. Also confirmed by
+reading the real schema, not assumed: **there is no ΔΟΥ field anywhere in
+ΓΕΜΗ's data** — the spec's existing "ΔΟΥ stays manual, ΓΕΜΗ can't provide
+it" design is now a verified fact, not a guess.
+
+**Correction to the original research**: getting a working `GEMI_API_KEY`
+needs a registration + approval step (`opendata.businessportal.gr/register/`),
+not the instant self-serve signup the Phase 4 recommendation originally
+assumed — still far less friction than AADE's TAXISnet requirement, but a
+real correction worth having on record.
+
+`lib/actions/afm-lookup.ts`'s `lookupCompanyByAfm` follows the same
+never-throw, degrade-to-null discipline as the Phase 3 address-autocomplete
+actions. The lookup fires automatically the moment ΑΦΜ passes its checksum
+(no separate button), and — same non-destructive rule as address
+autocomplete — only fills Επωνυμία/Δραστηριότητα if they're still empty,
+never overwriting something the customer already typed.
+
+**Verified live**: attempted an actual call against the real ΓΕΜΗ API using
+the Swagger docs' own test key (`api-docs-key`) out of curiosity — correctly
+rejected with 401, confirming that key is for viewing documentation only,
+not real calls, exactly as the docs state. With no real `GEMI_API_KEY`
+configured (the actual state today), typing a valid ΑΦΜ and blurring
+produces zero console errors and no autofill, the same clean degrade
+already proven for Phase 3. Full round-trip against a real approved key is
+still an honest open gap — same as Phase 3's Google key.
+
+`tsc`/`eslint`/`next build` clean.
+
 ## Premium Greek checkout, Phase 3 — address autocomplete (2026-08-09)
 
 Third phase of `CHECKOUT_PREMIUM_SPEC.md`: Google Places-backed autocomplete

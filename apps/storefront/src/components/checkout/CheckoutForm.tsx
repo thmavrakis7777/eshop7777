@@ -24,6 +24,7 @@ import {
   updateTaxDocumentAction,
   type TaxDocumentDetails,
 } from "@/lib/actions/checkout";
+import { lookupCompanyByAfm } from "@/lib/actions/afm-lookup";
 import { EmailSection } from "@/components/checkout/EmailSection";
 import { ContactSection } from "@/components/checkout/ContactSection";
 import { AddressSection } from "@/components/checkout/AddressSection";
@@ -105,6 +106,7 @@ export function CheckoutForm({
   );
   const [invoiceTouched, setInvoiceTouched] = useState<Set<keyof InvoiceFormFields>>(new Set());
   const [taxSaving, setTaxSaving] = useState(false);
+  const [afmLookupLoading, setAfmLookupLoading] = useState(false);
 
   const [submitError, setSubmitError] = useState<string>();
   // Deliberately its own transition, separate from the background saves
@@ -244,11 +246,35 @@ export function CheckoutForm({
     setInvoiceFields((prev) => ({ ...prev, [field]: value }));
   }
 
+  // ΓΕΜΗ lookup fires the moment ΑΦΜ passes its checksum — independent of
+  // whether the rest of the form validates yet, since the whole point is
+  // autofilling Επωνυμία/Δραστηριότητα *before* the customer types them.
+  // `currentFields` (not the `invoiceFields` closure) is what gets
+  // validated/saved below, so a successful lookup can save immediately in
+  // the same blur instead of waiting for a second one — reading
+  // `invoiceFields` again here would still see the pre-lookup values,
+  // since `setInvoiceFields` doesn't update the closure synchronously.
   async function handleInvoiceFieldBlur(field: keyof InvoiceFormFields) {
     setInvoiceTouched((prev) => new Set(prev).add(field));
-    const errors = validateInvoiceFields(invoiceFields);
+
+    let currentFields = invoiceFields;
+    if (field === "afm" && isValidAFM(invoiceFields.afm)) {
+      setAfmLookupLoading(true);
+      const result = await lookupCompanyByAfm(invoiceFields.afm);
+      setAfmLookupLoading(false);
+      if (result) {
+        currentFields = {
+          ...currentFields,
+          companyName: currentFields.companyName || result.companyName,
+          activity: currentFields.activity || result.activity || currentFields.activity,
+        };
+        setInvoiceFields(currentFields);
+      }
+    }
+
+    const errors = validateInvoiceFields(currentFields);
     if (Object.keys(errors).length > 0) return;
-    await saveTaxDocument({ type: "invoice", ...invoiceFields });
+    await saveTaxDocument({ type: "invoice", ...currentFields });
   }
 
   const visibleInvoiceErrors: InvoiceFormErrors = Object.fromEntries(
@@ -332,6 +358,7 @@ export function CheckoutForm({
             onFieldChange={handleInvoiceFieldChange}
             onFieldBlur={handleInvoiceFieldBlur}
             saving={taxSaving}
+            afmLookupLoading={afmLookupLoading}
           />
           <PaymentSection providers={paymentProviders} />
 
