@@ -94,6 +94,18 @@ export type AppliedPromotion = {
   percentage?: number;
 };
 
+export type TaxDocumentType = "receipt" | "invoice";
+
+// ΓΕΜΗ/AADE lookup (CHECKOUT_PREMIUM_SPEC.md §4.3) fills these in a later
+// phase — for now they're plain manual-entry fields. ΑΦΜ is validated
+// client-side (checksum only, see lib/checkout-validation.ts's isValidAFM).
+export type InvoiceDetails = {
+  companyName: string;
+  afm: string;
+  doy: string;
+  activity: string;
+};
+
 export type Cart = {
   id: string;
   // Carried through so order completion can resolve the cart's payment
@@ -112,6 +124,13 @@ export type Cart = {
   total: Money;
   promotions: AppliedPromotion[];
   shippingAddress?: AddressSummary;
+  billingAddress?: AddressSummary;
+  // Defaults to "receipt" (Απόδειξη) — matches CHECKOUT_PREMIUM_SPEC.md §4's
+  // default, and a cart with no tax-document metadata yet (every cart
+  // created before this phase) should read as the same honest default
+  // rather than an undefined/invalid state.
+  taxDocumentType: TaxDocumentType;
+  invoiceDetails?: InvoiceDetails;
 };
 
 // The checkout form's own shape (street/number split, matching the Greek
@@ -175,5 +194,8 @@ export type Order = {
   total: Money;
   shippingMethodName?: string;
   shippingAddress?: AddressSummary;
+  billingAddress?: AddressSummary;
+  taxDocumentType: TaxDocumentType;
+  invoiceDetails?: InvoiceDetails;
   createdAt: string;
 };

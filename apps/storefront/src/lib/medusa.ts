@@ -93,10 +93,15 @@ export type MedusaCart = {
   shipping_total: number;
   total: number;
   shipping_address: MedusaAddress | null;
+  billing_address: MedusaAddress | null;
   shipping_methods: Array<{ id: string; name: string; amount: number }>;
   // Can contain `null` for a promotion that was deleted/deactivated while
   // still applied to this cart — confirmed live, not a hypothetical.
   promotions: (MedusaPromotion | null)[];
+  // Store-specific fields with no native Medusa column (tax document
+  // type/ΑΦΜ details) live here — same pattern as any Medusa store that
+  // needs a field the core commerce model doesn't have, not a workaround.
+  metadata: Record<string, unknown> | null;
 };
 
 export type MedusaAddress = {
@@ -148,7 +153,9 @@ export type MedusaOrder = {
   created_at: string;
   items: MedusaOrderLineItem[];
   shipping_address: MedusaAddress | null;
+  billing_address: MedusaAddress | null;
   shipping_methods: Array<{ id: string; name: string; amount: number }>;
+  metadata: Record<string, unknown> | null;
 };
 
 // Medusa's `/store/carts/:id/complete` returns a discriminated union: a

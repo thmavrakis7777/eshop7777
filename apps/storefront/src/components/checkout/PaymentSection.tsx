@@ -16,7 +16,7 @@ const PROVIDER_LABELS: Record<string, { label: string; description: string }> = 
 export function PaymentSection({ providers }: { providers: PaymentProvider[] }) {
   return (
     <section className="flex flex-col gap-3">
-      <SectionHeading number={5} title="Πληρωμή" />
+      <SectionHeading number={6} title="Πληρωμή" />
       {providers.length === 0 ? (
         <p role="alert" className="text-sm text-danger">
           Δεν υπάρχει διαθέσιμος τρόπος πληρωμής αυτή τη στιγμή. Επικοινώνησε μαζί μας.

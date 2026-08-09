@@ -1,5 +1,5 @@
 import { medusaFetch, MedusaApiError, type MedusaOrder, type MedusaPaymentProvider, type MedusaShippingOption } from "@/lib/medusa";
-import { toAddressSummary } from "@/lib/data/cart";
+import { parseTaxDocumentMetadata, toAddressSummary } from "@/lib/data/cart";
 import { toneFor } from "@/lib/data/products";
 import type { Order, PaymentProvider, ShippingOption } from "@/lib/types";
 
@@ -59,8 +59,8 @@ export async function getOrder(orderId: string): Promise<Order | null> {
   try {
     const { order } = await medusaFetch<{ order: MedusaOrder }>(
       `/store/orders/${orderId}` +
-        "?fields=id,display_id,email,total,item_subtotal,discount_total,shipping_total,created_at," +
-        "*items,*shipping_address,*shipping_methods",
+        "?fields=id,display_id,email,total,item_subtotal,discount_total,shipping_total,created_at,metadata," +
+        "*items,*shipping_address,*billing_address,*shipping_methods",
       { cache: "no-store" }
     );
     return toDomainOrder(order);
@@ -88,6 +88,8 @@ function toDomainOrder(o: MedusaOrder): Order {
     total: { amount: o.total, currencyCode: "EUR" },
     shippingMethodName: o.shipping_methods[0]?.name,
     shippingAddress: o.shipping_address ? toAddressSummary(o.shipping_address) : undefined,
+    billingAddress: o.billing_address ? toAddressSummary(o.billing_address) : undefined,
+    ...parseTaxDocumentMetadata(o.metadata),
     createdAt: o.created_at,
   };
 }

@@ -1,14 +1,36 @@
 import { cookies } from "next/headers";
 import { medusaFetch, MedusaApiError, type MedusaCart } from "@/lib/medusa";
-import type { Cart } from "@/lib/types";
+import type { Cart, InvoiceDetails, TaxDocumentType } from "@/lib/types";
 import { toneFor } from "@/lib/data/products";
 
 export const CART_ID_COOKIE = "cart_id";
 
 export const CART_FIELDS =
-  "id,email,region_id,subtotal,item_subtotal,discount_total,shipping_total,total," +
+  "id,email,region_id,subtotal,item_subtotal,discount_total,shipping_total,total,metadata," +
   "*items,items.adjustments,*promotions,promotions.application_method," +
-  "*shipping_address,*shipping_methods";
+  "*shipping_address,*billing_address,*shipping_methods";
+
+// Tax document type/ΑΦΜ details have no native Medusa field — stored in
+// cart/order metadata under these keys (CHECKOUT_PREMIUM_SPEC.md §4). This
+// is the one place that reads them back out, so the key names only need to
+// be right here and in lib/actions/checkout.ts's write side.
+export function parseTaxDocumentMetadata(
+  metadata: Record<string, unknown> | null
+): { taxDocumentType: TaxDocumentType; invoiceDetails?: InvoiceDetails } {
+  const type = metadata?.tax_document_type === "invoice" ? "invoice" : "receipt";
+  if (type !== "invoice") return { taxDocumentType: "receipt" };
+
+  const companyName = typeof metadata?.invoice_company_name === "string" ? metadata.invoice_company_name : "";
+  const afm = typeof metadata?.invoice_afm === "string" ? metadata.invoice_afm : "";
+  const doy = typeof metadata?.invoice_doy === "string" ? metadata.invoice_doy : "";
+  const activity = typeof metadata?.invoice_activity === "string" ? metadata.invoice_activity : "";
+  // Metadata says "invoice" but the fields never actually got saved (e.g.
+  // the toggle was flipped and the page left before blur-save fired) —
+  // treat as receipt rather than showing an invoice with blank fields.
+  if (!companyName && !afm) return { taxDocumentType: "receipt" };
+
+  return { taxDocumentType: "invoice", invoiceDetails: { companyName, afm, doy, activity } };
+}
 
 export function toDomainCart(c: MedusaCart): Cart {
   const items = c.items.map((item) => ({
@@ -50,6 +72,8 @@ export function toDomainCart(c: MedusaCart): Cart {
       percentage: p.application_method?.type === "percentage" ? p.application_method.value : undefined,
     })),
     shippingAddress: c.shipping_address ? toAddressSummary(c.shipping_address) : undefined,
+    billingAddress: c.billing_address ? toAddressSummary(c.billing_address) : undefined,
+    ...parseTaxDocumentMetadata(c.metadata),
   };
 }
 

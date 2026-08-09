@@ -443,6 +443,32 @@ this phase. Phase 1 (Store Pickup) then built and verified:
       instead of a collapsed range) — verified live in the browser at
       desktop and mobile widths, no console errors, no horizontal overflow.
 
+**Premium Greek checkout, Phase 2 — billing address + tax documents.**
+
+- [x] Billing address toggle (unchecked by default), billing_address
+      written alongside shipping_address in the same Medusa cart update —
+      unchecking re-mirrors it immediately rather than leaving a stale
+      custom address on the server.
+- [x] Tax document toggle (Απόδειξη default / Τιμολόγιο), invoice fields
+      (Επωνυμία/ΑΦΜ/ΔΟΥ/Δραστηριότητα) stored in cart.metadata (no native
+      Medusa field). ΑΦΜ validated client-side via the standard Greek
+      mod-11 checksum — a live ΓΕΜΗ lookup that autofills these is Phase 4,
+      not built yet.
+- [x] **Real finding, confirmed live**: cart metadata updates *merge*, not
+      replace (opposite of the fulfillment geo_zones behavior) — and a real
+      bug this caused (clearing fields via `undefined` silently did
+      nothing, since JSON.stringify drops undefined keys) was caught and
+      fixed with explicit `null`.
+- [x] **Real accessibility bug found and fixed**: the collapsed billing/
+      invoice field groups were still keyboard-Tab-reachable while
+      invisible (a CSS grid-rows collapse doesn't block focus) — fixed with
+      the HTML `inert` attribute, confirmed live.
+- [x] Verified live end-to-end with a real completed test order (display_id
+      3): different billing address + full Τιμολόγιο invoice details both
+      round-tripped correctly into the real order. 375px mobile width: zero
+      horizontal overflow, billing section expands cleanly.
+      `tsc`/`eslint`/`next build` clean on the storefront.
+
 ## Next
 
 Premium checkout Phases 2-6 (billing address + tax documents, address
@@ -488,8 +514,8 @@ above for the current, real plan:
 - [ ] BOX NOW locker delivery — deferred (needs a real BOX NOW
       merchant/partner relationship, not self-serve; architecture kept
       extensible so it's additive once access exists)
-- [ ] Billing address toggle + receipt/invoice toggle + ΑΦΜ checksum
-      validation (Phase 2 of the premium checkout plan)
+- [x] Billing address toggle + receipt/invoice toggle + ΑΦΜ checksum
+      validation — **done**, see "Completed" above.
 - [ ] Address autocomplete — Google Places API recommended (Phase 3)
 - [ ] ΑΦΜ/business lookup — ΓΕΜΗ Open Data recommended over direct
       AADE/TAXISnet (Phase 4)

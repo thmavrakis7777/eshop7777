@@ -566,8 +566,11 @@ Given the size, I'd sequence this so each phase is independently testable
    — **done (2026-08-09)**, built and verified live with the real pickup
    address (Σφακιανάκη 4, Ηράκλειο) and hours; see `CHANGELOG.md` and
    `PROJECT_MEMORY.md`.
-2. Billing address toggle + receipt/invoice toggle + ΑΦΜ checksum validation
-   (client-side only)
+2. ~~Billing address toggle + receipt/invoice toggle + ΑΦΜ checksum
+   validation (client-side only)~~ — **done (2026-08-09)**, built and
+   verified live end-to-end including a real completed test order with a
+   different billing address and full invoice details; see `CHANGELOG.md`
+   and `PROJECT_MEMORY.md`.
 3. Address autocomplete (Google Places)
 4. ΑΦΜ/business lookup (ΓΕΜΗ Open Data)
 5. Order confirmation emails (Resend + `order.placed` subscriber)

@@ -3,6 +3,67 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Premium Greek checkout, Phase 2 — billing address + tax documents (2026-08-09)
+
+Second phase of `CHECKOUT_PREMIUM_SPEC.md`: a billing-address toggle
+("Τα στοιχεία τιμολόγησης είναι διαφορετικά από τη διεύθυνση αποστολής",
+unchecked by default) and a tax-document toggle (Απόδειξη default /
+Τιμολόγιο, revealing Επωνυμία/ΑΦΜ/ΔΟΥ/Δραστηριότητα with checksum-validated
+ΑΦΜ). A live ΓΕΜΗ lookup that autofills these from a valid ΑΦΜ is Phase 4,
+not this one — these are honest manual-entry fields for now.
+
+**Architecture decision**: billing address is a real Medusa `billing_address`
+field, written in the *same* request as `shipping_address` — extending the
+already-established "two visual sections, one Medusa write" pattern from
+Phase 4B to three sections instead of adding a second HTTP round-trip. When
+the toggle is off, `billing_address` is explicitly mirrored from
+`shipping_address` in that same request, so it's never left stale or null.
+Tax document type/ΑΦΜ details have no native Medusa field, so they live in
+`cart.metadata` — the one place in this codebase that needed a Medusa
+`metadata` field for real content rather than being unused.
+
+**Real, load-bearing finding — the opposite of what memory assumed**:
+confirmed live that a Medusa cart `metadata` POST *merges* into the existing
+object rather than replacing it (unlike the fulfillment service zone's
+`geo_zones`, which genuinely is a full-replace endpoint — see
+`PROJECT_MEMORY.md`). This surfaced a real bug in the first version of
+`updateTaxDocumentAction`: clearing the invoice fields by sending them as
+`undefined` did nothing, because `JSON.stringify` drops `undefined`
+properties entirely, so the clearing instruction never reached Medusa at
+all. Fixed by sending explicit `null`, confirmed live that it actually
+clears the fields this time.
+
+**Real accessibility bug found and fixed before shipping**: the billing/
+invoice field groups collapse via a CSS grid-rows transition (0-height +
+`overflow-hidden`) so they can animate open smoothly — but a 0-height
+container alone doesn't stop the browser from tabbing into the fields
+inside it. Confirmed live via `element.focus()` still landing inside the
+collapsed group. Fixed with the HTML `inert` attribute on the collapsed
+wrapper (React 19 supports it as a plain boolean prop) — confirmed live
+afterward that `.focus()` on a field inside an inert ancestor is correctly
+blocked by the browser, and that `inert` clears the instant the toggle
+opens the section.
+
+**ΑΦΜ checksum**: the standard, publicly-documented Greek ΑΦΜ mod-11
+algorithm (`lib/checkout-validation.ts`'s `isValidAFM`) — validates
+structure only, not that the number is a real registered business (that
+needs the Phase 4 ΓΕΜΗ lookup). Verified against a known-valid test ΑΦΜ
+(`094259216`) by hand-computing the checksum before trusting the
+implementation, and again live in the browser (a deliberately-wrong ΑΦΜ
+correctly showed "Το ΑΦΜ δεν είναι έγκυρο.", the same one corrected and
+saved successfully).
+
+Verified live end-to-end, not just individually: filled a full checkout
+with a billing address different from the shipping address and a Τιμολόγιο
+selected with real invoice fields, completed the order, and confirmed the
+resulting real order (`display_id` 3) shows the correct shipping address,
+the correct *different* billing address, and the full invoice details
+(company name, ΑΦΜ, ΔΟΥ, activity) — proving the whole chain (form state →
+Server Action → Medusa cart → order) round-trips correctly, not just that
+each piece compiles. Also verified: unauthenticated collapsed sections
+can't be tabbed into: mobile width (375px) has zero horizontal overflow and
+the billing section expands cleanly. `tsc`/`eslint`/`next build` clean.
+
 ## Premium Greek checkout, Phase 1 — Store Pickup (2026-08-09)
 
 User brief: build one of the best checkout experiences in the Greek market —

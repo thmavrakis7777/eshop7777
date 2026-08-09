@@ -2,23 +2,34 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { Cart, PaymentProvider, ShippingOption } from "@/lib/types";
+import type { Cart, PaymentProvider, ShippingOption, TaxDocumentType } from "@/lib/types";
 import {
+  EMPTY_BILLING_ADDRESS,
   EMPTY_CONTACT_ADDRESS,
+  EMPTY_INVOICE_FIELDS,
+  validateAddressFields,
+  type BillingAddressErrors,
+  type BillingAddressFields,
   type ContactAddressErrors,
   type ContactAddressFields,
+  type InvoiceFormErrors,
+  type InvoiceFormFields,
 } from "@/components/checkout/checkout-form-state";
-import { isValidEmail, isValidPhone, isValidPostalCode, isRequired } from "@/lib/checkout-validation";
+import { isValidEmail, isValidPhone, isValidPostalCode, isValidAFM, isRequired } from "@/lib/checkout-validation";
 import {
   completeCheckoutAction,
   setShippingMethodAction,
   updateCheckoutDetailsAction,
   updateCheckoutEmailAction,
+  updateTaxDocumentAction,
+  type TaxDocumentDetails,
 } from "@/lib/actions/checkout";
 import { EmailSection } from "@/components/checkout/EmailSection";
 import { ContactSection } from "@/components/checkout/ContactSection";
 import { AddressSection } from "@/components/checkout/AddressSection";
+import { BillingAddressSection } from "@/components/checkout/BillingAddressSection";
 import { ShippingSection } from "@/components/checkout/ShippingSection";
+import { TaxDocumentSection } from "@/components/checkout/TaxDocumentSection";
 import { PaymentSection } from "@/components/checkout/PaymentSection";
 import { CheckoutOrderSummary } from "@/components/checkout/CheckoutOrderSummary";
 import { formatPrice } from "@/lib/format";
@@ -32,6 +43,15 @@ function validateDetails(d: ContactAddressFields): ContactAddressErrors {
   if (!isRequired(d.number)) errors.number = "Συμπλήρωσε αυτό το πεδίο.";
   if (!isValidPostalCode(d.postalCode)) errors.postalCode = "Ο ταχυδρομικός κώδικας δεν είναι έγκυρος.";
   if (!isRequired(d.city)) errors.city = "Συμπλήρωσε αυτό το πεδίο.";
+  return errors;
+}
+
+function validateInvoiceFields(f: InvoiceFormFields): InvoiceFormErrors {
+  const errors: InvoiceFormErrors = {};
+  if (!isRequired(f.companyName)) errors.companyName = "Συμπλήρωσε αυτό το πεδίο.";
+  if (!isValidAFM(f.afm)) errors.afm = "Το ΑΦΜ δεν είναι έγκυρο.";
+  if (!isRequired(f.doy)) errors.doy = "Συμπλήρωσε αυτό το πεδίο.";
+  if (!isRequired(f.activity)) errors.activity = "Συμπλήρωσε αυτό το πεδίο.";
   return errors;
 }
 
@@ -55,12 +75,36 @@ export function CheckoutForm({
   const [detailsServerError, setDetailsServerError] = useState<string>();
   const lastSavedDetails = useRef<string | null>(null);
 
+  // Unchecked by default (CHECKOUT_PREMIUM_SPEC.md §3) — same "always starts
+  // empty regardless of what's already saved on the cart" pattern the
+  // contact/address fields already use, not a new gap.
+  const [billingDiffers, setBillingDiffers] = useState(false);
+  const [billingFields, setBillingFields] = useState<BillingAddressFields>(EMPTY_BILLING_ADDRESS);
+  const [billingTouched, setBillingTouched] = useState<Set<keyof BillingAddressFields>>(new Set());
+
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [shippingStatus, setShippingStatus] = useState<"pending-address" | "loading" | "ready" | "empty">(
     "pending-address"
   );
   const [selectedShippingId, setSelectedShippingId] = useState<string | null>(null);
   const [shippingSaving, setShippingSaving] = useState(false);
+
+  // Tax document metadata round-trips cleanly through cart.metadata (unlike
+  // address_1, splitting it back apart is exact), so this seeds from the
+  // real cart rather than always starting empty.
+  const [taxDocumentType, setTaxDocumentType] = useState<TaxDocumentType>(initialCart.taxDocumentType);
+  const [invoiceFields, setInvoiceFields] = useState<InvoiceFormFields>(
+    initialCart.invoiceDetails
+      ? {
+          companyName: initialCart.invoiceDetails.companyName,
+          afm: initialCart.invoiceDetails.afm,
+          doy: initialCart.invoiceDetails.doy,
+          activity: initialCart.invoiceDetails.activity,
+        }
+      : EMPTY_INVOICE_FIELDS
+  );
+  const [invoiceTouched, setInvoiceTouched] = useState<Set<keyof InvoiceFormFields>>(new Set());
+  const [taxSaving, setTaxSaving] = useState(false);
 
   const [submitError, setSubmitError] = useState<string>();
   // Deliberately its own transition, separate from the background saves
@@ -90,24 +134,35 @@ export function CheckoutForm({
     setDetails((prev) => ({ ...prev, [field]: value }));
   }
 
-  // Fires on every field's blur, but only the field that was actually
-  // blurred gets marked "touched" — validating the whole section silently
-  // decides whether to auto-save, while error *display* stays scoped to
-  // fields the customer has actually reached, so a form that's only
-  // half-filled-in doesn't show a wall of "required" errors up front.
-  async function handleDetailsBlur(field: keyof ContactAddressFields) {
-    setTouchedFields((prev) => new Set(prev).add(field));
+  // Single combined save for three visual sections (contact, address,
+  // billing toggle) — they resolve to two Medusa fields (shipping_address/
+  // billing_address) written together in one request, so one save function
+  // is the actual shape of the data, not an artificial merge.
+  // `billingDiffersOverride` lets the billing checkbox force an immediate
+  // re-save with its new value before React has committed the state update
+  // (reading `billingDiffers` from the closure here would still see the old
+  // value in the same tick it changed).
+  async function attemptDetailsSave(billingDiffersOverride?: boolean) {
+    const effectiveBillingDiffers = billingDiffersOverride ?? billingDiffers;
 
     const errors = validateDetails(details);
     if (Object.keys(errors).length > 0) return;
+    if (effectiveBillingDiffers && Object.keys(validateAddressFields(billingFields)).length > 0) return;
 
-    const signature = JSON.stringify(details);
+    const signature = JSON.stringify({
+      details,
+      billing: effectiveBillingDiffers ? billingFields : null,
+    });
     if (signature === lastSavedDetails.current) return;
 
     setDetailsSaving(true);
     setDetailsServerError(undefined);
     setShippingStatus("loading");
-    const result = await updateCheckoutDetailsAction(details);
+    const result = await updateCheckoutDetailsAction({
+      ...details,
+      billingDiffers: effectiveBillingDiffers,
+      billing: effectiveBillingDiffers ? billingFields : undefined,
+    });
     if (result.ok) {
       lastSavedDetails.current = signature;
       setCart(result.cart);
@@ -124,8 +179,41 @@ export function CheckoutForm({
     setDetailsSaving(false);
   }
 
+  // Fires on every field's blur, but only the field that was actually
+  // blurred gets marked "touched" — validating the whole section silently
+  // decides whether to auto-save, while error *display* stays scoped to
+  // fields the customer has actually reached, so a form that's only
+  // half-filled-in doesn't show a wall of "required" errors up front.
+  async function handleDetailsBlur(field: keyof ContactAddressFields) {
+    setTouchedFields((prev) => new Set(prev).add(field));
+    await attemptDetailsSave();
+  }
+
   const visibleDetailsErrors: ContactAddressErrors = Object.fromEntries(
     Object.entries(validateDetails(details)).filter(([field]) => touchedFields.has(field as keyof ContactAddressFields))
+  );
+
+  function handleBillingToggle(checked: boolean) {
+    setBillingDiffers(checked);
+    // Unchecking should immediately re-mirror billing_address to
+    // shipping_address on the cart rather than leaving the last
+    // custom-entered billing address stale on the server.
+    if (!checked) void attemptDetailsSave(false);
+  }
+
+  function handleBillingFieldChange(field: keyof BillingAddressFields, value: string) {
+    setBillingFields((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleBillingBlur(field: keyof BillingAddressFields) {
+    setBillingTouched((prev) => new Set(prev).add(field));
+    await attemptDetailsSave();
+  }
+
+  const visibleBillingErrors: BillingAddressErrors = Object.fromEntries(
+    Object.entries(validateAddressFields(billingFields)).filter(([field]) =>
+      billingTouched.has(field as keyof BillingAddressFields)
+    )
   );
 
   async function handleSelectShipping(option: ShippingOption) {
@@ -136,6 +224,38 @@ export function CheckoutForm({
     else setSelectedShippingId(null);
     setShippingSaving(false);
   }
+
+  async function saveTaxDocument(payload: TaxDocumentDetails) {
+    setTaxSaving(true);
+    const result = await updateTaxDocumentAction(payload);
+    if (result.ok) setCart(result.cart);
+    setTaxSaving(false);
+  }
+
+  function handleTaxTypeChange(type: TaxDocumentType) {
+    setTaxDocumentType(type);
+    // Switching to Απόδειξη always has something valid to save immediately;
+    // switching to Τιμολόγιο has empty fields at first — nothing to save
+    // until the customer actually fills them in and blurs.
+    if (type === "receipt") void saveTaxDocument({ type: "receipt" });
+  }
+
+  function handleInvoiceFieldChange(field: keyof InvoiceFormFields, value: string) {
+    setInvoiceFields((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleInvoiceFieldBlur(field: keyof InvoiceFormFields) {
+    setInvoiceTouched((prev) => new Set(prev).add(field));
+    const errors = validateInvoiceFields(invoiceFields);
+    if (Object.keys(errors).length > 0) return;
+    await saveTaxDocument({ type: "invoice", ...invoiceFields });
+  }
+
+  const visibleInvoiceErrors: InvoiceFormErrors = Object.fromEntries(
+    Object.entries(validateInvoiceFields(invoiceFields)).filter(([field]) =>
+      invoiceTouched.has(field as keyof InvoiceFormFields)
+    )
+  );
 
   function handleSubmit() {
     setSubmitError(undefined);
@@ -149,7 +269,10 @@ export function CheckoutForm({
     });
   }
 
-  const canSubmit = Boolean(cart.email) && Boolean(cart.shippingAddress) && cart.hasShippingMethod && !isSubmitting;
+  const taxDocumentReady =
+    taxDocumentType === "receipt" || Object.keys(validateInvoiceFields(invoiceFields)).length === 0;
+  const canSubmit =
+    Boolean(cart.email) && Boolean(cart.shippingAddress) && cart.hasShippingMethod && taxDocumentReady && !isSubmitting;
 
   return (
     <>
@@ -180,6 +303,15 @@ export function CheckoutForm({
             onFieldBlur={handleDetailsBlur}
             saving={detailsSaving}
           />
+          <BillingAddressSection
+            checked={billingDiffers}
+            onToggle={handleBillingToggle}
+            values={billingFields}
+            errors={visibleBillingErrors}
+            onFieldChange={handleBillingFieldChange}
+            onFieldBlur={handleBillingBlur}
+            saving={detailsSaving}
+          />
           {detailsServerError && (
             <p role="alert" className="text-sm text-danger">
               {detailsServerError}
@@ -191,6 +323,15 @@ export function CheckoutForm({
             selectedId={selectedShippingId}
             onSelect={handleSelectShipping}
             saving={shippingSaving}
+          />
+          <TaxDocumentSection
+            type={taxDocumentType}
+            onTypeChange={handleTaxTypeChange}
+            values={invoiceFields}
+            errors={visibleInvoiceErrors}
+            onFieldChange={handleInvoiceFieldChange}
+            onFieldBlur={handleInvoiceFieldBlur}
+            saving={taxSaving}
           />
           <PaymentSection providers={paymentProviders} />
 

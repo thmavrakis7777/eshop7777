@@ -20,3 +20,22 @@ export function isValidPostalCode(value: string): boolean {
 export function isRequired(value: string): boolean {
   return value.trim().length > 0;
 }
+
+// Standard Greek ΑΦΜ checksum (the same publicly-documented mod-11 formula
+// used across Greek tax-ID validators): the last of the 9 digits is a check
+// digit computed from the first 8, weighted by descending powers of 2, mod
+// 11, mod 10. Checksum only — this does NOT verify the ΑΦΜ is a real,
+// registered business (that needs a live lookup, CHECKOUT_PREMIUM_SPEC.md
+// §4.3, a later phase), only that it's a structurally valid number.
+export function isValidAFM(value: string): boolean {
+  const digits = value.trim();
+  if (!/^\d{9}$/.test(digits) || digits === "000000000") return false;
+
+  const nums = digits.split("").map(Number);
+  let sum = 0;
+  for (let i = 0; i < 8; i++) {
+    sum += nums[i] * Math.pow(2, 8 - i);
+  }
+  const checkDigit = (sum % 11) % 10;
+  return checkDigit === nums[8];
+}

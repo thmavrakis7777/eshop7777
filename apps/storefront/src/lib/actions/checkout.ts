@@ -59,6 +59,8 @@ export type CheckoutDetails = {
   area?: string;
   postalCode: string;
   city: string;
+  billingDiffers: boolean;
+  billing?: { street: string; number: string; area?: string; postalCode: string; city: string };
 };
 
 export type CheckoutDetailsResult =
@@ -77,22 +79,35 @@ export async function updateCheckoutDetailsAction(details: CheckoutDetails): Pro
   const cartId = await requireCartId();
   if (!cartId) return { ok: false, error: "Το καλάθι σου έληξε. Ξεκίνα ξανά από το καλάθι.", cart: null };
 
+  const shippingAddress = {
+    first_name: details.firstName,
+    last_name: details.lastName,
+    phone: details.phone,
+    address_1: `${details.street} ${details.number}`.trim(),
+    address_2: details.area || undefined,
+    postal_code: details.postalCode,
+    city: details.city,
+    country_code: "gr",
+  };
+  const billingAddress =
+    details.billingDiffers && details.billing
+      ? {
+          first_name: details.firstName,
+          last_name: details.lastName,
+          phone: details.phone,
+          address_1: `${details.billing.street} ${details.billing.number}`.trim(),
+          address_2: details.billing.area || undefined,
+          postal_code: details.billing.postalCode,
+          city: details.billing.city,
+          country_code: "gr",
+        }
+      : shippingAddress;
+
   try {
     await medusaFetch<{ cart: MedusaCart }>(`/store/carts/${cartId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shipping_address: {
-          first_name: details.firstName,
-          last_name: details.lastName,
-          phone: details.phone,
-          address_1: `${details.street} ${details.number}`.trim(),
-          address_2: details.area || undefined,
-          postal_code: details.postalCode,
-          city: details.city,
-          country_code: "gr",
-        },
-      }),
+      body: JSON.stringify({ shipping_address: shippingAddress, billing_address: billingAddress }),
     });
 
     const [cart, shippingOptions] = await Promise.all([getCart(), getShippingOptionsForCart(cartId)]);
@@ -100,6 +115,63 @@ export async function updateCheckoutDetailsAction(details: CheckoutDetails): Pro
     return cart
       ? { ok: true, cart, shippingOptions }
       : { ok: false, error: "Το καλάθι σου έληξε. Ξεκίνα ξανά από το καλάθι.", cart: null };
+  } catch (err) {
+    return { ok: false, error: mapCheckoutError(err), cart: await getCart() };
+  }
+}
+
+export type TaxDocumentDetails =
+  | { type: "receipt" }
+  | { type: "invoice"; companyName: string; afm: string; doy: string; activity: string };
+
+// Stored in cart.metadata (no native Medusa field for this — see
+// lib/data/cart.ts's parseTaxDocumentMetadata for the read side). Confirmed
+// live: unlike the fulfillment service zone's geo_zones (a real full-
+// replace endpoint, see PROJECT_MEMORY.md), a cart metadata POST *merges*
+// into the existing object — an omitted key is left untouched, not cleared.
+// That means switching back to "receipt" must send the invoice_* keys as
+// explicit `null` to actually clear them; `undefined` doesn't work, because
+// `JSON.stringify` drops `undefined` properties entirely, so the key never
+// reaches Medusa at all and the stale value silently survives — confirmed
+// live as a real bug in an earlier version of this function.
+export async function updateTaxDocumentAction(details: TaxDocumentDetails): Promise<CheckoutActionResult> {
+  const cartId = await requireCartId();
+  if (!cartId) return { ok: false, error: "Το καλάθι σου έληξε. Ξεκίνα ξανά από το καλάθι.", cart: null };
+
+  try {
+    const { cart: currentCart } = await medusaFetch<{ cart: MedusaCart }>(`/store/carts/${cartId}?fields=metadata`, {
+      cache: "no-store",
+    });
+
+    const existingMetadata = currentCart.metadata ?? {};
+    const metadata =
+      details.type === "invoice"
+        ? {
+            ...existingMetadata,
+            tax_document_type: "invoice",
+            invoice_company_name: details.companyName,
+            invoice_afm: details.afm,
+            invoice_doy: details.doy,
+            invoice_activity: details.activity,
+          }
+        : {
+            ...existingMetadata,
+            tax_document_type: "receipt",
+            invoice_company_name: null,
+            invoice_afm: null,
+            invoice_doy: null,
+            invoice_activity: null,
+          };
+
+    await medusaFetch<{ cart: MedusaCart }>(`/store/carts/${cartId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ metadata }),
+    });
+
+    revalidatePath("/checkout");
+    const cart = await getCart();
+    return cart ? { ok: true, cart } : { ok: false, error: "Το καλάθι σου έληξε. Ξεκίνα ξανά από το καλάθι.", cart: null };
   } catch (err) {
     return { ok: false, error: mapCheckoutError(err), cart: await getCart() };
   }

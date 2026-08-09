@@ -557,6 +557,60 @@ nested Turborepo/pnpm workspace):
     earlier phases) to drive the Admin API directly for this setup —
     harmless local-dev-only leftover, safe to delete whenever convenient.
 
+- **Premium Greek checkout — billing address + tax documents (Phase 2 of
+  `CHECKOUT_PREMIUM_SPEC.md`)**:
+  - **Billing address reuses the exact "combined write" pattern from Phase
+    4B**, extended from two visual sections to three: `shipping_address`
+    and `billing_address` are written together in one `/store/carts/:id`
+    POST (`lib/actions/checkout.ts`'s `updateCheckoutDetailsAction`). When
+    the "different billing address" checkbox is off, `billing_address` is
+    explicitly set to a copy of `shipping_address` in that same request —
+    it's never left null/stale, and unchecking the box immediately
+    re-mirrors it rather than leaving a previously-entered custom billing
+    address stranded on the server.
+  - **Tax document type (Απόδειξη/Τιμολόγιο) and invoice fields
+    (Επωνυμία/ΑΦΜ/ΔΟΥ/Δραστηριότητα) live in `cart.metadata`** — no native
+    Medusa field for this. `lib/data/cart.ts`'s `parseTaxDocumentMetadata`
+    is the one place that reads the metadata keys back out; keep the key
+    names in sync with `lib/actions/checkout.ts`'s `updateTaxDocumentAction`
+    if either ever changes.
+  - **Real finding, confirmed live, the opposite of an assumption**: a cart
+    `metadata` POST *merges* into the existing metadata object — an
+    omitted key is left untouched. This is different from the fulfillment
+    service zone's `geo_zones` (a genuine full-replace endpoint, see the
+    Phase 4B entry above) — don't assume all Medusa "update" endpoints
+    behave the same way, check each one live. Real bug this caused:
+    clearing the invoice fields by sending them as `undefined` did nothing,
+    because `JSON.stringify` drops `undefined` properties entirely before
+    the request even leaves the browser/server — the field is simply
+    absent from the payload, so Medusa's merge behavior correctly leaves
+    the old value in place. Fixed by sending explicit `null` for each field
+    to actually clear it — confirmed live this works.
+  - **A CSS grid-rows collapse (0-height + `overflow-hidden`) does not stop
+    keyboard Tab from reaching the fields inside it** — confirmed live via
+    `element.focus()` still succeeding on a field inside a collapsed
+    section. Both `BillingAddressSection.tsx` and `TaxDocumentSection.tsx`
+    fix this with the HTML `inert` attribute on the collapsed wrapper
+    (`inert={!checked}`) — React 19 supports it as a plain boolean prop,
+    no polyfill needed. If another progressive-disclosure section is ever
+    built with this same collapse pattern, apply `inert` the same way; it's
+    not optional polish, it's a real keyboard-navigation bug otherwise.
+  - **ΑΦΜ checksum** (`lib/checkout-validation.ts`'s `isValidAFM`): the
+    standard published Greek mod-11 algorithm — weight the first 8 digits
+    by descending powers of 2, mod 11, mod 10, compare to the 9th digit.
+    Validates structure only, not that the ΑΦΜ belongs to a real registered
+    business (that's the Phase 4 ΓΕΜΗ lookup). Verified against a
+    known-valid test ΑΦΜ (`094259216`) by hand-computing the checksum, then
+    again live in the browser with both a deliberately invalid and a
+    corrected value.
+  - Verified live end-to-end with a real completed order (not just each
+    piece in isolation): a full checkout with a billing address different
+    from shipping and a real Τιμολόγιο invoice, submitted, and the
+    resulting order confirmed to show the correct shipping address, the
+    correct *different* billing address, and the complete invoice details —
+    proving the full chain (form state → Server Action → Medusa cart →
+    order) round-trips correctly.
+
 - **Product code / add-to-cart-everywhere / search architecture (Phase 5)**,
   proposed and approved (`PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`) before any
   code — same design-first discipline as cart/checkout:

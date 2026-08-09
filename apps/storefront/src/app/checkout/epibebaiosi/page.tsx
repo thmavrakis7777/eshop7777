@@ -99,6 +99,37 @@ export default async function OrderConfirmationPage({
           </div>
         )}
 
+        {order.billingAddress &&
+          (order.billingAddress.addressLine1 !== order.shippingAddress?.addressLine1 ||
+            order.billingAddress.postalCode !== order.shippingAddress?.postalCode) && (
+            <div className="flex flex-col gap-1 text-sm">
+              <h2 className="font-medium text-ink">Στοιχεία χρέωσης</h2>
+              <p className="text-ink-muted">
+                {order.billingAddress.fullName}
+                <br />
+                {order.billingAddress.addressLine1}
+                {order.billingAddress.addressLine2 ? `, ${order.billingAddress.addressLine2}` : ""}
+                <br />
+                {order.billingAddress.postalCode} {order.billingAddress.city}
+              </p>
+            </div>
+          )}
+
+        <div className="flex flex-col gap-1 text-sm">
+          <h2 className="font-medium text-ink">Παραστατικό</h2>
+          {order.taxDocumentType === "invoice" && order.invoiceDetails ? (
+            <p className="text-ink-muted">
+              Τιμολόγιο — {order.invoiceDetails.companyName}
+              <br />
+              ΑΦΜ: {order.invoiceDetails.afm} · ΔΟΥ: {order.invoiceDetails.doy}
+              <br />
+              {order.invoiceDetails.activity}
+            </p>
+          ) : (
+            <p className="text-ink-muted">Απόδειξη</p>
+          )}
+        </div>
+
         <p className="text-center text-sm text-ink-muted">Σου στείλαμε επιβεβαίωση στο {order.email}</p>
 
         <div className="flex flex-col gap-3">
