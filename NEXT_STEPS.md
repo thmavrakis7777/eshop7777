@@ -7,20 +7,28 @@ the pointer to exactly where to resume, those three have the detail behind it. D
 not restart the project, do not regenerate completed features, do not re-analyze
 the whole codebase from zero — everything needed is in these five files.
 
-**2026-08-09, later same day — Premium Greek Checkout, Phases 1-2 done:**
+**2026-08-09, later same day — Premium Greek Checkout, Phases 1-3 done:**
 `CHECKOUT_PREMIUM_SPEC.md` is the architecture review + decisions for the
 full "premium checkout" brief (BOX NOW deferred, Stripe first, ΓΕΜΗ for ΑΦΜ
 lookup, accounts out of scope). Phase 1 (Store Pickup, real address
-Σφακιανάκη 4, Ηράκλειο) and Phase 2 (billing address toggle + tax document
-toggle + ΑΦΜ checksum validation) are both built and verified live —
-Phase 2 with a real completed test order (display_id 3) proving billing
-address and invoice details round-trip correctly end to end.
-`tsc`/`eslint`/`next build` clean on both apps. **Phase 1 committed and
-pushed** (`5b4b823`); **Phase 2 not yet committed** — ask before
-committing/pushing, same as always. Real gap carried over: Phase 1's
-pickup address is now real (not a placeholder). Phases 3-6 (address
-autocomplete, ΑΦΜ/ΓΕΜΗ lookup, emails, Stripe) are not started — see
-`CHECKOUT_PREMIUM_SPEC.md`'s revised phase order and `TASKS.md`.
+Σφακιανάκη 4, Ηράκλειο), Phase 2 (billing address toggle + tax document
+toggle + ΑΦΜ checksum validation, verified with a real completed test order
+display_id 3), and Phase 3 (Google Places address autocomplete, called
+server-side only) are all built. `tsc`/`eslint`/`next build` clean on both
+apps throughout. **Phases 1-2 committed and pushed** (`5b4b823`,
+`5632c85`); **Phase 3 not yet committed** — ask before committing/pushing,
+same as always.
+
+**Real, honest gap carried into next session**: Phase 3's address
+autocomplete has never been exercised against a real Google API key — none
+was available this session. What *is* verified live: the graceful-degrade
+path (no key → zero errors, ordinary text field) and that the existing
+address-save flow still works with the new component in place. **The
+moment a real `GOOGLE_PLACES_API_KEY` exists** (add to
+`apps/storefront/.env.local`, see `.env.example`), click through a real
+autocomplete search before considering this phase actually proven, not
+just built. Phases 4-6 (ΑΦΜ/ΓΕΜΗ lookup, emails, Stripe) are not started —
+see `CHECKOUT_PREMIUM_SPEC.md`'s revised phase order and `TASKS.md`.
 
 1. **Exact phase we are currently in**: everything through the production
    readiness audit is **committed and pushed** — `origin/main` is at

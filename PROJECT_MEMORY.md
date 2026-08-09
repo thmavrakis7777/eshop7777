@@ -611,6 +611,44 @@ nested Turborepo/pnpm workspace):
     proving the full chain (form state → Server Action → Medusa cart →
     order) round-trips correctly.
 
+- **Premium Greek checkout — address autocomplete (Phase 3 of
+  `CHECKOUT_PREMIUM_SPEC.md`)**:
+  - **Google Places (New), called server-side only via Server Actions**
+    (`lib/actions/address-autocomplete.ts`), not the client-side Places JS
+    widget — a deliberate deviation from the original spec's assumption
+    that a browser-exposed key was required. Proxying through
+    `getAddressSuggestions`/`getPlaceDetails` keeps `GOOGLE_PLACES_API_KEY`
+    entirely server-side, restrictable by server IP rather than HTTP
+    referrer. See `.env.example` for the variable.
+  - **Both Server Actions must degrade to an empty/null result, never
+    throw** — an unset key, a network failure, or a Google API error all
+    look identical to "no suggestions right now" from the UI's point of
+    view. This is the load-bearing design constraint (checkout's own
+    hard rule: never block manual entry), confirmed live with no key
+    configured — typing in Οδός produces zero errors and behaves exactly
+    like the plain field it replaced.
+  - **Not yet live-verified against a real Google API key** — request/
+    response shapes are doc-verified (fetched from Google's own current
+    documentation this session), and the whole graceful-degrade path is
+    live-verified, but nobody has actually clicked through a real
+    suggestions dropdown yet. Do this the moment a real
+    `GOOGLE_PLACES_API_KEY` exists, before considering this phase fully
+    proven — same "verify live, not assumed" discipline as everything else
+    in this file.
+  - `AddressAutocomplete.tsx` autofills Οδός/Αριθμός/Πόλη/ΤΚ from a
+    selected suggestion but **never overwrites a field the customer
+    already typed into** (`if (details.number && !values.number)` — see
+    `AddressSection.tsx`'s `handleAddressSelected`) — picking a suggestion
+    is additive, never destructive of manual corrections.
+  - Session tokens (`crypto.randomUUID()`) tie autocomplete keystrokes +
+    the Place Details call into one Google-billable session, regenerated
+    after each completed selection — omitting this would bill per
+    keystroke instead of per session, the exact cost model the original
+    research (`CHECKOUT_PREMIUM_SPEC.md` §2) assumed.
+  - The "map pin confirmation" from the original spec is deliberately not
+    built yet — needs a real API key to build and verify a Static Maps
+    proxy against, not worth wiring up speculatively.
+
 - **Product code / add-to-cart-everywhere / search architecture (Phase 5)**,
   proposed and approved (`PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`) before any
   code — same design-first discipline as cart/checkout:
@@ -904,6 +942,9 @@ no-admin extracts:
   `FREE_SHIPPING_THRESHOLD_EUR`) — currently a placeholder default (€50),
   overridable via `NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD_EUR`; needs a real
   business decision before launch.
+- `GOOGLE_PLACES_API_KEY` (`apps/storefront/.env.local`) — not yet set; the
+  address autocomplete (Phase 3) degrades gracefully without it, but needs
+  a real key to actually verify/use.
 - Coupon codes — the coupon UI/flow is real and verified end-to-end
   (`CART_UX_SPEC.md` §7), but no real promotion campaigns have been decided
   or created in the admin; only a temporary test code was used for

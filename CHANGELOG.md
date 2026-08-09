@@ -3,6 +3,53 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Premium Greek checkout, Phase 3 — address autocomplete (2026-08-09)
+
+Third phase of `CHECKOUT_PREMIUM_SPEC.md`: Google Places-backed autocomplete
+on the checkout's Οδός field, per the §2 recommendation (Google over
+Mapbox — better-verified Greek coverage, near-free at this store's volume).
+
+**Architecture improvement over the original spec**: rather than loading
+Google's client-side Places JS widget (which needs a browser-exposed,
+referrer-restricted API key), this calls Google's Places API (New) REST
+endpoints directly from two new Server Actions
+(`lib/actions/address-autocomplete.ts`) — `getAddressSuggestions` and
+`getPlaceDetails`. The API key (`GOOGLE_PLACES_API_KEY`) never reaches the
+browser at all, a stricter posture than what was originally proposed, at no
+extra engineering cost once the proxy exists. Both actions degrade to an
+empty/null result on any failure — no key configured, a network error, an
+API error — never throwing, so manual address entry is never blocked. This
+is the same discipline as the rest of checkout's server actions (never let
+a raw failure reach the customer), just applied to "no suggestions" instead
+of "an error state."
+
+New `AddressAutocomplete.tsx` wraps the existing Οδός field with a
+debounced (300ms) suggestions dropdown — keyboard (arrow keys, Enter,
+Escape) and mouse both work, outside-click closes it, and it degrades to a
+completely ordinary text input with zero behavior change when no
+suggestions come back. Selecting a suggestion autofills Οδός/Αριθμός/Πόλη/
+ΤΚ from Google's structured address components, but **never overwrites a
+field the customer already typed into** — picking a suggestion after
+correcting the ΤΚ by hand doesn't clobber that correction. A session token
+(regenerated after each completed selection) ties the autocomplete
+keystrokes and the final Place Details call into one billable session, per
+Google's documented contract.
+
+**Honest gap, not an oversight**: request/response shapes were verified
+against Google's own current API documentation (fetched live this
+session), not assumed — but this has **not been exercised against a real
+Google API key** yet, since none was available this session. What *was*
+verified live: the graceful-degrade path (no key configured → typing in
+Οδός produces zero console errors, zero broken UI, the field behaves
+exactly as before) and that the existing combined address/billing save
+still works correctly with the new component in place — confirmed via a
+full checkout fill-through with shipping options loading successfully
+afterward. The "subtle map pin confirmation" from the original spec is
+deliberately deferred — a real key is needed to build a Static Maps proxy
+worth verifying, not to speculatively wire one up untested.
+
+`tsc`/`eslint`/`next build` clean.
+
 ## Premium Greek checkout, Phase 2 — billing address + tax documents (2026-08-09)
 
 Second phase of `CHECKOUT_PREMIUM_SPEC.md`: a billing-address toggle

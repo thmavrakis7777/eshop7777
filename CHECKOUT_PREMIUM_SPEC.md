@@ -170,20 +170,27 @@ claim. Given the cost is near-zero at your current scale either way, I'd
 default to Google unless you have a reason to prefer Mapbox (e.g. already
 using Mapbox elsewhere).
 
-### Required changes
-- New dependency (`@googlemaps/js-api-loader` or a lean fetch-based
-  integration — a full SDK is not required just for Autocomplete+Details).
-- `AddressSection.tsx` gains an autocomplete-enabled `Οδός` field: user types
-  → debounced predictions → selecting one populates Οδός/Αριθμός/Πόλη/ΤΚ via
-  Place Details, **fields stay fully editable after autofill** (your own
-  requirement — never a locked field). A small map-pin confirmation (a static
-  Maps Embed/Static Maps image is cheaper and simpler than a full interactive
-  map widget for a one-line confirmation — recommend Static Maps unless you
-  want a fully interactive map).
-- Google API key: **client-side key, restricted by HTTP referrer** (Places
-  Autocomplete JS widget requires a browser-exposed key by design — this is
-  normal for Google Maps Platform, not a leak, but the key must be
-  referrer-restricted in Google Cloud Console to the storefront's real domain).
+### Required changes — as actually built (revised from the original plan below)
+- **No client-side Google SDK at all** — a leaner, more secure design than
+  first proposed: `lib/actions/address-autocomplete.ts` calls Google's
+  Places API (New) REST endpoints (`:autocomplete`, Place Details) directly
+  from Server Actions, using Node's `fetch`. This keeps the API key
+  **entirely server-side** (`GOOGLE_PLACES_API_KEY`, not
+  `NEXT_PUBLIC_*`) — an improvement over the original plan below, which
+  assumed a client-exposed, referrer-restricted key was required by the
+  Places JS widget. It isn't, once you proxy through a Server Action.
+- `AddressAutocomplete.tsx` wraps just the `Οδός` field with a debounced
+  (300ms) suggestions dropdown (keyboard nav + click), calling the Server
+  Actions above. Selecting a suggestion autofills Οδός/Αριθμός/Πόλη/ΤΚ —
+  **fields stay fully editable after autofill**, and autofill never
+  overwrites a field the customer already typed into by hand.
+- A session token (`crypto.randomUUID()`, regenerated after each completed
+  selection) is passed to both the autocomplete and details calls, per
+  Google's documented session-billing contract.
+- **Deferred, not built this pass**: the "subtle map pin confirmation"
+  visual. Polish, not the functional requirement — revisit once a real key
+  exists to verify a Static Maps proxy route against.
+- Original plan (superseded by the above, kept for context):
 
 ### Medusa / DB impact
 None — this is purely a storefront form-UX layer feeding the same
@@ -571,7 +578,11 @@ Given the size, I'd sequence this so each phase is independently testable
    verified live end-to-end including a real completed test order with a
    different billing address and full invoice details; see `CHANGELOG.md`
    and `PROJECT_MEMORY.md`.
-3. Address autocomplete (Google Places)
+3. ~~Address autocomplete (Google Places)~~ — **built (2026-08-09), not yet
+   live-verified.** Server Actions + UI are complete and confirmed to
+   degrade gracefully with no API key configured (the state today — no key
+   has been provided). Real end-to-end verification against Google's
+   actual API needs a real `GOOGLE_PLACES_API_KEY` — see `CHANGELOG.md`.
 4. ΑΦΜ/business lookup (ΓΕΜΗ Open Data)
 5. Order confirmation emails (Resend + `order.placed` subscriber)
 6. Stripe payment integration (needs your test-mode credentials)

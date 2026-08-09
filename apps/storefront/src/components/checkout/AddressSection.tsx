@@ -2,7 +2,9 @@
 
 import { SectionHeading } from "@/components/checkout/SectionHeading";
 import { FormField } from "@/components/checkout/FormField";
+import { AddressAutocomplete } from "@/components/checkout/AddressAutocomplete";
 import type { ContactAddressErrors, ContactAddressFields } from "@/components/checkout/checkout-form-state";
+import type { ParsedAddressDetails } from "@/lib/actions/address-autocomplete";
 
 // Οδός/Αριθμός shown as two fields (matches how Greek addresses are
 // conventionally written and how couriers expect them) even though Medusa
@@ -23,18 +25,28 @@ export function AddressSection({
   onFieldBlur: (field: keyof ContactAddressFields) => void;
   saving?: boolean;
 }) {
+  // Autocomplete only ever fills fields the customer hasn't already typed
+  // something into — picking a suggestion shouldn't silently overwrite a
+  // number/area the customer already corrected by hand.
+  function handleAddressSelected(details: ParsedAddressDetails) {
+    if (details.street) onFieldChange("street", details.street);
+    if (details.number && !values.number) onFieldChange("number", details.number);
+    if (details.city) onFieldChange("city", details.city);
+    if (details.postalCode) onFieldChange("postalCode", details.postalCode);
+  }
+
   return (
     <section className="flex flex-col gap-3">
       <SectionHeading number={3} title="Διεύθυνση παράδοσης" saving={saving} />
       <div className="grid grid-cols-[1fr_7rem] gap-3">
-        <FormField
+        <AddressAutocomplete
           id="checkout-street"
           label="Οδός"
-          autoComplete="address-line1"
           value={values.street}
           onChange={(v) => onFieldChange("street", v)}
           onBlur={() => onFieldBlur("street")}
           error={errors.street}
+          onAddressSelected={handleAddressSelected}
         />
         <FormField
           id="checkout-number"

@@ -469,6 +469,22 @@ this phase. Phase 1 (Store Pickup) then built and verified:
       horizontal overflow, billing section expands cleanly.
       `tsc`/`eslint`/`next build` clean on the storefront.
 
+**Premium Greek checkout, Phase 3 — address autocomplete.**
+
+- [x] Google Places (New) integration, called server-side only via two new
+      Server Actions (`lib/actions/address-autocomplete.ts`) — API key
+      never reaches the browser, an improvement over the original
+      client-side-widget plan.
+- [x] `AddressAutocomplete.tsx` wraps the Οδός field: debounced dropdown,
+      keyboard nav, autofills Οδός/Αριθμός/Πόλη/ΤΚ without ever overwriting
+      a field the customer already typed into, degrades to a plain text
+      field with zero errors when no API key is configured (verified live
+      — this is the actual state today).
+- [ ] **Not yet done**: real end-to-end verification against Google's
+      actual API (needs a real `GOOGLE_PLACES_API_KEY` — none available
+      this session) and the "map pin confirmation" visual from the
+      original spec. `tsc`/`eslint`/`next build` clean regardless.
+
 ## Next
 
 Premium checkout Phases 2-6 (billing address + tax documents, address
@@ -516,7 +532,8 @@ above for the current, real plan:
       extensible so it's additive once access exists)
 - [x] Billing address toggle + receipt/invoice toggle + ΑΦΜ checksum
       validation — **done**, see "Completed" above.
-- [ ] Address autocomplete — Google Places API recommended (Phase 3)
+- [x] Address autocomplete — **built**, see "Completed" above. Not yet
+      verified against a real Google API key.
 - [ ] ΑΦΜ/business lookup — ΓΕΜΗ Open Data recommended over direct
       AADE/TAXISnet (Phase 4)
 - [ ] Order confirmation emails — Medusa notification module + Resend +
