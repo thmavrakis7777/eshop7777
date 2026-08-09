@@ -33,5 +33,29 @@ module.exports = defineConfig({
         ],
       },
     },
+    // Same rule as fulfillment above: the built-in local provider (used for
+    // admin UI in-app notifications on the "feed" channel) must be listed
+    // explicitly alongside the real email provider, or it's silently lost.
+    {
+      resolve: "@medusajs/medusa/notification",
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/medusa/notification-local",
+            id: "local",
+            options: { channels: ["feed"] },
+          },
+          {
+            resolve: "@medusajs/medusa/notification-sendgrid",
+            id: "sendgrid",
+            options: {
+              channels: ["email"],
+              api_key: process.env.SENDGRID_API_KEY,
+              from: process.env.SENDGRID_FROM_EMAIL,
+            },
+          },
+        ],
+      },
+    },
   ],
 })

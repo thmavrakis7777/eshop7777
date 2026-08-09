@@ -25,9 +25,12 @@ export function AddressSection({
   onFieldBlur: (field: keyof ContactAddressFields) => void;
   saving?: boolean;
 }) {
-  // Autocomplete only ever fills fields the customer hasn't already typed
-  // something into — picking a suggestion shouldn't silently overwrite a
-  // number/area the customer already corrected by hand.
+  // Selecting a suggestion overwrites street/city/ΤΚ — they describe one
+  // consistent place, so a newly-picked address should replace all three
+  // together rather than leaving a stale city paired with a new street.
+  // Αριθμός is the one exception: Google's street-number match can be
+  // coarser than what the customer already typed (a specific unit/number),
+  // so it's only filled when still empty, never overwritten.
   function handleAddressSelected(details: ParsedAddressDetails) {
     if (details.street) onFieldChange("street", details.street);
     if (details.number && !values.number) onFieldChange("number", details.number);

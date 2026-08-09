@@ -96,9 +96,11 @@ export type AppliedPromotion = {
 
 export type TaxDocumentType = "receipt" | "invoice";
 
-// ΓΕΜΗ/AADE lookup (CHECKOUT_PREMIUM_SPEC.md §4.3) fills these in a later
-// phase — for now they're plain manual-entry fields. ΑΦΜ is validated
-// client-side (checksum only, see lib/checkout-validation.ts's isValidAFM).
+// Επωνυμία/Δραστηριότητα can be autofilled from a ΓΕΜΗ lookup once ΑΦΜ
+// passes its checksum (lib/actions/afm-lookup.ts); ΔΟΥ/Έδρα always stay
+// manual (ΓΕΜΗ has no ΔΟΥ field, Έδρα reuses the billing address instead).
+// ΑΦΜ itself is validated client-side (checksum only, see
+// lib/checkout-validation.ts's isValidAFM).
 export type InvoiceDetails = {
   companyName: string;
   afm: string;

@@ -597,7 +597,10 @@ Given the size, I'd sequence this so each phase is independently testable
    spec this session — a real correction to §4.3 below: getting a working
    `GEMI_API_KEY` needs registration + approval, not an instant self-serve
    key as first characterized. See `CHANGELOG.md`.
-5. Order confirmation emails (Resend + `order.placed` subscriber)
+5. ~~Order confirmation emails~~ — **built (2026-08-10)**, SendGrid (not
+   Resend — already a bundled dependency, see `CHANGELOG.md`) +
+   `order.placed` subscriber. Verified live with a real completed order;
+   real email delivery still needs a real `SENDGRID_API_KEY`.
 6. Stripe payment integration (needs your test-mode credentials)
 
 Each phase gets built, verified live, `tsc`/`eslint`/`next build` clean, before

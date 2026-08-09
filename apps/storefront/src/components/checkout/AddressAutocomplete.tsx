@@ -42,6 +42,11 @@ export function AddressAutocomplete({
   // selection completes a session, not on every render.
   const sessionToken = useRef(crypto.randomUUID());
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards against a real race condition: two in-flight requests can
+  // resolve out of order (a longer query can plausibly return faster or
+  // slower than a shorter one), so a stale response for an old keystroke
+  // could otherwise land after and overwrite a newer, correct one.
+  const latestRequestId = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -76,7 +81,9 @@ export function AddressAutocomplete({
     }
 
     debounceTimer.current = setTimeout(async () => {
+      const requestId = ++latestRequestId.current;
       const results = await getAddressSuggestions(newValue, sessionToken.current);
+      if (requestId !== latestRequestId.current) return; // superseded by a newer keystroke
       setSuggestions(results);
       setIsOpen(results.length > 0);
     }, 300);
@@ -136,6 +143,12 @@ export function AddressAutocomplete({
         aria-expanded={isOpen}
         aria-autocomplete="list"
         aria-controls={`${id}-listbox`}
+        // Real focus never leaves the input during arrow-key navigation —
+        // aria-activedescendant is what tells a screen reader which option
+        // is "active" so it gets announced. Without it, arrow-key
+        // navigation through the dropdown is silent for screen reader
+        // users even though it's fully usable visually and by mouse.
+        aria-activedescendant={activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined}
         aria-invalid={!!error}
         aria-describedby={error ? `${id}-error` : undefined}
         className="h-11 rounded-sm border border-border px-3 text-sm text-ink outline-none focus:border-accent"
@@ -152,7 +165,7 @@ export function AddressAutocomplete({
           className="absolute top-full z-20 mt-1 w-full rounded-sm border border-border bg-bg py-1 shadow-md"
         >
           {suggestions.map((s, i) => (
-            <li key={s.placeId} role="option" aria-selected={i === activeIndex}>
+            <li key={s.placeId} id={`${id}-option-${i}`} role="option" aria-selected={i === activeIndex}>
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}

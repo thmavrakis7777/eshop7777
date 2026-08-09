@@ -7,33 +7,40 @@ the pointer to exactly where to resume, those three have the detail behind it. D
 not restart the project, do not regenerate completed features, do not re-analyze
 the whole codebase from zero — everything needed is in these five files.
 
-**2026-08-09, later same day — Premium Greek Checkout, Phases 1-4 done:**
-`CHECKOUT_PREMIUM_SPEC.md` is the architecture review + decisions for the
-full "premium checkout" brief (BOX NOW deferred, Stripe first, ΓΕΜΗ for ΑΦΜ
-lookup, accounts out of scope). Phase 1 (Store Pickup, real address
+**2026-08-10 — Premium Greek Checkout, Phases 1-5 done + a full production
+audit:** `CHECKOUT_PREMIUM_SPEC.md` is the architecture review + decisions
+for the full "premium checkout" brief (BOX NOW deferred, Stripe first, ΓΕΜΗ
+for ΑΦΜ lookup, accounts out of scope). Phase 1 (Store Pickup, real address
 Σφακιανάκη 4, Ηράκλειο), Phase 2 (billing address toggle + tax document
-toggle + ΑΦΜ checksum validation, verified with a real completed test order
-display_id 3), Phase 3 (Google Places address autocomplete, server-side
-only), and Phase 4 (ΓΕΜΗ business lookup autofilling Επωνυμία/
-Δραστηριότητα from a valid ΑΦΜ) are all built. `tsc`/`eslint`/`next build`
-clean on both apps throughout. **Phases 1-3 committed and pushed**
-(`5b4b823`, `5632c85`, `e21224a`); **Phase 4 not yet committed** — ask
-before committing/pushing, same as always.
+toggle + ΑΦΜ checksum validation), Phase 3 (Google Places address
+autocomplete, server-side only), Phase 4 (ΓΕΜΗ business lookup), and Phase 5
+(order confirmation emails, SendGrid not Resend) are all built and verified
+live — Phase 5 with a real completed test order (`display_id` 4) whose
+backend logs confirmed the *entire* real chain, including a genuine SendGrid
+401 being caught without blocking the order. **Then a full user-requested
+production audit of every file touched this session** found and fixed three
+real bugs (a billing-checkbox interaction that silently blocked the
+shipping-address save; two real race conditions — ΓΕΜΗ autofill, address-
+autocomplete debounce) plus one accessibility gap
+(`aria-activedescendant`) — see `CHANGELOG.md`'s "Production quality audit"
+entry for the full list. `tsc`/`eslint`/`next build`/`medusa lint` clean on
+both apps after every fix. **Phases 1-3 committed and pushed** (`5b4b823`,
+`5632c85`, `e21224a`); **Phase 4, Phase 5, and the audit fixes are not yet
+committed** — ask before committing/pushing, same as always.
 
-**Real, honest gaps carried into next session, both the same shape**:
-neither Phase 3 (Google Places) nor Phase 4 (ΓΕΜΗ) has been exercised
-against a real, approved API key — neither was available this session.
-What *is* verified live for both: the graceful-degrade path (no key → zero
-errors, feature invisible, nothing else broken) and, for Phase 4
-specifically, the real API contract was confirmed against ΓΕΜΗ's own live
-Swagger spec (not guessed) — `opendata-api.businessportal.gr/api-docs`.
-**The moment real keys exist** (`GOOGLE_PLACES_API_KEY`, `GEMI_API_KEY` —
-see `.env.example`), click through both features for real before
-considering these phases actually proven, not just built. Getting a ΓΕΜΗ
-key needs registration + approval (`opendata.businessportal.gr/register/`),
-not instant self-serve. Phases 5-6 (order emails, Stripe) are not
-started — see `CHECKOUT_PREMIUM_SPEC.md`'s revised phase order and
-`TASKS.md`.
+**Real, honest gaps carried into next session, same shape as before**:
+neither Phase 3 (Google Places), Phase 4 (ΓΕΜΗ), nor Phase 5 (SendGrid) has
+been exercised against a real, approved API key — none were available this
+session. What *is* verified live for all three: the graceful-degrade path
+(no key → zero errors/crashes, nothing else broken), and for Phase 5
+specifically, the actual send attempt and its expected 401 failure, not
+just "would it crash." **The moment real keys exist**
+(`GOOGLE_PLACES_API_KEY`, `GEMI_API_KEY`, `SENDGRID_API_KEY`/
+`SENDGRID_FROM_EMAIL` — see the two `.env.example`/`.env.template` files),
+exercise all three for real before considering these phases fully proven.
+Getting a ΓΕΜΗ key needs registration + approval, not instant self-serve.
+Phase 6 (Stripe) is not started — see `CHECKOUT_PREMIUM_SPEC.md`'s revised
+phase order and `TASKS.md`.
 
 1. **Exact phase we are currently in**: everything through the production
    readiness audit is **committed and pushed** — `origin/main` is at

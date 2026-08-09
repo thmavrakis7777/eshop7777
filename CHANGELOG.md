@@ -3,6 +3,118 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Premium Greek checkout, Phase 5 — order confirmation emails (2026-08-10)
+
+Fifth phase of `CHECKOUT_PREMIUM_SPEC.md`: a real branded Greek order-
+confirmation email sent on `order.placed`, via Medusa's notification module
+— **SendGrid, not Resend** (a deliberate substitution from the original
+plan): `@medusajs/notification-sendgrid` is already a bundled dependency in
+this project, so using it needed zero new packages, versus Resend which
+would have needed one. Verified live via the actual sendgrid provider
+source in `node_modules` before building against it, same discipline as
+reading Medusa's fulfillment-manual source for Phase 1.
+
+**Same "explicit or it's lost" module-registration rule as fulfillment
+(Phase 1)**: the notification module needed the built-in local provider
+(used for admin in-app "feed" notifications) explicitly re-declared
+alongside the real email provider, or it would have been silently dropped.
+
+**Real safety question answered before registering anything**: does Medusa
+fail to boot if `SENDGRID_API_KEY` is unset? Traced into
+`@sendgrid/client`'s actual `setApiKey` implementation — it only
+`console.warn`s ("API key does not start with...") and never throws.
+Confirmed live: the backend restarted cleanly with no key configured.
+
+`src/subscribers/order-placed.ts` builds the email from the real Order
+Module Service (not a duplicated read path) and never lets a broken/
+unconfigured provider affect the order itself — wrapped in try/catch,
+logged, never rethrown, since the order already exists by the time this
+subscriber runs. `src/utils/order-confirmation-email.ts` is a table-based,
+inline-styled HTML template (email clients don't support flexbox/grid or
+reliably load web fonts, so it doesn't reuse the storefront's Tailwind
+classes) — no product images, matching this project's standing rule against
+fabricating what doesn't exist yet (no real product photography).
+
+**Verified live, completely**: placed a real test order (`display_id` 4)
+with a real SendGrid... provider registered but no real key. Backend logs
+confirmed the full real chain: `"Processing order.placed which has 1
+subscribers"` → the template built successfully → SendGrid rejected the
+placeholder key with a real 401 → caught and logged by the subscriber's own
+error handling → **order creation completed successfully regardless**,
+proving the "never block the sale" design actually holds under a real
+failure, not just in theory.
+
+`tsc`/`eslint`/`next build` (storefront) and `tsc`/`medusa lint` (backend)
+clean.
+
+## Production quality audit (2026-08-10)
+
+User-requested full audit of every file touched this session (Phases 1-5),
+performed as Sonnet 5 (no tool exists to switch models mid-session — flagged
+honestly rather than silently skipped). Real findings, not a rubber stamp:
+
+**Three real bugs found and fixed**, none caught by `tsc`/`eslint`/manual
+testing up to this point because earlier verification always filled every
+field before the first save, never exercising these specific paths:
+
+1. **Checking "different billing address" before finishing it silently
+   blocked the shipping-address save entirely** — `attemptDetailsSave`
+   gated the *whole* combined save (shipping included) on billing being
+   complete, so a customer who checked the box before typing a billing
+   address would see shipping options never load, with no error explaining
+   why. Fixed: billing only participates once it's actually complete;
+   until then it's sent as a mirror of shipping (same as the unchecked
+   state) rather than blocking. Confirmed live: shipping options now stay
+   visible through an incomplete billing entry.
+2. **Race condition in the ΓΕΜΗ autofill**: the lookup result was applied
+   via a plain object captured before the `await`, so if the customer typed
+   into Επωνυμία while the lookup was still in flight, the eventual
+   resolution could silently overwrite what they'd just typed. Fixed with a
+   functional `setInvoiceFields` update that merges against the freshest
+   state instead of a stale snapshot.
+3. **Race condition in the address-autocomplete debounce**: two in-flight
+   suggestion requests can resolve out of order (a longer query isn't
+   guaranteed to come back slower), so a stale response for an old
+   keystroke could land after and overwrite a newer, correct one. Fixed
+   with a request-generation counter that discards superseded responses.
+
+**One real accessibility gap fixed**: the address-autocomplete dropdown
+supports arrow-key navigation, but real focus never left the input, so a
+screen reader had nothing to announce which suggestion was "active" —
+added `aria-activedescendant` + stable `id`s on each option, the standard
+fix for this exact combobox pattern.
+
+**Two misleading comments corrected** to match actual code behavior (found
+while re-reading code with fresh eyes, not from any bug report) — one in
+`lib/types.ts` (referred to ΓΕΜΗ lookup as a "later phase" after it had
+already shipped in Phase 4), one in `AddressSection.tsx` (claimed
+autocomplete "only fills empty fields," which is true only for Αριθμός —
+street/city/ΤΚ are deliberately always overwritten together, since they
+describe one consistent place).
+
+**Clean**: no dead code, no duplicate logic, no debug/console statements,
+no unused imports found across the full session diff (confirmed via
+`grep` sweep + a clean `tsc`/`eslint` pass, which catches unused
+imports/variables in this project's config). No new npm dependencies were
+added at any point this session — Phases 3/4/5 all reused either Node's
+built-in `fetch` (Google Places, ΓΕΜΗ) or an already-bundled Medusa package
+(SendGrid), keeping bundle size and dependency surface unchanged.
+
+**Medusa architecture**: re-confirmed every new data point (billing
+address, tax document type, ΑΦΜ, pickup fulfillment) lives on a real Medusa
+field or module — no parallel database, no duplicated business logic.
+
+**SEO/responsive**: no new routes, `/checkout`'s existing `noindex` and
+canonical are untouched, heading hierarchy on the confirmation page is
+still a clean h1→h2 (no skipped levels). Full checkout flow re-verified at
+375px mobile width after every fix: zero horizontal overflow.
+
+**Remaining technical debt** (not fixed, out of scope for this audit — all
+already tracked as open items, not new discoveries): Phases 3/4 still need
+real API keys for true end-to-end verification; Phase 6 (a real payment
+gateway) and BOX NOW are still not started; customer accounts remain
+explicitly out of scope.
+
 ## Premium Greek checkout, Phase 4 — ΓΕΜΗ business lookup (2026-08-09)
 
 Fourth phase of `CHECKOUT_PREMIUM_SPEC.md`: a valid ΑΦΜ in the invoice

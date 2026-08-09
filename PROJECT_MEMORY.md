@@ -687,6 +687,75 @@ nested Turborepo/pnpm workspace):
   - **Not yet live-verified against a real approved key** — same honest gap
     as Phase 3's Google integration.
 
+- **Premium Greek checkout — order confirmation emails (Phase 5 of
+  `CHECKOUT_PREMIUM_SPEC.md`)**:
+  - **SendGrid, not Resend** — a deliberate substitution from the original
+    plan, made because `@medusajs/notification-sendgrid` is already a
+    bundled dependency in this project (confirmed via `node_modules`
+    inspection before writing any code), so it needed zero new packages.
+    Resend would have needed one for equivalent capability.
+  - **Same module-registration rule as fulfillment (Phase 1)**: adding
+    `Modules.NOTIFICATION` to `medusa-config.ts` needed the built-in local
+    provider (admin's in-app "feed" notifications) explicitly re-declared
+    alongside the real sendgrid provider, or it's silently dropped —
+    confirmed by reading `@medusajs/medusa/dist/modules/notification-local.js`
+    exists as a resolve target, same pattern as `fulfillment-manual.js`.
+  - **Verified safe before registering**: traced into the real
+    `@sendgrid/client` source (`setApiKey`) to confirm it only
+    `console.warn`s on a missing/invalid key and never throws — so
+    registering the module with `SENDGRID_API_KEY` unset doesn't crash
+    Medusa on boot. Confirmed live: clean restart with no key configured.
+  - `src/subscribers/order-placed.ts` reads the real Order Module Service
+    (`retrieveOrder` with `relations: ["items", "shipping_address",
+    "billing_address", "shipping_methods"]`) — no duplicated order-reading
+    logic. Wrapped in try/catch that only logs, never rethrows: this
+    subscriber runs *after* the order already exists, so a broken email
+    provider must never be able to affect the sale.
+  - `src/utils/order-confirmation-email.ts` is deliberately **not** under
+    `src/subscribers/` — Medusa's subscriber loader scans that directory
+    and expects every file to export a subscriber; a template helper there
+    risks being picked up and failing to load.
+  - Table-based, inline-styled HTML (no Tailwind classes, no flexbox/grid,
+    web-safe font stacks) — email clients (Gmail, Outlook) don't reliably
+    support either. No product images, same anti-fabrication rule as
+    everywhere else in this project (`PlaceholderTile` stands in on the
+    site itself because no real photography exists yet).
+  - **Verified live, completely, with a real order**: placed a real test
+    order (`display_id` 4). Backend logs confirmed the whole real chain —
+    `order.placed` fired with exactly 1 subscriber registered, the email
+    template built successfully, SendGrid rejected the placeholder key
+    with a genuine 401, the subscriber's own error handling caught and
+    logged it, and **the order still completed successfully** — proof the
+    "never block the sale" design holds under a real failure, not just in
+    a code review.
+  - Payment method name in the email is hardcoded to "Αντικαταβολή" — same
+    reasoning as `PaymentSection.tsx`'s `PROVIDER_LABELS`: only one
+    provider exists today, so a full payment-collection lookup for a
+    single always-true value isn't worth the complexity yet. Revisit both
+    together once Stripe (Phase 6) exists.
+
+- **Production quality audit (2026-08-10)**: user-requested full review of
+  every file touched this session. Performed as Sonnet 5 — there is no tool
+  to switch models mid-session, flagged honestly rather than silently
+  ignored. Found and fixed three real bugs that earlier phase-by-phase
+  testing never exercised (each only reachable via a specific partial-fill
+  order no earlier test happened to try):
+  - Checking "different billing address" before finishing it blocked the
+    *shipping*-address save entirely (both addresses shared one validation
+    gate) — fixed so billing only joins the save once it's actually
+    complete; until then it mirrors shipping, same as the unchecked state.
+  - A real race condition in the ΓΕΜΗ autofill (stale-snapshot overwrite of
+    fresh user input) — fixed with a functional state update.
+  - A real race condition in the address-autocomplete debounce (out-of-
+    order network responses could show stale suggestions) — fixed with a
+    request-generation counter.
+  - Also added `aria-activedescendant` to the address-autocomplete
+    combobox (arrow-key navigation was silent for screen readers — real
+    focus never left the input, so nothing announced which suggestion was
+    highlighted) and corrected two comments that had drifted from what the
+    code actually does. No dead code, unused imports, or new dependencies
+    were found across the full session diff.
+
 - **Product code / add-to-cart-everywhere / search architecture (Phase 5)**,
   proposed and approved (`PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`) before any
   code — same design-first discipline as cart/checkout:

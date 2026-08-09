@@ -149,11 +149,21 @@ export function CheckoutForm({
 
     const errors = validateDetails(details);
     if (Object.keys(errors).length > 0) return;
-    if (effectiveBillingDiffers && Object.keys(validateAddressFields(billingFields)).length > 0) return;
+
+    // Billing only participates in the save once it's actually complete —
+    // a customer who checks "different billing address" but hasn't finished
+    // typing it yet must not have their (already valid) shipping address
+    // save blocked, or shipping options would never appear with no
+    // explanation. Until billing is complete, it's sent as a mirror of
+    // shipping (the same value the "unchecked" state already sends) rather
+    // than blocking on it — real bug found during this session's own audit,
+    // never actually exercised by earlier testing (which always filled
+    // both addresses together before the first save).
+    const billingComplete = effectiveBillingDiffers && Object.keys(validateAddressFields(billingFields)).length === 0;
 
     const signature = JSON.stringify({
       details,
-      billing: effectiveBillingDiffers ? billingFields : null,
+      billing: billingComplete ? billingFields : null,
     });
     if (signature === lastSavedDetails.current) return;
 
@@ -162,8 +172,8 @@ export function CheckoutForm({
     setShippingStatus("loading");
     const result = await updateCheckoutDetailsAction({
       ...details,
-      billingDiffers: effectiveBillingDiffers,
-      billing: effectiveBillingDiffers ? billingFields : undefined,
+      billingDiffers: billingComplete,
+      billing: billingComplete ? billingFields : undefined,
     });
     if (result.ok) {
       lastSavedDetails.current = signature;
@@ -263,12 +273,21 @@ export function CheckoutForm({
       const result = await lookupCompanyByAfm(invoiceFields.afm);
       setAfmLookupLoading(false);
       if (result) {
-        currentFields = {
-          ...currentFields,
-          companyName: currentFields.companyName || result.companyName,
-          activity: currentFields.activity || result.activity || currentFields.activity,
-        };
-        setInvoiceFields(currentFields);
+        // Functional update, not a snapshot object — the lookup can take a
+        // moment, and if the customer typed into Επωνυμία while it was in
+        // flight, applying a plain object captured before the await would
+        // silently overwrite what they just typed. Merging against `prev`
+        // (the state at the moment this actually commits) avoids that real
+        // race condition, found during this session's own audit.
+        setInvoiceFields((prev) => {
+          const merged = {
+            ...prev,
+            companyName: prev.companyName || result.companyName,
+            activity: prev.activity || result.activity || prev.activity,
+          };
+          currentFields = merged;
+          return merged;
+        });
       }
     }
 

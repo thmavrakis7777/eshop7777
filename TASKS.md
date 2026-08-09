@@ -502,6 +502,43 @@ this phase. Phase 1 (Store Pickup) then built and verified:
       correctly 401s on a real call). Graceful no-key degrade path verified
       live. `tsc`/`eslint`/`next build` clean.
 
+**Premium Greek checkout, Phase 5 — order confirmation emails.**
+
+- [x] Real order-confirmation email on `order.placed`, via Medusa's
+      notification module + SendGrid (substituted for the originally
+      planned Resend — SendGrid is already a bundled dependency, needing
+      zero new packages). Same "explicit module registration or it's
+      silently lost" rule as fulfillment (Phase 1) applied to the built-in
+      local provider.
+- [x] Verified live with a real completed test order (display_id 4): the
+      full real chain confirmed in backend logs — subscriber fired, email
+      template built, SendGrid correctly rejected the placeholder key
+      (401), the failure was caught and logged, and the order still
+      completed successfully regardless.
+- [ ] **Not yet done**: a real email actually landing in an inbox (needs a
+      real `SENDGRID_API_KEY`, none available this session).
+      `tsc`/`eslint`/`next build`/`medusa lint` all clean.
+
+**Production quality audit (2026-08-10, user-requested).** Full review of
+every file touched this session, performed as Sonnet 5 (no tool exists to
+switch models mid-session).
+
+- [x] Three real bugs found and fixed — none caught by earlier phase
+      testing since it always filled every field before the first save:
+      checking "different billing" before finishing it blocked the
+      *shipping* save entirely; a race condition in the ΓΕΜΗ autofill
+      (stale-snapshot overwrite of fresh typing); a race condition in the
+      address-autocomplete debounce (out-of-order responses showing stale
+      suggestions).
+- [x] One real accessibility gap fixed: `aria-activedescendant` added to
+      the address-autocomplete combobox (arrow-key navigation was silent
+      for screen readers).
+- [x] Two misleading comments corrected to match actual code behavior.
+- [x] Confirmed clean: no dead code, unused imports, debug statements, or
+      new dependencies across the full session diff. `tsc`/`eslint`/
+      `next build` (storefront) and `tsc`/`medusa lint` (backend) all
+      clean after every fix.
+
 ## Next
 
 Premium checkout Phases 2-6 (billing address + tax documents, address
@@ -553,8 +590,8 @@ above for the current, real plan:
       verified against a real Google API key.
 - [x] ΑΦΜ/business lookup — **built**, see "Completed" above. Not yet
       verified against a real approved ΓΕΜΗ key.
-- [ ] Order confirmation emails — Medusa notification module + Resend +
-      `order.placed` subscriber (Phase 5)
+- [x] Order confirmation emails — **built**, see "Completed" above (SendGrid,
+      not Resend). Not yet verified against a real SendGrid API key.
 - [ ] A real payment processor — **Stripe first** (decided), official
       Medusa plugin, covers cards + Apple Pay + Google Pay; Viva
       Wallet/IRIS documented as a later option, needs a custom payment
