@@ -606,6 +606,110 @@ nested Turborepo/pnpm workspace):
     it with — harmless local-dev-only leftover, safe to delete via the
     admin UI whenever convenient, same as its Phase 4A predecessor.
 
+- **Product card / wishlist / stock display / PDP content architecture**,
+  proposed and approved (`PRODUCT_CARD_WISHLIST_PDP_SPEC.md`) before any
+  code — after a short look at how established Greek home-goods retailers
+  structure cards/PDPs for UX-pattern reference (not copied — see the spec
+  for the exact "inspiration only" boundary):
+  - **Card hierarchy changed**: image (wishlist heart top-right) → title →
+    code (small/muted) → price → stock → Add to Cart. The user's own first
+    draft put stock/button *before* title/price; recommended reordering so
+    identity and price read before the action, explained why, and the user
+    took the recommendation. Add to Cart moved from an absolutely-positioned
+    hover-reveal overlay (Phase 4A/5) into a real row in normal document
+    flow — this also **removes** the old desktop-hover / mobile-always-
+    visible CSS split entirely (nothing left to regress there).
+  - **Wishlist is `localStorage`-only, deliberately not a Medusa feature**:
+    confirmed Medusa v2 has no native wishlist module, and this storefront
+    has no customer auth system (guest-only checkout by design) — a
+    Medusa-backed wishlist would require building account creation/login
+    first, well outside this task's scope. Mirrors the already-proven
+    "recently viewed" shape (handles in `localStorage`, a Server Action
+    resolving them to real Medusa product data via `getProductsByHandles`),
+    not a new pattern. Forward-compatible: if real accounts are ever built,
+    only the storage layer would move, not the UI.
+  - **Wishlist state is a real external store (`lib/wishlist-storage.ts`)
+    read via `useSyncExternalStore`, not `useEffect`+`useState`.** A naive
+    "read localStorage in a mount effect" causes a real SSR/hydration
+    mismatch (the server has no `localStorage`) and would trip the
+    `react-hooks/set-state-in-effect` lint rule this project already
+    enforces (see the Phase 5 `SearchBox` fix). `useSyncExternalStore`
+    solves both: `getServerSnapshot` returns `[]` for the server-rendered
+    pass, the real client snapshot reconciles right after hydration.
+  - **Real bug hit and fixed during this build**: `getServerSnapshot` must
+    return the *same* array reference every call, not a fresh `[]` literal
+    — otherwise React throws "The result of getServerSnapshot should be
+    cached to avoid an infinite loop" (confirmed live in-browser). Fixed
+    with a module-level `EMPTY_HANDLES` constant. Same rule applies to the
+    regular `getSnapshot` (handled via a raw-JSON-string cache that only
+    produces a new array when the underlying value actually changed) — if
+    this file is ever touched again, preserve both stable-reference rules.
+  - **Stock display, one shared component**: `StockStatus`
+    (`components/product/StockStatus.tsx`) is now the single place
+    "Σε απόθεμα"/"Εξαντλήθηκε" wording and color lives, used by both
+    `ProductCard` and the PDP — driven by the same `product.isAvailable`
+    computed from real Medusa inventory (Phase 5), never hardcoded. First
+    real use of the `--color-success` design token, which existed in
+    `globals.css` since Phase 1 but had nothing using it until now.
+  - **PDP characteristics/specs: the architecture is native Medusa, the
+    data isn't there yet.** Confirmed live: `material`, `weight`, `length`,
+    `width`, `height`, `origin_country` all already exist on the Store API
+    response — no new field. Every one of the 16 real products has every
+    one of these `null` today (confirmed live, and separately visible in
+    the admin's own "Attributes" panel). `ProductCharacteristics.tsx`
+    renders only populated fields and returns `null` entirely if none are
+    set — deliberately ships as an empty-safe section rather than inventing
+    plausible-sounding weights/dimensions, same anti-fabrication standard
+    as the fake-reviews/fake-ratings rule elsewhere in this file. Weight is
+    formatted in grams below 1kg else κιλά; dimensions in cm — Medusa's
+    documented unit defaults, not assumed. `origin_country` is an ISO
+    2-letter code mapped through a small, deliberately incomplete Greek
+    country-name lookup in `lib/data/products.ts` (falls back to the raw
+    code for anything unmapped).
+  - **PDP description promoted to its own labeled `<h2>` section**
+    ("Περιγραφή"), moved out of an unlabeled paragraph directly under the
+    price — same underlying `product.shortDescription`/Medusa `description`
+    field, just given real section structure. No separate short/long
+    description exists in Medusa's schema (one `description` field only),
+    so there's no duplicate-content risk between the metadata description
+    and the on-page one.
+  - Heading hierarchy on the PDP is now h1 (title) → h2 (`Περιγραφή`,
+    `Χαρακτηριστικά`, `Σχετικά προϊόντα`, `Είδατε πρόσφατα`) — confirmed
+    live via `document.querySelectorAll('h1,h2,h3')`, not assumed from the
+    JSX.
+  - `Product` JSON-LD gains `material`/`weight` (schema.org
+    `QuantitativeValue`) only when those fields are populated — same rule
+    as the visible table, confirmed live that the JSON-LD correctly omits
+    both keys entirely for a product with no characteristics data.
+  - **Known gap, not fixed this session**: the header's wishlist icon
+    (like the pre-existing account icon) is `hidden sm:block` — invisible
+    below the `sm` breakpoint, meaning true mobile viewports have no header
+    entry point back to `/lista-epithymion` (typing the URL still works,
+    and the heart-toggle interaction itself is fully functional on mobile
+    everywhere a product renders — this is specifically about the header
+    nav icon). Pre-existing pattern (same treatment the account icon has
+    always had), not a regression introduced here; would need a `MobileMenu`
+    change to fix, which is outside this task's scope.
+  - Verified live end-to-end, not just `tsc`/`eslint`/`next build` (all
+    clean): card hierarchy on a real product; wishlist toggle updates the
+    header count instantly with no toast/drawer interruption, persists in
+    `localStorage`, `/lista-epithymion` resolves and displays it via the
+    Server Action, removing the last item shows the empty state
+    immediately; out-of-stock state (real API-driven inventory zeroing,
+    same `qa-agent`-style temporary admin account pattern as Phase 5, this
+    time via direct Admin API calls after the admin dashboard UI's row-action
+    menu proved unreliable to drive via browser automation) confirmed
+    correct and *then restored* on both the PDP and a grid card, including
+    the disabled-button check; 375/768/1280px widths all `scrollWidth ===
+    innerWidth` (no horizontal overflow); a real long product name
+    ("Πιατέλα Σερβιρίσματος 3 Ορόφων") wraps cleanly without breaking grid
+    alignment; `/kalathi`'s cross-sell rail (also `ProductCard`) still
+    renders with zero console errors. **Not re-verified this session**: a
+    discounted product's card/PDP rendering (no active promotion exists in
+    the live catalog to test against, and the discount/`compareAtPrice`
+    code path itself was not touched by this work — same honest gap as
+    Phase 5's).
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

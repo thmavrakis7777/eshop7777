@@ -11,9 +11,16 @@ export function SearchIcon({ className = base }: IconProps) {
   );
 }
 
-export function HeartIcon({ className = base }: IconProps) {
+export function HeartIcon({ className = base, filled = false }: IconProps & { filled?: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.6"
+      className={className}
+      aria-hidden="true"
+    >
       <path d="M12 20.5s-7.5-4.6-10-9.3C0.3 7.8 2 4.5 5.4 4c2-.3 3.8.7 4.9 2.3C11.4 4.7 13.2 3.7 15.2 4c3.4.5 5.1 3.8 3.4 7.2-2.5 4.7-10 9.3-10 9.3z" strokeLinejoin="round" />
     </svg>
   );

@@ -32,6 +32,20 @@ export type ProductVariant = {
   isAvailable: boolean;
 };
 
+// Medusa's native product attribute fields, mapped through only when
+// populated — see lib/data/products.ts's toDomainCharacteristics. `null`
+// (not an object with undefined fields) when nothing is entered, so
+// callers can render the whole section conditionally with one check
+// instead of testing each field.
+export type ProductCharacteristics = {
+  material?: string;
+  weightGrams?: number;
+  lengthCm?: number;
+  widthCm?: number;
+  heightCm?: number;
+  originCountry?: string;
+};
+
 export type Product = {
   id: string;
   title: string;
@@ -53,6 +67,7 @@ export type Product = {
   code: string | null;
   // True if at least one variant is purchasable.
   isAvailable: boolean;
+  characteristics: ProductCharacteristics | null;
 };
 
 export type NavCategory = Category & {

@@ -3,6 +3,90 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Product card redesign, wishlist, stock display, PDP content (2026-08-09)
+
+User brief: reposition the product card's Add to Cart button, add a
+wishlist feature, make stock status always visible, and give the PDP
+dedicated description/characteristics sections — explicit instruction to
+inspect the current implementation first, propose an architecture (with a
+short look at how established Greek home-goods retailers structure
+cards/PDPs, for pattern reference only — nothing copied), and get sign-off
+before writing code. Proposal + two open decisions written up in
+`PRODUCT_CARD_WISHLIST_PDP_SPEC.md` and approved before implementation,
+same pattern as every prior feature phase.
+
+**Card hierarchy**: the user's own first draft put stock status and the
+Add to Cart button *before* title/price. Recommended reordering instead —
+identity and price should read before the action asks for a decision — and
+explained why rather than silently building either version; the user took
+the recommendation. Final order: image (wishlist heart top-right) → title
+→ code (small, muted) → price → stock → Add to Cart, now a real row in
+normal document flow instead of an absolutely-positioned hover-reveal
+overlay. That change also retires the Phase 5 desktop-hover/mobile-always-
+visible CSS split entirely — nothing left to regress there.
+
+**Wishlist, architecture explained before building** (per explicit
+instruction not to invent a custom system without justifying it first):
+Medusa v2 has no native wishlist module, and this storefront has no
+customer auth system — checkout is guest-only by design, so a
+Medusa-backed wishlist would mean building account creation/login first,
+well outside this task. Reused the exact shape already proven by "recently
+viewed": handles in `localStorage`, a Server Action resolving them to real
+Medusa product data. Built as a real external store
+(`lib/wishlist-storage.ts`) read via `useSyncExternalStore` rather than a
+naive `useEffect`+`useState` mount-read, which would have caused a real
+SSR/hydration mismatch (the server has no `localStorage`) and tripped the
+`react-hooks/set-state-in-effect` lint rule this project already enforces.
+**Real bug caught live during this build**: `getServerSnapshot` returning a
+fresh `[]` literal every call triggered React's "should be cached to avoid
+an infinite loop" — fixed with a stable module-level constant. A real
+`/lista-epithymion` page (previously a linked-but-404 placeholder since
+Phase 1) replaces the placeholder, reusing `ProductCard`.
+
+**Stock display**: a new shared `StockStatus` component (`Σε απόθεμα` /
+`Εξαντλήθηκε`, real-inventory-driven, same rule as Phase 5's Add to Cart
+gating) is now the one place this wording/color lives, used by both the
+card and the PDP — first real use of the `--color-success` design token,
+which has existed since Phase 1 but had nothing using it.
+
+**PDP content sections**: confirmed live that Medusa's native product
+schema already has `material`/`weight`/`length`/`width`/`height`/
+`origin_country` — the "characteristics" architecture the user asked for
+already exists, no new field. But every one of the 16 real products has
+every one of these fields empty today (confirmed live and via the admin's
+own Attributes panel). Built the Characteristics section to render only
+populated fields and disappear entirely when none exist, rather than
+inventing plausible-sounding weights/dimensions — same anti-fabrication
+standard already applied to fake reviews/ratings elsewhere in this
+project. Description was promoted from an unlabeled paragraph into its own
+`<h2>Περιγραφή</h2>` section. Heading hierarchy confirmed live via
+`document.querySelectorAll`: single h1, logical h2s beneath it.
+
+**Verified live end-to-end** (not just `tsc`/`eslint`/`next build`, though
+those are clean): wishlist toggle → instant header count update → persists
+in `localStorage` → resolves on `/lista-epithymion` → removing the last
+item shows the empty state immediately, no reload needed anywhere in that
+chain; out-of-stock state confirmed correct and then restored on both the
+PDP and a grid card, including the disabled-button check (driven via the
+Admin API directly after the admin dashboard's row-action menu proved
+unreliable to drive through browser automation — same category of tooling
+flakiness noted in earlier phases, not an app bug); 375/768/1280px all
+`scrollWidth === innerWidth` (zero horizontal overflow); a real long
+product name wraps cleanly without breaking grid alignment; the cart
+page's cross-sell rail (also `ProductCard`) still renders with zero
+console errors. Not re-verified: a discounted product's card/PDP rendering
+— no active promotion exists in the live catalog to test against, and the
+discount/`compareAtPrice` code path itself wasn't touched by this work,
+same honest gap as Phase 5.
+
+**Known, pre-existing gap, not introduced or fixed here**: the header's
+wishlist icon is `hidden sm:block` (same treatment the account icon has
+always had) — invisible below the `sm` breakpoint, so true mobile widths
+have no header entry point to `/lista-epithymion`. The heart-toggle
+interaction itself works everywhere a product renders on mobile; this is
+specifically about the header nav icon, and fixing it means touching
+`MobileMenu`, out of scope for this task.
+
 ## Production readiness audit — Phases 1–5 (2026-08-08)
 
 A gated, whole-codebase audit before any further feature work: code review,

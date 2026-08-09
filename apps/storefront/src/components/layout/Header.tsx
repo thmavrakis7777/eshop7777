@@ -15,6 +15,7 @@ import {
 import { MobileMenu } from "./MobileMenu";
 import { SearchBox } from "./SearchBox";
 import { useCartUI } from "@/components/cart/CartUIProvider";
+import { useWishlist } from "@/components/wishlist/WishlistProvider";
 
 export function Header({
   categories: navCategories,
@@ -24,6 +25,7 @@ export function Header({
   cartItemCount: number;
 }) {
   const { openDrawer } = useCartUI();
+  const { count: wishlistCount } = useWishlist();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -85,8 +87,17 @@ export function Header({
             >
               {searchOpen ? <CloseIcon /> : <SearchIcon />}
             </button>
-            <Link href="/lista-epithymion" className="hidden sm:block p-2 hover:text-accent transition-colors" aria-label="Λίστα επιθυμιών">
-              <HeartIcon />
+            <Link
+              href="/lista-epithymion"
+              className="relative hidden p-2 hover:text-accent transition-colors sm:block"
+              aria-label={`Λίστα επιθυμιών, ${wishlistCount} προϊόντα`}
+            >
+              <HeartIcon filled={wishlistCount > 0} />
+              {wishlistCount > 0 && (
+                <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-white tabular-nums">
+                  {wishlistCount}
+                </span>
+              )}
             </Link>
             <Link href="/logariasmos" className="hidden sm:block p-2 hover:text-accent transition-colors" aria-label="Λογαριασμός">
               <UserIcon />

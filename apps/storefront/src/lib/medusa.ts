@@ -43,6 +43,17 @@ export type MedusaProduct = {
   variants: MedusaVariant[];
   categories: Array<{ id: string; name: string; handle: string }>;
   created_at: string;
+  // Native Medusa product attributes — real "characteristics" fields, not a
+  // custom addition. Confirmed live (2026-08-09): the field set exists on
+  // every product, but none of the real 16 products have any of it entered
+  // yet (all null). Weight is grams, dimensions are centimeters — Medusa's
+  // documented defaults, not assumed. origin_country is an ISO 2-letter code.
+  material: string | null;
+  weight: number | null;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  origin_country: string | null;
   status: string;
 };
 

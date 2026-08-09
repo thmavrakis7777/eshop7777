@@ -6,14 +6,23 @@ import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 import { Stars } from "@/components/ui/Stars";
+import { StockStatus } from "@/components/product/StockStatus";
 import { addLineItemAction } from "@/lib/actions/cart";
 import { useCartUI } from "@/components/cart/CartUIProvider";
+import { WishlistButton } from "@/components/wishlist/WishlistButton";
 
 const BADGE_LABEL: Record<NonNullable<Product["badges"]>[number], string> = {
   new: "Νέο",
   sale: "Προσφορά",
 };
 
+// Hierarchy (image → title → code → price → stock → Add to Cart) approved
+// in PRODUCT_CARD_WISHLIST_PDP_SPEC.md §1 — identity and price read before
+// the action, rather than the button competing with the image for
+// attention. Add to Cart is a real row in normal flow now, not an
+// absolutely-positioned overlay — which also removes the old
+// hover-to-reveal/mobile-always-visible split entirely (Phase 5's fix for
+// that is now moot, not reintroduced).
 export function ProductCard({ product }: { product: Product }) {
   const { showAddedToast } = useCartUI();
   const [isPending, startTransition] = useTransition();
@@ -28,8 +37,7 @@ export function ProductCard({ product }: { product: Product }) {
   const variant = product.variants[0];
   const isOutOfStock = !product.isAvailable;
 
-  function handleQuickAdd(e: React.MouseEvent) {
-    e.preventDefault();
+  function handleQuickAdd() {
     setError(null);
     startTransition(async () => {
       const result = await addLineItemAction(variant.id, 1);
@@ -42,17 +50,12 @@ export function ProductCard({ product }: { product: Product }) {
   }
 
   return (
-    <article className="group relative flex flex-col">
+    <article className="flex flex-col">
       <div className="relative overflow-hidden rounded-md">
         <Link href={`/proionta/${product.handle}`} className="block" tabIndex={-1} aria-hidden="true">
-          {(isOutOfStock || (product.badges && product.badges.length > 0)) && (
+          {product.badges && product.badges.length > 0 && (
             <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
-              {isOutOfStock && (
-                <span className="rounded-sm bg-ink-muted px-2 py-1 text-[11px] font-medium tracking-wide text-white">
-                  Εξαντλήθηκε
-                </span>
-              )}
-              {product.badges?.map((b) => (
+              {product.badges.map((b) => (
                 <span
                   key={b}
                   className={`rounded-sm px-2 py-1 text-[11px] font-medium tracking-wide ${
@@ -66,41 +69,15 @@ export function ProductCard({ product }: { product: Product }) {
               ))}
             </div>
           )}
-          <div
-            className={`transition-transform duration-200 ease-out group-hover:scale-[1.03] ${
-              isOutOfStock ? "opacity-70" : ""
-            }`}
-          >
+          <div className={isOutOfStock ? "opacity-70" : ""}>
             <PlaceholderTile label={product.title} tone={product.placeholderTone} />
           </div>
         </Link>
-        {hasSingleVariant ? (
-          <button
-            type="button"
-            // Always visible on mobile (touch has no hover state to reveal
-            // it with — a hover-only control would make the button
-            // unreachable, not just less discoverable). Desktop keeps the
-            // quieter hover-reveal treatment.
-            className="absolute bottom-2 right-2 flex items-center rounded-sm bg-ink px-3 py-2 text-xs font-medium text-white transition-all duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-100 md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100"
-            aria-label={
-              isOutOfStock
-                ? `${product.title} — Εξαντλήθηκε`
-                : `Γρήγορη προσθήκη ${product.title} στο καλάθι`
-            }
-            onClick={handleQuickAdd}
-            disabled={isPending || isOutOfStock}
-          >
-            {isOutOfStock ? "Εξαντλήθηκε" : isPending ? "…" : "+ Καλάθι"}
-          </button>
-        ) : (
-          <Link
-            href={`/proionta/${product.handle}`}
-            className="absolute bottom-2 right-2 flex items-center rounded-sm bg-ink px-3 py-2 text-xs font-medium text-white transition-all duration-150 ease-out md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100"
-            aria-label={`Επιλογές για ${product.title}`}
-          >
-            Επιλογές
-          </Link>
-        )}
+        <WishlistButton
+          handle={product.handle}
+          title={product.title}
+          className="absolute right-2 top-2 z-10 rounded-full bg-bg/90 p-2 text-ink backdrop-blur-sm transition-transform duration-150 ease-out hover:scale-110 active:scale-95"
+        />
       </div>
 
       <div className="mt-3 flex flex-col gap-1">
@@ -118,6 +95,7 @@ export function ProductCard({ product }: { product: Product }) {
         {product.rating !== undefined && (
           <Stars rating={product.rating} count={product.reviewCount} />
         )}
+        {product.code && <span className="text-xs text-ink-muted">Κωδικός: {product.code}</span>}
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-semibold text-ink">
             {formatPrice(product.price)}
@@ -128,6 +106,25 @@ export function ProductCard({ product }: { product: Product }) {
             </span>
           )}
         </div>
+        <StockStatus isAvailable={product.isAvailable} className="mt-0.5" />
+
+        {hasSingleVariant ? (
+          <button
+            type="button"
+            className="mt-2 w-full rounded-sm bg-ink px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={handleQuickAdd}
+            disabled={isPending || isOutOfStock}
+          >
+            {isOutOfStock ? "Εξαντλήθηκε" : isPending ? "Προσθήκη…" : "Προσθήκη στο καλάθι"}
+          </button>
+        ) : (
+          <Link
+            href={`/proionta/${product.handle}`}
+            className="mt-2 w-full rounded-sm bg-ink px-4 py-2.5 text-center text-xs font-medium text-white transition-colors hover:bg-accent"
+          >
+            Επιλογές
+          </Link>
+        )}
       </div>
     </article>
   );

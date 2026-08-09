@@ -1,6 +1,25 @@
 import { getDefaultRegionId, medusaFetch, type MedusaProduct, type MedusaVariant } from "@/lib/medusa";
 import { getCategoryIdByHandle, getCategoryIdsForHandle } from "@/lib/data/categories";
-import type { Product, Tone } from "@/lib/types";
+import type { Product, ProductCharacteristics, Tone } from "@/lib/types";
+
+// Small, deliberately incomplete lookup for the handful of manufacturing
+// origins likely to appear on a Greek home-goods catalog — not a full
+// ISO-3166 table. Falls back to the raw code so an unmapped country still
+// displays something rather than nothing.
+const COUNTRY_NAMES_EL: Record<string, string> = {
+  gr: "Ελλάδα",
+  it: "Ιταλία",
+  de: "Γερμανία",
+  fr: "Γαλλία",
+  es: "Ισπανία",
+  pt: "Πορτογαλία",
+  nl: "Ολλανδία",
+  tr: "Τουρκία",
+  cn: "Κίνα",
+  in: "Ινδία",
+  pl: "Πολωνία",
+  gb: "Ηνωμένο Βασίλειο",
+};
 
 const TONES: Tone[] = ["clay", "sage", "stone", "linen"];
 const NEW_ARRIVAL_WINDOW_DAYS = 30;
@@ -31,6 +50,25 @@ function isVariantAvailable(v: MedusaVariant): boolean {
   if (!v.manage_inventory) return true;
   if (v.allow_backorder) return true;
   return (v.inventory_quantity ?? 0) > 0;
+}
+
+// Returns null (not an object with all-undefined fields) when nothing is
+// populated, so PDP sections can do `if (characteristics)` once instead of
+// checking every field. Confirmed live (2026-08-09): every real product
+// returns null for all of these today — the section built on top of this
+// will render nothing until real data is entered in the admin, which is
+// the deliberate, approved behavior (see PRODUCT_CARD_WISHLIST_PDP_SPEC.md
+// §4) rather than fabricated placeholder specs.
+function toDomainCharacteristics(p: MedusaProduct): ProductCharacteristics | null {
+  const c: ProductCharacteristics = {
+    ...(p.material ? { material: p.material } : {}),
+    ...(p.weight != null ? { weightGrams: p.weight } : {}),
+    ...(p.length != null ? { lengthCm: p.length } : {}),
+    ...(p.width != null ? { widthCm: p.width } : {}),
+    ...(p.height != null ? { heightCm: p.height } : {}),
+    ...(p.origin_country ? { originCountry: COUNTRY_NAMES_EL[p.origin_country.toLowerCase()] ?? p.origin_country } : {}),
+  };
+  return Object.keys(c).length > 0 ? c : null;
 }
 
 function toDomainProduct(p: MedusaProduct): Product {
@@ -65,11 +103,13 @@ function toDomainProduct(p: MedusaProduct): Product {
     placeholderTone: toneFor(p.handle),
     code: variants[0]?.code ?? null,
     isAvailable: variants.some((v) => v.isAvailable),
+    characteristics: toDomainCharacteristics(p),
   };
 }
 
 const PRODUCT_FIELDS =
   "id,title,handle,description,thumbnail,created_at,status," +
+  "material,weight,length,width,height,origin_country," +
   "+variants.calculated_price,+variants.sku,+variants.inventory_quantity," +
   "+variants.manage_inventory,+variants.allow_backorder," +
   "+categories.handle,+categories.name";

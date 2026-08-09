@@ -339,12 +339,69 @@ the running app, not reasoned about. Full narrative in `CHANGELOG.md`.
       `medusa lint` clean (backend), plus live in-browser verification of
       every fix listed above.
 
+## Completed (continued)
+
+**Product card redesign, wishlist, stock display, PDP content.** Explicit
+instruction to inspect the current implementation and propose an
+architecture (with a short, non-copying look at how established Greek
+home-goods retailers structure cards/PDPs) before writing code —
+`PRODUCT_CARD_WISHLIST_PDP_SPEC.md` written and approved (two open
+decisions: card hierarchy, specs data source) before implementation.
+
+- [x] **Card hierarchy reordered and reviewed, not just implemented as
+      asked** — recommended title/price come before stock/button rather
+      than the user's own first draft (button first), explained why, user
+      took the recommendation. Final: image (wishlist heart) → title →
+      code → price → stock → Add to Cart, now a real row instead of an
+      absolutely-positioned hover overlay — retires Phase 5's desktop-hover/
+      mobile-always-visible CSS split entirely.
+- [x] **Wishlist**: `localStorage`-only, same proven shape as "recently
+      viewed" — no Medusa wishlist module exists, and no customer auth
+      system exists to hang a real one off. Built as a real external store
+      (`lib/wishlist-storage.ts`) via `useSyncExternalStore`, not a naive
+      mount-effect (would cause a real SSR/hydration mismatch). Real
+      `/lista-epithymion` page replaces the placeholder that's 404'd since
+      Phase 1.
+- [x] **Real bug caught live during this build**: `getServerSnapshot`
+      returning a fresh `[]` literal every call tripped React's "should be
+      cached to avoid an infinite loop" — fixed with a stable module-level
+      constant.
+- [x] **Stock status**: new shared `StockStatus` component
+      (`Σε απόθεμα`/`Εξαντλήθηκε`), one place for this wording/color, used
+      by both the card and PDP. First real use of the `--color-success`
+      token (existed since Phase 1, unused until now).
+- [x] **PDP Description + Characteristics sections**: confirmed live that
+      Medusa's native product schema already has
+      material/weight/length/width/height/origin_country — no new field —
+      but all 16 real products have every one empty today. Renders only
+      populated fields, disappears entirely when none exist, rather than
+      inventing plausible specs (same anti-fabrication standard as
+      fake-reviews/ratings elsewhere). Description promoted to its own
+      `<h2>Περιγραφή</h2>` section.
+- [x] Verified live: wishlist toggle → header count → persistence →
+      `/lista-epithymion` → empty state, no reload needed anywhere; a real
+      out-of-stock test (via the Admin API directly, after the admin
+      dashboard's UI proved unreliable to drive through browser automation)
+      confirmed and restored on both card and PDP; 375/768/1280px all
+      zero horizontal overflow; a real long product name wraps cleanly;
+      `/kalathi`'s cross-sell rail (also `ProductCard`) unaffected.
+      `tsc`/`eslint`/`next build` all clean. Not re-verified: a discounted
+      product's rendering (no active promotion in the live catalog; the
+      discount code path itself wasn't touched).
+- [x] **Known, pre-existing gap flagged, not fixed** (out of scope for this
+      task): the header's wishlist icon is `hidden sm:block` (same as the
+      account icon always has been) — no header entry point to
+      `/lista-epithymion` below the `sm` breakpoint. The heart-toggle
+      interaction itself works everywhere on mobile; fixing the header
+      entry point means touching `MobileMenu`.
+
 ## Next
 
 Checkout is built, verified, and stable — but per the user's own
 instructions for this phase, it doesn't move to the next phase until they've
 had a chance to review it themselves. Product code, add-to-cart-everywhere,
-and search (Phase 5) are also built and verified. See `NEXT_STEPS.md`.
+search (Phase 5), the production readiness audit, and the card/wishlist/PDP
+content work are all built and verified. See `NEXT_STEPS.md`.
 
 ## Future
 
@@ -394,12 +451,21 @@ and search (Phase 5) are also built and verified. See `NEXT_STEPS.md`.
       together). No fuzzy/typo-tolerant matching (Postgres `ILIKE`-style,
       not a real search engine) — acceptable at today's catalog size,
       revisit only if the catalog grows substantially.
-- [ ] Account area, wishlist (header icons link to `/logariasmos`,
-      `/lista-epithymion` — real pages, currently 404)
+- [x] Wishlist — **done**: `localStorage`-backed, real `/lista-epithymion`
+      page, header count badge. See "Completed" above.
+- [ ] Wishlist header icon on true mobile widths (`hidden sm:block`, same
+      as the account icon) — the heart-toggle interaction works everywhere
+      on mobile already, this is specifically the header nav entry point;
+      needs a `MobileMenu` change.
+- [ ] Account area (`/logariasmos` — real page, currently 404)
 - [ ] About/legal/help content pages (footer links to these — real pages,
       currently 404; low priority, no business logic involved)
 - [ ] Backend hosting decision (Vercel can't run Medusa's persistent server —
       deferred until actually needed, per explicit prior user decision)
+- [ ] Real material/weight/dimensions/origin-country data entry for the 16
+      real products, in the Medusa admin — the PDP's Characteristics
+      section is fully built and will render automatically the moment this
+      data exists; today it renders nothing (correct, not a bug)
 
 **Found by the production readiness audit, deliberately not fixed**
 
@@ -443,9 +509,12 @@ and search (Phase 5) are also built and verified. See `NEXT_STEPS.md`.
       real product counts exist — last full pass was Phase 1, before real data
 - [ ] Run an actual Lighthouse/axe pass — nothing has been run yet, only manual
       review
-- [ ] Delete the `test-agent@stia.gr` and `qa-agent@stia.gr` admin users
-      (created during Phase 4A and Phase 5 API/UI verification respectively,
-      harmless but unnecessary — see `PROJECT_MEMORY.md`)
+- [ ] Delete the `test-agent@stia.gr`, `qa-agent@stia.gr`, and
+      `qa-agent2@stia.gr` admin users (created during Phase 4A, Phase 5, and
+      this session's verification respectively — all harmless but
+      unnecessary. Note: `qa-agent@stia.gr`'s original password stopped
+      authenticating this session for unknown reasons, hence the second
+      `qa-agent2` account — see `PROJECT_MEMORY.md`)
 - [ ] Decide the real free-shipping threshold and set
       `NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD_EUR` accordingly (currently a €50
       placeholder default), then flip `FREE_SHIPPING_MESSAGE_ENABLED` back

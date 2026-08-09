@@ -4,9 +4,12 @@ import { Breadcrumbs } from "@/components/category/Breadcrumbs";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
 import { RecentlyViewed } from "@/components/product/RecentlyViewed";
 import { RecentlyViewedTracker } from "@/components/product/RecentlyViewedTracker";
+import { StockStatus } from "@/components/product/StockStatus";
+import { ProductCharacteristics } from "@/components/product/ProductCharacteristics";
 import { ProductRail } from "@/components/home/ProductRail";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 import { Stars } from "@/components/ui/Stars";
+import { WishlistButton } from "@/components/wishlist/WishlistButton";
 import { getCategoryByHandle } from "@/lib/data/categories";
 import { getProductByHandle, getRelatedProducts } from "@/lib/data/products";
 import { formatPrice } from "@/lib/format";
@@ -53,6 +56,13 @@ export default async function ProductPage({ params }: Props) {
     // Medusa's real variant SKU — the same value shown as "Κωδικός
     // προϊόντος" below. Omitted rather than faked when a variant has none.
     ...(product.code ? { sku: product.code } : {}),
+    // Real Medusa product attributes, same "only what's populated" rule as
+    // the visible Characteristics section (§4 of the spec) — schema.org's
+    // QuantitativeValue shape for weight/dimensions.
+    ...(product.characteristics?.material ? { material: product.characteristics.material } : {}),
+    ...(product.characteristics?.weightGrams != null
+      ? { weight: { "@type": "QuantitativeValue", value: product.characteristics.weightGrams, unitCode: "GRM" } }
+      : {}),
     offers: {
       "@type": "Offer",
       priceCurrency: product.price.currencyCode,
@@ -82,7 +92,14 @@ export default async function ProductPage({ params }: Props) {
       <Breadcrumbs items={breadcrumbItems} />
 
       <div className="container-shell mt-4 grid grid-cols-1 gap-8 md:mt-8 md:grid-cols-2 md:gap-12">
-        <PlaceholderTile label={product.title} tone={product.placeholderTone} className="md:sticky md:top-24" />
+        <div className="relative md:sticky md:top-24 md:self-start">
+          <PlaceholderTile label={product.title} tone={product.placeholderTone} />
+          <WishlistButton
+            handle={product.handle}
+            title={product.title}
+            className="absolute right-3 top-3 rounded-full bg-bg/90 p-2.5 text-ink backdrop-blur-sm transition-transform duration-150 ease-out hover:scale-110 active:scale-95"
+          />
+        </div>
 
         <div className="flex flex-col">
           <h1 className="text-3xl text-ink md:text-4xl">{product.title}</h1>
@@ -100,11 +117,9 @@ export default async function ProductPage({ params }: Props) {
             )}
           </div>
 
-          {product.shortDescription && (
-            <p className="mt-6 text-sm leading-relaxed text-ink-muted md:text-base">{product.shortDescription}</p>
-          )}
+          <StockStatus isAvailable={product.isAvailable} className="mt-4" />
 
-          <div className="mt-8">
+          <div className="mt-3">
             <AddToCartButton
               product={product}
               className="w-full rounded-sm bg-ink px-6 py-4 text-sm font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 md:w-auto md:px-10"
@@ -138,6 +153,17 @@ export default async function ProductPage({ params }: Props) {
           </dl>
         </div>
       </div>
+
+      {product.shortDescription && (
+        <section className="container-shell mt-12 max-w-2xl md:mt-16">
+          <h2 className="font-display text-xl text-ink md:text-2xl">Περιγραφή</h2>
+          <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink-muted md:text-base">
+            {product.shortDescription}
+          </p>
+        </section>
+      )}
+
+      <ProductCharacteristics characteristics={product.characteristics} />
 
       <ProductRail title="Σχετικά προϊόντα" products={relatedProducts} />
       <RecentlyViewed excludeHandle={product.handle} />

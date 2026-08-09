@@ -7,43 +7,44 @@ the pointer to exactly where to resume, those three have the detail behind it. D
 not restart the project, do not regenerate completed features, do not re-analyze
 the whole codebase from zero — everything needed is in these five files.
 
-1. **Exact phase we are currently in**: Phases 0–5 are built and verified,
-   and a **production readiness audit of the whole codebase has just been
-   completed** — that audit was explicitly gated ("no further development
-   until it's done"), and it is done. Its findings and fixes are in
-   `CHANGELOG.md` (newest entry); what it deliberately did *not* fix is in
-   `TASKS.md` → "Found by the production readiness audit, deliberately not
-   fixed". Checkout (Phase 4B) and Phase 5 both still lack an explicit
-   "looks good" from the user — don't narrate either as approved.
-2. **Last completed action**: the production readiness audit. Its changes
-   are **uncommitted working-tree changes** (29 files, one deletion —
-   `components/home/Reviews.tsx`), left that way on purpose for the user to
-   review. Phase 5 itself is committed as `a76a8ed`; `3de52dc` is Phase
-   4–4B. Nothing has been pushed since `781c132` (Phase 3) — **check
-   `git status`/`git log` before assuming otherwise.** A real payment
-   processor (Stripe vs. Viva Wallet) was researched but explicitly put on
-   hold — the user wants to set up the account themselves first; see §7
-   below, do not pick a processor or start integrating without them
-   providing real (test-mode) keys.
-3. **Next action to execute**: surface the audit's results to the user and
-   let them review the working tree before anything is committed. After
-   that: committing the audit, pushing to `origin/main` (ask first —
-   pushing is a should-confirm action, unlike a local commit), or picking
-   from `TASKS.md`. The audit's own "deliberately not fixed" list is the
-   most honest source of near-term candidates — the newsletter form's
-   silent no-op and the broken multi-provider payment UI are the two with
-   real customer impact. Say explicitly what you're doing rather than
-   assuming a review happened that didn't.
-4. **First files to inspect**: `CHANGELOG.md`'s production-readiness-audit
-   entry (the most recent state of the codebase), then `PROJECT_MEMORY.md`
-   → "SEO strategy", "UX decisions" and "Cart/Checkout/Product-code
-   architecture" sections, `CURRENT_STATE.md`, `TASKS.md`.
-5. **Warnings / important context**: see section 5 below. The newest
-   things most likely to matter again: **metadata (including
-   `alternates.canonical`) is inherited from the root layout**, so every new
-   route needs its own canonical or it silently claims to be the homepage;
-   and **never disable a form input to signal a background save** — it
-   drops focus to `<body>`.
+1. **Exact phase we are currently in**: everything through the production
+   readiness audit is **committed and pushed** — `origin/main` is at
+   `64540dd`. On top of that, this session built and verified a product
+   card redesign, a wishlist feature, an always-visible stock status
+   display, and new PDP content sections (description + characteristics) —
+   spec proposed and approved (`PRODUCT_CARD_WISHLIST_PDP_SPEC.md`) before
+   any code, same pattern as every prior feature. **This work is not yet
+   committed.** Checkout (Phase 4B) and Phase 5 still haven't had an
+   explicit "looks good" from the user, and neither has this session's
+   work — don't narrate any of it as reviewed/approved by the user, only as
+   built-and-verified from this session's side.
+2. **Last completed action**: card/wishlist/stock/PDP-content work,
+   verified live (see `CURRENT_STATE.md` for the full list) — including a
+   real bug caught and fixed during verification (`useSyncExternalStore`'s
+   `getServerSnapshot` needs a stable array reference or React throws an
+   infinite-loop warning). **Check `git status`/`git log` before assuming
+   otherwise** — as of this writing the working tree has real, uncommitted
+   changes on top of `64540dd`.
+3. **Next action to execute**: no unfulfilled build-approval gate is
+   blocking new work. Ask the user whether to commit this session's
+   card/wishlist/PDP work (same "ask, don't assume" pattern as every prior
+   commit decision), and separately whether to push. After that, genuinely
+   open — see `TASKS.md` → "Future" for the honest list. Two real
+   near-term candidates with actual customer impact: the newsletter form's
+   silent no-op, and the wishlist header icon having no mobile entry point
+   (`hidden sm:block`, same as the account icon).
+4. **First files to inspect**: `PROJECT_MEMORY.md` → "Product card /
+   wishlist / stock display / PDP content architecture" (the newest
+   architecture section, right after Phase 5's), `CURRENT_STATE.md`,
+   `TASKS.md`, then `PRODUCT_CARD_WISHLIST_PDP_SPEC.md` if revisiting a
+   card/wishlist/PDP-content decision.
+5. **Warnings / important context**: see section 5 below. The newest thing
+   most likely to matter again: **any `useSyncExternalStore`-backed client
+   store must return a stable/cached reference from both `getSnapshot` and
+   `getServerSnapshot`** — a fresh array/object literal each call causes a
+   real infinite-loop warning, not a style nitpick. If another
+   `localStorage`-backed feature is ever built, copy the pattern in
+   `lib/wishlist-storage.ts`, not a `useEffect`+`useState` mount-read.
 
 ---
 
@@ -51,107 +52,82 @@ the whole codebase from zero — everything needed is in these five files.
 
 ## 1. Exact last action completed
 
-Committed on `main` (`781c132`, **the last pushed commit**): Phase 3 (audit
-+ real Medusa data wiring). Committed locally, not pushed: `3de52dc` (Phase
-4 / 4A / 4A.1 / 4B — related products, recently viewed, the full cart, the
-cart clarity revision, checkout) and `a76a8ed` (Phase 5).
+`origin/main` is fully up to date through `64540dd` — Phase 4 through 4B,
+Phase 5 (product code/SKU, search, add-to-cart everywhere), and the
+production readiness audit are all committed and pushed. Full history in
+`CHANGELOG.md`.
 
-**Then, this session, and left uncommitted on purpose: the production
-readiness audit.** A gated whole-codebase pass (code review, performance,
-SEO, Core Web Vitals, accessibility, Medusa architecture, cleanup, full test
-gate) covering Phases 1–5. 29 files changed, one deleted
-(`components/home/Reviews.tsx` — three fabricated named customer
-testimonials). The single most user-visible fix was a real checkout
-keyboard-focus bug measured live; the most consequential judgement call was
-deleting the fake reviews section outright rather than softening it. Full
-narrative in `CHANGELOG.md`; the honest "found but deliberately not fixed"
-list is in `TASKS.md`. The working tree was left dirty so the user can
-review it before anything is committed.
+**Then, this session, and left uncommitted on purpose:**
 
-Phase 5, for context (now committed as `a76a8ed`):
-
-1. User gave two new requirements in one brief: a permanent unique product
-   code (SKU) searchable by code or name, and add-to-cart from every
-   product grid in the app (not just the PDP) — with explicit instruction
-   to inspect the current implementation and propose an architecture
-   before writing any code.
-2. Live Store API testing (against the real backend, real 16-product
-   catalog) found both features were smaller than they looked: Medusa's
-   native `variant.sku` was already the right field (unique, non-null,
-   DB-enforced uniqueness — no new field needed), and Medusa's own `q`
-   full-text search already indexed both title and SKU together — no new
-   search index needed. `ProductCard` was already the one shared card
-   component on every product grid; the real gaps were stock-awareness and
-   a multi-variant guard, not "add it everywhere."
-3. Full architecture written and presented
-   (`PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`). Three open decisions
-   presented explicitly rather than assumed; user picked the recommended
-   option on all three (route multi-variant products to the PDP rather
-   than a speculative inline selector; show the code on the PDP only, not
-   grid cards; build both a live search dropdown and a results page).
-4. Built: data layer first (`+variants.sku`/`inventory_quantity`/
-   `manage_inventory`/`allow_backorder` fields, `isVariantAvailable`,
-   `searchProducts`), then `ProductCard`/`AddToCartButton` gating, then the
-   search UI (`SearchBox.tsx`, `lib/actions/search.ts`, `/anazitisi`).
-5. Full verification: `tsc`/`eslint`/`next build` clean; live search by
-   exact SKU, partial SKU, and Greek name; a real out-of-stock test (zeroed
-   a product's stock via a temporary admin user, `qa-agent@stia.gr`,
-   confirmed `Εξαντλήθηκε` on both the PDP and grid card, restored it);
-   quick-add from a grid card confirmed working at a real 375px mobile
-   width. Found and fixed a real, separate bug along the way: the
-   quick-add button was `display:none` on mobile entirely (a
-   desktop-hover-reveal leftover from Phase 4A) — mobile users couldn't
-   add to cart from any grid before this fix.
+1. User asked for four UX improvements in one brief — reposition the
+   product card's Add to Cart button, add a wishlist, make stock status
+   always visible, and give the PDP dedicated description/characteristics
+   sections — with explicit instruction to inspect the current
+   implementation, look briefly at how established Greek home-goods
+   retailers structure cards/PDPs (pattern reference only, nothing copied),
+   and propose an architecture before writing code.
+2. Inspected `ProductCard`/PDP/`lib/types.ts`, live-tested Medusa's Store
+   API for product "characteristics" fields (confirmed `material`,
+   `weight`, `length`, `width`, `height`, `origin_country` all already
+   exist — no new field needed — but all 16 real products have every one
+   empty today), and confirmed Medusa has no native wishlist module and
+   this storefront has no customer auth system.
+3. Full proposal written (`PRODUCT_CARD_WISHLIST_PDP_SPEC.md`), including
+   pushing back on part of the user's own first draft: they proposed
+   stock/button *before* title/price on the card; recommended the reverse
+   (identity/price before the action) and explained why. User took the
+   recommendation on both open decisions (card hierarchy, and shipping the
+   Characteristics section empty-safe now rather than waiting for real
+   spec data).
+4. Built: data layer first (characteristics fields, `wishlist-storage.ts`
+   as a real external store, `StockStatus` component), then `ProductCard`'s
+   redesigned layout, then the PDP (heart icon, stock line, Description/
+   Characteristics sections), then `/lista-epithymion`.
+5. Full verification, live: wishlist toggle → header count → persistence →
+   wishlist page → empty state, all instant, no reload; a real
+   out-of-stock test (via the Admin API directly this time — the temporary
+   admin dashboard's row-action menu proved unreliable to drive through
+   browser automation) confirmed and restored on both card and PDP;
+   375/768/1280px all zero horizontal overflow; a real long product name
+   wraps cleanly; heading hierarchy and JSON-LD confirmed via
+   `document.querySelectorAll`/`JSON.parse`, not assumed from the JSX.
+   Found and fixed a real bug along the way (§5 below).
 6. All five handoff files updated to reflect the above (this file
    included).
 
-**Check `git status` first thing.** Phase 4–4B (`3de52dc`) and Phase 5
-(`a76a8ed`) are committed locally but not pushed; the production readiness
-audit is uncommitted in the working tree.
+**Check `git status` first thing.** Everything through the audit is
+committed and pushed; this session's work is not.
 
 ## 2. What "next" actually means here
 
-The audit gate ("no further development until the production readiness
-audit is complete") has been satisfied. What's outstanding is the same kind
-of checkpoint this project has honored at every phase boundary — the user
-reviewing a *result* themselves — now stacked three deep: checkout (Phase
-4B) never got an explicit "looks good", Phase 5 didn't either, and the
-audit's working-tree changes haven't been reviewed. This isn't a blocker to
-keep building, but don't narrate any of them as approved — say what's
-actually true (built and verified from this session's side, not yet
-reviewed by the user) if it comes up.
+No unfulfilled "build it" authorization gate is blocking new work. Three
+review checkpoints are stacked and still outstanding — checkout (Phase 4B),
+Phase 5, and now this session's card/wishlist/PDP work have all been built
+and verified from this session's side, but none has had the user's own
+hands-on look. Not a blocker to keep building, but say what's actually true
+if it comes up rather than assuming a review happened.
 
-See `TASKS.md` → "Found by the production readiness audit, deliberately not
-fixed" for the sharpest near-term list (the newsletter form's silent no-op
-and the structurally broken multi-provider payment UI are the two with real
-customer impact), and → "Future" for the longer roadmap: a real payment
-processor (on hold, see §7), account/wishlist pages, footer content pages,
-or housekeeping (delete the two temporary admin users, decide the
-free-shipping threshold, re-run responsive verification, run axe/Lighthouse
-for the first time, etc.).
+See `TASKS.md` → "Future" for the honest list: a real payment processor (on
+hold, see §7), account/wishlist-mobile-header/content pages, or
+housekeeping (delete three temporary admin users now, decide the
+free-shipping threshold, enter real product characteristics data, run
+axe/Lighthouse for the first time).
 
 ## 3. Which files should be opened first
 
-- `CHANGELOG.md` — the production readiness audit entry at the top is the
-  most current description of the codebase and of what was deliberately
-  left alone.
 - `PROJECT_MEMORY.md` — read "Cart architecture," "Checkout architecture,"
-  and "Product code / add-to-cart-everywhere / search architecture" in
-  order (adjacent, each depends on the one before it). Real, non-obvious
-  Medusa shapes are documented there — don't re-derive these from scratch
-  if they resurface.
-- `CURRENT_STATE.md` — what's actually built and tested, including the
-  full Phase 5 verification list and the honest "not tested" list.
-- `TASKS.md` — the full roadmap; Phase 5's completed checklist is there.
-- `PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md` — the approved design reference
-  for product code/search/add-to-cart decisions (e.g. a real multi-variant
-  product finally existing, which would unblock testing the variant
-  picker for real).
-- For anything touching payment: `lib/actions/checkout.ts`'s
-  `completeCheckoutAction` — the provider ID is read live from
-  `/store/payment-providers`, never hardcoded, so adding a real processor
-  is mostly a backend/config change, not a storefront redesign. But see §7
-  — don't start this without the user's own processor account.
+  "Product code / add-to-cart-everywhere / search architecture," and
+  "Product card / wishlist / stock display / PDP content architecture" in
+  order (adjacent, each depends on the one before it).
+- `CURRENT_STATE.md` — what's actually built and tested, including this
+  session's full verification list and the honest "not tested" list.
+- `TASKS.md` — the full roadmap; this session's completed checklist is
+  there, plus the audit's still-open "deliberately not fixed" list.
+- `PRODUCT_CARD_WISHLIST_PDP_SPEC.md` — the approved design reference for
+  card/wishlist/stock/PDP-content decisions (e.g. real product spec data
+  arriving, or a real multi-variant product finally existing).
+- For anything touching payment: still on hold, see §7 — do not start
+  without the user's own processor account and real test keys.
 
 ## 4. Which files should NOT be modified
 
@@ -160,168 +136,115 @@ for the first time, etc.).
   rewriting one that may already have run.
 - `apps/backend/apps/backend/.env` / `apps/storefront/.env.local` —
   gitignored, real secrets/connection strings. Never print contents into
-  chat, logs, or a commit. Edit `.env.template`/`.env.example` instead when
-  documenting a new required variable.
+  chat, logs, or a commit.
 - The lockfiles (`pnpm-lock.yaml` in either app) — only package-manager
   commands should change them.
 - `apps/backend/pnpm-workspace.yaml`'s exclusion of `apps/backend` from the
   root workspace — deliberate, don't "fix" it.
 - Don't rename/restructure `lib/types.ts`'s domain types casually — `Cart`,
-  `Order`, `Address`/`AddressSummary`, `Product`/`ProductVariant` are now
-  depended on by the cart, checkout, and Phase 5 (product code/search)
-  surfaces.
+  `Order`, `Address`/`AddressSummary`, `Product`/`ProductVariant`
+  (including the new `characteristics` field) are depended on by the cart,
+  checkout, Phase 5, and this session's surfaces.
 - `lib/data/cart.ts`'s mapping of `subtotal` from Medusa's `item_subtotal`
-  field is deliberate, not a simplification opportunity — see
-  `PROJECT_MEMORY.md` for exactly why reverting it would silently
-  double-count shipping.
+  field is deliberate — see `PROJECT_MEMORY.md` for why reverting it would
+  silently double-count shipping.
 - The mobile order-summary reordering in `CheckoutForm.tsx` uses CSS
   `order-first lg:order-none` with the DOM kept in desktop reading order —
-  don't "simplify" this by moving the JSX position instead; that exact
-  change broke the desktop layout once already.
+  don't move the JSX position instead.
 - `CategoryPLPView`'s `basePath` prop must stay a pure path with no query
-  string of its own (`/anazitisi`, not `/anazitisi?q=...`) — pagination/
-  sort links build on top of it with `extraParams`; a query-string
-  `basePath` would produce a malformed double-`?` URL.
-- `ProductCard`'s quick-add/`Επιλογές` button classes: the mobile-visible-
-  by-default / desktop-hover-reveal split (`flex ... md:opacity-0
-  md:group-hover:opacity-100`) is deliberate — collapsing it back to a
-  single `hidden md:flex` would silently reintroduce the "unusable on
-  mobile" bug this session found and fixed.
-- Don't reintroduce `disabled={saving}` on checkout's email/contact/address
-  `FormField`s — it drops keyboard focus to `<body>` mid-form. The
-  `role="status"` "Αποθήκευση…" label on `SectionHeading` is the
-  replacement, and `FormField` no longer has a `disabled` prop at all.
-- Don't drop the per-route `alternates.canonical` on `/anazitisi` or
-  `/checkout/epibebaiosi`, and don't "simplify" `canonicalListingPath()`
-  away — without them those routes inherit the root layout's
-  `canonical: "/"` and claim to be the homepage.
-- Don't re-add `role="menu"`/`role="menuitem"` to the desktop mega menu, and
-  don't turn its trigger's `onClick` back into a toggle (see §5).
-- Don't restore `components/home/Reviews.tsx` with invented testimonials, or
-  re-add card/Viva Wallet payment claims to `TrustStrip`, the PDP delivery
-  block, or the footer badge row — checkout can only do "Αντικαταβολή".
+  string of its own — pagination/sort links build on top of it with
+  `extraParams`.
+- **`lib/wishlist-storage.ts`'s `getSnapshot`/`getServerSnapshot` must keep
+  returning stable/cached references** — this is not a style choice, a
+  fresh array literal each call is a real, confirmed-live React bug
+  (infinite-loop warning). If you're tempted to simplify this file, don't,
+  without understanding why the caching exists first.
+- `ProductCard`'s new layout (image → title → code → price → stock → Add
+  to Cart, all in normal document flow) — the previous absolutely-
+  positioned hover-reveal design was deliberately retired this session
+  after being reviewed and reordered per an explicit user decision; don't
+  reintroduce the overlay pattern without a fresh reason.
 
 ## 5. Warnings / things to remember
 
 - **Turbopack dev-server HMR goes stale after long edit sessions.** If a
   dev-server error contradicts what `pnpm build` says, `rm -rf .next` and
   restart before assuming the code is wrong.
-- **`next build` needs the live Medusa backend** — a build failure with
-  `ECONNREFUSED` means the backend isn't running, not a code bug. Most
-  routes are dynamically rendered (`ƒ`), including the homepage — expected,
-  not a regression.
+- **`next build` needs the live Medusa backend** — `ECONNREFUSED` means the
+  backend isn't running, not a code bug. Both dev servers need to be
+  started fresh each new session (they don't persist across sessions in
+  this environment) — `pnpm run backend:dev` from `apps/backend` (~45s to
+  boot), `pnpm dev` from the repo root.
 - **A Medusa fulfillment service zone's `geo_zones` update via the Admin
-  API is a full replace, not an append** — `POST /admin/fulfillment-sets/
-  :id/service-zones/:id` needs the *entire* desired `geo_zones` array, or
-  it'll silently drop whichever countries you don't include.
+  API is a full replace, not an append.**
 - **`/store/carts/:id/complete` returns a discriminated union**, not a
-  thrown error on failure — `{type:"order", order}` on success (the real
-  order comes back directly, no need to re-fetch), `{type:"cart", cart,
-  error}` on a workflow-level failure. Code defensively for both branches.
-- **`innerText` (and therefore `get_page_text`/`read_page`'s text output)
-  follows DOM order, not CSS `order`.** If verifying a CSS-`order`-based
-  responsive reorder, check real `getBoundingClientRect()` positions.
-- **`blur` doesn't bubble; React's `onBlur` actually listens for
-  `focusout`.** When driving a form via `element.dispatchEvent(...)` in
-  browser automation, dispatch `new FocusEvent('focusout', {bubbles:true})`,
-  not `new Event('blur', {bubbles:true})`.
-- **Correction (Phase 5): the Store API *does* expose real per-variant
-  stock** — an earlier phase's note claiming `+variants.inventory_quantity`
-  was silently ignored was wrong (or no longer true). Fetch it explicitly
-  with `+variants.inventory_quantity,+variants.manage_inventory,
-  +variants.allow_backorder` — it's not returned by default. See
-  `PROJECT_MEMORY.md` for the full corrected note and the availability rule
-  now used (`isVariantAvailable`).
-- **Medusa's own `/store/products?q=` already searches variant SKU, not
-  just title/description** — confirmed live. Don't build a separate search
-  index or duplicate this matching logic; `searchProducts()` in
-  `lib/data/products.ts` is the one place this lives.
-- **Browser-automation `computer` click actions were unreliable this
-  session** (timed out/hung on a mobile-viewport click that, per
-  `getComputedStyle`/cart-count checks afterward, may have actually
-  registered) — if a click seems to hang or silently no-op, verify via
-  `javascript_tool` (`element.click()` + checking the resulting state)
-  before concluding the app itself is broken.
-- **Next.js metadata is inherited from the root layout, `alternates`
-  included.** A route that declares no `alternates` emits the root layout's
-  `canonical: "/"` — it tells crawlers it *is* the homepage. This was a real
-  shipped bug on `/anazitisi` and `/checkout/epibebaiosi`, found only by
-  reading the rendered HTML. Give every new route its own canonical, even a
-  noindex one.
-- **Never use `disabled` to indicate a background save on a form input.**
-  Disabling a focused element moves focus to `<body>`; an autosave firing on
-  blur then destroys the customer's keyboard position. Announce saving state
-  instead (`role="status"` on `SectionHeading`).
-- **A `robots.txt` `Disallow` prevents the `noindex` meta tag from ever
-  being read.** Pick one per route: `/anazitisi` uses `noindex` and is
-  deliberately absent from `robots.ts`; `/kalathi` and `/checkout` are
-  robots-blocked.
-- **The mega-menu trigger opens, it does not toggle** — a mouse click
-  arrives after `mouseenter`/`onFocus` have already opened the panel, so a
-  toggle closes it under the cursor. Caught live as a self-introduced
-  regression during the audit.
+  thrown error on failure.
+- **Any `useSyncExternalStore`-backed store needs stable snapshot
+  references** — see §4 above. This is the newest, most likely to
+  resurface if another client-only feature (a "compare" list? a
+  recently-purchased list?) gets built the same way.
+- **Medusa's Store API already searches variant SKU via `q`**, and already
+  exposes real per-variant stock and product attribute fields
+  (material/weight/dimensions/origin) — none of these need `+variants.*`/
+  top-level field wiring rediscovered; see `lib/data/products.ts`'s
+  `PRODUCT_FIELDS` for the current full list.
+- **Browser-automation `computer` click/type actions were unreliable
+  again this session** (typed credentials silently not landing in login
+  fields, a dropdown menu not opening on click) — when a click/type seems
+  to silently no-op, verify via `javascript_tool` (check actual field
+  values, or dispatch events/clicks directly) before concluding the app
+  itself is broken. For anything requiring an authenticated Medusa admin
+  session, driving the Admin REST API directly via `curl` with a token
+  from `POST /auth/user/emailpass` is faster and more reliable than the
+  dashboard UI in this environment.
 - **No admin rights on this machine** — see "Environment setup" in
-  `PROJECT_MEMORY.md` for exact portable-install `PATH` prepends if a fresh
-  shell is missing Node/gh.
-- Both apps need to be running to see the full site working:
-  `pnpm run backend:dev` from `apps/backend`, `pnpm dev` from the repo root
-  (or the `backend`/`storefront` entries in `.claude/launch.json` with the
-  preview tools). The backend takes **~45 seconds** to boot to "Server is
-  ready" — don't judge it broken before then. Per explicit user preference,
-  **leave both dev servers running by default** between turns rather than
-  stopping them.
+  `PROJECT_MEMORY.md` for portable-install `PATH` prepends if a fresh shell
+  is missing Node/gh.
 
 ## 6. Known bugs
 
-**No unfixed defects in shipped user flows.** The production readiness
-audit's own "found but deliberately not fixed" list (`TASKS.md`) is the
-honest exception list — the two with real customer impact are the
-newsletter form silently no-opping on submit, and `PaymentSection`'s
-multi-provider UI being structurally broken (harmless only because exactly
-one provider exists today). Both need a decision, not a code fix.
-
-Things worth tracking that aren't bugs: two
-temporary admin users (`test-agent@stia.gr`, `qa-agent@stia.gr`) and two
-real test orders (`display_id` 1, 2) in the local dev database from live
-verification work — all harmless, documented in `PROJECT_MEMORY.md`/
-`TASKS.md`, cleanup is housekeeping whenever convenient, not urgent. A
-handful of extra items may also sit in leftover guest carts from this
-session's quick-add testing (mobile grid card, PDP) — same category as
-every other abandoned test cart already documented, harmless.
+**None currently open.** Things worth tracking that aren't bugs: three
+temporary admin users (`test-agent@stia.gr`, `qa-agent@stia.gr` — password
+stopped working this session for unknown reasons, `qa-agent2@stia.gr` —
+created as a result) and two real test orders (`display_id` 1, 2) in the
+local dev database from live verification work — all harmless, documented
+in `PROJECT_MEMORY.md`/`TASKS.md`, cleanup is housekeeping whenever
+convenient. A handful of extra items may also sit in leftover guest carts
+from repeated quick-add testing across sessions — same category as every
+other abandoned test cart already documented, harmless.
 
 ## 7. Pending decisions
 
-- **Checkout review, and now Phase 5 review too** — the actual next step;
-  see section 2 above.
-- **Commit Phase 5, and push everything to `origin/main`?** — not decided;
-  ask the user rather than assuming either way. Phase 4 through 4B is
-  already committed locally (`3de52dc`) but still not pushed.
-- **A real payment processor** (Stripe vs. Viva Wallet) — researched this
-  session (see `CHANGELOG.md`/`PROJECT_MEMORY.md` for the comparison), but
+- **Checkout, Phase 5, and this session's work all still need the user's
+  own review** — the actual next step; see section 2 above.
+- **Commit this session's card/wishlist/PDP work, and push?** — not
+  decided; ask the user rather than assuming either way, same pattern as
+  every prior commit/push decision in this project.
+- **A real payment processor** (Stripe vs. Viva Wallet) — researched, but
   the user explicitly chose to hold off and set up the processor account
   themselves first. **Do not pick a processor or start integrating on your
   own initiative** — wait for the user to share which one and real
   (test-mode) API keys.
 - **ΑΦΜ/ΔΟΥ + receipt-vs-invoice choice** — explicitly out of scope for the
-  approved checkout spec (no business decision on it yet); revisit if
-  needed.
+  approved checkout spec; revisit if needed.
 - **Free-shipping threshold** — still a placeholder (€50); the cart's
-  free-shipping messaging is currently disabled entirely (not just
-  unconfigured) until a real backend rule exists to back it — see
-  `PROJECT_MEMORY.md`.
-- ~~**Reconciling `TrustStrip`/PDP payment copy**~~ — **done** in the
-  production readiness audit, along with a third, previously undocumented
-  instance in the footer's payment-badge row. All three now say only
-  "Αντικαταβολή". Re-open when a real processor is configured.
-- **Review the production readiness audit's working-tree changes** — 29
-  files, one deletion, left uncommitted on purpose. The judgement call most
-  worth a second opinion: deleting the homepage's fabricated customer
-  reviews section outright rather than keeping it as a placeholder.
+  free-shipping messaging is disabled entirely until a real backend rule
+  exists to back it.
+- **Real product characteristics data** — the PDP's Characteristics
+  section is fully built and will render automatically the moment real
+  material/weight/dimensions/origin-country data is entered in the Medusa
+  admin for any product; today it renders nothing (correct, not a bug).
+- **Reconciling `TrustStrip`/PDP payment copy** — still flagged, not fixed.
 - **Backend hosting** — Vercel connected but can't run Medusa's persistent
-  server; deferred until actually needed (prior explicit user decision).
-- **Real brand name / domain** — "STIA" / `stia.gr` are placeholders, never
-  trademark-checked.
-- **Real product photography** — no plan yet for sourcing it.
-- **A real multi-variant product** — would be the first real test of
-  Phase 5's variant picker (`AddToCartButton`) and grid-card `Επιλογές`
-  routing, both currently verified by code inspection only.
+  server; deferred until actually needed.
+- **Real brand name / domain, real product photography** — placeholders,
+  no plan yet.
+- **A real multi-variant product** — would be the first real test of the
+  variant picker, grid-card `Επιλογές` routing, and wishlisting a
+  multi-variant product, all currently verified by code inspection only.
+- **Wishlist header icon on true mobile widths** — currently `hidden
+  sm:block` (matches the pre-existing account icon treatment); the
+  heart-toggle interaction itself works everywhere on mobile already, this
+  is specifically about the header nav entry point to `/lista-epithymion`.
+  Would need a `MobileMenu` change — not done this session, flagged as a
+  real gap.
