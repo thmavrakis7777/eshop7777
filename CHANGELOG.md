@@ -3,6 +3,65 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Premium Greek checkout, Phase 1 — Store Pickup (2026-08-09)
+
+User brief: build one of the best checkout experiences in the Greek market —
+delivery options (BOX NOW + Store Pickup), address autocomplete, billing
+address, Greek tax documents (ΑΦΜ/AADE), payment methods, order emails, and
+cart/wishlist persistence. Explicit instruction (matching the brief's own
+§12 and this project's established pattern) to review the existing
+architecture and write up findings before any code. `CHECKOUT_PREMIUM_SPEC.md`
+covers all 13 review points per feature area; the user then answered four
+real open decisions: BOX NOW deferred (no self-serve API access — needs an
+actual merchant/partner relationship with BOX NOW), Stripe first for
+payment (official Medusa plugin; Viva Wallet/IRIS documented as a later,
+custom-built option), ΓΕΜΗ Open Data for ΑΦΜ lookup (AADE's own registry
+service needs the business's own TAXISnet credentials — too much friction
+to gate this feature on), and customer accounts explicitly out of scope
+(this store has no login system at all today, so "sync for logged-in
+customers" has nothing to sync against yet).
+
+**Store Pickup built as a real Medusa fulfillment-provider module**, not a
+shortcut — this both delivers the feature and de-risks the same extensible
+pattern BOX NOW will need later. `AbstractFulfillmentProviderService`
+subclass at `apps/backend/apps/backend/src/modules/store-pickup`, registered
+in `medusa-config.ts`. **Real, load-bearing finding, verified against
+Medusa's own docs rather than assumed**: declaring an explicit `modules`
+entry for the fulfillment module does *not* merge with Medusa's default
+providers — the built-in manual provider (which the existing Standard/
+Express shipping options depend on) had to be listed explicitly alongside
+the new provider, or those would have silently broken. Regression-tested
+live post-change: both still resolve correctly for a Greek address.
+
+A new "Παραλαβή από το κατάστημα" shipping option was created via the Admin
+API (price €0, `shipping_option_type.code = "pickup"`) on the existing
+Greek-serving service zone. **Real bug hit while creating it**: Greek text
+passed inline through a bash/curl command arrived corrupted (mojibake) at
+the database — not a code bug, a shell-encoding issue on this machine. Fixed
+by writing the update as a `.mjs` script file instead of inline shell
+arguments, then running that. Worth remembering for any future Admin API
+call carrying Greek text.
+
+Storefront: `ShippingOption` gained `isPickup` (derived from the shipping
+option's `type.code`, same pattern as the existing `DELIVERY_ESTIMATES`
+lookup — matching a known, stable backend code, not inventing a claim the
+data doesn't back). `ShippingSection.tsx` shows a location/hours/
+instructions block once Pickup is selected, and renders "Δωρεάν" instead of
+"0,00 €" for any zero-amount option. Real pickup location
+(`lib/pickup-config.ts`): Σφακιανάκη 4, 71201 Ηράκλειο. Hours are per-day
+(`{ day, hours }[]`, rendered as a `<dl>`), not a collapsed range — the real
+schedule has split shifts on Tuesday/Thursday/Friday that a single
+"Δευτέρα–Παρασκευή ..." string couldn't represent honestly.
+
+Verified live end-to-end: filling the address reveals all three shipping
+options, selecting Pickup shows the info block and immediately drops the
+order total to items-only (matching the existing live-update UX for any
+shipping method change). `tsc`/`eslint`/`next build` clean on the
+storefront; `tsc --noEmit`/`medusa lint` clean on the backend (one real
+lint warning fixed along the way: fulfillment provider errors must be
+`MedusaError`, not a generic `Error`, so they map to the correct HTTP
+status).
+
 ## Product card redesign, wishlist, stock display, PDP content (2026-08-09)
 
 User brief: reposition the product card's Add to Cart button, add a

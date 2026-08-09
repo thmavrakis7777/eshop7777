@@ -13,6 +13,12 @@ const DELIVERY_ESTIMATES: Record<string, string> = {
   express: "Παράδοση εντός 24 ωρών",
 };
 
+// The pickup shipping option's shipping_option_type.code — set once, by
+// hand, when the option is created in the admin (StorePickupSpec). Matched
+// here rather than by provider ID so the storefront never needs to know
+// Medusa's internal `fp_store-pickup_...` provider ID string.
+const PICKUP_TYPE_CODE = "pickup";
+
 // Shipping options are scoped to a specific cart (Medusa resolves them
 // against that cart's shipping address + fulfillment service zones) — see
 // PROJECT_MEMORY.md "Cart architecture" for the real fulfillment-service-zone
@@ -28,6 +34,7 @@ export async function getShippingOptionsForCart(cartId: string): Promise<Shippin
     name: o.name,
     price: { amount: o.amount, currencyCode: "EUR" },
     deliveryEstimate: o.type?.code ? DELIVERY_ESTIMATES[o.type.code] : undefined,
+    isPickup: o.type?.code === PICKUP_TYPE_CODE,
   }));
 }
 

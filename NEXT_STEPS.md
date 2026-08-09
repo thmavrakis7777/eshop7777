@@ -7,6 +7,17 @@ the pointer to exactly where to resume, those three have the detail behind it. D
 not restart the project, do not regenerate completed features, do not re-analyze
 the whole codebase from zero — everything needed is in these five files.
 
+**2026-08-09, later same day — Premium Greek Checkout, Phase 1 done:**
+`CHECKOUT_PREMIUM_SPEC.md` is the architecture review + decisions for the
+full "premium checkout" brief (BOX NOW deferred, Stripe first, ΓΕΜΗ for ΑΦΜ
+lookup, accounts out of scope). Phase 1 (Store Pickup — a real Medusa
+fulfillment-provider module + checkout UI, real address Σφακιανάκη 4,
+Ηράκλειο with real per-day hours) is built, verified live in browser at
+desktop and mobile widths, `tsc`/`eslint`/`next build` clean on both apps.
+User confirmed committing this work. Phases 2-6 (billing/tax documents,
+address autocomplete, ΑΦΜ lookup, emails, Stripe) are not started — see
+`CHECKOUT_PREMIUM_SPEC.md`'s revised phase order and `TASKS.md`.
+
 1. **Exact phase we are currently in**: everything through the production
    readiness audit is **committed and pushed** — `origin/main` is at
    `64540dd`. On top of that, this session built and verified a product

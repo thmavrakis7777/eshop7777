@@ -146,6 +146,10 @@ export type ShippingOption = {
   name: string;
   price: Money;
   deliveryEstimate?: string;
+  // Derived from the shipping option type's `code` — see
+  // lib/data/checkout.ts. Drives whether ShippingSection shows the
+  // pickup-location info block instead of just a price row.
+  isPickup: boolean;
 };
 
 export type PaymentProvider = {

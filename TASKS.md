@@ -395,13 +395,64 @@ decisions: card hierarchy, specs data source) before implementation.
       interaction itself works everywhere on mobile; fixing the header
       entry point means touching `MobileMenu`.
 
+**Premium Greek checkout, Phase 1 — Store Pickup.** User brief: build a
+premium, high-converting Greek checkout across delivery options (BOX NOW +
+Store Pickup), address autocomplete, billing address, tax documents (ΑΦΜ/
+AADE), payment methods, order emails, and cart/wishlist persistence.
+Architecture review written first (`CHECKOUT_PREMIUM_SPEC.md`), covering all
+13 review points from the brief per feature area, before any code — same
+spec-first pattern as every prior phase. User decided: BOX NOW deferred
+(needs a real merchant/partner relationship, not self-serve), Stripe first
+for payment, ΓΕΜΗ Open Data for ΑΦΜ lookup, customer accounts out of scope
+this phase. Phase 1 (Store Pickup) then built and verified:
+
+- [x] **New Medusa fulfillment-provider module**
+      (`apps/backend/apps/backend/src/modules/store-pickup`) — extends
+      `AbstractFulfillmentProviderService`, registered in `medusa-config.ts`
+      alongside the existing manual provider (Medusa does not merge custom
+      providers into its defaults — confirmed against the official docs live
+      via the Medusa MCP/docs fetch — the manual provider had to be listed
+      explicitly or Standard/Express shipping would have broken).
+      Regression-tested live: both existing options still resolve correctly
+      for a Greek address after the config change.
+- [x] A new `Παραλαβή από το κατάστημα` shipping option created via the
+      Admin API (`shipping_option_type.code = "pickup"`, price €0, using the
+      new provider) on the same service zone Standard/Express already use.
+      **Real bug hit while creating it**: passing Greek text through a bash
+      heredoc/curl command mangled the UTF-8 bytes before they reached the
+      API — fixed by writing the update as a `.mjs` script file (Write tool,
+      not inline shell) and running that instead. Worth remembering for any
+      future Admin API call carrying Greek text — never pass Greek literals
+      inline in a shell command on this machine.
+- [x] Storefront: `ShippingOption.isPickup` (derived from `type.code`,
+      `lib/data/checkout.ts`), `ShippingSection.tsx` shows a
+      `PickupLocationInfo` block (name/address/hours/instructions) once the
+      pickup option is selected, and a zero-amount option renders "Δωρεάν"
+      instead of "0,00 €". Pickup location content lives in a new
+      `lib/pickup-config.ts` — **placeholder data** (address/ΤΚ are
+      obviously-marked placeholders, not fabricated to look real) — needs
+      STIA's real pickup address before this ships to real customers.
+- [x] Verified live end-to-end: address entry → all three shipping options
+      appear (Standard/Express/Pickup) → selecting Pickup shows the location
+      block and drops the order total by the shipping amount immediately,
+      matching the existing shipping-method-selection UX. `tsc`/`eslint`/
+      `next build` clean on the storefront; `tsc --noEmit`/`medusa lint`
+      clean on the backend.
+- [x] Real pickup address entered (Σφακιανάκη 4, 71201 Ηράκλειο) and real
+      per-day opening hours (handles the split Tue/Thu/Fri shifts honestly
+      instead of a collapsed range) — verified live in the browser at
+      desktop and mobile widths, no console errors, no horizontal overflow.
+
 ## Next
 
-Checkout is built, verified, and stable — but per the user's own
-instructions for this phase, it doesn't move to the next phase until they've
-had a chance to review it themselves. Product code, add-to-cart-everywhere,
-search (Phase 5), the production readiness audit, and the card/wishlist/PDP
-content work are all built and verified. See `NEXT_STEPS.md`.
+Premium checkout Phases 2-6 (billing address + tax documents, address
+autocomplete, ΑΦΜ/ΓΕΜΗ lookup, order emails, Stripe payment) per
+`CHECKOUT_PREMIUM_SPEC.md`'s revised phase order — not started. The original
+Phase 4B checkout is built, verified, and stable, but per the user's own
+instructions for that phase, it still hasn't had the user's own hands-on
+review. Product code, add-to-cart-everywhere, search (Phase 5), the
+production readiness audit, and the card/wishlist/PDP content work are all
+built and verified. See `NEXT_STEPS.md`.
 
 ## Future
 
@@ -429,20 +480,33 @@ content work are all built and verified. See `NEXT_STEPS.md`.
       (`lib/actions/recently-viewed.ts`) since the handles are only known in
       the browser. See `RecentlyViewedTracker`/`RecentlyViewed` components.
 
-**Phase 5+ — Checkout follow-ups** (the checkout itself is done — see
-"Completed" above)
+**Phase 5+ — Checkout follow-ups** — superseded by the Premium Greek
+Checkout initiative, see `CHECKOUT_PREMIUM_SPEC.md` and the Phase 1 entry
+above for the current, real plan:
 
-- [ ] ΑΦΜ/ΔΟΥ + receipt-vs-invoice choice — not in the approved checkout
-      spec's scope (business hasn't decided if/how it wants this yet);
-      revisit if needed
-- [ ] A real payment processor (Viva Wallet, Stripe, etc.) — today's
-      checkout only has Medusa's manual provider, presented honestly as
-      "Αντικαταβολή." Adding a real one is a data/config change on the
-      backend, not a storefront redesign (the payment UI already reads its
-      options live, not hardcoded)
+- [x] Store Pickup — **done**, see "Completed" above.
+- [ ] BOX NOW locker delivery — deferred (needs a real BOX NOW
+      merchant/partner relationship, not self-serve; architecture kept
+      extensible so it's additive once access exists)
+- [ ] Billing address toggle + receipt/invoice toggle + ΑΦΜ checksum
+      validation (Phase 2 of the premium checkout plan)
+- [ ] Address autocomplete — Google Places API recommended (Phase 3)
+- [ ] ΑΦΜ/business lookup — ΓΕΜΗ Open Data recommended over direct
+      AADE/TAXISnet (Phase 4)
+- [ ] Order confirmation emails — Medusa notification module + Resend +
+      `order.placed` subscriber (Phase 5)
+- [ ] A real payment processor — **Stripe first** (decided), official
+      Medusa plugin, covers cards + Apple Pay + Google Pay; Viva
+      Wallet/IRIS documented as a later option, needs a custom payment
+      provider module (Phase 6). Needs real (test-mode) Stripe credentials
+      from the user before the integration step.
 - [ ] Reconcile `TrustStrip.tsx` (homepage) and the PDP's delivery-info
       block — both still say "Κάρτα, Viva Wallet ή αντικαταβολή," which
-      overclaims relative to what checkout can actually offer today
+      overclaims relative to what checkout can actually offer today; becomes
+      true once Stripe ships (Phase 6)
+- [ ] Customer accounts + cart/wishlist sync for logged-in customers —
+      explicitly confirmed out of scope for this initiative; scope
+      separately later
 
 **Phase 6+ — Account, wishlist, content pages**
 

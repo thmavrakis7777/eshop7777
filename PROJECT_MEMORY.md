@@ -504,6 +504,59 @@ nested Turborepo/pnpm workspace):
   overlay near the header, check for this before assuming a portal is
   unnecessary.
 
+- **Premium Greek checkout — Store Pickup (Phase 1 of `CHECKOUT_PREMIUM_SPEC.md`)**,
+  proposed and approved (architecture review, then four explicit user
+  decisions on BOX NOW/payment/ΑΦΜ-lookup/accounts scope) before any code:
+  - **Delivery methods are modeled as real Medusa fulfillment-provider
+    modules**, not a UI-only concept — `src/modules/store-pickup` extends
+    `AbstractFulfillmentProviderService` (same base class Medusa's own
+    built-in "manual" provider uses), registered in `medusa-config.ts`.
+    This is the extensibility point BOX NOW will use later; Store Pickup
+    was built first specifically to prove the pattern with no external
+    dependency before the harder locker integration.
+  - **Declaring a custom fulfillment provider in `medusa-config.ts` does
+    not merge with Medusa's own default providers** — confirmed against
+    Medusa's official docs (not assumed): the built-in manual provider had
+    to be listed explicitly (`{ resolve: "@medusajs/medusa/fulfillment-manual",
+    id: "manual" }`) alongside the new one, or the existing Standard/Express
+    shipping options (which use it) would have broken. If another custom
+    fulfillment or payment provider is ever added, check this again — it's
+    a real, easy-to-miss regression risk, not a one-off gotcha specific to
+    this provider.
+  - A new fulfillment provider also needs to be **explicitly enabled on the
+    stock location** it will serve (`POST /admin/stock-locations/:id/fulfillment-providers`
+    with `{ add: [providerId] }`) before a shipping option using it can be
+    created — Medusa returns `"Providers (...) are not enabled for the
+    service location"` otherwise. Confirmed live, not assumed.
+  - **A shipping option's `shipping_option_type.code` is the stable,
+    storefront-facing discriminator** for delivery-method kind (`"standard"`/
+    `"express"`/now `"pickup"`) — same pattern the Phase 4B `DELIVERY_ESTIMATES`
+    lookup already used, extended rather than replaced.
+    `ShippingOption.isPickup` in `lib/types.ts` is derived from this in
+    `lib/data/checkout.ts`, and drives `ShippingSection.tsx` rendering the
+    `PickupLocationInfo` block once selected.
+  - **Real, non-obvious bug: Greek text passed inline through a bash/curl
+    command to the Admin API arrives corrupted (mojibake) in the
+    database** — a shell-encoding issue on this machine, not a Medusa or
+    application bug. Fixed by writing the request as a `.mjs` script file
+    (via the Write tool, which handles UTF-8 correctly) and running that
+    instead of embedding Greek literals directly in a shell command. Apply
+    this any time an Admin API call needs to carry Greek text.
+  - **Pickup location content (address/hours/instructions) deliberately
+    lives in the storefront** (`lib/pickup-config.ts`), not in Medusa —
+    Medusa's fulfillment `data` field on a shipping option isn't reliably
+    exposed to the Store API, and a Stock-Location-backed model would need
+    a new custom Store API route for one field set that isn't used
+    anywhere else. Revisit only if a second real pickup location is ever
+    needed (today: one location, config-driven). Real address: Σφακιανάκη
+    4, 71201 Ηράκλειο. Hours are per-day (not a collapsed range) since the
+    real schedule has split shifts on Tue/Thu/Fri — `PickupLocation.hours`
+    is a `{ day, hours }[]`, rendered as a `<dl>` in `ShippingSection.tsx`.
+  - A temporary admin user, `qa-agent3@stia.gr`, was created (same
+    established pattern as `test-agent@stia.gr`/`qa-agent@stia.gr` in
+    earlier phases) to drive the Admin API directly for this setup —
+    harmless local-dev-only leftover, safe to delete whenever convenient.
+
 - **Product code / add-to-cart-everywhere / search architecture (Phase 5)**,
   proposed and approved (`PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md`) before any
   code — same design-first discipline as cart/checkout:
