@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import type { NavCategory } from "@/lib/types";
+import type { Money, NavCategory } from "@/lib/types";
+import { formatPrice } from "@/lib/format";
 import {
   BagIcon,
   ChevronDownIcon,
@@ -20,9 +21,11 @@ import { useWishlist } from "@/components/wishlist/WishlistProvider";
 export function Header({
   categories: navCategories,
   cartItemCount,
+  cartTotal,
 }: {
   categories: NavCategory[];
   cartItemCount: number;
+  cartTotal: Money;
 }) {
   const { openDrawer } = useCartUI();
   const { count: wishlistCount } = useWishlist();
@@ -104,14 +107,23 @@ export function Header({
             </Link>
             <button
               type="button"
-              className="relative p-2 hover:text-accent transition-colors"
-              aria-label={`Καλάθι, ${cartItemCount} προϊόντα`}
+              className="flex items-center gap-1.5 rounded-sm px-2 py-2 hover:text-accent transition-colors"
+              aria-label={`Καλάθι, ${cartItemCount} προϊόντα${
+                cartItemCount > 0 ? `, σύνολο ${formatPrice(cartTotal)}` : ""
+              }`}
               onClick={openDrawer}
             >
-              <BagIcon />
+              <span className="relative flex">
+                <BagIcon />
+                {cartItemCount > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-white tabular-nums">
+                    {cartItemCount}
+                  </span>
+                )}
+              </span>
               {cartItemCount > 0 && (
-                <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-white tabular-nums">
-                  {cartItemCount}
+                <span className="hidden text-xs font-medium tabular-nums text-ink sm:inline">
+                  {formatPrice(cartTotal)}
                 </span>
               )}
             </button>

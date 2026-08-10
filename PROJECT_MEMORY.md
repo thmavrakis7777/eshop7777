@@ -962,6 +962,78 @@ nested Turborepo/pnpm workspace):
     code path itself was not touched by this work — same honest gap as
     Phase 5's).
 
+- **Storefront UX polish — uniform card heights, header mini cart, Continue
+  Shopping transition (2026-08-10)**: three targeted fixes, each scoped to
+  its own component, no architecture changes.
+  - **Uniform product card heights (`ProductCard.tsx`)**: the grid layouts
+    (`CategoryPLPView`, `ProductRail`, `WishlistPageView`) already stretch
+    every `<article>` to the tallest card in its row via CSS Grid's default
+    `align-items: stretch` — the misalignment was entirely inside the card,
+    where the Add to Cart button had no bottom anchor. Fixed with a
+    standard flex "pin to bottom" pattern: the content block is `flex-1`,
+    the title is `line-clamp-2` with a `min-h-10` reservation (so a
+    one-line and a two-line title occupy identical space), and the
+    button/`Επιλογές` link uses `mt-auto` to sit flush with the card's
+    bottom edge regardless of how much variable content (badges, code,
+    rating) sits above it. Verified live: a real long title
+    ("Πιατέλα Σερβιρίσματος 3 Ορόφων") and short titles in the same row
+    produce byte-identical button `top`/`bottom` `getBoundingClientRect()`
+    values, at 375/768/1280px. Title text stays fully in the DOM (visual
+    clamp only) plus gained a `title=` attribute for the full name on
+    hover — no SEO/readability loss.
+  - **Header mini cart (`Header.tsx`, `app/layout.tsx`)**: `RootLayout`
+    already fetches the real cart once via `getCart()`; now passes
+    `cart.total` (a `Money`) into `Header` alongside the pre-existing
+    `cartItemCount` — no new fetch, no reimplemented totals math. The
+    existing item-count badge is untouched; a `formatPrice(cartTotal)`
+    label was added beside it, shown from the `sm:` breakpoint up (same
+    precedent as the wishlist/account icons' existing `hidden sm:block`
+    treatment) — true mobile keeps the badge only, which already shows the
+    count at every width. Updates automatically through the same
+    `revalidatePath("/", "layout")` mechanism that already refreshed the
+    badge on add/remove/qty/coupon before this change — confirmed live
+    that quick-add from a grid card updates the header total with no
+    reload. Confirmed separately (pre-existing, unchanged): quick-add never
+    auto-opens the drawer, only the toast does (and only on its own
+    explicit "view cart" click).
+  - **Continue Shopping + a real drawer transition (`CartDrawer.tsx`)**:
+    the drawer previously had **no** open/close transition at all (instant
+    mount/unmount, a deliberate stopgap noted in the old code comment).
+    Added a real slide/fade transition (CSS `transform`/`opacity`,
+    `motion-reduce:transition-none` for reduced-motion users) to the whole
+    drawer — X button, Escape, backdrop click, and Continue Shopping all
+    animate the same way now, not just the one button, since a mismatched
+    "one path animates, others don't" would itself look unpolished.
+    Structurally: `CartDrawer` keeps the drawer mounted for
+    `EXIT_TRANSITION_MS` (300ms) after context's `isDrawerOpen` goes false
+    so the exit animation has something to animate; `CartDrawerInner` owns
+    a `visible` flag driving the CSS classes, flipped true a frame after
+    mount (enter) and false immediately when its `open` prop goes false
+    (exit), with the actual unmount fired by a `setTimeout` (not
+    `onTransitionEnd`, so it still unmounts correctly under
+    `prefers-reduced-motion`, where the CSS transition — and therefore any
+    `transitionend` event — never fires). **Continue Shopping** itself:
+    `router.push("/")` (client-side, no reload) only when
+    `usePathname() !== "/"`, then closes; cart (cookie/server-backed) and
+    wishlist (`localStorage`-backed) both already survive navigation
+    untouched, so nothing extra was needed to "preserve" them. Verified
+    live: closing from a non-home page navigates home with the cart intact
+    and no full reload (a `window` marker survived); Continue Shopping from
+    the homepage itself does a plain close with zero navigation, confirmed
+    via the same marker plus an unchanged `location.pathname`.
+  - **Real lint fix hit along the way**: the first draft called
+    `setState` synchronously inside `useEffect` bodies for both the
+    mount-gate (`CartDrawer`) and the exit flag (`CartDrawerInner`) —
+    this project's `react-hooks/set-state-in-effect` rule (same one
+    the wishlist store's `SearchBox` fix hit earlier) flagged both.
+    Fixed with React's documented "adjust state during render" pattern
+    (`if (condition && state !== target) setState(target)` in the
+    render body, not an effect) for the synchronous parts; the effects
+    that remain only start/clear a `setTimeout`, which is genuinely
+    async and doesn't trip the rule.
+  - `tsc --noEmit`, `eslint` (project-wide), and `next build` all clean
+    after these changes.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

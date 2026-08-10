@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useCartUI } from "@/components/cart/CartUIProvider";
 import { useCartController } from "@/lib/hooks/use-cart-controller";
 import { getCartAction } from "@/lib/actions/cart";
@@ -14,22 +15,54 @@ import { EmptyCartState } from "@/components/cart/EmptyCartState";
 import { CloseIcon } from "@/components/ui/Icons";
 
 const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+// Matches the duration/easing on the panel's transition-transform below —
+// the exit animation is timer-driven (not onTransitionEnd) so the drawer
+// still unmounts cleanly under prefers-reduced-motion, where the CSS
+// transition is disabled and no transitionend event would ever fire.
+const EXIT_TRANSITION_MS = 300;
 
 export function CartDrawer() {
   const { isDrawerOpen, closeDrawer } = useCartUI();
+  // Stays mounted for EXIT_TRANSITION_MS after isDrawerOpen goes false so the
+  // slide/fade-out has something to animate — CartDrawerInner drives the
+  // actual visibility via its own `open` prop.
+  const [mounted, setMounted] = useState(false);
 
-  // Reuses MobileMenu's conditional-mount pattern: no exit transition, but
-  // every open is a fresh mount, which conveniently also means the cart is
-  // always re-fetched fresh rather than risking stale state between opens.
-  if (!isDrawerOpen) return null;
-  return <CartDrawerInner onClose={closeDrawer} />;
+  // Adjusting state during render (React's documented pattern for deriving
+  // state from a prop change) rather than an effect — this needs to take
+  // effect before paint, not after a render round-trip.
+  if (isDrawerOpen && !mounted) {
+    setMounted(true);
+  }
+
+  if (!mounted) return null;
+  return (
+    <CartDrawerInner
+      open={isDrawerOpen}
+      onRequestClose={closeDrawer}
+      onClosed={() => setMounted(false)}
+    />
+  );
 }
 
-function CartDrawerInner({ onClose }: { onClose: () => void }) {
+function CartDrawerInner({
+  open,
+  onRequestClose,
+  onClosed,
+}: {
+  open: boolean;
+  onRequestClose: () => void;
+  onClosed: () => void;
+}) {
   const controller = useCartController(null);
+  const router = useRouter();
+  const pathname = usePathname();
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  // Single flag driving both the enter (mount → true) and exit (open goes
+  // false → false) animation via CSS transform/opacity.
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     previouslyFocused.current = document.activeElement as HTMLElement | null;
@@ -39,17 +72,42 @@ function CartDrawerInner({ onClose }: { onClose: () => void }) {
 
     getCartAction().then((cart) => controller.setCart(cart));
 
+    const frame = requestAnimationFrame(() => setVisible(true));
     return () => {
+      cancelAnimationFrame(frame);
       document.body.style.overflow = previousOverflow;
       previouslyFocused.current?.focus();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Same render-time-adjustment pattern as CartDrawer above.
+  if (!open && visible) {
+    setVisible(false);
+  }
+
+  useEffect(() => {
+    if (open) return;
+    const timer = setTimeout(onClosed, EXIT_TRANSITION_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  function handleClose() {
+    onRequestClose();
+  }
+
+  function handleContinueShopping() {
+    // Preserves cart/wishlist automatically — cart is cookie/server-backed,
+    // wishlist is localStorage-backed, neither is tied to page lifetime.
+    if (pathname !== "/") router.push("/");
+    handleClose();
+  }
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        onClose();
+        handleClose();
         return;
       }
       if (e.key !== "Tab" || !dialogRef.current) return;
@@ -70,7 +128,8 @@ function CartDrawerInner({ onClose }: { onClose: () => void }) {
 
     document.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => document.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const cart = controller.cart;
   const itemCount = cart?.itemCount ?? 0;
@@ -78,11 +137,21 @@ function CartDrawerInner({ onClose }: { onClose: () => void }) {
 
   return createPortal(
     <div ref={dialogRef} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Καλάθι αγορών">
-      <div className="absolute inset-0 bg-ink/40" aria-hidden="true" onClick={onClose} />
-      <div className="absolute inset-y-0 right-0 flex w-full flex-col bg-bg shadow-xl md:w-[440px]">
+      <div
+        className={`absolute inset-0 bg-ink/40 transition-opacity duration-300 ease-out motion-reduce:transition-none ${
+          visible ? "opacity-100" : "opacity-0"
+        }`}
+        aria-hidden="true"
+        onClick={handleClose}
+      />
+      <div
+        className={`absolute inset-y-0 right-0 flex w-full flex-col bg-bg shadow-xl transition-transform duration-300 ease-out motion-reduce:transition-none md:w-[440px] ${
+          visible ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
         <div className="flex items-center justify-between border-b border-border p-4">
           <h2 className="font-display text-lg">Το καλάθι σου {itemCount > 0 && `(${itemCount})`}</h2>
-          <button ref={closeButtonRef} type="button" className="p-2" aria-label="Κλείσιμο καλαθιού" onClick={onClose}>
+          <button ref={closeButtonRef} type="button" className="p-2" aria-label="Κλείσιμο καλαθιού" onClick={handleClose}>
             <CloseIcon />
           </button>
         </div>
@@ -139,10 +208,14 @@ function CartDrawerInner({ onClose }: { onClose: () => void }) {
               ΟΛΟΚΛΗΡΩΣΗ ΑΓΟΡΑΣ
             </Link>
             <div className="flex items-center justify-between text-sm">
-              <button type="button" className="text-ink-muted hover:text-ink hover:underline" onClick={onClose}>
+              <button
+                type="button"
+                className="text-ink-muted hover:text-ink hover:underline"
+                onClick={handleContinueShopping}
+              >
                 Συνέχεια αγορών
               </button>
-              <Link href="/kalathi" className="text-ink-muted hover:text-ink hover:underline" onClick={onClose}>
+              <Link href="/kalathi" className="text-ink-muted hover:text-ink hover:underline" onClick={handleClose}>
                 Δες το καλάθι
               </Link>
             </div>

@@ -3,6 +3,70 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Storefront UX polish — card heights, header mini cart, Continue Shopping (2026-08-10)
+
+Three targeted UX fixes from a detailed user brief, each scoped to one
+component — no architecture or data-layer changes.
+
+**Uniform product card heights.** The grid layouts (`CategoryPLPView`,
+`ProductRail`, `WishlistPageView`) already stretched every card to its
+row's tallest neighbor via CSS Grid's default `align-items: stretch` — the
+actual misalignment was inside `ProductCard.tsx`, where the Add to Cart
+button had no bottom anchor and variable content (title length, badges,
+product code) pushed it to a different height on every card. Fixed with a
+standard flex "pin to bottom" pattern: content block `flex-1`, title
+`line-clamp-2` with a `min-h-10` reservation so one-line and two-line
+titles occupy identical space, button/`Επιλογές` link `mt-auto`. Title
+stays fully in the DOM (visual clamp only, no SEO loss) and gained a
+`title=` attribute for the full name on hover. Verified live:
+`getBoundingClientRect()` on the button shows byte-identical top/bottom
+coordinates across mixed-length titles in the same row, at 375/768/1280px.
+
+**Header mini cart.** `Header.tsx` now shows the cart total next to the
+existing item-count badge. Sourced from the same `getCart()` call
+`RootLayout` already made for the badge — `cart.total` passed down
+alongside `cartItemCount`, no new fetch, no reimplemented totals math.
+Total text shown from `sm:` up (matches the existing `hidden sm:block`
+treatment already used for the wishlist/account icons); the badge alone
+already covers "always show the count" at every width, including mobile.
+Updates automatically through the pre-existing `revalidatePath("/",
+"layout")` mechanism that already refreshed the badge on add/remove/qty/
+coupon — no new plumbing. Confirmed unchanged: quick-add still never
+auto-opens the drawer (toast-only, same as before).
+
+**Continue Shopping now navigates home, and the drawer finally has a real
+transition.** The cart drawer previously had no open/close animation at
+all — instant mount/unmount, called out as a deliberate stopgap in the old
+code. Added a real slide-in/fade transition (CSS `transform`/`opacity`,
+`motion-reduce:transition-none` for reduced-motion users) to the whole
+drawer — X button, Escape, backdrop click, and Continue Shopping all
+animate consistently now, not just the one button. `CartDrawer` keeps the
+component mounted for 300ms after `isDrawerOpen` goes false so the exit
+animation has something to animate against; the actual unmount is
+`setTimeout`-driven rather than `onTransitionEnd`, so it still unmounts
+correctly under `prefers-reduced-motion` (where no CSS transition, and
+therefore no `transitionend` event, ever fires). "Συνέχεια αγορών" now does
+a client-side `router.push("/")` when not already on the homepage, then
+closes; when already home, it's a plain close with no navigation. Cart
+(cookie/server-backed) and wishlist (`localStorage`-backed) both already
+survive client-side navigation untouched, so nothing extra was needed to
+preserve either.
+
+**Real lint fix hit along the way**: the first draft called `setState`
+synchronously inside two `useEffect` bodies (the drawer's mount-gate and
+its exit-visibility flag) — this project's `react-hooks/set-state-in-effect`
+rule (the same one the wishlist store's `SearchBox` fix hit earlier) caught
+both. Fixed with React's documented "adjust state during render" pattern
+instead of an effect for the synchronous parts.
+
+Verified live end-to-end: card button alignment across mixed title lengths
+at 375/768/1280px; header total/count updating on a real quick-add with no
+page reload; closing the drawer from a non-home page navigating home with
+cart state intact (confirmed via a `window` marker surviving — rules out a
+full reload); Continue Shopping from the homepage itself producing zero
+navigation. `tsc --noEmit`, `eslint` (project-wide, not just changed
+files), and `next build` all clean.
+
 ## Premium Greek checkout, Phase 5 — order confirmation emails (2026-08-10)
 
 Fifth phase of `CHECKOUT_PREMIUM_SPEC.md`: a real branded Greek order-

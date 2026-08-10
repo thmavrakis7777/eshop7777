@@ -86,7 +86,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <WishlistProvider>
           <CartUIProvider>
             <AnnouncementBar />
-            <Header categories={categories} cartItemCount={cart?.itemCount ?? 0} />
+            <Header
+              categories={categories}
+              cartItemCount={cart?.itemCount ?? 0}
+              cartTotal={cart?.total ?? { amount: 0, currencyCode: "EUR" }}
+            />
             <main id="main-content" className="flex-1">
               {children}
             </main>

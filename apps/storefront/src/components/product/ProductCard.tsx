@@ -50,7 +50,7 @@ export function ProductCard({ product }: { product: Product }) {
   }
 
   return (
-    <article className="flex flex-col">
+    <article className="flex h-full flex-col">
       <div className="relative overflow-hidden rounded-md">
         <Link href={`/proionta/${product.handle}`} className="block" tabIndex={-1} aria-hidden="true">
           {product.badges && product.badges.length > 0 && (
@@ -80,7 +80,7 @@ export function ProductCard({ product }: { product: Product }) {
         />
       </div>
 
-      <div className="mt-3 flex flex-col gap-1">
+      <div className="mt-3 flex flex-1 flex-col gap-1">
         {error && (
           <p role="alert" className="text-xs text-danger">
             {error}
@@ -88,7 +88,8 @@ export function ProductCard({ product }: { product: Product }) {
         )}
         <Link
           href={`/proionta/${product.handle}`}
-          className="text-sm font-medium text-ink hover:underline underline-offset-2"
+          title={product.title}
+          className="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-ink hover:underline underline-offset-2"
         >
           {product.title}
         </Link>
@@ -111,7 +112,7 @@ export function ProductCard({ product }: { product: Product }) {
         {hasSingleVariant ? (
           <button
             type="button"
-            className="mt-2 w-full rounded-sm bg-ink px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-auto w-full rounded-sm bg-ink px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
             onClick={handleQuickAdd}
             disabled={isPending || isOutOfStock}
           >
@@ -120,7 +121,7 @@ export function ProductCard({ product }: { product: Product }) {
         ) : (
           <Link
             href={`/proionta/${product.handle}`}
-            className="mt-2 w-full rounded-sm bg-ink px-4 py-2.5 text-center text-xs font-medium text-white transition-colors hover:bg-accent"
+            className="mt-auto w-full rounded-sm bg-ink px-4 py-2.5 text-center text-xs font-medium text-white transition-colors hover:bg-accent"
           >
             Επιλογές
           </Link>

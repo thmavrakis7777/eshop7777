@@ -539,6 +539,44 @@ switch models mid-session).
       `next build` (storefront) and `tsc`/`medusa lint` (backend) all
       clean after every fix.
 
+**Storefront UX polish — uniform card heights, header mini cart, Continue
+Shopping transition (2026-08-10).** Three targeted fixes from a detailed
+user brief; each scoped to its own component only, no architecture changes.
+
+- [x] **Uniform product card heights** — `ProductCard.tsx`'s content block
+      made `flex-1`, title `line-clamp-2` with a `min-h-10` reservation,
+      Add to Cart button/`Επιλογές` link pinned to the card's bottom edge
+      via `mt-auto`. One shared component, so this fixes home, category/
+      subcategory PLPs, search, related products, and the wishlist page in
+      one place. Verified live: a real long title and short titles in the
+      same row produce byte-identical button top/bottom coordinates at
+      375/768/1280px.
+- [x] **Header mini cart** — `Header.tsx` now shows `formatPrice(cart.total)`
+      beside the existing item-count badge (`sm:` breakpoint up; badge alone
+      covers mobile), sourced from the same `getCart()` call `RootLayout`
+      already made — no new fetch, no duplicated totals math. Updates live
+      through the pre-existing `revalidatePath("/", "layout")` mechanism.
+      Confirmed unchanged: quick-add never auto-opens the drawer.
+- [x] **Continue Shopping + a real drawer transition** — the cart drawer had
+      no open/close animation at all before this; added a slide/fade
+      transition (`transform`/`opacity`, `motion-reduce`-aware) to all four
+      close paths (X, Escape, backdrop, Continue Shopping) for consistency.
+      Continue Shopping does a client-side `router.push("/")` only when not
+      already on the homepage, then closes — cart/wishlist both already
+      survive navigation untouched (cookie- and `localStorage`-backed
+      respectively), nothing extra needed to "preserve" them.
+- [x] **Real lint fix hit along the way**: first draft called `setState`
+      synchronously inside two `useEffect` bodies, tripping this project's
+      `react-hooks/set-state-in-effect` rule — fixed with React's
+      "adjust state during render" pattern instead of an effect.
+- [x] Verified live: button alignment across mixed title lengths; header
+      total/count updating on quick-add with no page reload; drawer closing
+      + navigating home with cart state intact (confirmed via a `window`
+      marker surviving, ruling out a full reload); Continue Shopping from
+      the homepage itself doing a plain close with zero navigation;
+      375/768/1280px all zero horizontal overflow. `tsc --noEmit`, `eslint`
+      (project-wide), and `next build` all clean.
+
 ## Next
 
 Premium checkout Phases 2-6 (billing address + tax documents, address
