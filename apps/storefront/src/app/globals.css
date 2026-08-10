@@ -92,6 +92,15 @@
     }
   }
 
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   .sr-only-focusable:not(:focus) {
     position: absolute;
     width: 1px;

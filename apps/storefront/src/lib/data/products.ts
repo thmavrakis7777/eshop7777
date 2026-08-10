@@ -24,6 +24,14 @@ const COUNTRY_NAMES_EL: Record<string, string> = {
 
 const TONES: Tone[] = ["clay", "sage", "stone", "linen"];
 const NEW_ARRIVAL_WINDOW_DAYS = 30;
+// Native Medusa product tag value — admin-controlled override for New
+// Arrivals membership (add/remove from the product's "Organize" panel in
+// the admin, no code change needed). A product counts as a new arrival if
+// it's within the rolling window below OR carries this tag, so genuinely
+// new products need zero admin work while a curated older product can
+// still be featured (or a very recent one suppressed by never tagging it
+// and it'll simply age out of the window on its own).
+export const NEW_ARRIVAL_TAG_VALUE = "new";
 
 function hash(s: string): number {
   let h = 0;
@@ -35,9 +43,16 @@ export function toneFor(handle: string): Tone {
   return TONES[Math.abs(hash(handle)) % TONES.length];
 }
 
-function isNewArrival(createdAt: string): boolean {
+function isWithinNewArrivalWindow(createdAt: string): boolean {
   const ageDays = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24);
   return ageDays <= NEW_ARRIVAL_WINDOW_DAYS;
+}
+
+function isNewArrivalMember(p: Pick<MedusaProduct, "created_at" | "tags">): boolean {
+  return (
+    isWithinNewArrivalWindow(p.created_at) ||
+    p.tags.some((t) => t.value === NEW_ARRIVAL_TAG_VALUE)
+  );
 }
 
 // A variant is purchasable unless Medusa is tracking its stock, backorders
@@ -98,7 +113,7 @@ function toDomainProduct(p: MedusaProduct): Product {
     compareAtPrice: onSale ? { amount: originalAmount, currencyCode: "EUR" } : undefined,
     badges: [
       ...(onSale ? (["sale"] as const) : []),
-      ...(isNewArrival(p.created_at) ? (["new"] as const) : []),
+      ...(isNewArrivalMember(p) ? (["new"] as const) : []),
     ],
     variants,
     placeholderTone: toneFor(p.handle),
@@ -114,7 +129,7 @@ const PRODUCT_FIELDS =
   "material,weight,length,width,height,origin_country," +
   "+variants.calculated_price,+variants.sku,+variants.inventory_quantity," +
   "+variants.manage_inventory,+variants.allow_backorder," +
-  "+categories.handle,+categories.name";
+  "+categories.handle,+categories.name,+tags.value";
 
 export type ProductSort = "newest" | "title-asc" | "price-asc" | "price-desc";
 
@@ -172,37 +187,84 @@ export async function getProductByHandle(handle: string): Promise<Product | unde
   return products[0] ? toDomainProduct(products[0]) : undefined;
 }
 
-export async function getNewArrivals(limit = 4): Promise<Product[]> {
+// New Arrivals membership isn't a single Medusa filter (rolling date window
+// OR an admin tag) and isn't sortable by price server-side either — same
+// constraint getProductsByCategoryHandle already works around for price
+// sort. At today's catalog size (a few dozen products), fetching a
+// generous superset ordered by -created_at, filtering/sorting/paginating
+// in-process is far lighter than a second query strategy; revisit only if
+// the catalog grows into the hundreds (same caveat as price sort above and
+// getSearchCatalog).
+const NEW_ARRIVAL_CANDIDATE_LIMIT = 200;
+
+export async function getNewArrivalsPaged(
+  opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
+): Promise<{ products: Product[]; count: number }> {
+  const { sort = "newest", limit = 24, offset = 0 } = opts;
   const regionId = await getDefaultRegionId();
   const params = new URLSearchParams({
     region_id: regionId,
     fields: PRODUCT_FIELDS,
     order: "-created_at",
-    limit: String(limit),
+    limit: String(NEW_ARRIVAL_CANDIDATE_LIMIT),
   });
   const { products } = await medusaFetch<{ products: MedusaProduct[] }>(
     `/store/products?${params.toString()}`,
     { next: { revalidate: 30 } }
   );
-  return products.map(toDomainProduct);
+
+  let members = products.filter(isNewArrivalMember).map(toDomainProduct);
+
+  if (sort === "title-asc") members = members.sort((a, b) => a.title.localeCompare(b.title, "el"));
+  if (sort === "price-asc") members = members.sort((a, b) => a.price.amount - b.price.amount);
+  if (sort === "price-desc") members = members.sort((a, b) => b.price.amount - a.price.amount);
+  // sort === "newest": already in -created_at order from the API.
+
+  return { products: members.slice(offset, offset + limit), count: members.length };
 }
 
-export async function getFeaturedProducts(limit = 4): Promise<Product[]> {
-  // No order history exists yet, so there's no real "best sellers" signal —
-  // showing a curated slice instead of fabricating a popularity ranking.
-  // Revisit once real order data exists to sort by actual sales.
+export async function getNewArrivals(limit = 4): Promise<Product[]> {
+  const { products } = await getNewArrivalsPaged({ limit });
+  return products;
+}
+
+// No order history exists yet, so there's no real "best sellers" signal —
+// "Recommended" is an honest curated slice (alphabetical by default), not a
+// fabricated popularity ranking. Revisit the default order once real order
+// data exists to sort by actual sales. Same offset/limit + client-side price
+// sort pattern as getProductsByCategoryHandle.
+export async function getFeaturedProductsPaged(
+  opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
+): Promise<{ products: Product[]; count: number }> {
+  const { sort = "title-asc", limit = 24, offset = 0 } = opts;
   const regionId = await getDefaultRegionId();
+  const order = sort === "newest" ? "-created_at" : "title";
+  const wantsPriceSort = sort === "price-asc" || sort === "price-desc";
+
   const params = new URLSearchParams({
     region_id: regionId,
     fields: PRODUCT_FIELDS,
-    order: "title",
-    limit: String(limit),
+    order,
+    limit: String(wantsPriceSort ? 200 : limit),
+    offset: String(wantsPriceSort ? 0 : offset),
   });
-  const { products } = await medusaFetch<{ products: MedusaProduct[] }>(
+
+  const { products, count } = await medusaFetch<{ products: MedusaProduct[]; count: number }>(
     `/store/products?${params.toString()}`,
     { next: { revalidate: 30 } }
   );
-  return products.map(toDomainProduct);
+
+  let domainProducts = products.map(toDomainProduct);
+  if (sort === "price-asc") domainProducts = domainProducts.sort((a, b) => a.price.amount - b.price.amount);
+  if (sort === "price-desc") domainProducts = domainProducts.sort((a, b) => b.price.amount - a.price.amount);
+  if (wantsPriceSort) domainProducts = domainProducts.slice(offset, offset + limit);
+
+  return { products: domainProducts, count };
+}
+
+export async function getFeaturedProducts(limit = 4): Promise<Product[]> {
+  const { products } = await getFeaturedProductsPaged({ limit });
+  return products;
 }
 
 export async function getProductsByHandles(handles: string[]): Promise<Product[]> {

@@ -60,6 +60,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       sort={sort}
       page={page}
       basePath={`/${category.handle}`}
+      source={{ type: "category", categoryHandle }}
     />
   );
 }

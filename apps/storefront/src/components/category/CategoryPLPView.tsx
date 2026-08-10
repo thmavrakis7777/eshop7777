@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
 import { SortControl } from "@/components/category/SortControl";
-import { Pagination } from "@/components/category/Pagination";
-import { ProductCard } from "@/components/product/ProductCard";
+import { InfiniteProductGrid, type ProductSource } from "@/components/category/InfiniteProductGrid";
 import type { Product } from "@/lib/types";
 import type { ProductSort } from "@/lib/data/products";
 
-const PAGE_SIZE = 12;
+// Bumped from 12 to 24 alongside infinite scroll: fewer round-trips per
+// scroll session, still small/fast for the first paint. One shared value
+// for the SSR'd first page and every client-fetched batch after it, so a
+// direct visit to ?page=2 always renders the exact same slice either way.
+const PAGE_SIZE = 24;
 
 export { PAGE_SIZE };
 
@@ -20,6 +23,7 @@ export function CategoryPLPView({
   sort,
   page,
   basePath,
+  source,
   extraParams,
   emptyMessage,
 }: {
@@ -33,14 +37,16 @@ export function CategoryPLPView({
   page: number;
   // Pure path, no query string — e.g. "/kouzina", not "/kouzina?sort=...".
   basePath: string;
+  // Which data adapter the infinite-scroll grid should call for subsequent
+  // batches (category/subcategory, New Arrivals, or search) — see
+  // lib/actions/products.ts.
+  source: ProductSource;
   // Fixed params every page link must keep (e.g. the search query `q`) —
   // separate from `basePath` so pagination/sort links don't end up with a
   // malformed second "?" when basePath itself would otherwise carry a query.
   extraParams?: Record<string, string>;
   emptyMessage?: string;
 }) {
-  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
-
   return (
     <>
       <Breadcrumbs items={breadcrumbs} />
@@ -73,24 +79,17 @@ export function CategoryPLPView({
             {emptyMessage ?? "Δεν βρέθηκαν προϊόντα σε αυτή την κατηγορία αυτή τη στιγμή."}
           </p>
         ) : (
-          <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
-            {products.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          <InfiniteProductGrid
+            source={source}
+            sort={sort}
+            page={page}
+            pageSize={PAGE_SIZE}
+            initialProducts={products}
+            initialCount={count}
+            basePath={basePath}
+            extraParams={extraParams}
+          />
         )}
-
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          buildHref={(p) => {
-            const params = new URLSearchParams(extraParams);
-            if (sort !== "newest") params.set("sort", sort);
-            if (p > 1) params.set("page", String(p));
-            const qs = params.toString();
-            return qs ? `${basePath}?${qs}` : basePath;
-          }}
-        />
       </div>
     </>
   );

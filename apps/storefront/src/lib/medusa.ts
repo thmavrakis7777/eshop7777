@@ -42,6 +42,11 @@ export type MedusaProduct = {
   images: MedusaImage[];
   variants: MedusaVariant[];
   categories: Array<{ id: string; name: string; handle: string }>;
+  // Native Medusa product tags — confirmed live (2026-08-11) that
+  // `+tags.value` is queryable and returns `[]` by default (no backend
+  // config needed, manageable from the Admin's product "Organize" panel).
+  // Used as the admin-controlled override for New Arrivals membership.
+  tags: Array<{ id: string; value: string }>;
   created_at: string;
   // Native Medusa product attributes — real "characteristics" fields, not a
   // custom addition. Confirmed live (2026-08-09): the field set exists on

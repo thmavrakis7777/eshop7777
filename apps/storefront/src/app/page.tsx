@@ -10,21 +10,17 @@ import { getFeaturedProducts, getNewArrivals } from "@/lib/data/products";
 export default async function HomePage() {
   const [categories, featured, newArrivals] = await Promise.all([
     getNavCategories(),
-    getFeaturedProducts(4),
-    getNewArrivals(4),
+    getFeaturedProducts(12),
+    getNewArrivals(12),
   ]);
 
   return (
     <>
       <Hero />
       <CategoryGrid categories={categories} />
-      {/* No `viewAllHref` on either rail: /prosfores and /nea-afiksi were
-          both real links to routes that have never existed (verified 404).
-          ProductRail already treats the prop as optional — a missing link is
-          better than a broken one. Restore once those pages are built. */}
-      <ProductRail title="Προτεινόμενα" products={featured} />
+      <ProductRail title="Προτεινόμενα" viewAllHref="/protainomena" products={featured} />
       <EditorialBanner />
-      <ProductRail title="Νέες αφίξεις" products={newArrivals} />
+      <ProductRail title="Νέες αφίξεις" viewAllHref="/nea-afiksi" products={newArrivals} />
       <TrustStrip />
       <Newsletter />
     </>

@@ -61,6 +61,7 @@ export default async function SubcategoryPage({ params, searchParams }: Props) {
       sort={sort}
       page={page}
       basePath={`/${parent.handle}/${category.handle}`}
+      source={{ type: "category", categoryHandle: subHandle }}
     />
   );
 }

@@ -1219,6 +1219,110 @@ nested Turborepo/pnpm workspace):
     a clean revert before continuing.
   - `tsc --noEmit`, `eslint` (project-wide), and `next build` all clean.
 
+- **New Arrivals / infinite scroll / homepage carousels architecture
+  (2026-08-11)** — three features, built after an explicit architecture
+  review (products/categories/pagination/tags/homepage/carousel-library/SEO
+  all inspected live before any code).
+  - **New Arrivals membership** is a hybrid, not a single Medusa filter: a
+    product counts as a new arrival if it's within a rolling 30-day
+    `created_at` window (`isWithinNewArrivalWindow`, the same window that
+    already drove the "Νέο" badge) **or** carries Medusa's native product
+    tag `"new"` (`NEW_ARRIVAL_TAG_VALUE`, `lib/data/products.ts`) — real,
+    core Medusa tags, confirmed live via `+tags.value` on the Store API and
+    manageable from the Admin's product "Organize" panel, zero backend
+    changes. This is the admin-controlled override the brief asked for:
+    genuinely new products need no admin action, but the admin can also
+    tag any product to feature it regardless of age. The "Νέο" badge
+    (`toDomainProduct`'s `badges`) now reads from this same combined rule,
+    not the date-only check, so a tagged product shows the badge
+    consistently everywhere. **`getNewArrivalsPaged()`** fetches up to
+    `NEW_ARRIVAL_CANDIDATE_LIMIT` (200) products ordered by `-created_at`,
+    filters to members, then sorts/slices in-process — membership and price
+    sort both aren't expressible as a single Medusa query param, so this
+    follows the same "fetch a superset, finish the work in JS" pattern
+    `getProductsByCategoryHandle` already used for price sort. `getFeaturedProductsPaged()`
+    (backing the new "Recommended Products" page) is the equivalent for the
+    old `getFeaturedProducts()` — same honest "no real bestseller signal
+    exists, this is a curated slice" reasoning as before, just now
+    paginated, and defaulting to alphabetical (not "newest") so it doesn't
+    read as a duplicate of New Arrivals.
+  - **Infinite scroll is layered on top of the existing SSR pagination, not
+    a replacement for it.** `PAGE_SIZE` (12 → 24, `CategoryPLPView.tsx`) is
+    one shared constant for the SSR'd first page and every client-fetched
+    batch after it. `InfiniteProductGrid` (new, Client Component,
+    `components/category/`) owns an `IntersectionObserver` sentinel that
+    calls a small per-listing-type Server Action
+    (`lib/actions/products.ts`) for the next offset/limit batch and appends
+    the result client-side, deduped by product id via a `Set`. The
+    listing's "identity" — category/subcategory handle, New Arrivals,
+    Recommended, or a search query, plus sort, plus the SSR'd page number —
+    is captured in a `resetKey` string; React's documented "adjust state
+    during render" pattern (`if (state.resetKey !== resetKey) setState(...)`)
+    snaps straight back to the fresh server props the instant that key
+    changes, so switching sort or category never appends onto a stale
+    previous listing. **The classic `Pagination` component is kept
+    completely unchanged, just wrapped in a real `<noscript>`** — crawlers
+    and no-JS visitors get exactly the same crawlable, independently
+    canonical paginated URLs (`?page=2`, `?page=3`, …) this app already
+    had; every product is also independently reachable via `sitemap.xml`
+    regardless of how deep a category's pagination goes, which is why this
+    was judged safe rather than needing every paginated URL enumerated in
+    the sitemap too.
+  - **Two real bugs found and fixed live, not just by inspection:**
+    (1) `CategoryPLPView` (a Server Component) originally passed a plain
+    closure (`buildPageHref`) as a prop into `InfiniteProductGrid` (a
+    Client Component) — React cannot serialize a function across that
+    boundary, and it surfaced immediately as a 500
+    ("Functions cannot be passed directly to Client Components"). Fixed by
+    passing `basePath`/`extraParams` as plain serializable data and
+    building the href *inside* the Client Component instead — **any prop
+    crossing a Server → Client boundary must be data, never a closure,
+    a Server Action being the one exception.**
+    (2) The `IntersectionObserver` sentinel only fired once on short lists
+    (e.g. New Arrivals' 16 products at the old `PAGE_SIZE=4` used for
+    testing): once the sentinel was within the pre-load `rootMargin` and
+    the page never grew tall enough to push it back out, intersection
+    state never *changed* again, so a persistent observer silently stopped
+    loading after the first batch. Fixed by re-creating (not just
+    re-observing) the `IntersectionObserver` after every successful batch
+    (`state.products.length` added to the effect's deps) — a fresh
+    `observe()` call always fires once with the *current* intersection
+    state, which is the only way a short list keeps chaining loads until
+    it's genuinely exhausted. **Any future `IntersectionObserver`-driven
+    "load more" on a list that might not exceed one viewport must
+    re-create the observer per batch, not just attach it once.**
+  - **Verified live, with a real testing wrinkle worth remembering**: the
+    `computer` scroll-simulation browser-automation tool did not reliably
+    produce real scroll/intersection events in this environment (repeat of
+    the pre-existing "browser automation click/type unreliable" note
+    below) — switched to direct `window.scrollTo()` + polling via
+    `javascript_tool`, which did trigger real loads and confirmed the
+    feature genuinely works end-to-end: correct batch sizes, zero
+    duplicate products (checked via a `Set` of product hrefs), correct
+    "Είδες όλα τα προϊόντα" end state, zero extra network requests once
+    exhausted (checked via `read_network_requests`), and a clean reset
+    (verified product order/count) when the sort dropdown changes.
+    **If a future session needs to browser-test scroll-triggered behavior
+    in this environment, prefer `window.scrollTo()` via `javascript_tool`
+    over the `computer` tool's scroll action.**
+  - **Homepage carousels**: `ProductRail` — shared by the homepage, the
+    PDP's related/recently-viewed rails, and the cart's cross-sell rail —
+    converted from a static CSS grid to a native
+    `overflow-x-auto` + `scroll-snap-type: x mandatory` track (no carousel
+    library added; none existed in `package.json`, matching the brief's
+    "prefer the lightest solution"). Desktop-only arrow buttons
+    (`hidden md:flex`) reuse the existing `ChevronDownIcon` via a CSS
+    rotation instead of adding new icon SVGs, `scrollBy()` the track by
+    ~90% of its visible width, and track scroll position via a `scroll`
+    listener to set a real `disabled` attribute at each end (not just a
+    visual dim). Mobile relies entirely on the scroll-snap CSS for native
+    touch/swipe — zero JS needed there. Both rails bumped from 4 → 12
+    products; the "Δείτε Περισσότερα" tile is a real track item (same
+    width as a card) linking to the corresponding full listing page.
+    `ProductCard` itself was not touched — the carousel only changes its
+    container, per the brief's explicit "do not create a second product
+    card design."
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

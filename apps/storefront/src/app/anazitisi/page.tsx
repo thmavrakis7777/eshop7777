@@ -40,6 +40,7 @@ export default async function SearchPage({ searchParams }: Props) {
       sort="newest"
       page={page}
       basePath="/anazitisi"
+      source={{ type: "search", query }}
       extraParams={{ q: query }}
       emptyMessage={
         query

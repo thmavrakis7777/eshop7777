@@ -7,79 +7,68 @@ the pointer to exactly where to resume, those three have the detail behind it. D
 not restart the project, do not regenerate completed features, do not re-analyze
 the whole codebase from zero — everything needed is in these five files.
 
-**2026-08-10 — Premium Greek Checkout, Phases 1-5 done + a full production
-audit:** `CHECKOUT_PREMIUM_SPEC.md` is the architecture review + decisions
-for the full "premium checkout" brief (BOX NOW deferred, Stripe first, ΓΕΜΗ
-for ΑΦΜ lookup, accounts out of scope). Phase 1 (Store Pickup, real address
-Σφακιανάκη 4, Ηράκλειο), Phase 2 (billing address toggle + tax document
-toggle + ΑΦΜ checksum validation), Phase 3 (Google Places address
-autocomplete, server-side only), Phase 4 (ΓΕΜΗ business lookup), and Phase 5
-(order confirmation emails, SendGrid not Resend) are all built and verified
-live — Phase 5 with a real completed test order (`display_id` 4) whose
-backend logs confirmed the *entire* real chain, including a genuine SendGrid
-401 being caught without blocking the order. **Then a full user-requested
-production audit of every file touched this session** found and fixed three
-real bugs (a billing-checkbox interaction that silently blocked the
-shipping-address save; two real race conditions — ΓΕΜΗ autofill, address-
-autocomplete debounce) plus one accessibility gap
-(`aria-activedescendant`) — see `CHANGELOG.md`'s "Production quality audit"
-entry for the full list. `tsc`/`eslint`/`next build`/`medusa lint` clean on
-both apps after every fix. **Phases 1-3 committed and pushed** (`5b4b823`,
-`5632c85`, `e21224a`); **Phase 4, Phase 5, and the audit fixes are not yet
-committed** — ask before committing/pushing, same as always.
+**2026-08-11 — Dynamic New Arrivals, infinite scroll, homepage carousels:**
+explicit brief requiring an architecture review (products/categories/
+pagination/tags/homepage/carousel-library/SEO all inspected live) before any
+code, with several decisions (New Arrivals membership rule, page size,
+carousel implementation) explicitly delegated for a recommendation — see
+`CHANGELOG.md` and `PROJECT_MEMORY.md`'s newest architecture section for
+the full design and reasoning. Built and live-verified: New Arrivals is now
+a hybrid rolling-window/admin-tag collection with its own `/nea-afiksi`
+page; category/subcategory/search/New-Arrivals listings infinite-scroll
+with the classic pagination kept as a real `<noscript>` crawlable fallback;
+both homepage rails are now touch-friendly carousels (native CSS
+scroll-snap, no library) linking to full listing pages
+(`/nea-afiksi`, new `/protainomena`). Two real bugs were found and fixed
+live during the build (a Server→Client function-prop crash, and an
+`IntersectionObserver` that stopped re-firing on short lists) — see
+`CHANGELOG.md`. `tsc`/`eslint`/`next build` all clean. **Not yet
+committed** — ask before committing/pushing, same as always. **This
+session's own work has not had the user's own hands-on review yet.**
 
-**Real, honest gaps carried into next session, same shape as before**:
-neither Phase 3 (Google Places), Phase 4 (ΓΕΜΗ), nor Phase 5 (SendGrid) has
-been exercised against a real, approved API key — none were available this
-session. What *is* verified live for all three: the graceful-degrade path
-(no key → zero errors/crashes, nothing else broken), and for Phase 5
-specifically, the actual send attempt and its expected 401 failure, not
-just "would it crash." **The moment real keys exist**
-(`GOOGLE_PLACES_API_KEY`, `GEMI_API_KEY`, `SENDGRID_API_KEY`/
-`SENDGRID_FROM_EMAIL` — see the two `.env.example`/`.env.template` files),
-exercise all three for real before considering these phases fully proven.
-Getting a ΓΕΜΗ key needs registration + approval, not instant self-serve.
-Phase 6 (Stripe) is not started — see `CHECKOUT_PREMIUM_SPEC.md`'s revised
-phase order and `TASKS.md`.
+**Important context this session surfaced**: `NEXT_STEPS.md`,
+`CURRENT_STATE.md`, and `TASKS.md` were all stale relative to `git log` at
+the start of this session — the Premium Checkout Phases 1-5, a
+card/wishlist/PDP-content session, and a search-dropdown/product-image/
+cart-polish session had all already landed and been pushed
+(`origin/main` was at `24c00e3`, not the `64540dd`/checkout-in-progress
+state these files previously described). Corrected the git-state claims in
+`CURRENT_STATE.md` and `TASKS.md`'s "Next" section this session; if either
+ever feels stale again, trust `git log`/`CHANGELOG.md` over the prose.
 
-1. **Exact phase we are currently in**: everything through the production
-   readiness audit is **committed and pushed** — `origin/main` is at
-   `64540dd`. On top of that, this session built and verified a product
-   card redesign, a wishlist feature, an always-visible stock status
-   display, and new PDP content sections (description + characteristics) —
-   spec proposed and approved (`PRODUCT_CARD_WISHLIST_PDP_SPEC.md`) before
-   any code, same pattern as every prior feature. **This work is not yet
-   committed.** Checkout (Phase 4B) and Phase 5 still haven't had an
-   explicit "looks good" from the user, and neither has this session's
-   work — don't narrate any of it as reviewed/approved by the user, only as
-   built-and-verified from this session's side.
-2. **Last completed action**: card/wishlist/stock/PDP-content work,
-   verified live (see `CURRENT_STATE.md` for the full list) — including a
-   real bug caught and fixed during verification (`useSyncExternalStore`'s
-   `getServerSnapshot` needs a stable array reference or React throws an
-   infinite-loop warning). **Check `git status`/`git log` before assuming
-   otherwise** — as of this writing the working tree has real, uncommitted
-   changes on top of `64540dd`.
+1. **Exact phase we are currently in**: everything through the search-
+   dropdown/product-image/cart-polish session is **committed and pushed**
+   — `origin/main` is at `24c00e3`. On top of that, this session built and
+   verified Dynamic New Arrivals, infinite scroll, and homepage carousels
+   (above). **This work is not yet committed.**
+2. **Last completed action**: New Arrivals/infinite-scroll/carousels work,
+   verified live (see `CURRENT_STATE.md`) — including two real bugs caught
+   and fixed during the build (see `CHANGELOG.md`'s newest entry). **Check
+   `git status`/`git log` before assuming otherwise** — as of this writing
+   the working tree has real, uncommitted changes on top of `24c00e3`.
 3. **Next action to execute**: no unfulfilled build-approval gate is
-   blocking new work. Ask the user whether to commit this session's
-   card/wishlist/PDP work (same "ask, don't assume" pattern as every prior
-   commit decision), and separately whether to push. After that, genuinely
-   open — see `TASKS.md` → "Future" for the honest list. Two real
-   near-term candidates with actual customer impact: the newsletter form's
-   silent no-op, and the wishlist header icon having no mobile entry point
-   (`hidden sm:block`, same as the account icon).
-4. **First files to inspect**: `PROJECT_MEMORY.md` → "Product card /
-   wishlist / stock display / PDP content architecture" (the newest
-   architecture section, right after Phase 5's), `CURRENT_STATE.md`,
-   `TASKS.md`, then `PRODUCT_CARD_WISHLIST_PDP_SPEC.md` if revisiting a
-   card/wishlist/PDP-content decision.
-5. **Warnings / important context**: see section 5 below. The newest thing
-   most likely to matter again: **any `useSyncExternalStore`-backed client
-   store must return a stable/cached reference from both `getSnapshot` and
-   `getServerSnapshot`** — a fresh array/object literal each call causes a
-   real infinite-loop warning, not a style nitpick. If another
-   `localStorage`-backed feature is ever built, copy the pattern in
-   `lib/wishlist-storage.ts`, not a `useEffect`+`useState` mount-read.
+   blocking new work. Ask the user whether to commit this session's work
+   (same "ask, don't assume" pattern as every prior commit decision), and
+   separately whether to push. One real, honest gap to close first if a
+   suitable product exists: live-test the New Arrivals tag-override branch
+   against a genuinely old (>30 days) tagged product — none exists in the
+   16-product catalog today. After that, see `TASKS.md` → "Future" for the
+   rest of the honest list (payment processor still on hold, account/
+   content pages, housekeeping).
+4. **First files to inspect**: `PROJECT_MEMORY.md`'s newest architecture
+   section ("New Arrivals / infinite scroll / homepage carousels
+   architecture"), `CURRENT_STATE.md`, `TASKS.md`.
+5. **Warnings / important context**: see section 5 below. The newest things
+   most likely to matter again: **any `IntersectionObserver`-driven "load
+   more" on a list that might not exceed one viewport must re-create the
+   observer after every batch, not just attach it once** (a persistently-
+   intersecting sentinel never fires a second "changed" event); **a prop
+   crossing a Server Component → Client Component boundary must be plain
+   data, never a closure** (a Server Action is the one exception) — both
+   caused real, live 500s/stalls this session before being fixed, see
+   `PROJECT_MEMORY.md`. Also still true from before: **any
+   `useSyncExternalStore`-backed client store must return a stable/cached
+   reference from both `getSnapshot` and `getServerSnapshot`.**
 
 ---
 

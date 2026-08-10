@@ -1,17 +1,25 @@
 # Current State
 
-Snapshot as of 2026-08-09 (product card redesign, wishlist, stock display,
-PDP content sections — designed and built). This documents **what exists
-right now**, verified by inspection — not aspiration. Cross-check against
-`git log` / the actual file tree if this ever feels stale; update it
-whenever a session ends.
+Snapshot as of 2026-08-11 (Dynamic New Arrivals, infinite scroll, homepage
+carousels — designed and built). This documents **what exists right now**,
+verified by inspection — not aspiration. Cross-check against `git log` /
+the actual file tree if this ever feels stale; update it whenever a session
+ends.
 
-Git state: `origin/main` is up to date through `64540dd` (Phase 4 through
-4B, Phase 5, and the production readiness audit — all committed and
-pushed). This session's work (card hierarchy, wishlist, stock display, PDP
-description/characteristics sections) has been built and verified
-(`tsc`/`eslint`/`next build`, manual in-browser checks against the real
-backend including a live out-of-stock test) but is **not yet committed** —
+**Everything below the 2026-08-09 card/wishlist/PDP snapshot line was
+written across several intervening sessions this file was never fully
+updated for** — Premium Checkout Phases 1-5, a search-dropdown/product-
+image/cart-polish session, and now this session's three features. Treat
+the "What has been completed"/"What is working" prose below as reliable
+for what it explicitly describes, but not as an exhaustive list — `git log`
+and `CHANGELOG.md` are the authoritative record of everything that landed.
+
+Git state: `origin/main` is up to date through `24c00e3` (everything
+through the search-dropdown/product-image/cart-polish session — the
+checkout phases, card/wishlist/PDP work, and that session are all committed
+and pushed). This session's work (New Arrivals, infinite scroll, homepage
+carousels) has been built and verified (`tsc`/`eslint`/`next build`, live
+in-browser checks against the real backend) but is **not yet committed** —
 check `git status`/`git log` before assuming otherwise.
 
 ## What has been completed
@@ -76,9 +84,34 @@ check `git status`/`git log` before assuming otherwise.
   working" and `PROJECT_MEMORY.md` → "Product card / wishlist / stock
   display / PDP content architecture" for the details.
 
+- **Premium Greek Checkout Phases 1-5, a search-dropdown/product-image/
+  cart-polish session, and now Dynamic New Arrivals / infinite scroll /
+  homepage carousels** (all committed through `24c00e3` except this
+  session's newest work) — see `CHANGELOG.md` for the checkout phases and
+  polish session, and below for this session's three features in detail.
+
+- **Dynamic New Arrivals, infinite scroll, homepage carousels** (this
+  snapshot): New Arrivals membership is now a hybrid rule (30-day
+  `created_at` window OR Medusa's native `"new"` product tag, admin-
+  manageable with zero backend changes) backing a real `/nea-afiksi` page;
+  category/subcategory/search/New-Arrivals listings now auto-load
+  additional batches via `IntersectionObserver` as the user scrolls, with
+  the classic Prev/Next pagination kept as a real `<noscript>` crawlable
+  fallback; both homepage rails (`Προτεινόμενα`/`Νέες αφίξεις`) are now
+  touch-friendly horizontal carousels (native CSS scroll-snap, no library)
+  with keyboard-operable desktop arrows, bumped from 4 to 12 products each,
+  ending in a real "Δείτε Περισσότερα" tile linking to a full listing page
+  — New Arrivals' at `/nea-afiksi`, and a new `/protainomena` ("Recommended
+  Products") page for the featured rail. Explicit architecture review
+  (findings + a recommended design for the few genuinely open decisions)
+  was presented and approved before any code. See `CHANGELOG.md` and
+  `PROJECT_MEMORY.md`'s new architecture section for full detail, including
+  two real bugs found and fixed live during the infinite-scroll build.
+
 [thmavrakis7777/eshop7777](https://github.com/thmavrakis7777/eshop7777) —
-`origin/main` is up to date through `64540dd` (see git state note above).
-This session's card/wishlist/PDP work is **not yet committed**.
+`origin/main` is up to date through `24c00e3` (see git state note above).
+This session's New Arrivals/infinite-scroll/carousels work is **not yet
+committed**.
 
 ## What is working (verified in-browser this session)
 
@@ -88,9 +121,13 @@ This session's card/wishlist/PDP work is **not yet committed**.
   rendering real Medusa data. **The "Τι λένε οι πελάτες μας" reviews section
   no longer exists**: it held three invented, named customer testimonials
   with hardcoded star ratings and was deleted during the production
-  readiness audit as a fabricated trust signal (see `CHANGELOG.md`). The two
-  product rails no longer carry a "Δες όλα →" link either — both pointed at
-  routes (`/prosfores`, `/nea-afiksi`) that have never existed.
+  readiness audit as a fabricated trust signal (see `CHANGELOG.md`). **Both
+  product rails are now real touch-friendly carousels** (2026-08-11: native
+  CSS scroll-snap, keyboard-operable desktop arrows, 12 products each,
+  ending in a real "Δείτε Περισσότερα" tile) and both now carry a real,
+  working "Δες όλα →" link — `Προτεινόμενα` → `/protainomena`, `Νέες
+  αφίξεις` → `/nea-afiksi` — replacing the previously-disabled links that
+  used to point at dead routes.
 - Header: sticky, mega menu (desktop, real subcategories + featured tile per
   category), mobile hamburger → drawer (real categories, working focus trap,
   Escape-to-close, focus return), search icon toggles a **real, working**
@@ -296,6 +333,12 @@ This session's card/wishlist/PDP work is **not yet committed**.
 
 ## What has NOT been tested
 
+- **New Arrivals' tag-override branch** (2026-08-11) — a product outside
+  the 30-day window but carrying Medusa's native `"new"` tag re-entering
+  New Arrivals. No such product exists in the current 16-product catalog
+  (all created within the last 30 days), so this specific branch of
+  `isNewArrivalMember()` is verified by code inspection/type-checking only,
+  not live. Re-verify once the catalog has a genuinely old product to tag.
 - **Discounted products through the checkout flow specifically** —
   discount math (Έκπτωση) was verified in the cart and in the direct API
   dry-run before any UI was built, but not re-confirmed end-to-end through
@@ -416,6 +459,8 @@ app/
   checkout/epibebaiosi/page.tsx Order confirmation — reads ?order= search param
   anazitisi/page.tsx            Search results — searchProducts(q), reuses CategoryPLPView
   lista-epithymion/page.tsx     Wishlist page — noindex, renders WishlistPageView
+  nea-afiksi/page.tsx           New Arrivals — getNewArrivalsPaged(), reuses CategoryPLPView
+  protainomena/page.tsx         Recommended Products — getFeaturedProductsPaged(), reuses CategoryPLPView
 
 components/
   layout/     AnnouncementBar, Header, Footer, MobileMenu, SearchBox
@@ -424,11 +469,19 @@ components/
               search-toggle panel)
   home/       Hero, CategoryGrid, ProductRail, EditorialBanner, TrustStrip, Newsletter
               (Reviews.tsx deleted — fabricated testimonials, see CHANGELOG)
-  category/   Breadcrumbs, CategoryPLPView (also powers /anazitisi — takes
-              optional extraParams/emptyMessage so a non-category listing
-              doesn't need its own copy of the grid+pagination+sort chrome;
-              basePath must be a pure path with no query string of its own),
-              Pagination, SortControl
+  category/   Breadcrumbs, CategoryPLPView (also powers /anazitisi,
+              /nea-afiksi, /protainomena — takes optional extraParams/
+              emptyMessage so a non-category listing doesn't need its own
+              copy of the grid+pagination+sort chrome; basePath must be a
+              pure path with no query string of its own; now also takes a
+              `source: ProductSource` telling InfiniteProductGrid which
+              Server Action to call for the next batch), Pagination (now
+              only ever rendered inside a <noscript> fallback, see
+              InfiniteProductGrid), SortControl,
+              InfiniteProductGrid (2026-08-11, Client Component —
+              IntersectionObserver-driven "load more," dedupes by product
+              id, resets on sort/source change via a resetKey, re-creates
+              the observer per batch — see PROJECT_MEMORY.md for why)
   product/    ProductCard (single shared card on every product grid in the
               app — real stock + multi-variant gating lives here, Phase 5;
               hierarchy redesigned this session: image → title → code →
@@ -473,7 +526,10 @@ lib/
                        require explicit `+variants.*` fields, not returned by
                        default). MedusaProduct gained material/weight/length/
                        width/height/origin_country (native Medusa attribute
-                       fields, all currently null on real products).
+                       fields, all currently null on real products), and
+                       tags: {id, value}[] (2026-08-11 — native Medusa
+                       product tags, confirmed live via +tags.value, backs
+                       New Arrivals' admin-tag override).
   format.ts           Price formatting (el-GR locale) + discountPercent() +
                       formatWeight()/formatDimensions() (grams→κιλά above
                       1kg, cm dimensions — Medusa's documented unit defaults)
@@ -502,11 +558,19 @@ lib/
                           search, indexes title + variant SKU together),
                           isVariantAvailable (Phase 5 — the real-stock rule),
                           toDomainCharacteristics (null-safe, only-populated-
-                          fields mapping for the PDP Characteristics section)
+                          fields mapping for the PDP Characteristics section),
+                          isNewArrivalMember (2026-08-11 — 30-day window OR
+                          "new" tag), getNewArrivalsPaged/getFeaturedProductsPaged
+                          (2026-08-11 — paginated, membership-filtered/sorted,
+                          back both the homepage rails and their full pages)
     cart.ts               getCart() — read-only, cookie-based, Server-Component-safe;
                           toDomainCart()/toAddressSummary() also used by lib/data/checkout.ts
     checkout.ts            getShippingOptionsForCart, getPaymentProviders, getOrder
   actions/
+    products.ts           (2026-08-11) loadMoreCategoryProductsAction/
+                          loadMoreNewArrivalsAction/loadMoreFeaturedProductsAction/
+                          loadMoreSearchProductsAction — thin per-listing-type
+                          wrappers called directly from InfiniteProductGrid
     recently-viewed.ts   Server Action bridging client-known handles → real product data
     wishlist.ts            Server Action bridging wishlist handles → real product data
                           (same shape as recently-viewed.ts), backs WishlistPageView
@@ -594,9 +658,12 @@ current scope. `AddToCartButton` and `ProductCard`'s quick-add are now real
 
 `/`, `/[category]`, `/[category]/[subcategory]`, `/proionta/[handle]`,
 `/kalathi`, `/checkout`, `/checkout/epibebaiosi`, `/anazitisi`,
-`/lista-epithymion`, `/robots.txt`, `/sitemap.xml`. Everything else linked
-from the header/footer (account, footer content pages) is a real link to a
-route that doesn't exist yet.
+`/lista-epithymion`, `/nea-afiksi`, `/protainomena`, `/robots.txt`,
+`/sitemap.xml`. Category/subcategory/search/New-Arrivals/Recommended
+listings now infinite-scroll (2026-08-11) — see `PROJECT_MEMORY.md`'s
+architecture section. Everything else linked from the header/footer
+(account, footer content pages) is a real link to a route that doesn't
+exist yet.
 
 ## Current integrations completed
 

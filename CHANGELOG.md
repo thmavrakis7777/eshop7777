@@ -3,6 +3,102 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Dynamic New Arrivals, infinite scroll, homepage carousels (2026-08-11)
+
+Three features built incrementally per an explicit, detailed brief that
+required an architecture review (data fetching, Medusa pagination,
+categories, tags/metadata, homepage sections, carousel libraries, SEO) before
+any code — findings and the resulting design were presented and approved
+before implementation began, then each feature was built and live-verified
+in turn.
+
+**New Arrivals is now a real, admin-maintainable collection, not a static
+list.** Membership = a rolling 30-day `created_at` window (reuses the
+existing `NEW_ARRIVAL_WINDOW_DAYS` constant, already driving the "Νέο"
+badge) **or** Medusa's native product tag `"new"` — confirmed live that
+`+tags.value` is queryable via the Store API with zero backend changes, and
+that tags are manageable from the Admin's product "Organize" panel. This
+gives genuinely-new products automatic inclusion (no admin work) while
+still letting the admin curate (re-feature an older product by tagging it).
+The "Νέο" badge everywhere (`ProductCard`, PDP) now reflects this same
+combined rule instead of the date-only check, so a tagged product reads as
+new consistently across the whole site. New `getNewArrivalsPaged()` in
+`lib/data/products.ts` fetches a superset ordered by `-created_at`, filters
+to members, then sorts/paginates in-process — the same "fetch a generous
+superset, sort/slice in JS" pattern already used for price sort, since
+membership isn't a single Medusa filter. `getNewArrivals()` (used by the
+homepage rail) is now a thin wrapper over the same function, so there's one
+source of truth for "what counts as new," not two. New `/nea-afiksi` page
+reuses `CategoryPLPView` end-to-end (breadcrumbs, sort, `ProductCard`,
+pagination/SEO) — real canonical, OG metadata, single H1, `BreadcrumbList`
+JSON-LD, added to `sitemap.ts`, linked from the homepage rail's "Δες όλα".
+**Known gap, not fabricated as tested**: the tag-override branch couldn't be
+live-tested against a real aged-out product, since all 16 seeded products
+are still within the 30-day window — the code path is straightforward and
+type-checked but not exercised against real "old + tagged" data yet.
+
+**Infinite scroll replaces classic Prev/Next on category, subcategory,
+search, and New Arrivals listings — without sacrificing crawlability.**
+`PAGE_SIZE` raised from 12 to 24 (one shared value for the SSR'd first page
+and every client-fetched batch, so `?page=2` renders identically either
+way). New `InfiniteProductGrid` (Client Component) wraps the grid: an
+`IntersectionObserver` sentinel calls one of three small Server Actions
+(`lib/actions/products.ts` — `loadMoreCategoryProductsAction`,
+`loadMoreNewArrivalsAction`, `loadMoreFeaturedProductsAction`,
+`loadMoreSearchProductsAction`) for the next offset/limit batch and appends
+client-side, deduped by product id. The classic `Pagination` component is
+kept, unchanged, inside a real `<noscript>` — crawlers and no-JS visitors
+get the exact same fully-crawlable paginated URLs (each with its own
+canonical) this app already had; every product is also independently
+discoverable via `sitemap.xml` regardless. Guarded against the real failure
+modes: a `loadingRef` (not just `isPending`, which lags a render cycle)
+blocks concurrent/duplicate fetches; a `resetKey` (source + sort + SSR page)
+snaps state back to the fresh server props the instant it changes, so
+switching sort/category never appends onto a stale previous listing; the
+observer is deliberately re-created (not just re-observed) after every
+successful batch, because a fresh `observe()` call always fires once with
+the *current* intersection state — without that, a short list that doesn't
+grow taller than the viewport+margin would silently stop loading after one
+batch, since `IntersectionObserver` only fires on a state *change* and a
+persistently-intersecting sentinel never produces one. **A real bug was
+hit and fixed during this build**: a Server Component passed a plain
+closure (`buildPageHref`) as a prop into the new Client Component — React
+can't serialize functions across that boundary, and it surfaced immediately
+as a 500 ("Functions cannot be passed directly to Client Components").
+Fixed by passing `basePath`/`extraParams` as plain data and building the
+href inside the Client Component instead. **Also verified live**: the
+`computer` scroll-simulation browser-automation tool did not reliably
+produce real scroll/intersection events in this environment (a repeat of
+the "browser automation click/type unreliable" note already in
+`NEXT_STEPS.md`) — direct `window.scrollTo()` + polling was used instead
+and confirmed the feature genuinely works: correct batch sizes, zero
+duplicates, correct end-of-results state, zero extra requests once
+exhausted, correct reset on sort change.
+
+**Homepage carousels**: `ProductRail` (shared by the homepage, PDP
+related/recently-viewed rails, and the cart cross-sell rail) converted from
+a static CSS grid into a touch-friendly horizontal track — native CSS
+`overflow-x-auto` + `scroll-snap-type: x mandatory` + a new
+`.scrollbar-hide` utility, no carousel library (none existed in
+`package.json`; none was added). Desktop gets real, keyboard-operable arrow
+buttons (`ChevronDownIcon` reused via CSS rotation — no new icon needed)
+that `scrollBy()` the same track and correctly disable at each end (a real
+`disabled` attribute, not just a visual dim); mobile relies on native
+touch/swipe, which the scroll-snap CSS already provides with zero JS. Both
+homepage rails now request 12 products (up from 4) and end with a real
+"Δείτε Περισσότερα" tile styled to belong to the track, linking to the new
+full listing pages (`/nea-afiksi`, `/protainomena`). New `/protainomena`
+("Recommended Products") page mirrors `/nea-afiksi`'s architecture exactly,
+backed by a new `getFeaturedProductsPaged()` — same honest "curated slice,
+not a fabricated popularity ranking" comment as the original
+`getFeaturedProducts()` it replaces, defaulting to alphabetical order
+rather than "newest" specifically so it doesn't just look like a duplicate
+of New Arrivals. `ProductCard` itself is completely unchanged — no second
+card design, per the brief.
+
+`tsc --noEmit`, `eslint` (project-wide), and `next build` all clean after
+every fix, not just once at the end.
+
 ## Search dropdown fix, real product-image rendering, cart pricing/SKU polish (2026-08-10)
 
 Three follow-on pieces of work in one session, each starting from live

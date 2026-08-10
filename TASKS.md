@@ -694,16 +694,52 @@ one session, each verified live against the real backend.
       decrement recalculating line total and header total correctly, no
       fake discount badge/strikethrough on any real (non-discounted) product.
 
+## Completed (continued)
+
+**Dynamic New Arrivals, infinite scroll, homepage carousels (2026-08-11).**
+Explicit brief requiring an architecture review (products/categories/
+pagination/tags/homepage/carousel-library/SEO all inspected live) before
+any code, with several open decisions explicitly delegated for a
+recommendation rather than fully pre-specified — see `CHANGELOG.md` and
+`PROJECT_MEMORY.md`'s new architecture section for the full detail.
+
+- [x] **New Arrivals**: hybrid membership (30-day `created_at` window OR
+      Medusa's native `"new"` product tag, admin-manageable, zero backend
+      changes), `getNewArrivalsPaged()`, real `/nea-afiksi` page reusing
+      `CategoryPLPView` (breadcrumbs/sort/SEO/pagination all reused), added
+      to `sitemap.ts`, linked from the homepage rail.
+- [x] **Infinite scroll** on category, subcategory, search, and New
+      Arrivals listings — `PAGE_SIZE` 12→24, new `InfiniteProductGrid`
+      Client Component + three Server Actions (`lib/actions/products.ts`),
+      classic `Pagination` kept as a real `<noscript>` crawlable fallback,
+      guarded against duplicate/concurrent requests and stale-listing
+      appends. Two real bugs found and fixed live (a Server→Client
+      function-prop 500, and an `IntersectionObserver` that stopped
+      re-firing on short lists) — see `CHANGELOG.md`.
+- [x] **Homepage carousels**: `ProductRail` converted to a native CSS
+      scroll-snap horizontal track (no library), desktop keyboard-operable
+      arrows, mobile native touch/swipe, both rails 4→12 products, real
+      "Δείτε Περισσότερα" tile. New `/protainomena` ("Recommended
+      Products") page + `getFeaturedProductsPaged()`, same pattern as New
+      Arrivals. `ProductCard` untouched.
+- [x] `tsc --noEmit`, `eslint`, and `next build` all clean throughout.
+- [ ] **Not yet live-tested**: the New Arrivals tag-override branch against
+      a real aged-out (>30 days) tagged product — no such product exists in
+      the current 16-product catalog, all of which are still within the
+      window. Code path is straightforward and type-checked; genuinely
+      untested against real "old + tagged" data.
+
 ## Next
 
-Premium checkout Phases 2-6 (billing address + tax documents, address
-autocomplete, ΑΦΜ/ΓΕΜΗ lookup, order emails, Stripe payment) per
-`CHECKOUT_PREMIUM_SPEC.md`'s revised phase order — not started. The original
-Phase 4B checkout is built, verified, and stable, but per the user's own
-instructions for that phase, it still hasn't had the user's own hands-on
-review. Product code, add-to-cart-everywhere, search (Phase 5), the
-production readiness audit, and the card/wishlist/PDP content work are all
-built and verified. See `NEXT_STEPS.md`.
+This session's New Arrivals/infinite-scroll/carousels work (above) is
+built and verified but has not had the user's own hands-on review — same
+"ask, don't assume it's reviewed" pattern as every prior feature. Otherwise
+genuinely open: see "Future" below (payment processor still on hold per the
+user's explicit prior decision, account/content pages, housekeeping). Note
+this section previously said Premium Checkout Phases 2-6 were "not
+started" — stale; `git log` confirms all five checkout phases, the
+card/wishlist/PDP work, and a search-dropdown/product-image/cart-polish
+session all landed and were pushed before this session began.
 
 ## Future
 

@@ -12,7 +12,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getAllProductHandles(),
   ]);
 
-  const staticRoutes: MetadataRoute.Sitemap = [{ url: siteUrl, changeFrequency: "daily", priority: 1 }];
+  const staticRoutes: MetadataRoute.Sitemap = [
+    { url: siteUrl, changeFrequency: "daily", priority: 1 },
+    { url: `${siteUrl}/nea-afiksi`, changeFrequency: "daily", priority: 0.8 },
+    { url: `${siteUrl}/protainomena`, changeFrequency: "weekly", priority: 0.7 },
+  ];
 
   const categoryRoutes: MetadataRoute.Sitemap = navCategories.flatMap((top) => [
     { url: `${siteUrl}/${top.handle}`, changeFrequency: "weekly", priority: 0.9 },
