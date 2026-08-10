@@ -102,6 +102,7 @@ function toDomainProduct(p: MedusaProduct): Product {
     ],
     variants,
     placeholderTone: toneFor(p.handle),
+    imageUrl: p.thumbnail,
     code: variants[0]?.code ?? null,
     isAvailable: variants.some((v) => v.isAvailable),
     characteristics: toDomainCharacteristics(p),

@@ -40,6 +40,7 @@ export function CartLineItemTableRow({
           >
             {item.title}
           </Link>
+          {item.code && <span className="text-xs text-ink-muted">Κωδικός: {item.code}</span>}
           <button
             type="button"
             className="w-fit text-sm text-ink-muted hover:text-ink hover:underline disabled:opacity-50"
@@ -55,9 +56,13 @@ export function CartLineItemTableRow({
         {item.compareAtUnitPrice ? <span className="line-through">{formatPrice(item.compareAtUnitPrice)}</span> : "–"}
       </div>
 
-      <div className="text-right">
+      <div className="flex flex-col items-end gap-1">
         <span className="text-sm font-semibold text-ink tabular-nums">{formatPrice(item.unitPrice)}</span>
-        {pct !== null && <div className="text-xs font-medium text-accent">-{pct}%</div>}
+        {pct !== null && (
+          <span className="rounded-sm bg-accent px-1.5 py-0.5 text-[11px] font-medium tracking-wide text-white">
+            -{pct}%
+          </span>
+        )}
       </div>
 
       <div className="flex justify-center">

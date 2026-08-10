@@ -38,6 +38,7 @@ export function toDomainCart(c: MedusaCart): Cart {
     productHandle: item.product_handle,
     title: item.title,
     quantity: item.quantity,
+    code: item.variant_sku,
     unitPrice: { amount: item.unit_price, currencyCode: "EUR" as const },
     compareAtUnitPrice:
       item.compare_at_unit_price && item.compare_at_unit_price > item.unit_price

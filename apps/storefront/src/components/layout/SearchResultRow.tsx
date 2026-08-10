@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
-import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { PlusIcon } from "@/components/ui/Icons";
 import { useQuickAdd } from "@/lib/hooks/use-quick-add";
 
@@ -39,11 +39,14 @@ export function SearchResultRow({
           onClick={onNavigate}
           tabIndex={-1}
         >
-          <PlaceholderTile
-            label={product.title}
-            tone={product.placeholderTone}
-            className="h-11 w-11 shrink-0"
-          />
+          <div className="h-11 w-11 shrink-0">
+            <ProductImage
+              imageUrl={product.imageUrl}
+              label={product.title}
+              tone={product.placeholderTone}
+              sizes="44px"
+            />
+          </div>
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-sm text-ink">{product.title}</span>
             {error ? (

@@ -61,6 +61,9 @@ export type Product = {
   badges?: Array<"new" | "sale">;
   variants: ProductVariant[];
   placeholderTone: Tone;
+  // Medusa's product thumbnail — null for every real product today (no
+  // photography yet), in which case callers fall back to PlaceholderTile.
+  imageUrl: string | null;
   // The default (first) variant's code — convenience for single-variant
   // display (100% of the catalog today) so callers don't need to reach
   // into `variants[0]` just to show a product code.
@@ -84,6 +87,8 @@ export type CartLineItem = {
   compareAtUnitPrice?: Money;
   lineTotal: Money;
   placeholderTone: Tone;
+  // Snapshotted variant SKU — see MedusaLineItem.variant_sku in lib/medusa.ts.
+  code: string | null;
 };
 
 export type AppliedPromotion = {

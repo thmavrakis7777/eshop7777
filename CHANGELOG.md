@@ -3,6 +3,55 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Search dropdown fix, real product-image rendering, cart pricing/SKU polish (2026-08-10)
+
+Three follow-on pieces of work in one session, each starting from live
+inspection of what already existed rather than assuming a rebuild was needed.
+
+**Search dropdown layout bug, found via actual browser testing (not code
+review alone)**: searching "τηγανι" showed a product row where the image
+tile visually swallowed the entire row width, hiding the title and SKU text
+behind it — confirmed via the accessibility tree that the text was present
+in the DOM, just not visible. Root cause: `PlaceholderTile`'s own
+`w-full`/`aspect-square` base classes always beat a `className="h-11 w-11"`
+override passed by the caller, since Tailwind utility precedence is
+stylesheet order, not the order classes appear in a `className` string.
+`ProductCard` had already solved this correctly by wrapping the tile in a
+sized `<div>` instead of fighting it via `className` — `SearchResultRow`
+just hadn't followed that same pattern. Fixed the same way.
+
+**Real product-image rendering added, closing a storefront-wide gap**: while
+testing the fix above, found that the domain `Product` type never carried
+Medusa's `thumbnail` field through to any component — every product surface
+unconditionally rendered `PlaceholderTile`, meaning a real photo uploaded to
+Medusa today would render nowhere on the site. Added `Product.imageUrl`,
+mapped it from Medusa's `thumbnail` in `toDomainProduct()`, and built a
+shared `ProductImage` component (real `next/image` when a thumbnail exists,
+`PlaceholderTile` fallback otherwise) used by both `ProductCard` and
+`SearchResultRow`, plus the `next.config.ts` `images.remotePatterns` entry
+Medusa's local file server needs. No real product has a photo yet, so this
+is verified for zero-regression (every card renders identically to before)
+but not yet against a real end-to-end photo.
+
+**Cart pricing/SKU/discount-badge polish, mini-cart drawer + main cart
+page**: explicit brief to inspect existing pricing/discount logic first.
+`discountPercent()` and Medusa's real `compare_at_unit_price` field already
+existed and were already shared by both the drawer and the full cart table —
+no duplicate discount calculation was written. Added the one real gap: SKU
+display (Medusa's line items already carry `variant_sku` by default, just
+never mapped into the domain `CartLineItem`), and upgraded the discount
+indicator from bare accent-colored text to a compact pill badge reusing
+`ProductCard`'s existing "sale" badge style. Verified live with three
+different product-title lengths via `getBoundingClientRect()` that no
+alignment bug existed (vertical centering and column edges were already
+correct via the existing shared grid + `items-center`), and — since no
+discounted product exists in the live catalog — verified the discount math
+against a deliberately non-round number (`27.90 × 1.25 = 34.875 → -20%`) via
+a disclosed, transient client-side-only override, reverted immediately after
+the screenshot.
+
+`tsc --noEmit`, `eslint` (project-wide), and `next build` all clean.
+
 ## Greek-aware live search dropdown — built and fully verified live (2026-08-10)
 
 Built the interactive search dropdown from a detailed brief: live results as

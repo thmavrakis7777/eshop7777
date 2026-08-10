@@ -69,6 +69,11 @@ export type MedusaLineItem = {
   quantity: number;
   unit_price: number;
   compare_at_unit_price: number | null;
+  // Snapshotted onto the line item at add-to-cart time (same pattern as
+  // title/product_handle) — stays correct even if the variant's SKU is
+  // edited later. Already returned by the default `*items` expansion, no
+  // extra `fields` entry needed.
+  variant_sku: string | null;
   adjustments: MedusaLineItemAdjustment[];
 };
 

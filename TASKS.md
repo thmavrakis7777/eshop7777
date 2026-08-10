@@ -627,6 +627,73 @@ approved before any code, same pattern as every prior feature.
       100% single-variant (same standing gap as every other multi-variant
       code path in this project).
 
+**Search dropdown layout fix, real product-image rendering, and cart
+pricing/SKU/discount polish (2026-08-10).** Three follow-on fixes/features in
+one session, each verified live against the real backend.
+
+- [x] **Search dropdown bug fix**: `SearchResultRow`'s product-image tile was
+      rendering full-row-width and hiding the title/SKU text behind it —
+      `PlaceholderTile`'s own `w-full`/`aspect-square` classes always win over
+      a `className` override (Tailwind utility precedence is stylesheet
+      order, not class-string order), so `className="h-11 w-11 shrink-0"`
+      never took effect. Fixed by wrapping it in a sized `<div>` instead —
+      the same pattern `ProductCard` already used. Confirmed live.
+- [x] **Real product-image rendering, storefront-wide gap closed**: the
+      domain `Product` type never carried Medusa's `thumbnail` field through
+      to any component — every product surface (search dropdown, grid cards)
+      unconditionally rendered `PlaceholderTile`, so a real photo uploaded to
+      Medusa today would render nowhere. Added `Product.imageUrl`
+      (`toDomainProduct()` now maps `p.thumbnail`), a new shared
+      `components/ui/ProductImage.tsx` (real `next/image` when a thumbnail
+      exists, `PlaceholderTile` fallback otherwise — one place deciding this
+      for both `ProductCard` and `SearchResultRow`), and a `next.config.ts`
+      `images.remotePatterns` entry for Medusa's local file server
+      (`localhost:9000/static/**`). Zero real product has a photo yet
+      (confirmed via Store API), so this is unverified against a real photo
+      end-to-end — the rendering path itself is verified live with zero
+      regression (every card still shows its placeholder tile identically).
+      PDP (`proionta/[handle]/page.tsx`) and cart/checkout line items still
+      render `PlaceholderTile` directly, unchanged — out of scope here.
+- [x] **Cart pricing/SKU/discount-badge polish (mini-cart drawer + main cart
+      page)**: explicit brief to inspect existing pricing/discount logic
+      first and reuse it — `discountPercent()` (`lib/format.ts`) and
+      `compareAtUnitPrice` (from Medusa's real `compare_at_unit_price` cart
+      field) already existed and were already shared by both surfaces, so no
+      new discount calculation was written. Added the one real gap: SKU
+      display. Medusa's line items already carry `variant_sku` by default
+      (confirmed via a live Store API call, no extra `fields` needed) but it
+      was never mapped through — added `CartLineItem.code`, wired in
+      `toDomainCart()`, rendered as "Κωδικός: …" (secondary, smaller than the
+      title) in both `CartLineItemRow` and `CartLineItemTableRow`. Upgraded
+      the discount indicator from bare accent-colored text to a compact pill
+      badge, reusing `ProductCard`'s existing "sale" badge treatment
+      (`bg-accent text-white rounded-sm px-1.5 py-0.5 text-[11px]`) rather
+      than inventing a new style. Deliberately kept the existing labeled
+      rows ("Αρχική τιμή:" / "Τιμή:") in the drawer/mobile card layout rather
+      than reverting to an unlabeled format — that labeling was itself a
+      documented prior fix ("Cart clarity pass, 2026-08-08"). Also kept
+      `ΑΡΧΙΚΗ ΤΙΜΗ` right-aligned (not center-aligned) in the desktop table,
+      matching the `ΤΙΜΗ`/`ΣΥΝΟΛΟ` numeric columns already right-aligned next
+      to it — center-aligning just one of three adjacent price columns would
+      look inconsistent, not more aligned.
+- [x] **Alignment verified, not just assumed**: no real bug existed —
+      `getBoundingClientRect()` on live rows with three different title
+      lengths confirmed every price cell already vertically centers on its
+      row's tallest cell (`items-center` on the shared grid), and all three
+      price columns share identical left/right pixel edges across every row,
+      both with and without a discount badge present.
+- [x] **Discount math verified against a deliberately messy number**: since
+      no discounted product exists in the live catalog today, a transient,
+      disclosed client-side-only override (`27.90 × 1.25 = 34.875`, reverted
+      immediately after) confirmed `discountPercent()` still rounds to a
+      correct `-20%` despite the non-round intermediate value — the
+      floating-point-precision failure mode named in the brief.
+- [x] `tsc --noEmit`, `eslint` (project-wide), and `next build` all clean.
+      Live-verified: mini-cart drawer, main cart page desktop table (1280px)
+      and mobile/tablet card layout (390px/768px), quantity increment/
+      decrement recalculating line total and header total correctly, no
+      fake discount badge/strikethrough on any real (non-discounted) product.
+
 ## Next
 
 Premium checkout Phases 2-6 (billing address + tax documents, address

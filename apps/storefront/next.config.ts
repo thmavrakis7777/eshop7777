@@ -18,6 +18,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  images: {
+    // Medusa's default local file provider serves uploaded product photos
+    // from its own /static path — no real photography exists yet, but every
+    // product image consumer (ProductCard, SearchResultRow) already renders
+    // one correctly the moment a thumbnail is set. Revisit this pattern if
+    // the file provider ever moves to S3/a CDN.
+    remotePatterns: [{ protocol: "http", hostname: "localhost", port: "9000", pathname: "/static/**" }],
+  },
 };
 
 export default nextConfig;

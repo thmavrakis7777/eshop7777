@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
-import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { Stars } from "@/components/ui/Stars";
 import { StockStatus } from "@/components/product/StockStatus";
 import { useQuickAdd } from "@/lib/hooks/use-quick-add";
@@ -45,7 +45,12 @@ export function ProductCard({ product }: { product: Product }) {
             </div>
           )}
           <div className={isOutOfStock ? "opacity-70" : ""}>
-            <PlaceholderTile label={product.title} tone={product.placeholderTone} />
+            <ProductImage
+              imageUrl={product.imageUrl}
+              label={product.title}
+              tone={product.placeholderTone}
+              sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+            />
           </div>
         </Link>
         <WishlistButton
