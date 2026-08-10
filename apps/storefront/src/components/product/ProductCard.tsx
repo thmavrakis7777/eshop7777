@@ -1,14 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 import { Stars } from "@/components/ui/Stars";
 import { StockStatus } from "@/components/product/StockStatus";
-import { addLineItemAction } from "@/lib/actions/cart";
-import { useCartUI } from "@/components/cart/CartUIProvider";
+import { useQuickAdd } from "@/lib/hooks/use-quick-add";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
 
 const BADGE_LABEL: Record<NonNullable<Product["badges"]>[number], string> = {
@@ -24,30 +22,7 @@ const BADGE_LABEL: Record<NonNullable<Product["badges"]>[number], string> = {
 // hover-to-reveal/mobile-always-visible split entirely (Phase 5's fix for
 // that is now moot, not reintroduced).
 export function ProductCard({ product }: { product: Product }) {
-  const { showAddedToast } = useCartUI();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  // Multiple variants (size/color/...) means the customer must choose one —
-  // never guess by adding variants[0]. No real multi-variant product exists
-  // in the catalog yet; this path is forward design, routed to the PDP
-  // rather than a speculative inline selector. See
-  // PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md §2.3.
-  const hasSingleVariant = product.variants.length === 1;
-  const variant = product.variants[0];
-  const isOutOfStock = !product.isAvailable;
-
-  function handleQuickAdd() {
-    setError(null);
-    startTransition(async () => {
-      const result = await addLineItemAction(variant.id, 1);
-      if (result.ok) {
-        showAddedToast();
-      } else {
-        setError(result.error);
-      }
-    });
-  }
+  const { hasSingleVariant, isOutOfStock, isPending, error, quickAdd } = useQuickAdd(product);
 
   return (
     <article className="flex h-full flex-col">
@@ -113,7 +88,7 @@ export function ProductCard({ product }: { product: Product }) {
           <button
             type="button"
             className="mt-auto w-full rounded-sm bg-ink px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={handleQuickAdd}
+            onClick={quickAdd}
             disabled={isPending || isOutOfStock}
           >
             {isOutOfStock ? "Εξαντλήθηκε" : isPending ? "Προσθήκη…" : "Προσθήκη στο καλάθι"}

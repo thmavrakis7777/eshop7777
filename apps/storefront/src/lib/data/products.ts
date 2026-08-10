@@ -1,5 +1,6 @@
 import { getDefaultRegionId, medusaFetch, type MedusaProduct, type MedusaVariant } from "@/lib/medusa";
 import { getCategoryIdByHandle, getCategoryIdsForHandle } from "@/lib/data/categories";
+import { buildSearchIndexEntry, rankSearchMatches, type SearchIndexEntry } from "@/lib/search";
 import type { Product, ProductCharacteristics, Tone } from "@/lib/types";
 
 // Small, deliberately incomplete lookup for the handful of manufacturing
@@ -295,12 +296,40 @@ export async function getCartCrossSell(cartProductHandles: string[], limit = 4):
     .map(toDomainProduct);
 }
 
-// Medusa's own `q` full-text search already indexes both product
-// title/description *and* variant SKU — confirmed live against the real
-// backend (exact SKU, partial SKU substring, and a Greek title word all
-// matched correctly). No separate search index/service to build or keep in
-// sync; this just calls the same Store API endpoint every other product
-// list already uses, with `q` added.
+// Medusa's own `q` param is a database-level ILIKE match: case-insensitive
+// but not accent-insensitive, no fuzzy tolerance, and no controllable
+// ranking — insufficient for Greek search, where customers routinely type
+// without tonos ("σεντονια" for "Σεντόνια"). At today's catalog size (a
+// couple dozen products), fetching the full catalog once per short cache
+// window and ranking in-process (lib/search.ts) is far lighter than adding
+// a database extension or an external search service — revisit only if the
+// catalog grows into the hundreds. This is the one search implementation
+// used by both this results page and the header's live dropdown (see
+// lib/actions/search.ts) — no second, independent search path.
+async function getSearchCatalog(): Promise<Array<{ product: Product; entry: SearchIndexEntry }>> {
+  const regionId = await getDefaultRegionId();
+  const params = new URLSearchParams({
+    region_id: regionId,
+    fields: PRODUCT_FIELDS,
+    limit: "1000",
+  });
+  const { products } = await medusaFetch<{ products: MedusaProduct[] }>(
+    `/store/products?${params.toString()}`,
+    { next: { revalidate: 30 } }
+  );
+
+  return products.map((p) => ({
+    product: toDomainProduct(p),
+    // Real Greek display names (e.g. "Τηγάνια"), not the Latin URL handle —
+    // the handle would never match a Greek-language query.
+    entry: buildSearchIndexEntry({
+      title: p.title,
+      skus: p.variants.map((v) => v.sku),
+      categoryNames: p.categories.map((c) => c.name),
+    }),
+  }));
+}
+
 export async function searchProducts(
   query: string,
   opts: { limit?: number; offset?: number } = {}
@@ -309,21 +338,14 @@ export async function searchProducts(
   if (!trimmed) return { products: [], count: 0 };
 
   const { limit = 24, offset = 0 } = opts;
-  const regionId = await getDefaultRegionId();
-  const params = new URLSearchParams({
-    q: trimmed,
-    region_id: regionId,
-    fields: PRODUCT_FIELDS,
-    limit: String(limit),
-    offset: String(offset),
-  });
+  const catalog = await getSearchCatalog();
 
-  const { products, count } = await medusaFetch<{ products: MedusaProduct[]; count: number }>(
-    `/store/products?${params.toString()}`,
-    { next: { revalidate: 30 } }
+  const ranked = rankSearchMatches(
+    trimmed,
+    catalog.map(({ product, entry }) => ({ entry, item: product, tieBreak: entry.normalizedTitle }))
   );
 
-  return { products: products.map(toDomainProduct), count };
+  return { products: ranked.slice(offset, offset + limit), count: ranked.length };
 }
 
 export async function getAllProductHandles(): Promise<{ handle: string; updatedAt: string }[]> {

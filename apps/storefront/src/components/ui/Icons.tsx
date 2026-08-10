@@ -67,3 +67,11 @@ export function CloseIcon({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function PlusIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden="true">
+      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+    </svg>
+  );
+}

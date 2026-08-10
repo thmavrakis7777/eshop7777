@@ -577,6 +577,56 @@ user brief; each scoped to its own component only, no architecture changes.
       375/768/1280px all zero horizontal overflow. `tsc --noEmit`, `eslint`
       (project-wide), and `next build` all clean.
 
+**Greek-aware live search dropdown (2026-08-10, code complete — live
+verification blocked, see below).** Architecture (normalization approach,
+fuzzy strategy, ranking tiers, desktop/mobile wireframes) proposed and
+approved before any code, same pattern as every prior feature.
+
+- [x] `lib/search.ts` — Unicode NFD-based accent stripping + Greek sigma
+      fold + whitespace normalization, a 7-tier ranking (SKU exact/partial,
+      title exact/prefix/word, category, bounded fuzzy), hand-rolled
+      Levenshtein (no new dependency). Verified standalone against every
+      example in the brief (accented/unaccented, mixed case) — all pass.
+- [x] `searchProducts()` rewritten in place (same signature) to rank a
+      cached full-catalog fetch in-process instead of Medusa's `q` — one
+      search implementation shared by `/anazitisi` and the dropdown, not a
+      second system. Real bug caught during self-review before any testing:
+      the category-match tier was indexing the Latin URL handle instead of
+      the real Greek category name — fixed.
+- [x] `lib/hooks/use-quick-add.ts` extracted from `ProductCard`'s inline
+      logic, now shared with the new `SearchResultRow` — same add-to-cart/
+      multi-variant-routing behavior on both surfaces, no duplicated logic.
+- [x] `SearchResultRow.tsx` (new) — compact row, discounted-price hierarchy
+      reused from `ProductCard`, multi-variant → "Επιλογές →" link (reuses
+      `ProductCard`'s existing pattern rather than a new inline picker).
+      Quick-add errors now surface inline (a gap caught during self-review).
+- [x] `SearchBox.tsx` rebuilt — full ARIA combobox pattern mirroring the
+      existing `AddressAutocomplete.tsx` precedent (arrow-key virtual nav,
+      Enter/Escape, outside-click), subtle loading state, helpful Greek
+      no-results copy.
+- [x] Two `react-hooks/set-state-in-effect` violations hit and fixed with
+      the same pattern already established for the cart drawer.
+- [x] `tsc --noEmit` and `eslint` (project-wide) both clean.
+- [x] **DNS blocker resolved**: `DATABASE_URL` switched from the direct
+      connection to Supabase's session pooler (`aws-1-eu-west-1.pooler.supabase.com`,
+      real IPv4), reusing the existing DB password — no new secret entered
+      or exposed. See `PROJECT_MEMORY.md`'s "External services" for the
+      full diagnosis.
+- [x] `next build` (storefront) and `medusa lint` (backend) both clean
+      with the live backend.
+- [x] **Full live verification done against the real backend and real
+      catalog** — Greek accented/unaccented/uppercase search, exact and
+      partial SKU search, two typo cases via fuzzy matching, honest
+      no-results copy for both a nonsense query and a real absent product,
+      quick-add updating the header count/total without opening the
+      drawer, keyboard Arrow/Enter/Escape, real outside-click, zero
+      horizontal overflow at 320/375/768/1280px, a real 40×40px touch
+      target. Full detail in `PROJECT_MEMORY.md`. Honest, not-fabricated
+      gaps: no discounted or out-of-stock product exists in the live
+      catalog today to exercise those two states, and the catalog is still
+      100% single-variant (same standing gap as every other multi-variant
+      code path in this project).
+
 ## Next
 
 Premium checkout Phases 2-6 (billing address + tax documents, address

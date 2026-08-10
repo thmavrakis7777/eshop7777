@@ -1034,6 +1034,120 @@ nested Turborepo/pnpm workspace):
   - `tsc --noEmit`, `eslint` (project-wide), and `next build` all clean
     after these changes.
 
+- **Greek-aware live search dropdown (2026-08-10, built — live verification
+  blocked by the Supabase DNS issue above, not yet done)**: architecture
+  proposed with wireframes and approved before any code, per this project's
+  usual pattern. Full spec discussion covered why Medusa's native `q` param
+  is insufficient (Postgres ILIKE: case-insensitive but not accent-
+  insensitive, no fuzzy tolerance, no controllable ranking) and why an
+  in-memory app-layer ranker (not a database extension, not an external
+  search service) is the right scope at today's catalog size (~16-30
+  products) — revisit only if the catalog grows into the hundreds.
+  - **`lib/search.ts` (new)**: `normalizeSearchText()` — Unicode NFD
+    decomposition strips accents as combining marks (`̀-ͯ`), not a
+    hardcoded character table, plus an explicit Greek final-sigma fold
+    (`ς→σ`, a real gap NFD/lowercasing alone doesn't close) and whitespace
+    collapse. Verified standalone (outside the app, direct Node script)
+    against every example in the brief — `σεντονια`→`Σεντόνια`,
+    `τηγανι`→`Τηγάνι`, `κουζινικων`→`Κουζινικών`, mixed case, multi-space —
+    all pass. `matchTier()` — a 7-tier match (SKU exact, SKU partial, title
+    exact, title prefix, title word, category, bounded fuzzy), never blends
+    signals into an opaque score, so ranking stays explainable. Fuzzy
+    matching is a hand-rolled bounded Levenshtein (no dependency), compared
+    per-word (not whole-title) with the allowed edit distance scaled to word
+    length — deliberately tight to avoid the "too aggressive, surfaces
+    unrelated products" failure mode the brief explicitly warned against.
+  - **`lib/data/products.ts`'s `searchProducts()` rewritten in place** (same
+    signature/contract — `{ limit, offset } → { products, count }`) rather
+    than adding a second search path: fetches the full catalog once per
+    30s-cached window (same `next: { revalidate: 30 }` convention as every
+    other list in this file) and ranks in-process. Both `/anazitisi` and the
+    header dropdown call this one function — no duplicate search
+    implementation. A real bug caught during self-review before this was
+    ever tested: the first draft indexed `product.categoryHandle` (a Latin
+    URL slug like `tigania`) for the "category match" tier instead of the
+    real Greek category *name* (`Τηγάνια`) — would have silently made the
+    category tier permanently unreachable for Greek queries. Fixed to pull
+    `p.categories[].name` from the raw Medusa response before it's dropped
+    by `toDomainProduct`.
+  - **`lib/hooks/use-quick-add.ts` (new)**: the single-variant-vs-multi-
+    variant quick-add logic (never guesses a variant — routes to the PDP
+    instead, per the existing rule in
+    `PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md` §2.3) extracted out of
+    `ProductCard.tsx`, which now calls it instead of carrying its own copy.
+    Shared with the new `SearchResultRow`, so add-to-cart behavior and toast
+    timing can't drift between the two surfaces.
+  - **`components/layout/SearchResultRow.tsx` (new)**: compact
+    `[image][title+SKU][price][quick-add]` row — deliberately not
+    `ProductCard`'s vertical layout. SKU shown small/muted next to the
+    title; a discounted product shows strikethrough original + accent
+    current price (same hierarchy `ProductCard` already uses). Multi-variant
+    products get a compact "Επιλογές →" link to the PDP in the action slot
+    instead of an inline picker — recommended and approved before coding,
+    since a real picker doesn't fit a dropdown row and this reuses
+    `ProductCard`'s existing multi-variant treatment rather than inventing a
+    new one. Image/title is a real `<a>` (`tabIndex=-1}`, since arrow-key
+    virtual navigation drives selection); quick-add is a real, independently
+    Tab-reachable `<button>` — siblings, never nested (invalid nested-
+    interactive markup was a real bug fixed in an earlier production audit;
+    not reintroduced here). Quick-add errors (e.g. a race-condition stock
+    failure) surface inline in the row's subtitle slot rather than being
+    silently swallowed — caught during self-review, the first draft had
+    nowhere for `useQuickAdd`'s `error` to go in a row this compact.
+  - **`components/layout/SearchBox.tsx` rebuilt**: full ARIA combobox
+    pattern mirroring the existing `AddressAutocomplete.tsx` precedent
+    (`role="combobox"`, virtual `aria-activedescendant` navigation via
+    Arrow Up/Down, `role="listbox"`/`option`, outside-click via a
+    `mousedown` listener) rather than a new pattern — Escape closes, Enter
+    opens the highlighted product, real Tab flow reaches each row's own
+    quick-add button directly. Subtle loading state (a small spinner
+    replacing the search icon, previous results stay visible and dimmed
+    rather than flashing to empty) and a helpful Greek no-results message
+    (`Δεν βρήκαμε προϊόντα για «{query}»` + a spelling-check hint), not a
+    bare "no results" line. The existing `requestId`-ref staleness guard
+    (a faster, later request can resolve before an earlier, slower one) was
+    kept as-is — already the correct pattern for Server Actions, which
+    don't support `AbortController` the way `fetch` does.
+  - **Two `react-hooks/set-state-in-effect` lint violations hit and fixed**,
+    same rule and same fix pattern as the cart drawer's transition work
+    last session: a query-length reset and the debounce-triggered loading
+    flag were both first written as synchronous `setState` calls inside
+    `useEffect` bodies; fixed by moving the reset to React's "adjust state
+    during render" pattern and moving the loading flag inside the actual
+    `setTimeout` callback (matching where the original pre-rewrite code
+    already had it).
+  - **Resolved and fully verified live** after the Supabase DNS issue above
+    was fixed by switching to the session pooler. `tsc --noEmit`, `eslint`
+    (project-wide), `next build` (storefront), and `medusa lint` (backend)
+    all clean. Live-tested against the real backend and real catalog:
+    unaccented (`τηγανι`) and accented (`Τηγάνι`) queries both correctly
+    match `Τηγάνι Wok 30cm` and `Αντικολλητικό Τηγάνι 28cm`, with the
+    former ranked first (title-prefix beats title-word, as designed);
+    uppercase (`ΤΗΓΑΝΙ`) folds identically; exact SKU
+    (`ANTIKOLLITIKO-TIGANI-28`) and lowercase partial SKU both return the
+    single correct product; two deliberate typos (`τηγαν` missing a
+    letter, `τυγανι` wrong vowel) both correctly fuzzy-matched via the
+    bounded-distance tier; a real absent product (`σεντονια`) and a
+    nonsense string both correctly show the honest no-results copy, not a
+    stale result set. Quick-add from the dropdown added the real item,
+    updated the header count/total (`revalidatePath` mechanism, unchanged),
+    kept the dropdown open, and did not auto-open the cart drawer — all as
+    designed. Keyboard: Arrow Up/Down move the virtual highlight correctly
+    (confirmed via `aria-activedescendant`), Enter navigated to the
+    highlighted product's real PDP, Escape and a real outside click both
+    closed the dropdown without navigating. Zero horizontal overflow at
+    320/375/768/1280px; the quick-add button measured a real 40×40 CSS
+    pixel touch target. Rapid character-by-character typing settled
+    cleanly on only the final query with no stale-result flash.
+    **Confirmed as pre-existing catalog gaps, not fixed and not
+    fabricated for testing**: no product is currently discounted or
+    out-of-stock (a broad-query scan of 12+ products found zero
+    `Προσφορά` badges and zero `Εξαντλήθηκε` states, matching this
+    project's already-documented "0 active promotions" state), and the
+    catalog remains 100% single-variant, so the "Επιλογές →" multi-variant
+    routing is verified by code inspection only, same standing gap as
+    every other multi-variant code path in this project.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC
@@ -1096,10 +1210,29 @@ no-admin extracts:
   `main` branch, authenticated via `gh auth login` (device flow already
   completed), git credential helper configured via `gh auth setup-git`.
 - **Supabase**: project ref `tuvbesrqizixqrunvlnt`. Direct connection string (not
-  the session pooler) is in `apps/backend/apps/backend/.env` and has worked fine
-  on this network despite direct connections normally needing IPv6 — if it ever
-  stops connecting, the session pooler string is the fallback (Supabase
-  dashboard → Connect → Session pooler).
+  the session pooler) is in `apps/backend/apps/backend/.env` and had worked fine
+  on this network despite direct connections normally needing IPv6 — **this
+  risk materialized for real on 2026-08-10**: `db.tuvbesrqizixqrunvlnt.supabase.co`
+  stopped resolving via Node's `dns.lookup()`/`getaddrinfo` on this machine for
+  an extended period (30+ minutes across repeated backend restarts).
+  Diagnosed precisely, not guessed: general internet DNS was fine (google.com,
+  github.com, supabase.co, and even the Supabase *API* host all resolved);
+  `dns.resolve4()` for the DB host returned `ENODATA` (genuinely no A record —
+  this host is IPv6-only by Supabase's own design, not a fluke) while
+  `dns.resolve6()` succeeded with a real address — meaning the record exists
+  and is reachable, but this machine's OS-level resolver (which `dns.lookup`
+  uses, unlike `resolve4`/`resolve6` which bypass it) wasn't handing back
+  AAAA-only answers, almost certainly because this network's active adapter
+  lacks a working IPv6 route right now. **Fix, not yet applied**: switch
+  `DATABASE_URL` to the session pooler string (Supabase dashboard → Connect →
+  Session pooler) — that host resolves to a real IPv4 address, sidestepping
+  the IPv6 gap entirely. Needs the user to pull the real pooler string from
+  their dashboard (region-specific, not guessable/fabricatable). Storefront
+  never talks to Supabase directly (confirmed: zero `supabase` references
+  anywhere in `apps/storefront/src`, its only backend env vars are
+  `NEXT_PUBLIC_MEDUSA_BACKEND_URL`/`NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`) — this
+  is purely a Medusa-backend-to-database connection issue, not a storefront or
+  architecture problem.
 - **Vercel**: connected per the user, not yet used. Backend hosting decision is
   still open — Vercel's serverless model can't run Medusa's persistent server —
   deferred until it's actually needed (explicit prior user decision, don't

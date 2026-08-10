@@ -3,6 +3,63 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Greek-aware live search dropdown — built and fully verified live (2026-08-10)
+
+Built the interactive search dropdown from a detailed brief: live results as
+you type, Greek accent-insensitive matching, SKU search, bounded typo
+tolerance, tiered ranking, quick-add with stock/multi-variant awareness, full
+keyboard accessibility. Architecture (including why Medusa's native `q` isn't
+sufficient, and why an in-memory app-layer ranker is the right scope at
+today's catalog size rather than a database extension or external search
+service) proposed with desktop/mobile wireframes and approved before any code.
+
+**New**: `lib/search.ts` (Unicode NFD-based Greek normalization + hand-rolled
+bounded Levenshtein fuzzy matching + a 7-tier ranking, zero new dependencies),
+`lib/hooks/use-quick-add.ts` (extracted from `ProductCard` so it's shared, not
+duplicated, with the new result row), `components/layout/SearchResultRow.tsx`.
+`lib/data/products.ts`'s `searchProducts()` rewritten in place — same
+signature, still the one search implementation behind both `/anazitisi` and
+the dropdown — to rank a short-cached full-catalog fetch instead of Medusa's
+ILIKE-based `q`. `SearchBox.tsx` rebuilt with the same ARIA combobox pattern
+already established by `AddressAutocomplete.tsx` (virtual arrow-key
+navigation, `aria-activedescendant`, outside-click), rather than a new one.
+
+Two real bugs caught during self-review before any testing began: the
+category-match ranking tier was indexing the Latin URL handle instead of the
+real Greek category name (would have made that tier permanently unreachable
+for Greek queries); quick-add errors in the new compact row had nowhere to
+surface and were being silently swallowed. Both fixed. Also hit the same
+`react-hooks/set-state-in-effect` lint rule the cart drawer's transition work
+hit last session, fixed with the same "adjust state during render" pattern.
+
+**Mid-session outage, diagnosed and fixed, not worked around.** The local
+Medusa backend lost its connection to Supabase and stayed down for 30+
+minutes across repeated restarts. Diagnosed precisely (not guessed):
+`db.tuvbesrqizixqrunvlnt.supabase.co` is IPv6-only by Supabase's own design
+(confirmed via `dns.resolve4` returning `ENODATA` — genuinely no A record —
+while `dns.resolve6` succeeded with a real address), and this machine's
+OS-level resolver stopped handing that back through Node's `dns.lookup()`
+specifically, while general internet DNS (including Supabase's own API
+host) resolved fine throughout. Confirmed architecturally that this was
+purely a Medusa-backend-to-database issue, not a storefront problem: the
+storefront has zero direct Supabase references anywhere. Fixed by switching
+`DATABASE_URL` to Supabase's session pooler connection string (real IPv4),
+reusing the existing DB password rather than exposing or re-entering it.
+
+**`tsc --noEmit`, `eslint` (project-wide), `next build`, and `medusa lint`
+are all clean, and the feature is fully verified live** against the real
+backend and real catalog — every item from the testing checklist passed:
+Greek accented/unaccented/uppercase search, exact and partial SKU search,
+two deliberate typo cases via bounded fuzzy matching, honest no-results
+copy for both a nonsense query and a real absent product, quick-add
+updating the header count/total without opening the drawer, full keyboard
+navigation, real outside-click, and zero horizontal overflow at
+320/375/768/1280px. Full detail in `PROJECT_MEMORY.md`. Two states weren't
+exercised because they don't exist in the live catalog right now — no
+discounted or out-of-stock product — and multi-variant routing remains
+verified by code inspection only, since the catalog is still 100%
+single-variant; none of these were fabricated to force a test.
+
 ## Storefront UX polish — card heights, header mini cart, Continue Shopping (2026-08-10)
 
 Three targeted UX fixes from a detailed user brief, each scoped to one
