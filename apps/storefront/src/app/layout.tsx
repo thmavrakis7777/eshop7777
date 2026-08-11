@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Literata } from "next/font/google";
 import "./globals.css";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
+import { PromoBannerBar } from "@/components/layout/PromoBannerBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CartUIProvider } from "@/components/cart/CartUIProvider";
@@ -11,6 +12,7 @@ import { WishlistProvider } from "@/components/wishlist/WishlistProvider";
 import { siteDefaultDescription, siteDefaultTitle, siteName, siteUrl } from "@/lib/site-config";
 import { getNavCategories } from "@/lib/data/categories";
 import { getCart } from "@/lib/data/cart";
+import { getPromoBanner } from "@/lib/data/promo-banner";
 import { getSiteSettings } from "@/lib/data/site-settings";
 
 const inter = Inter({
@@ -71,7 +73,12 @@ const organizationJsonLd = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [categories, cart, settings] = await Promise.all([getNavCategories(), getCart(), getSiteSettings()]);
+  const [categories, cart, settings, promoBanner] = await Promise.all([
+    getNavCategories(),
+    getCart(),
+    getSiteSettings(),
+    getPromoBanner(),
+  ]);
 
   return (
     <html
@@ -90,6 +97,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <WishlistProvider>
           <CartUIProvider>
             <AnnouncementBar text={settings?.announcementText ?? null} />
+            {promoBanner && <PromoBannerBar banner={promoBanner} />}
             <Header
               categories={categories}
               cartItemCount={cart?.itemCount ?? 0}

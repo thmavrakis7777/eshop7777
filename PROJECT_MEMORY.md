@@ -1943,6 +1943,73 @@ nested Turborepo/pnpm workspace):
     (backend admin), and a full `medusa build` all clean. No storefront
     changes this phase, so no storefront build was run.
 
+- **Admin-first platform, Phase J: Campaigns (2026-08-11)** — a real
+  countdown banner promoting a real Medusa Promotion; newsletter popup
+  deliberately not built.
+  - **Newsletter popup blocked on the same real gap Phase E already
+    found**: the storefront's `Newsletter` component signup form has
+    never been wired to a real email provider
+    (`onSubmit={(e) => e.preventDefault()}`). Building a popup version of
+    a non-functional form would be strictly worse than the current quiet
+    non-functional inline one — more intrusive, still doesn't collect
+    anything real. Stays blocked until a real provider integration
+    happens, not attempted here.
+  - **A real GraphQL naming collision, found live via `medusa
+    db:generate`, not by guessing**: the obvious model name "campaign"
+    is already a real entity in Medusa's own built-in Promotions module
+    (`campaign.details`/`campaign.list` are genuine, pre-existing admin
+    injection zones — this explains why those zone names looked oddly
+    specific back in Phase A/B's `INJECTION_ZONES` review and were never
+    used). Renamed the module to `promo-banner` before generating
+    anything further. **This is also the architecturally correct
+    design, not just a workaround**: the module is marketing copy
+    promoting a real discount, never a second discount engine — real
+    promotion/discount logic stays exactly where it already lived,
+    Medusa's native Promotions feature. **Any future phase touching
+    promotions/discounts should look at Medusa's real Campaign entity
+    first** (via the Promotions section) rather than assuming a custom
+    module is needed.
+  - **New `promo-banner` module** — singleton, same shape as
+    `site-settings` (headline/body/CTA/`ends_at`/`is_published`). The
+    admin keeps `ends_at` in sync with their real promotion's dates
+    themselves — same trust level as every other admin-entered fact in
+    this project, not synced against Promotions data automatically (that
+    would be real integration work, not attempted here).
+  - **A real, browser-verified conversion bug caught before it shipped**:
+    `<input type="datetime-local">` needs `YYYY-MM-DDTHH:mm` in local
+    time; the backend stores a full ISO-8601-with-timezone string.
+    Without converting between the two, the field would have silently
+    shown blank for any real saved `ends_at` value — added
+    `isoToLocalInputValue`/`localInputValueToIso` helpers in the admin
+    route specifically for this.
+  - **A real hydration bug found and fixed live during verification**:
+    the first version of `PromoBannerBar` computed its initial countdown
+    with `useState(() => remaining(banner.endsAt))` — calling
+    `Date.now()` during render, which the server and the client's
+    hydration pass can evaluate at slightly different instants, landing
+    on different seconds. Confirmed live in the console (server rendered
+    `36`, client computed `34`) — a genuine hydration-mismatch error, not
+    a false alarm. **Fixed by starting the countdown state at `null` on
+    every render (server and client's first paint identical) and only
+    setting the real value inside a `useEffect`**, which runs strictly
+    after hydration — the correct general pattern for any live clock in
+    a server-rendered React tree. **Any future component that computes
+    something from `Date.now()`, `Math.random()`, or other
+    non-deterministic input during its initial render is at risk of the
+    same bug** — compute it in an effect, not during render, whenever the
+    component can be server-rendered. Re-verified with a fresh tab and a
+    real actively-ticking banner afterward — zero console errors,
+    confirming the fix actually worked rather than just re-testing an
+    empty/unpublished state that would never have hit the bug.
+  - **Verified live against the real Supabase database, full round
+    trip**: a real banner with a future `ends_at` showed a live, ticking
+    countdown; forced `ends_at` into the past via a direct API call and
+    confirmed `/store/promo-banner` immediately started returning `null`
+    and the storefront banner disappeared entirely; cleared all fields,
+    confirmed clean revert. `medusa lint`, `tsc --noEmit` (storefront +
+    backend admin), a full `next build` (19 routes), and a full `medusa
+    build` all clean.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

@@ -303,6 +303,34 @@ stays a URL organizer until real hosting exists.
 
 ---
 
-*(Sections for Campaigns and every other phase get appended here as
-they're built — see `TASKS.md` → "Admin-first platform" for what's
+## Προωθητικό Banner (Promo Banner)
+
+**Where**: **Προωθητικό Banner** in the left sidebar.
+
+**What it's for**: a banner with a live countdown, shown at the very top
+of the storefront (above the header, alongside the announcement bar), for
+promoting something like a flash sale. **It does not create a discount by
+itself** — set up the real discount in **Promotions** first (Medusa's own
+built-in feature, already in this sidebar), then use this banner to
+promote it with your own words and a matching end date/time.
+
+**Fields**: Τίτλος (headline) and Κείμενο (body text) for the message,
+Κείμενο κουμπιού / Σύνδεσμος κουμπιού for an optional button (e.g. linking
+to the category on sale), and **Λήγει στις** — the exact date and time
+the countdown reaches zero.
+
+**Keep "Λήγει στις" matching your real Promotion's end date yourself** —
+this field isn't connected to the actual Promotion, so if you change the
+sale's real end date in Promotions, come back here and update this too,
+or the countdown will say something that isn't true anymore.
+
+**The banner disappears automatically once it expires** — even if you
+forget to uncheck "Δημοσιευμένο," a banner past its "Λήγει στις" time
+never shows on the live site, including for a visitor who already has the
+page open when it expires (it vanishes without them needing to refresh).
+
+---
+
+*(Sections for Analytics/consent and every other phase get appended here
+as they're built — see `TASKS.md` → "Admin-first platform" for what's
 next.)*

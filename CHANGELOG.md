@@ -3,6 +3,78 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform, Phase J: Campaigns (2026-08-11)
+
+Tenth phase — the roadmap named three things ("flash sales, countdown,
+newsletter popup"); ships a real countdown banner promoting a real
+discount, explicitly defers the newsletter popup.
+
+**Newsletter popup — deliberately not built.** The storefront's existing
+`Newsletter` component signup form isn't wired to any real email
+provider (`onSubmit={(e) => e.preventDefault()}`) — the same gap already
+flagged when Phase E scoped Homepage CMS. Building an intrusive popup
+version of a form that still doesn't actually collect emails would be
+worse than what exists today, not better. Blocked on the same real
+provider integration, not rebuilt here.
+
+**A real naming collision found live, not by guessing**: the obvious
+model name, "campaign", was rejected by `medusa db:generate` with a
+GraphQL type-merge conflict — Medusa's own built-in Promotions module
+already has a native "Campaign" entity (`campaign.details`/
+`campaign.list` are real, pre-existing admin injection zones). Renamed to
+`promo-banner` before generating anything further. This is also the
+architecturally correct call, not just a naming workaround: this module
+is marketing *copy* that promotes a real discount, not a second discount
+engine — the actual promotion/discount logic stays exactly where it
+already was, Medusa's native Promotions feature.
+
+**New `promo-banner` module** — a singleton (same shape as `site-
+settings`): headline/body/CTA plus an `ends_at` timestamp and
+`is_published`. The admin is expected to keep `ends_at` in sync with
+their real promotion's own end date themselves — same trust level as
+every other admin-entered fact in this project, not something synced
+against Medusa's Promotions data automatically.
+
+**Admin**: a new **Προωθητικό Banner** route, explicit in its own copy
+that it "creates no discount by itself" and points at Promotions for the
+real thing. A `datetime-local` input needed a small but real conversion
+layer (`isoToLocalInputValue`/`localInputValueToIso`) — the input's format
+(`YYYY-MM-DDTHH:mm`, local time) doesn't match the backend's stored
+ISO-8601-with-timezone string, and without converting, the field would
+have silently shown blank for any real saved value.
+
+**Storefront**: `PromoBannerBar`, a client component with a real
+second-by-second countdown, rendered in `RootLayout` alongside the
+existing `AnnouncementBar`. The backend's `/store/promo-banner` route
+gates on both `is_published` *and* `ends_at` server-side (an admin who
+forgets to unpublish a finished sale doesn't leave a stale banner live),
+and the client independently re-checks every second so an already-loaded
+page hides the banner the moment it expires mid-visit, without a reload.
+
+**A real hydration bug found and fixed live during verification, not
+caught by any static check**: the first version computed the countdown's
+initial value with `useState(() => remaining(banner.endsAt))` — calling
+`Date.now()` during render. Since the server renders and the client
+hydrates at slightly different instants, they can land on different
+seconds, and React throws a real hydration-mismatch error (confirmed live
+in the console: server said `36`, client said `34`, one second apart).
+Fixed by starting `time` at `null` on *every* render (server and the
+client's first paint alike) and only ever setting the real value inside
+a `useEffect`, which runs strictly after hydration completes — the
+standard, correct pattern for any live clock in a server-rendered React
+tree. Re-verified with a fresh tab and a real actively-counting banner:
+zero console errors, confirming the fix (not just the absence of a test
+case that would have caught the bug).
+
+**Verified live against the real Supabase database, full round trip**:
+a real banner with a future `ends_at` rendered correctly with a live,
+ticking countdown; forced `ends_at` into the past via direct API call and
+confirmed the `/store/promo-banner` route immediately started returning
+`null` and the storefront banner disappeared entirely, not just visually
+hidden; cleared all fields and confirmed a clean revert. `medusa lint`,
+`tsc --noEmit` (storefront + backend admin), a full `next build` (19
+routes), and a full `medusa build` all clean.
+
 ## Admin-first platform, Phase I: Media Library (2026-08-11)
 
 Ninth phase. Scoped down deliberately after checking a real constraint

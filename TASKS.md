@@ -961,11 +961,36 @@ reference this initiative is building up phase by phase.
   this yet; a future image-picker integration into existing fields is a
   separate follow-up that would need one, not assumed here.
 
-**Phase J onward — not started.** Roadmap as proposed: Campaigns (flash
-sales/countdown/newsletter popup) → Analytics/consent (GA4/GTM/Pixels/
-Clarity + a real cookie-consent banner, which doesn't exist yet). Each
-phase ships independently, same build-verify-document-commit rhythm as
-every other feature in this project.
+**Phase J — Campaigns: done, partially scoped down (2026-08-11).**
+- [x] New `promo-banner` singleton module (headline/body/CTA/`ends_at`/
+      `is_published`) — deliberately not named "campaign", which collides
+      with Medusa's own native Promotions-module Campaign entity (a real
+      error from `medusa db:generate`, not a guess)
+- [x] Admin route (`Προωθητικό Banner`) — explicit that it creates no
+      discount itself, points at Promotions for the real thing
+- [x] Storefront `PromoBannerBar` — real live countdown, server-gated on
+      `is_published` + not-expired, client re-checks every second so an
+      already-open page hides an expiring banner without a reload
+- [x] Full round-trip verified live against the real Supabase database
+      (live countdown, forced expiry via direct API call, clean revert);
+      `medusa lint`, `tsc`, full `next build`, full `medusa build` all clean
+- **Newsletter popup deliberately not built** — blocked on the same real
+  gap Phase E already found (the `Newsletter` component's signup form
+  isn't wired to any real email provider); a popup version of a
+  non-functional form would be worse than what exists, not better
+- **Found and fixed a real hydration bug live**: computing the countdown's
+  initial state with `Date.now()` during render caused a genuine
+  server/client mismatch (confirmed in the console — server said one
+  second, client said another). Fixed by starting state at `null` on
+  every render and only setting the real value inside a `useEffect` — see
+  `CHANGELOG.md`/`PROJECT_MEMORY.md` for the fix and the general rule for
+  any future component computing something from `Date.now()`/
+  `Math.random()` during render
+
+**Phase K — not started.** Roadmap as proposed: Analytics/consent
+(GA4/GTM/Pixels/Clarity + a real cookie-consent banner, which doesn't
+exist yet). Each phase ships independently, same build-verify-document-
+commit rhythm as every other feature in this project.
 
 ## Next
 

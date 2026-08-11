@@ -78,5 +78,8 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/media-assets",
     },
+    {
+      resolve: "./src/modules/promo-banner",
+    },
   ],
 })
