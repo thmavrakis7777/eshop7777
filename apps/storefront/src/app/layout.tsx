@@ -8,7 +8,7 @@ import { CartUIProvider } from "@/components/cart/CartUIProvider";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { AddToCartToast } from "@/components/cart/AddToCartToast";
 import { WishlistProvider } from "@/components/wishlist/WishlistProvider";
-import { siteName, siteUrl } from "@/lib/site-config";
+import { siteDefaultDescription, siteDefaultTitle, siteName, siteUrl } from "@/lib/site-config";
 import { getNavCategories } from "@/lib/data/categories";
 import { getCart } from "@/lib/data/cart";
 
@@ -27,23 +27,22 @@ const literata = Literata({
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "STIA — Είδη Σπιτιού, Κουζίνας & Μπάνιου",
+    default: siteDefaultTitle,
     template: "%s | STIA",
   },
-  description:
-    "Ποιοτικά είδη κουζίνας, μπάνιου, αποθήκευσης και κήπου για το σπίτι σου. Γρήγορη παράδοση σε όλη την Ελλάδα.",
+  description: siteDefaultDescription,
   openGraph: {
     type: "website",
     locale: "el_GR",
     siteName,
-    title: "STIA — Είδη Σπιτιού, Κουζίνας & Μπάνιου",
+    title: siteDefaultTitle,
     description:
       "Ποιοτικά είδη κουζίνας, μπάνιου, αποθήκευσης και κήπου για το σπίτι σου.",
     url: siteUrl,
   },
   twitter: {
     card: "summary_large_image",
-    title: "STIA — Είδη Σπιτιού, Κουζίνας & Μπάνιου",
+    title: siteDefaultTitle,
     description:
       "Ποιοτικά είδη κουζίνας, μπάνιου, αποθήκευσης και κήπου για το σπίτι σου.",
   },

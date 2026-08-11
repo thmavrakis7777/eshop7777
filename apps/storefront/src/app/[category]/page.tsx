@@ -4,6 +4,7 @@ import { CategoryPLPView, PAGE_SIZE } from "@/components/category/CategoryPLPVie
 import { getCategoryByHandle, getNavCategories } from "@/lib/data/categories";
 import { getProductsByCategoryHandle } from "@/lib/data/products";
 import { canonicalListingPath, parsePage, parseSort } from "@/lib/search-params";
+import { getSeoOverride } from "@/lib/data/seo";
 import { siteUrl } from "@/lib/site-config";
 
 type Props = {
@@ -17,15 +18,31 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const category = await getCategoryByHandle(categoryHandle);
   if (!category) return {};
 
-  const title = category.name;
-  const description = `${category.name} — ποιοτικά προϊόντα για το σπίτι σου, με γρήγορη παράδοση σε όλη την Ελλάδα.`;
-  const path = canonicalListingPath(`/${category.handle}`, parsePage(pageParam));
+  // Admin-editable SEO overrides (Admin-first platform, Phase B) — same
+  // fallback pattern as product SEO. The canonical override only applies to
+  // page 1: deeper pages must keep self-canonicalising to their own ?page=N
+  // URL (see canonicalListingPath), or Google would see every page as a
+  // duplicate of an admin-picked URL instead of a distinct, indexable page.
+  const seo = await getSeoOverride("category", category.id);
+  const page = parsePage(pageParam);
+  const title = seo?.seoTitle || category.name;
+  const description =
+    seo?.metaDescription || `${category.name} — ποιοτικά προϊόντα για το σπίτι σου, με γρήγορη παράδοση σε όλη την Ελλάδα.`;
+  const path =
+    page === 1 && seo?.canonicalUrl ? seo.canonicalUrl : canonicalListingPath(`/${category.handle}`, page);
 
   return {
-    title,
+    title: seo?.seoTitle ? { absolute: seo.seoTitle } : title,
     description,
     alternates: { canonical: path },
-    openGraph: { title, description, url: `${siteUrl}${path}` },
+    ...(seo?.robots === "noindex" ? { robots: { index: false, follow: true } } : {}),
+    openGraph: {
+      title: seo?.ogTitle || title,
+      description: seo?.ogDescription || description,
+      url: `${siteUrl}${path}`,
+      ...(seo?.socialImageUrl ? { images: [{ url: seo.socialImageUrl }] } : {}),
+    },
+    ...(seo?.keywords ? { keywords: seo.keywords } : {}),
   };
 }
 

@@ -809,8 +809,23 @@ reference this initiative is building up phase by phase.
       model/storefront merge logic both work if set via the API directly)
       — small follow-up, not forgotten
 
-**Phase B onward — not started.** Roadmap as proposed: Category SEO +
-Homepage SEO (reuses Phase A's exact module/routes) → Site Settings
+**Phase B — Category SEO + Homepage SEO: done (2026-08-11).**
+- [x] Shared `SeoForm` extracted from Phase A's product widget
+      (`src/admin/components/seo-form.tsx`) instead of duplicating the form
+      a second/third time
+- [x] Category SEO admin widget (`product_category.details.side.after`
+      zone)
+- [x] Homepage SEO standalone admin route (`src/admin/routes/seo-homepage`)
+      — homepage has no underlying Medusa entity, so no widget zone applies
+- [x] Storefront category pages (`[category]`, `[category]/[subcategory]`)
+      wired into `generateMetadata`, with a page-1-only canonical-override
+      gate so paginated pages keep self-canonicalising
+- [x] Storefront homepage `generateMetadata` added (didn't exist before —
+      metadata came entirely from `RootLayout`'s static export)
+- [x] Full round-trip verified live against the real Supabase database;
+      `medusa lint`, `tsc`, full `next build`, full `medusa build` all clean
+
+**Phase C onward — not started.** Roadmap as proposed: Site Settings
 (footer/contact/hours/social/announcement bar — note: main nav/mega menu
 is *already* Medusa-native via categories, no work needed there) → Content
 Pages (About/Shipping/Returns/Privacy/Terms/FAQ) → Homepage CMS (hero/

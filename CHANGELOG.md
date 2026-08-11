@@ -3,6 +3,67 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform, Phase B: Category SEO + Homepage SEO (2026-08-11)
+
+Second phase of the Admin-first platform initiative — reuses Phase A's
+`seo` module/routes/workflow entirely as-is (the model already supported
+`resource_type: "category"|"homepage"` from day one, so no migration was
+needed for this phase).
+
+**Admin side**: extracted Phase A's product widget form into a shared
+`src/admin/components/seo-form.tsx` (`SeoForm`) rather than duplicating the
+~140-line form a second and third time — the product widget now just wraps
+it. Added a new **Category SEO** widget on the category detail page
+(`product_category.details.side.after` zone, confirmed real via
+`@medusajs/admin-shared`'s `INJECTION_ZONES`, same verification discipline
+as Phase A). Homepage SEO has no underlying Medusa entity to hang a widget
+off, so it's a genuine standalone admin route instead —
+`src/admin/routes/seo-homepage/page.tsx` (`defineRouteConfig`, sidebar
+label "SEO Αρχικής") — rendering the same `SeoForm` with
+`resourceId: "homepage"` (the singleton resource_id chosen in Phase A
+specifically to make this possible without a real entity to point at).
+
+**Storefront side**: `getSeoOverride("category", category.id)` wired into
+both `[category]/page.tsx` and `[category]/[subcategory]/page.tsx`'s
+`generateMetadata`, same fallback/`title.absolute` pattern as the PDP. One
+genuinely new piece of logic beyond a copy of the product pattern: the
+canonical-URL override only applies on page 1 of a paginated category —
+deeper pages (`?page=2`, etc.) always keep self-canonicalising to their own
+URL regardless of what's in the admin field, otherwise an admin-set
+canonical would tell Google every paginated page is a duplicate of page 1,
+which is the opposite of the pagination SEO this project already built.
+Verified live: set a canonical override on a real category, confirmed page
+1 picks it up and page 2 ignores it and keeps its own `?page=2` canonical.
+
+Homepage: added `generateMetadata` to `app/page.tsx` (it had none before —
+metadata came entirely from `RootLayout`'s static export), reading
+`getSeoOverride("homepage", "homepage")` with fallback to two new shared
+constants in `lib/site-config.ts` (`siteDefaultTitle`,
+`siteDefaultDescription`) instead of duplicating the same Greek copy that
+was already hardcoded in `RootLayout`'s metadata — `RootLayout` now reads
+from the same constants.
+
+**Verified live against the real Supabase database, full round trip**: set
+a real title/description on the "Κουζίνα" category via the widget,
+confirmed the storefront category page's `<title>`/description picked it
+up with no title-template doubling (the `title.absolute` fix from Phase A
+applied correctly here too); set a canonical override and confirmed page 1
+uses it while `?page=2` correctly ignores it; set and cleared a real
+homepage title/description via the new route, confirmed the storefront
+homepage picked up the override and then correctly fell back to the
+`RootLayout` defaults once cleared (after the `/store/seo` route's 30s
+`revalidate` window). No console/server errors at any point. `medusa
+lint`, `tsc --noEmit` (storefront and the backend admin's own
+`tsconfig.json`), a full `next build`, and a full `medusa build` (backend +
+the admin Vite bundle) all clean.
+
+**Housekeeping note**: no admin password exists for this project by design
+(see Phase A notes below and `PROJECT_MEMORY.md`), so verifying this phase
+needed another temporary admin user — `qa-agent4@stia.gr`, same pattern as
+`test-agent@stia.gr`/`qa-agent@stia.gr`/`qa-agent2@stia.gr`/`qa-agent3@stia.gr`
+before it. Left in place, harmless, same "cleanup whenever convenient"
+status as the others.
+
 ## Admin-first platform, Phase A: Product SEO (2026-08-11)
 
 First phase of a much larger initiative — making the store manageable from

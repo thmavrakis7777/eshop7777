@@ -47,6 +47,47 @@ plain product cutout on white (which reads as low-effort in a social feed).
 
 ---
 
-*(Sections for Category SEO, Homepage SEO, Homepage Management, and every
-other phase get appended here as they're built — see `TASKS.md` → "Admin-
-first platform" for what's next.)*
+## Category SEO
+
+**Where**: open any category (`Categories` → pick one), scroll the
+right-hand sidebar past "Organize" — the same **SEO** card as Product SEO
+sits there.
+
+**What it controls**: same fields, same fallback behavior, same "leave it
+empty and the intelligent default handles it" philosophy as Product SEO
+above — see that section for the full field-by-field reference, it applies
+identically here.
+
+**One thing that works differently from products**: category listing
+pages can be paginated (`/kouzina`, `/kouzina?page=2`, …). A **Canonical
+URL** you set here only applies to page 1 — page 2 and beyond always point
+back to their own URL, never to your override. This is deliberate: if page
+2 claimed to be "the same as" your custom canonical, Google would treat it
+as a duplicate and might stop indexing it, undoing the point of having
+separate pages at all. In practice this means: only set a Canonical URL
+override here if you have a specific reason to point the *first* page of
+this category somewhere non-standard — leave it empty for the normal case.
+
+---
+
+## Homepage SEO
+
+**Where**: a dedicated **SEO Αρχικής** entry in the left sidebar (not
+attached to any other page — the homepage isn't a "thing" in the Medusa
+Admin the way a product or category is, so it gets its own place instead
+of living inside another screen).
+
+**What it controls**: the same SEO fields as above, applied to the
+storefront's `/` homepage. Leave everything empty and the homepage keeps
+its current title/description (defined in the storefront's own code) —
+nothing changes until you actually type something here.
+
+**Note**: the homepage doesn't have pagination, so the Canonical URL field
+here always applies directly — no page-1-only caveat like Category SEO
+above.
+
+---
+
+*(Sections for Site Settings, Content Pages, Homepage CMS, and every other
+phase get appended here as they're built — see `TASKS.md` → "Admin-first
+platform" for what's next.)*

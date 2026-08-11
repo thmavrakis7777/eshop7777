@@ -1506,6 +1506,68 @@ nested Turborepo/pnpm workspace):
     already documented below — budget for it rather than assuming a
     45-60s timeout means the command hung.
 
+- **Admin-first platform, Phase B: Category SEO + Homepage SEO
+  (2026-08-11)** — reused Phase A's `seo` module/routes/workflow entirely
+  unchanged; the model already supported `resource_type:
+  "category"|"homepage"` from Phase A's own design, so this phase needed
+  zero migration.
+  - **Admin**: Phase A's product widget form was extracted into a shared
+    `src/admin/components/seo-form.tsx` (`SeoForm`) instead of copy-pasting
+    it a second time — the product widget is now a thin wrapper around it.
+    New **Category SEO** widget on the category detail page
+    (`product_category.details.side.after` zone — confirmed real via
+    `@medusajs/admin-shared`'s `INJECTION_ZONES`, same verification
+    discipline as Phase A's product zone). Homepage SEO has no underlying
+    Medusa entity to hang a widget zone off, so it's a genuine standalone
+    admin route instead: `src/admin/routes/seo-homepage/page.tsx`
+    (`defineRouteConfig`, appears in the sidebar as "SEO Αρχικής"),
+    rendering the same `SeoForm` with `resourceId: "homepage"` — the
+    singleton resource_id Phase A deliberately chose specifically so this
+    would be possible later without a real entity to link against.
+  - **Storefront**: `getSeoOverride("category", category.id)` wired into
+    both `[category]/page.tsx` and `[category]/[subcategory]/page.tsx`'s
+    `generateMetadata`, same fallback + `title.absolute` pattern as the
+    PDP (see Phase A's bug #2 above for why `.absolute` matters). **One
+    genuinely new piece of logic, not just a copy of the product
+    pattern**: the canonical-URL override only applies on page 1 of a
+    paginated category listing — `?page=2` and beyond always keep
+    self-canonicalising to their own URL (`canonicalListingPath`)
+    regardless of what's set in the admin field. Applying an admin
+    canonical override to every paginated page would tell Google every
+    page is a duplicate of page 1, undoing the pagination SEO this project
+    already built (see `lib/search-params.ts`'s `canonicalListingPath`
+    comment). Verified live: set a canonical override on the real
+    "Κουζίνα" category, confirmed page 1 uses it and `?page=2` ignores it.
+  - **Homepage**: `app/page.tsx` had no `generateMetadata` at all before
+    this phase — all its metadata came from `RootLayout`'s static export.
+    Added one, reading `getSeoOverride("homepage", "homepage")` with
+    fallback to two new constants in `lib/site-config.ts`
+    (`siteDefaultTitle`, `siteDefaultDescription`) rather than duplicating
+    the Greek copy that was already hardcoded inline in `RootLayout`;
+    `RootLayout` was updated to read from the same constants instead of
+    its own inline strings, so the two can't drift apart.
+  - **Verified live against the real Supabase database, full round
+    trip**: set a real title/description on the real "Κουζίνα" category
+    via the widget, confirmed the storefront category page's
+    `<title>`/description picked it up with no template doubling; set a
+    canonical override and confirmed the page-1-only gating above; set and
+    then cleared a real homepage title/description via the new route,
+    confirmed the storefront homepage picked up the override and then
+    correctly fell back to `RootLayout`'s defaults once cleared (waited
+    out `/store/seo`'s 30s `revalidate` window rather than assuming an
+    immediate reload would show it — same class of caching gotcha as
+    `next: { revalidate: 30 }` anywhere else in this codebase). No
+    console/server errors observed at any point. `medusa lint`, `tsc
+    --noEmit` (storefront, and the backend admin's own `tsconfig.json`), a
+    full `next build`, and a full `medusa build` (backend + the admin Vite
+    bundle) all clean.
+  - **Housekeeping**: verifying this phase needed another temporary admin
+    user, `qa-agent4@stia.gr` (no admin password exists for this project
+    by design — see Phase A above and "Environment setup" below), same
+    pattern as `test-agent@stia.gr`/`qa-agent@stia.gr`/`qa-agent2@stia.gr`/
+    `qa-agent3@stia.gr`. Left in place, harmless, same "cleanup whenever
+    convenient" status as the others.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

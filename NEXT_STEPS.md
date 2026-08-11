@@ -10,49 +10,59 @@ in these files. **Sections 1-7 below this point are historical/stale** (written
 mid-way through an earlier session) — trust this summary and `CHANGELOG.md`
 over that old detailed body if they ever disagree.
 
-**2026-08-11 (end of a very long session) — `origin/main` is fully
-committed and pushed through the "Admin-first platform, Phase A" commit.**
-In order, this session: (1) Dynamic New Arrivals + infinite scroll +
-homepage carousels, (2) a cart price/discount column-alignment fix
-verified against a real Medusa sale, (3) a full technical audit (found and
-fixed one real bug — a missing `data-scroll-behavior="smooth"` causing
-animated scroll on every route transition — everything else audited
-clean), (4) **Phase A of a new, much larger "Admin-first platform"
-initiative** — the user's newest ask, explicitly scoped as ~11 phases (see
-`TASKS.md` → "Admin-first platform" for the full roadmap). All four are
-committed and pushed. **The user is about to clear context and will return
-to continue with Phase B onward** — this file exists specifically for that
-handoff.
+**2026-08-11 (continuing the same day's session) — Phase B (Category SEO
++ Homepage SEO) of the Admin-first platform is built and verified live
+against the real Supabase database. Not yet committed or pushed** — ask
+before doing either, same standing rule as every checkpoint in this
+project. `origin/main` itself is still only at the "Admin-first platform,
+Phase A" commit.
 
-1. **Exact phase we are currently in**: Phase A (Product SEO) of the
-   Admin-first platform is done, verified live against the real Supabase
-   database, and pushed. **Phase B (Category SEO + Homepage SEO) has not
-   been started.** No build-approval gate is currently blocking — Phase A
-   was pre-approved as part of the overall roadmap, and the user said "go
-   ahead with phase A" without requiring a separate spec round-trip: same
-   pattern likely applies to Phase B, but per this project's standing rule,
-   confirm before starting real code rather than assuming silence means go.
-2. **Last completed action**: Phase A end-to-end — new `seo` custom Medusa
-   module (`apps/backend/src/modules/seo`), a product-detail admin widget,
-   shared `/admin/seo` + `/store/seo` routes behind a proper workflow, and
-   storefront `generateMetadata`/JSON-LD wiring with fallback. Two real
-   bugs found and fixed live (a `MedusaService` compile-time/runtime
-   method-name mismatch, and a title-template doubling) — full detail in
-   `CHANGELOG.md`'s "Admin-first platform, Phase A" entry and
-   `PROJECT_MEMORY.md`'s matching architecture section.
-3. **Next action to execute**: start Phase B (Category SEO + Homepage
-   SEO) — reuses Phase A's exact `seo` module/routes, just needs a second
-   admin widget (`product_category.details.side.after` zone) and a
-   homepage-settings admin route (homepage has no underlying Medusa
-   entity, so it can't use a widget zone — needs a genuine custom admin
-   route under `src/admin/routes/`, not yet built). See `TASKS.md` for the
-   full Phase B→K roadmap and what each later phase actually requires
+1. **Exact phase we are currently in**: Phase B is done and verified, but
+   sitting uncommitted in the working tree. **Check `git status` first
+   thing** to confirm nothing else changed since. **Phase C (Site
+   Settings) has not been started** — no build-approval gate is blocking
+   it (the user pre-approved starting Phase B without a separate spec
+   round-trip, same pattern likely applies to Phase C), but per this
+   project's standing rule, confirm before starting real code rather than
+   assuming silence means go. **Ask about commit/push for Phase B before
+   anything else** — this session did not ask, on purpose, so the next
+   session (or the user directly) makes that call with full context.
+2. **Last completed action**: Phase B end-to-end — reused Phase A's `seo`
+   module/routes/workflow completely unchanged (the model already
+   supported `resource_type: "category"|"homepage"`, zero migration
+   needed). Extracted Phase A's product widget into a shared `SeoForm`
+   component, added a Category SEO widget
+   (`product_category.details.side.after` zone), added a standalone
+   Homepage SEO admin route (`src/admin/routes/seo-homepage`, since the
+   homepage has no underlying Medusa entity for a widget zone), and wired
+   both into the storefront's `generateMetadata`. One genuinely new piece
+   of logic beyond copying the product/Phase-A pattern: category
+   pagination's canonical-override gate (page 1 only, `?page=2+` always
+   self-canonicalises) — full detail in `CHANGELOG.md`'s "Admin-first
+   platform, Phase B" entry and `PROJECT_MEMORY.md`'s matching section.
+3. **Next action to execute**: get the commit/push decision for Phase B,
+   then start Phase C (Site Settings — footer/contact/hours/social/
+   announcement bar; main nav/mega menu needs no work, it's already
+   Medusa-native via categories). See `TASKS.md` → "Admin-first platform"
+   for the full Phase C→K roadmap and what each later phase requires
    architecturally.
 4. **First files to inspect**: `PROJECT_MEMORY.md`'s "Admin-first
-   platform, Phase A" section (architecture + the two bugs, in detail),
-   `ADMIN_GUIDE.md` (what's already admin-editable), `TASKS.md` → "Admin-
-   first platform" (the roadmap).
+   platform, Phase A" and "Phase B" sections (architecture, in detail),
+   `ADMIN_GUIDE.md` (what's already admin-editable — now includes Category
+   SEO and Homepage SEO sections), `TASKS.md` → "Admin-first platform"
+   (the roadmap).
 5. **Warnings / important context most likely to matter again**:
+   - **A category listing's canonical-URL admin override must only apply
+     on page 1** — `?page=2` and beyond must keep self-canonicalising to
+     their own URL regardless of what's in the admin field, or Google sees
+     every paginated page as a duplicate of the admin's chosen URL. Any
+     future paginated-listing SEO override (if one gets added elsewhere)
+     needs the same page-gate, not just a copy of the product/homepage
+     pattern.
+   - **`/store/seo`'s `next: { revalidate: 30 }` means a just-saved admin
+     change won't show up on an immediate storefront reload** — this is
+     expected caching behavior, not a bug; wait out the 30s window (or
+     poll) before concluding a save didn't take effect.
    - **`MedusaService`'s generated TypeScript types can be wrong for an
      irregular model name** (verified for `"seo"` → real runtime methods
      are `listSeos`/`createSeos`/`updateSeos`, but the generated *types*
