@@ -1910,6 +1910,39 @@ nested Turborepo/pnpm workspace):
     all clean — `.next` cleared proactively before this phase's dev
     server session, per Phase G's lesson (no repeat of that corruption).
 
+- **Admin-first platform, Phase I: Media Library (2026-08-11)** —
+  deliberately scoped down after checking a real constraint before
+  building anything, not after.
+  - **This backend has no object storage configured.** Medusa's default
+    file provider is local-disk — real and working (it's what backs the
+    product admin's existing "Media" upload button), but local-disk
+    storage doesn't survive a real deployment without separately
+    configuring S3 or an equivalent. Building a genuine upload feature on
+    top of it now would produce files that only work in this dev
+    environment and would need redoing the moment real hosting exists.
+    **Asked the user how to scope this phase rather than guessing** —
+    confirmed: a URL-based library (labeled external links), not real
+    upload. **If a future session is asked to build real image upload for
+    this project, check whether S3/object storage has been configured in
+    `medusa-config.ts` first** — if not, that's the real blocker, not
+    missing UI work.
+  - **New `media-assets` module** — `label`/`url`/`alt_text`, genuine
+    open-ended CRUD like Homepage CMS (Phase E) and Search Synonyms
+    (Phase H). Every image field across this project (Hero/promo blocks,
+    SEO social image) was already a plain URL text input filled in by
+    hand — this gives the admin one place to label and reuse those URLs.
+  - **Admin-only on purpose — no `/store/media-assets` route.** Nothing
+    on the storefront reads this data yet; a future image-picker
+    integration into existing fields (Hero, SEO, etc.) would be the thing
+    that actually needs a public read endpoint, and that integration
+    itself is a real, separate follow-up, not assumed or half-built here.
+  - **Verified live against the real Supabase database, full round
+    trip**: added a real labeled URL, confirmed it persisted via a direct
+    `/admin/media-assets` fetch (not just the UI showing it); deleted it,
+    confirmed the list is empty again. `medusa lint`, `tsc --noEmit`
+    (backend admin), and a full `medusa build` all clean. No storefront
+    changes this phase, so no storefront build was run.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

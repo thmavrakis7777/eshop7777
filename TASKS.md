@@ -941,12 +941,31 @@ reference this initiative is building up phase by phase.
       flag; boosted is the closest thing shipped, true pinning is a real,
       flagged gap
 
-**Phase I onward — not started.** Roadmap as proposed: Media library →
-Campaigns (flash sales/countdown/newsletter popup) → Analytics/consent
-(GA4/GTM/Pixels/Clarity + a real cookie-consent banner, which doesn't
-exist yet). Each phase ships independently, same build-verify-document-
-commit rhythm as every other
-feature in this project.
+**Phase I — Media Library: done, deliberately scoped down (2026-08-11).**
+- [x] New `media-assets` module — labeled external-URL list (`label`,
+      `url`, `alt_text`), genuine CRUD, same open-ended-list pattern as
+      Phase E/H
+- [x] Admin route (`Βιβλιοθήκη Μέσων`) — client-side list, add/edit/delete
+- [x] Full round-trip verified live against the real Supabase database;
+      `medusa lint`, `tsc`, full `medusa build` all clean (no storefront
+      changes this phase)
+- **Real upload was explicitly not built** — this backend has no object
+  storage configured (Medusa's default file provider is local-disk only,
+  fine for the product admin's existing media upload but not something
+  that survives a real deployment). Asked the user how to scope the phase
+  before building anything; confirmed URL-based library over real upload.
+  If a future session is asked to build real image upload, check for
+  S3/object storage config in `medusa-config.ts` first — that's the real
+  blocker, not missing UI.
+- No `/store/media-assets` public route — nothing on the storefront reads
+  this yet; a future image-picker integration into existing fields is a
+  separate follow-up that would need one, not assumed here.
+
+**Phase J onward — not started.** Roadmap as proposed: Campaigns (flash
+sales/countdown/newsletter popup) → Analytics/consent (GA4/GTM/Pixels/
+Clarity + a real cookie-consent banner, which doesn't exist yet). Each
+phase ships independently, same build-verify-document-commit rhythm as
+every other feature in this project.
 
 ## Next
 

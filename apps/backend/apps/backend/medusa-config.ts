@@ -75,5 +75,8 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/search-synonyms",
     },
+    {
+      resolve: "./src/modules/media-assets",
+    },
   ],
 })

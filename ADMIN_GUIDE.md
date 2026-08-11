@@ -281,6 +281,28 @@ as the badge/warranty fields).
 
 ---
 
-*(Sections for Media library and every other phase get appended here as
+## Media Library
+
+**Where**: **Βιβλιοθήκη Μέσων** in the left sidebar.
+
+**What it's for**: a labeled list of image links you already have hosted
+somewhere else (a CDN, an image host, wherever). Click **+ Νέα εικόνα**,
+give it a short label (e.g. "Χειμερινό Banner") and paste the URL, save.
+It's a reference list, not an upload tool — nothing gets uploaded or
+stored here, you're just keeping track of URLs you already have so you
+don't have to hunt for them again the next time an "Εικόνα (URL)" field
+shows up somewhere (Αρχική Σελίδα, SEO, κ.λπ.). Copy the URL from here and
+paste it into that field by hand.
+
+**Why there's no upload button**: this store doesn't have real image
+hosting set up yet (no real product photography exists either — see
+`PROJECT_MEMORY.md` if you're technical and curious). Building an upload
+feature without real hosting behind it would create images that only work
+temporarily, not something safe to rely on for a real store — so this
+stays a URL organizer until real hosting exists.
+
+---
+
+*(Sections for Campaigns and every other phase get appended here as
 they're built — see `TASKS.md` → "Admin-first platform" for what's
 next.)*

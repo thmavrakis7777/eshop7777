@@ -3,6 +3,42 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform, Phase I: Media Library (2026-08-11)
+
+Ninth phase. Scoped down deliberately after checking a real constraint
+first: this backend has no object storage configured — Medusa's default
+file provider is local-disk, which works for the "Media" upload button
+already built into the product admin page, but doesn't survive a real
+deployment without separately configuring S3 or similar. Building a real
+upload feature now would produce files that only work in this dev
+environment and need redoing later. Asked the user how to scope it rather
+than guessing; the answer was to build a URL-based library, not real
+upload.
+
+**New `media-assets` module** — a simple labeled list (`label`, `url`,
+`alt_text`), genuine create/update/delete like the other open-ended lists
+in this initiative (Homepage CMS, Search synonyms). Every image field
+across this project (Hero/promo blocks, SEO social image, etc.) was
+already a plain URL text input the admin fills in by hand — this gives
+them one place to label and reuse those URLs instead of re-finding/
+re-typing them per field, without needing to build storage infrastructure
+this project doesn't have.
+
+**Admin-only, deliberately**: a new **Βιβλιοθήκη Μέσων** route (same
+open-ended list pattern as Phase E/H, no nested route), but no public
+`/store/media-assets` endpoint — nothing on the storefront reads this
+data yet, so exposing it publicly would be speculative surface area with
+no current consumer. If a future phase wires an image-picker into
+existing fields (Hero, SEO, etc.), that integration — and the store route
+it would need — is a real, separate follow-up, not built here.
+
+**Verified live against the real Supabase database, full round trip**:
+added a real labeled URL via the admin, confirmed it persisted (checked
+directly via `/admin/media-assets`, not just the UI); deleted it and
+confirmed the list is empty again. `medusa lint`, `tsc --noEmit` (backend
+admin), and a full `medusa build` all clean. No storefront changes this
+phase, so no storefront build was needed.
+
 ## Admin-first platform, Phase H: Search Management (2026-08-11)
 
 Eighth phase — the roadmap named four things ("synonyms, pinned, hidden,
