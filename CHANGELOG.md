@@ -3,6 +3,62 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform, Phase D: Content Pages (2026-08-11)
+
+Fourth phase — About, Shipping, Returns, Privacy, Terms, and FAQ, all
+editable from the admin instead of not existing at all (every one of these
+Footer links previously 404'd; the Footer's `href`s were already there
+from earlier sessions, just pointing at nothing).
+
+**New `content-pages` backend module** — one row per page (`slug`,
+`title`, `body`, `is_published`), unique index on `slug`. Deliberately a
+*fixed* set of six slugs, not an open-ended CMS: the storefront has one
+literal route folder per page (`app/sxetika/page.tsx`,
+`app/apostoles/page.tsx`, etc.), not a dynamic `[slug]` route, so a
+seventh page created only in the admin would have nowhere to be visited.
+`is_published` defaults to `false` — a page with no real content yet
+should 404, not go live empty; same "honest empty state" rule as every
+other admin-editable field in this project. Real, additive-only migration
+applied to the live database; real runtime method names verified via
+`medusa exec` before trusting the generated types (now standing practice
+for every new module, not just a Phase-A one-off) — no mismatch this time.
+
+**Admin — a deliberate architecture choice to avoid a known Medusa bug**:
+rather than a list route plus a nested `content-pages/[id]/page.tsx` detail
+route (the obvious CRUD shape), this is a single route
+(`Σελίδες Περιεχομένου`) with client-side master/detail — a hardcoded list
+of the six pages on the left, the selected page's form on the right, no
+URL segment per page. Medusa v2's admin dynamic route params
+(`useParams` from `react-router-dom`) have a documented open upstream bug
+(medusajs/medusa#9794) where the parameter isn't reliably captured;
+sidestepping the pattern entirely removes the risk for a fixed set of only
+six pages, where a single-screen picker is arguably better UX anyway.
+
+**Storefront**: a shared `ContentPageView` renders `title` as an `h1` and
+`body` as plain paragraphs — blank line starts a new paragraph, a single
+newline becomes a `<br/>`. No markdown parsing, no
+`dangerouslySetInnerHTML`: even though the content is trusted-owner input
+(same trust level as the seo module's plain-text fields), there's no
+reason to render raw HTML for what every one of these six pages actually
+needs (plain informational text), so the safer option costs nothing here.
+`sitemap.ts` gained the six page URLs, but only the ones that are actually
+published — fetches each page and filters, so a draft never gets offered
+to crawlers.
+
+**Verified live against the real Supabase database, full round trip**: set
+a real title + multi-paragraph body on the About page via the admin,
+confirmed the storefront rendered paragraph breaks and line breaks
+correctly per the rule above; confirmed an unpublished page 404s on the
+storefront and is absent from the sitemap; confirmed `/store/content-
+pages` returns `null` (not the draft content) for an unpublished page,
+proving draft content never reaches the public Store API; cleared the test
+data back to unpublished/empty and reconfirmed the 404. Caught the
+checkbox-click-didn't-register class of browser-automation flakiness again
+here (same as Phase C) — verified by screenshot before saving each time,
+not assumed. `medusa lint`, `tsc --noEmit` (storefront + backend admin), a
+full `next build` (19 routes, including all six new ones), and a full
+`medusa build` all clean.
+
 ## Admin-first platform, Phase C: Site Settings (2026-08-11)
 
 Third phase of the Admin-first platform initiative — footer contact info,

@@ -1642,6 +1642,57 @@ nested Turborepo/pnpm workspace):
     `tsc --noEmit` (storefront + backend admin), a full `next build`, and
     a full `medusa build` all clean.
 
+- **Admin-first platform, Phase D: Content Pages (2026-08-11)** — About,
+  Shipping, Returns, Privacy, Terms, FAQ, all admin-editable instead of
+  404ing (the Footer already linked to `/sxetika`, `/apostoles`, etc. from
+  earlier sessions; none of those routes existed until this phase).
+  - **New `content-pages` module** — `slug`/`title`/`body`/`is_published`,
+    unique index on `slug`, `is_published` defaults `false`. Deliberately
+    a *fixed* six-slug set, not an open-ended CMS: the storefront has one
+    literal route folder per slug, not a dynamic `[slug]` route, so
+    nothing prevents an admin from creating a page with no storefront
+    route to render it — the fixed set is what keeps admin and storefront
+    in lockstep. Real migration applied live; real runtime method names
+    verified via `medusa exec` before trusting the generated types (now
+    standing practice for every new module) — no mismatch this time,
+    following the same regular-plural-friendly singular model name
+    discipline as Phase C's `site_setting`.
+  - **Admin architecture deliberately avoids a nested dynamic route**: the
+    obvious CRUD shape is a list route plus `content-pages/[id]/page.tsx`,
+    but Medusa v2's admin dynamic route params
+    (`useParams` from `react-router-dom`) have a documented open upstream
+    bug (medusajs/medusa#9794) where the parameter isn't reliably
+    captured. Built as a single route with client-side master/detail
+    instead — hardcoded list of the six pages, no URL segment per page —
+    which sidesteps the bug entirely and is arguably better UX for a fixed
+    set this small. **If a future phase needs a genuinely open-ended list
+    of admin-created items** (Homepage CMS promo blocks, Campaigns), this
+    same constraint will resurface — check whether the upstream bug is
+    fixed on the then-current Medusa version before assuming a nested
+    dynamic route will work, or use the same master-detail-in-one-route
+    pattern if the item count stays small and bounded.
+  - **Storefront**: shared `ContentPageView` renders `body` as plain
+    paragraphs (blank line → new paragraph, single newline → `<br/>`), no
+    markdown, no `dangerouslySetInnerHTML` — deliberately not rendering
+    raw HTML even though the content is trusted-owner input, since plain
+    text is sufficient for every page this phase actually needs and it's
+    strictly safer. `sitemap.ts` now fetches all six pages and only
+    includes the ones that are published, so a draft page is never offered
+    to crawlers — the same "public API/output never leaks unpublished
+    content" rule as the `/store/content-pages` route itself (returns
+    `null`, not the draft, for an unpublished page).
+  - **Verified live against the real Supabase database, full round
+    trip**: real title + multi-paragraph body on the About page,
+    paragraph/line-break rendering confirmed correct on the storefront;
+    unpublished page confirmed 404 and absent from the sitemap; `/store/
+    content-pages` confirmed to return `null` (not draft content) for an
+    unpublished page; cleared test data back to unpublished/empty and
+    reconfirmed the 404. Caught the same class of browser-automation
+    checkbox flakiness as Phase C (a click that visually didn't register)
+    — screenshot-verified before every save this time, not assumed.
+    `medusa lint`, `tsc --noEmit`, a full `next build` (19 routes total,
+    including all six new ones), and a full `medusa build` all clean.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

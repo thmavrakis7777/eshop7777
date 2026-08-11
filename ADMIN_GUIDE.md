@@ -126,6 +126,41 @@ assuming something went wrong.
 
 ---
 
-*(Sections for Content Pages, Homepage CMS, and every other phase get
-appended here as they're built — see `TASKS.md` → "Admin-first platform"
-for what's next.)*
+## Content Pages
+
+**Where**: **Σελίδες Περιεχομένου** in the left sidebar — a list of six
+fixed pages (Σχετικά με εμάς, Αποστολές & Παράδοση, Επιστροφές & Αλλαγές,
+Πολιτική Απορρήτου, Όροι Χρήσης, Συχνές Ερωτήσεις) down the left side,
+click one to edit it on the right.
+
+**Τίτλος (Title)**: shown as the page's big heading and browser tab title.
+
+**Περιεχόμενο (Content)**: plain text — no special formatting buttons,
+just type. A blank line between two lines starts a new paragraph; a
+single line break within a block of text stays a line break (useful for,
+e.g., an address or a short list). There's no bold/italic/links yet.
+
+**Δημοσιευμένη (Published)**: the single most important toggle on this
+page. **A page stays completely invisible on the live site — a real 404,
+the same as if the page never existed — until you check this box and
+save.** This is deliberate: writing a Privacy Policy or Terms of Service
+takes time, and a half-written legal page live on the internet is worse
+than no page at all. Write your content, review it, *then* check
+Δημοσιευμένη.
+
+**These six pages are fixed** — you can edit their title/content/publish
+state, but you can't add a seventh page or rename the six from here. If
+you need an additional page type, that's a small follow-up (each page
+needs a matching spot in the storefront code, not just an admin entry).
+
+**Important, especially for Πολιτική Απορρήτου and Όροι Χρήσης**: nothing
+in this admin writes legal content for you — these two pages start
+completely empty on purpose. Real Privacy Policy and Terms of Service text
+should come from your own review (or a lawyer's), not be invented. The
+other four (About, Shipping, Returns, FAQ) are lower-stakes but still
+your own words to write.
+
+---
+
+*(Sections for Homepage CMS and every other phase get appended here as
+they're built — see `TASKS.md` → "Admin-first platform" for what's next.)*

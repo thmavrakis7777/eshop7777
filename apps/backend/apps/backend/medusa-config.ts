@@ -63,5 +63,8 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/site-settings",
     },
+    {
+      resolve: "./src/modules/content-pages",
+    },
   ],
 })

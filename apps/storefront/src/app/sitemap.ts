@@ -1,21 +1,32 @@
 import type { MetadataRoute } from "next";
 import { getNavCategories } from "@/lib/data/categories";
+import { getContentPage } from "@/lib/data/content-pages";
 import { getAllProductHandles } from "@/lib/data/products";
 import { siteUrl } from "@/lib/site-config";
+
+// Same fixed slug set as the storefront's literal route folders (Admin-
+// first platform, Phase D) — each only makes it into the sitemap if it's
+// actually published, since an unpublished page 404s and has no business
+// being offered to crawlers.
+const CONTENT_PAGE_SLUGS = ["sxetika", "apostoles", "epistrofes", "aporrito", "oroi-xrisis", "faq"] as const;
 
 // Enumerates the full catalog directly (fine at today's scale). Once the
 // catalog grows past a few thousand SKUs, split into paginated sitemap
 // files (Next supports generateSitemaps) to stay under the 50k-URL limit.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [navCategories, productHandles] = await Promise.all([
+  const [navCategories, productHandles, contentPages] = await Promise.all([
     getNavCategories(),
     getAllProductHandles(),
+    Promise.all(CONTENT_PAGE_SLUGS.map(async (slug) => ({ slug, page: await getContentPage(slug) }))),
   ]);
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: siteUrl, changeFrequency: "daily", priority: 1 },
     { url: `${siteUrl}/nea-afiksi`, changeFrequency: "daily", priority: 0.8 },
     { url: `${siteUrl}/protainomena`, changeFrequency: "weekly", priority: 0.7 },
+    ...contentPages
+      .filter(({ page }) => page)
+      .map(({ slug }) => ({ url: `${siteUrl}/${slug}`, changeFrequency: "monthly" as const, priority: 0.3 })),
   ];
 
   const categoryRoutes: MetadataRoute.Sitemap = navCategories.flatMap((top) => [

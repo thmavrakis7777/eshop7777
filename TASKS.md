@@ -843,8 +843,22 @@ reference this initiative is building up phase by phase.
   entries for the full root-cause and the "check the database directly via
   curl before assuming application code is wrong" lesson
 
-**Phase D onward — not started.** Roadmap as proposed: Content
-Pages (About/Shipping/Returns/Privacy/Terms/FAQ) → Homepage CMS (hero/
+**Phase D — Content Pages: done (2026-08-11).**
+- [x] New `content-pages` backend module — fixed six-slug set (About,
+      Shipping, Returns, Privacy, Terms, FAQ), `is_published` defaults
+      `false` so a page 404s until real content exists
+- [x] Standalone admin route (`Σελίδες Περιεχομένου`) — client-side
+      master/detail (list + form in one screen), not a nested `[id]`
+      route, to sidestep a documented Medusa v2 admin dynamic-route-param
+      bug (medusajs/medusa#9794)
+- [x] Six storefront route folders (`/sxetika`, `/apostoles`,
+      `/epistrofes`, `/aporrito`, `/oroi-xrisis`, `/faq`), plain-text
+      paragraph rendering (no markdown, no raw HTML)
+- [x] `sitemap.ts` includes each page only once it's published
+- [x] Full round-trip verified live against the real Supabase database;
+      `medusa lint`, `tsc`, full `next build`, full `medusa build` all clean
+
+**Phase E onward — not started.** Roadmap as proposed: Homepage CMS (hero/
 sliders/promo blocks — the biggest single phase, replaces today's
 hardcoded homepage section arrangement) → Product merchandising extensions
 (labels, cross-sell curation, downloads/warranty text) → Cart/checkout
