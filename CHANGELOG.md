@@ -3,6 +3,89 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform, Phase E: Homepage CMS (2026-08-11)
+
+Fifth phase, the one the roadmap itself flagged as the biggest single
+phase — "hero/sliders/promo blocks." Scoped deliberately rather than
+building a full generic drag-and-drop section builder: made the Hero and
+the editorial/promo section (previously one hardcoded `EditorialBanner`
+block) into admin-managed ordered lists, and left TrustStrip and
+Newsletter alone. TrustStrip makes factual claims tied to real checkout/
+fulfillment capability (delivery window, return policy, the one real
+payment method) — same reasoning Phase C used to keep the Footer's
+payment-methods list hardcoded rather than admin-editable, since an
+admin-editable factual claim risks drifting from what the store can
+actually deliver. Newsletter's signup form isn't wired to any real
+provider yet (`onSubmit={(e) => e.preventDefault()}`) — that's a
+Campaigns-phase concern, not a content-editing one.
+
+**New `homepage-blocks` backend module** — one model
+(`kind: "hero"|"promo"`, eyebrow/heading/body/cta_label/cta_href/
+image_url/sort_order/is_published) instead of two near-identical ones,
+since the field set is genuinely identical between a hero slide and a
+promo block. **The first genuinely open-ended list in this initiative** —
+Phases A-D were all either a fixed key to upsert (seo, site-settings) or
+a fixed known set (content-pages' six slugs); this one has real
+create/delete, not just upsert. Ordering is a plain numeric `sort_order`
+field the admin types in, not drag-and-drop — deliberately simpler to
+build and entirely sufficient for a handful of blocks. Real, additive-only
+migration applied live; real runtime method names verified via
+`medusa exec` before trusting the generated types, same standing practice
+as every prior phase — no mismatch.
+
+**Admin**: one route (`Αρχική Σελίδα`) with two sections, each a
+client-side list with inline add/edit/delete — no nested `[id]` route,
+extending Phase D's precedent (avoiding medusajs/medusa#9794) to a
+genuinely open-ended list this time, not just a fixed one. `@medusajs/
+icons` isn't a direct dependency of this app (same situation as
+`@medusajs/types` in Phase A), so the delete action is a plain "Διαγραφή"
+button, not an icon.
+
+**Storefront**: `Hero` renders the store's original default copy when
+zero slides are published, a single slide statically, or (new) a real
+swipeable carousel for two or more — reusing the exact native CSS
+scroll-snap pattern `ProductRail` already established (no carousel
+library) rather than inventing a second interaction pattern.
+`EditorialBanner` renders one or more admin promo blocks in `sort_order`,
+alternating image side for visual rhythm, falling back to the original
+hardcoded promo when none are published.
+
+**A real bug found and fixed live, not just by inspection**: a second
+hero slide that deliberately left its eyebrow field blank rendered the
+*original default* eyebrow text ("Νέα Συλλογή") instead of nothing.
+Cause: `HeroSlide` used `content?.eyebrow ?? "Νέα Συλλογή"` per-field
+fallbacks, which is correct semantics for "there is no admin content at
+all" but wrong for "this one real slide has one blank field" — a blank
+field on a real slide must render as absent, never silently borrow the
+unrelated default's copy. Fixed by switching to the same whole-object
+fallback pattern `EditorialBanner`'s `DEFAULT_BLOCK` already used
+correctly: choose *either* a single default object *or* a real slide,
+never blend fields from both. Caught because the carousel was actually
+clicked through slide-by-slide during verification, not just checked on
+slide 1.
+
+**Two real browser-automation false-positives caught mid-session**, both
+resolved the same way — verify against the backend directly, not the
+tool's own success signal: (1) a hero-carousel dot click appeared to do
+nothing in one browser tab; turned out to be that specific tab's stale
+state (a fresh tab's identical click worked immediately, scroll position
+confirmed via `element.scrollLeft`), not a real bug in the carousel code.
+(2) A "Διαγραφή" (delete) button click showed no visible error but a
+`curl` against `/store/homepage-blocks` proved the row was still there;
+the identical click succeeded on retry. Neither would have been caught by
+trusting the admin UI's screenshot alone.
+
+**Verified live against the real Supabase database, full round trip**:
+created two hero slides (published), confirmed single-slide static
+rendering, confirmed the carousel path with working prev/next dots via
+direct `scrollLeft` checks (not just visual screenshots, given the
+automation flakiness above); created a promo block, confirmed it replaced
+the default entirely with only its populated fields rendered; deleted
+every test block and confirmed both sections cleanly reverted to their
+original hardcoded defaults with zero visual difference from pre-Phase-E.
+`medusa lint`, `tsc --noEmit` (storefront + backend admin), `next lint`, a
+full `next build` (19 routes), and a full `medusa build` all clean.
+
 ## Admin-first platform, Phase D: Content Pages (2026-08-11)
 
 Fourth phase — About, Shipping, Returns, Privacy, Terms, and FAQ, all

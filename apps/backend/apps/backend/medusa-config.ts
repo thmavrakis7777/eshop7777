@@ -66,5 +66,8 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/content-pages",
     },
+    {
+      resolve: "./src/modules/homepage-blocks",
+    },
   ],
 })

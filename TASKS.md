@@ -858,15 +858,39 @@ reference this initiative is building up phase by phase.
 - [x] Full round-trip verified live against the real Supabase database;
       `medusa lint`, `tsc`, full `next build`, full `medusa build` all clean
 
-**Phase E onward — not started.** Roadmap as proposed: Homepage CMS (hero/
-sliders/promo blocks — the biggest single phase, replaces today's
-hardcoded homepage section arrangement) → Product merchandising extensions
-(labels, cross-sell curation, downloads/warranty text) → Cart/checkout
-marketing config → Search management (synonyms/pinned/hidden/boosts) →
-Media library → Campaigns (flash sales/countdown/newsletter popup) →
-Analytics/consent (GA4/GTM/Pixels/Clarity + a real cookie-consent banner,
-which doesn't exist yet). Each phase ships independently, same
-build-verify-document-commit rhythm as every other feature in this project.
+**Phase E — Homepage CMS: done (2026-08-11).**
+- [x] New `homepage-blocks` backend module — single `kind: "hero"|"promo"`
+      model, genuine create/delete (first open-ended list in this
+      initiative, not just an upsert-by-key), typed `sort_order` instead
+      of drag-and-drop
+- [x] Admin route (`Αρχική Σελίδα`) — two client-side list sections,
+      inline add/edit/delete, no nested `[id]` route (same
+      medusajs/medusa#9794 avoidance as Phase D)
+- [x] Storefront `Hero`: 0 slides → original default, 1 → static, 2+ → a
+      real swipeable carousel reusing `ProductRail`'s native CSS
+      scroll-snap pattern (no carousel library)
+- [x] Storefront `EditorialBanner`: 1+ admin promo blocks in `sort_order`,
+      falls back to the original hardcoded promo when none published
+- [x] TrustStrip and Newsletter deliberately left out of scope (factual
+      claims tied to real fulfillment capability; unwired signup form)
+- [x] Full round-trip verified live against the real Supabase database;
+      `medusa lint`, `tsc`, `next lint`, full `next build`, full `medusa
+      build` all clean
+- **Found and fixed a real bug live**: a blank field on a real admin
+  slide rendered the *unrelated* default's copy instead of nothing, due to
+  a per-field `??` fallback where a whole-object fallback was needed — see
+  `CHANGELOG.md`/`PROJECT_MEMORY.md`'s Phase E entries for the fix and the
+  general rule for any future admin-content component with the same
+  zero/one/many shape
+
+**Phase F onward — not started.** Roadmap as proposed: Product
+merchandising extensions (labels, cross-sell curation, downloads/warranty
+text) → Cart/checkout marketing config → Search management (synonyms/
+pinned/hidden/boosts) → Media library → Campaigns (flash sales/countdown/
+newsletter popup) → Analytics/consent (GA4/GTM/Pixels/Clarity + a real
+cookie-consent banner, which doesn't exist yet). Each phase ships
+independently, same build-verify-document-commit rhythm as every other
+feature in this project.
 
 ## Next
 

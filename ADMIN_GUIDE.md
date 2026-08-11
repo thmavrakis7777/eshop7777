@@ -162,5 +162,50 @@ your own words to write.
 
 ---
 
-*(Sections for Homepage CMS and every other phase get appended here as
-they're built — see `TASKS.md` → "Admin-first platform" for what's next.)*
+## Homepage (Hero + Διαφημιστικές Ενότητες)
+
+**Where**: **Αρχική Σελίδα** in the left sidebar — two sections on one
+screen, Hero at the top and Διαφημιστικές Ενότητες (promo blocks) below.
+
+**Hero (κεντρικό banner)**: the big banner at the very top of the
+homepage. Click **+ Νέο** to add a slide. **Zero slides** = the store's
+current default banner keeps showing, untouched. **One slide** = your
+content replaces it, shown as a static banner. **Two or more slides** =
+visitors get a swipeable/scrollable banner with dot indicators, cycling
+through everything you've published, in the order set by "Σειρά
+εμφάνισης" (lower numbers first).
+
+**Διαφημιστικές Ενότητες**: the image-and-text sections that appear below
+the category grid. Same logic — zero published blocks keeps the store's
+original promo content, one or more replaces it entirely, shown in your
+chosen order.
+
+**Fields, both sections**:
+| Field | What it does |
+|---|---|
+| Eyebrow | small label above the title (e.g. "Νέα Συλλογή") |
+| Τίτλος | the headline |
+| Κείμενο | the paragraph underneath |
+| Κείμενο κουμπιού / Σύνδεσμος κουμπιού | the button's label and where it links to (e.g. `/kouzina`) |
+| Εικόνα (URL) | a real image, if you have one hosted somewhere. Leave empty and a placeholder graphic is used instead — same as everywhere else with no real product photography yet |
+| Σειρά εμφάνισης | a number — lower shows first |
+| Δημοσιευμένο | **stays completely invisible until checked**, same rule as Content Pages: write and review before publishing |
+
+**Leaving a field blank on a real slide/block leaves that piece out
+entirely** — an empty Eyebrow means no eyebrow line shows, it does not
+fall back to old default text. Only *zero* slides/blocks at all brings
+back the store's original built-in content.
+
+**Not covered here** (by design, not oversight): the "Παράδοση σε 2-3
+εργάσιμες / Δωρεάν επιστροφές / Πληρωμή με αντικαταβολή" strip and the
+"Μείνε ενημερωμένος" newsletter box aren't admin-editable. The delivery/
+returns/payment strip states facts about what the store can actually do —
+editing it here could make it say something checkout can't back up, so it
+stays in code where it's kept in sync with the real fulfillment/payment
+setup. The newsletter box isn't wired to a real email list yet.
+
+---
+
+*(Sections for Product merchandising and every other phase get appended
+here as they're built — see `TASKS.md` → "Admin-first platform" for
+what's next.)*
