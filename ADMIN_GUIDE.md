@@ -206,6 +206,40 @@ setup. The newsletter box isn't wired to a real email list yet.
 
 ---
 
-*(Sections for Product merchandising and every other phase get appended
-here as they're built — see `TASKS.md` → "Admin-first platform" for
-what's next.)*
+## Product Merchandising
+
+**Where**: open any product (`Products` → pick one), scroll the sidebar
+past the existing **SEO** card — a second card, **Merchandising**, sits
+below it.
+
+**Ετικέτα (badge)**: a small label shown above the product's title on its
+own page (not on category/listing pages yet — that's a known, deliberate
+gap, see below). Distinct from the store's automatic "Νέο" and "Προσφορά"
+badges, which you can't edit — those reflect real data (a genuinely recent
+product, a genuine active discount) and stay that way on purpose.
+
+**Χρώμα ετικέτας**: Ουδέτερο (neutral), Έμφαση (the brand accent color),
+or Πράσινο — pick whichever reads right for the label you typed.
+
+**Κείμενο εγγύησης / Σύνδεσμος Downloads**: shown in a new "Εγγύηση &
+Downloads" section on the product page — a warranty statement and/or a
+link to a downloadable manual (PDF or similar, hosted elsewhere and
+linked to, not uploaded here). Leave both empty and the section doesn't
+appear at all.
+
+**Known gaps, not oversights**:
+- The badge only shows on the product's own page right now, not on
+  category pages or the homepage's product rows. Bringing it to those
+  needs more backend work first (fetching many products' badges at once
+  efficiently) — flagged as a real follow-up.
+- There's no way yet to manually pick "customers who bought this also
+  bought…" products for a specific item. The "Σχετικά προϊόντα" section
+  every product page already has is fully automatic (same category), not
+  admin-curated — a real curation tool is a separate, bigger piece of
+  work, not built yet.
+
+---
+
+*(Sections for Cart/checkout marketing config and every other phase get
+appended here as they're built — see `TASKS.md` → "Admin-first platform"
+for what's next.)*

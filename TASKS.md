@@ -883,14 +883,31 @@ reference this initiative is building up phase by phase.
   general rule for any future admin-content component with the same
   zero/one/many shape
 
-**Phase F onward — not started.** Roadmap as proposed: Product
-merchandising extensions (labels, cross-sell curation, downloads/warranty
-text) → Cart/checkout marketing config → Search management (synonyms/
-pinned/hidden/boosts) → Media library → Campaigns (flash sales/countdown/
-newsletter popup) → Analytics/consent (GA4/GTM/Pixels/Clarity + a real
-cookie-consent banner, which doesn't exist yet). Each phase ships
-independently, same build-verify-document-commit rhythm as every other
-feature in this project.
+**Phase F — Product Merchandising: partially done (2026-08-11).**
+- [x] New `product-extras` backend module — badge_label/badge_tone/
+      warranty_text/downloads_url per product
+- [x] Second admin widget (`Merchandising`) stacked in the product detail
+      page's existing `product.details.side.after` zone alongside SEO
+- [x] Storefront PDP: badge above the title, "Εγγύηση & Downloads" section
+      (both render nothing when unset)
+- [x] Full round-trip verified live against the real Supabase database;
+      `medusa lint`, `tsc`, full `next build`, full `medusa build` all clean
+- [ ] **Cross-sell curation — deferred**, needs a real product-picker UI
+      (search-and-add, many-to-many), a genuinely bigger separate build.
+      Automatic same-category cross-sell (`getRelatedProducts`) already
+      exists and is unaffected.
+- [ ] **Badge on grid listings (`ProductCard`) — deferred**, needs a batch
+      `product-extras` endpoint (`?product_ids=a,b,c`) rather than N
+      individual calls across every listing surface
+      (`getFeaturedProducts`, category listings, search, etc.) — design
+      that before extending `ProductCard`, not a small add-on
+
+**Phase G onward — not started.** Roadmap as proposed: Cart/checkout
+marketing config → Search management (synonyms/pinned/hidden/boosts) →
+Media library → Campaigns (flash sales/countdown/newsletter popup) →
+Analytics/consent (GA4/GTM/Pixels/Clarity + a real cookie-consent banner,
+which doesn't exist yet). Each phase ships independently, same
+build-verify-document-commit rhythm as every other feature in this project.
 
 ## Next
 

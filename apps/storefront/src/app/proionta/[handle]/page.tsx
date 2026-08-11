@@ -6,12 +6,14 @@ import { RecentlyViewed } from "@/components/product/RecentlyViewed";
 import { RecentlyViewedTracker } from "@/components/product/RecentlyViewedTracker";
 import { StockStatus } from "@/components/product/StockStatus";
 import { ProductCharacteristics } from "@/components/product/ProductCharacteristics";
+import { ProductWarranty } from "@/components/product/ProductWarranty";
 import { ProductRail } from "@/components/home/ProductRail";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 import { Stars } from "@/components/ui/Stars";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
 import { getCategoryByHandle } from "@/lib/data/categories";
 import { getProductByHandle, getRelatedProducts } from "@/lib/data/products";
+import { getProductExtra } from "@/lib/data/product-extras";
 import { getSeoOverride } from "@/lib/data/seo";
 import { formatPrice } from "@/lib/format";
 import { siteUrl } from "@/lib/site-config";
@@ -59,10 +61,11 @@ export default async function ProductPage({ params }: Props) {
   // Related products don't depend on the category lookups, so they're
   // fetched alongside rather than after them — this was a three-deep
   // request waterfall before.
-  const [category, relatedProducts, seo] = await Promise.all([
+  const [category, relatedProducts, seo, extra] = await Promise.all([
     product.categoryHandle ? getCategoryByHandle(product.categoryHandle) : undefined,
     getRelatedProducts(product),
     getSeoOverride("product", product.id),
+    getProductExtra(product.id),
   ]);
   const parentCategory = category?.parentHandle ? await getCategoryByHandle(category.parentHandle) : undefined;
 
@@ -125,6 +128,19 @@ export default async function ProductPage({ params }: Props) {
         </div>
 
         <div className="flex flex-col">
+          {extra?.badgeLabel && (
+            <span
+              className={`mb-2 inline-flex w-fit rounded-sm px-2 py-1 text-[11px] font-medium tracking-wide ${
+                extra.badgeTone === "accent"
+                  ? "bg-accent text-white"
+                  : extra.badgeTone === "success"
+                    ? "bg-success text-white"
+                    : "bg-surface text-ink"
+              }`}
+            >
+              {extra.badgeLabel}
+            </span>
+          )}
           <h1 className="text-3xl text-ink md:text-4xl">{product.title}</h1>
 
           {product.rating !== undefined && (
@@ -187,6 +203,7 @@ export default async function ProductPage({ params }: Props) {
       )}
 
       <ProductCharacteristics characteristics={product.characteristics} />
+      <ProductWarranty extra={extra} />
 
       <ProductRail title="Σχετικά προϊόντα" products={relatedProducts} />
       <RecentlyViewed excludeHandle={product.handle} />

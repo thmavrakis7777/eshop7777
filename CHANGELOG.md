@@ -3,6 +3,68 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform, Phase F: Product Merchandising (2026-08-11)
+
+Sixth phase — the roadmap named three things ("labels, cross-sell
+curation, downloads/warranty text"); this phase deliberately ships two of
+them and explicitly defers the third rather than rushing it.
+
+**Shipped**: a custom merchandising badge per product (distinct from the
+storefront's existing "Νέο"/"Προσφορά" badges, which stay exactly as they
+were — those are computed from real price/date data, not admin-set, and
+mixing an admin-editable label into that fixed enum would have muddied a
+system that's deliberately never fabricated) plus warranty text and a
+downloads link, both new PDP content.
+
+**New `product-extras` backend module** — one row per product
+(`badge_label`, `badge_tone: "accent"|"success"|"neutral"`,
+`warranty_text`, `downloads_url`), keyed by the real Medusa product id,
+upserted the same list-then-create-or-update way as the seo module. Real
+migration applied live; real runtime method names verified via
+`medusa exec` before trusting generated types — no mismatch.
+
+**Admin**: a second, independent widget (`Merchandising`) in the exact
+same `product.details.side.after` zone as Phase A's SEO widget — Medusa
+stacks multiple widgets in one zone without conflict, so this didn't need
+its own zone or a merge into the unrelated seo module.
+
+**Storefront**: the badge renders above the PDP `<h1>` (only if
+`badge_label` is set, using `badge_tone` to pick an existing color
+token — `accent`/`success`/neutral `surface`, no new colors introduced);
+a new "Εγγύηση & Downloads" section (same pattern as
+`ProductCharacteristics` — its own `<h2>`, renders nothing when both
+fields are empty) shows warranty text and a real download link.
+
+**Deliberately deferred, not forgotten**:
+- **Cross-sell curation** — the roadmap's own second item. Automatic
+  same-category cross-sell already exists (`getRelatedProducts`, see
+  earlier "Full product detail page" notes on why it's honestly labeled
+  "related" rather than a fabricated "frequently bought together" claim).
+  *Manual* curation needs a real product-picker UI (search-and-add,
+  many-to-many) — a genuinely bigger, separate build, not a natural
+  extension of this phase's per-product-field pattern. Flagged as a real
+  gap for a dedicated future pass, not silently dropped.
+- **Badge on grid listings** (`ProductCard` in category pages, homepage
+  rails, search results) — this phase only wired the badge into the PDP.
+  Showing it on every listing surface would mean batch-fetching
+  `product-extras` across every product-listing call site
+  (`getFeaturedProducts`, `getNewArrivals`, category listings, search,
+  related products, recently viewed) — a broad, invasive change touching
+  most of `lib/data/products.ts`, versus one call on one page for the PDP.
+  Same "ship one clear slice, flag the rest honestly" scoping as every
+  prior phase's deliberate exclusions (Phase E's TrustStrip/Newsletter,
+  Phase D's footer-only content-page set).
+
+**Verified live against the real Supabase database, full round trip**:
+set a real badge (label + accent tone) and warranty/downloads text on a
+real product via the widget, confirmed both render correctly on that
+product's PDP with no console/server errors; confirmed an unrelated
+product's PDP and every grid listing are completely unaffected (no
+regression, no stray badge); cleared all fields and confirmed the PDP
+cleanly reverts to showing neither the badge nor the Εγγύηση & Downloads
+section. `medusa lint`, `tsc --noEmit` (storefront + backend admin), a
+full `next build` (19 routes), and a full `medusa build` all clean.
+
 ## Admin-first platform, Phase E: Homepage CMS (2026-08-11)
 
 Fifth phase, the one the roadmap itself flagged as the biggest single

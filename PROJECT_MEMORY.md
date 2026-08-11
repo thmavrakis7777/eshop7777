@@ -1766,6 +1766,48 @@ nested Turborepo/pnpm workspace):
     lint`, a full `next build` (19 routes), and a full `medusa build` all
     clean.
 
+- **Admin-first platform, Phase F: Product Merchandising (2026-08-11)** —
+  the roadmap named three things ("labels, cross-sell curation, downloads/
+  warranty text"); this phase ships two and explicitly defers the third.
+  - **New `product-extras` module** — one row per product
+    (`badge_label`, `badge_tone`, `warranty_text`, `downloads_url`), keyed
+    by the real product id, upserted the same list-then-create-or-update
+    way as `seo`. Real migration applied live; real runtime methods
+    verified via `medusa exec` — no mismatch, following the now-standard
+    practice.
+  - **The custom badge is deliberately separate from the storefront's
+    existing "Νέο"/"Προσφορά" badges** — those are computed from real
+    price/date data (`onSale`, `isNewArrivalMember` in
+    `lib/data/products.ts`), never admin-set. Mixing an admin-editable
+    label into that fixed enum would have put a fabricatable value next
+    to two data-driven ones, undermining the "these badges mean something
+    real" property. Kept as a visually distinct third slot instead.
+  - **Admin**: a second, independent widget (`Merchandising`) stacked in
+    the same `product.details.side.after` zone as Phase A's SEO widget —
+    confirms multiple widgets can coexist in one zone without conflict,
+    useful precedent for any future product-detail-page addition.
+  - **Two things explicitly deferred, not silently dropped**: (1)
+    **cross-sell curation** — real manual curation needs a product-picker
+    UI (search-and-add, many-to-many), a genuinely bigger separate build;
+    automatic same-category cross-sell already exists via
+    `getRelatedProducts` and stays as-is. (2) **badge on grid listings**
+    (`ProductCard` everywhere it's used) — showing it there would mean
+    batch-fetching `product-extras` across every product-listing call
+    site in `lib/data/products.ts` (`getFeaturedProducts`,
+    `getNewArrivals`, category listings, search, related, recently
+    viewed), a broad change versus the one call this phase actually made
+    on the PDP alone. **If a future phase wants grid-listing badges, it
+    needs a batch endpoint (`?product_ids=a,b,c`) rather than N individual
+    `/store/product-extras` calls per listing page** — worth designing
+    for before touching `ProductCard`.
+  - **Verified live against the real Supabase database, full round
+    trip**: real badge (accent tone) + warranty + downloads on a real
+    product, confirmed correct PDP rendering with an unrelated product's
+    PDP and every grid listing completely unaffected; cleared all fields
+    and confirmed the PDP cleanly reverts to showing neither the badge nor
+    the Εγγύηση & Downloads section. `medusa lint`, `tsc --noEmit`, a full
+    `next build` (19 routes), and a full `medusa build` all clean.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC
