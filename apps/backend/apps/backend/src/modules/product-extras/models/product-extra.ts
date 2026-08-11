@@ -15,6 +15,14 @@ const ProductExtra = model.define("product_extra", {
   badge_tone: model.enum(["accent", "success", "neutral"]).default("neutral"),
   warranty_text: model.text().nullable(),
   downloads_url: model.text().nullable(),
+  // Admin-first platform, Phase H (search management). Booleans, not a
+  // numeric boost strength — the storefront's search (lib/search.ts)
+  // deliberately ranks by discrete, explainable tiers rather than a
+  // blended score ("every match is explainable as 'this tier matched'"),
+  // so "boosted" promotes a match to its own top tier instead of nudging
+  // a continuous number; there's no in-between to represent.
+  hide_from_search: model.boolean().default(false),
+  is_search_boosted: model.boolean().default(false),
 }).indexes([
   {
     on: ["product_id"],

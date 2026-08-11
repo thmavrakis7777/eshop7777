@@ -1858,6 +1858,58 @@ nested Turborepo/pnpm workspace):
     `medusa lint`, `tsc --noEmit`, a full `next build` (19 routes), and a
     full `medusa build` all clean.
 
+- **Admin-first platform, Phase H: Search Management (2026-08-11)** —
+  hidden/boosted/synonyms, deliberately respecting a real constraint the
+  search ranking already commits to.
+  - **`lib/search.ts`'s own existing design principle governed every
+    decision here**: "every match is explainable as 'this tier matched'"
+    — discrete tiers, never a blended numeric score. This is why
+    "boosted" is a boolean (`is_search_boosted`) promoting a genuine match
+    to a new top tier (`"boosted"`, rank -1, above `sku-exact`) rather
+    than a numeric strength blended into a score — there's no continuous
+    dimension to represent in this ranking model. **Any future search
+    feature must respect this same constraint** — resist the urge to add
+    a numeric weight/score field to search ranking without first checking
+    whether it actually fits the existing tier system, or reconsider
+    whether the tier system itself needs to change (a bigger call than
+    one feature should make unilaterally).
+  - **Hidden** (`hide_from_search`) and **boosted** (`is_search_boosted`)
+    both live on the existing `product-extras` module (Phase F) as two
+    more per-product booleans, surfaced in the same Merchandising widget
+    — not a new module, since these are genuinely per-product settings
+    like the badge/warranty fields already there.
+  - **New `search-synonyms` module** — comma-separated term groups.
+    Expansion happens before ranking: `rankSearchMatches` (`lib/
+    search.ts`) now accepts `string | string[]` for its query parameter,
+    and for each catalog item takes the best (lowest-rank) tier across
+    every candidate query — still one explainable tier per match, chosen
+    from several candidates instead of computed from one.
+  - **Pinned (per-query, not per-product) was explicitly not built** —
+    "always show product X first for query Y" is a query→product mapping,
+    a different mechanic from a product-level flag that applies to every
+    query it happens to match. Boosted is the closest thing shipped;
+    true pinning is a real, flagged gap for a future phase.
+  - **New batch endpoint** `/store/product-extras/search-overrides`
+    (`{ hidden: string[], boosted: string[] }`) — the search catalog needs
+    every product's flags in one request, unlike the PDP's existing
+    single-product `/store/product-extras?product_id=` lookup. This is
+    the concrete resolution of the batch-endpoint need flagged as
+    deferred in Phase F's grid-listing-badge notes — solved here because
+    search actually needed it, not preemptively.
+  - **Verified live against the real Supabase database, full round
+    trip**: a real synonym group ("τηγάνι, tigani, pan") plus a boosted
+    real "Τηγάνι" product — searching the English synonym "pan" returned
+    both matching products with the boosted one first; confirmed boosting
+    doesn't leak into an unrelated query (zero results for "μαξιλάρι");
+    confirmed hidden wins over boosted when both flags are set on the
+    same product (fully absent from results, not just deprioritized) —
+    this works simply because the hidden filter runs before the catalog
+    is even built, so a hidden product's boost flag is never reached.
+    Cleared all test data, confirmed clean revert. `medusa lint`, `tsc
+    --noEmit`, a full `next build` (19 routes), and a full `medusa build`
+    all clean — `.next` cleared proactively before this phase's dev
+    server session, per Phase G's lesson (no repeat of that corruption).
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

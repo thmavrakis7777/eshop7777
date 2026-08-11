@@ -72,5 +72,8 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/product-extras",
     },
+    {
+      resolve: "./src/modules/search-synonyms",
+    },
   ],
 })

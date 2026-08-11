@@ -922,11 +922,30 @@ reference this initiative is building up phase by phase.
   When a dev-server error contradicts a clean `next build`, delete
   `.next` before debugging further.
 
-**Phase H onward — not started.** Roadmap as proposed: Search management
-(synonyms/pinned/hidden/boosts) → Media library → Campaigns (flash sales/
-countdown/newsletter popup) → Analytics/consent (GA4/GTM/Pixels/Clarity +
-a real cookie-consent banner, which doesn't exist yet). Each phase ships
-independently, same build-verify-document-commit rhythm as every other
+**Phase H — Search Management: mostly done (2026-08-11).**
+- [x] `hide_from_search` + `is_search_boosted` booleans added to the
+      existing `product-extras` module/Merchandising widget
+- [x] New `search-synonyms` module + standalone `Αναζήτηση` admin route
+      (same open-ended-list pattern as Phase E)
+- [x] `lib/search.ts`: boosted matches promote to a new top `"boosted"`
+      tier (not a blended score — respects the ranking's existing
+      discrete-tier design); `rankSearchMatches` accepts multiple query
+      variants for synonym expansion
+- [x] New batch endpoint `/store/product-extras/search-overrides` (the
+      search catalog needs every product's flags in one request)
+- [x] Full round-trip verified live against the real Supabase database
+      (synonym + boost + hidden-wins-over-boosted all confirmed); `medusa
+      lint`, `tsc`, full `next build`, full `medusa build` all clean
+- [ ] **Pinned (per-query product override) — deliberately not built**,
+      a query→product mapping is a different mechanic from a product-level
+      flag; boosted is the closest thing shipped, true pinning is a real,
+      flagged gap
+
+**Phase I onward — not started.** Roadmap as proposed: Media library →
+Campaigns (flash sales/countdown/newsletter popup) → Analytics/consent
+(GA4/GTM/Pixels/Clarity + a real cookie-consent banner, which doesn't
+exist yet). Each phase ships independently, same build-verify-document-
+commit rhythm as every other
 feature in this project.
 
 ## Next

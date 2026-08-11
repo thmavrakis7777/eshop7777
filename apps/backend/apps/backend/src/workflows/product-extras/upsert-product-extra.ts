@@ -8,6 +8,8 @@ export type UpsertProductExtraInput = {
   badge_tone?: "accent" | "success" | "neutral"
   warranty_text?: string | null
   downloads_url?: string | null
+  hide_from_search?: boolean
+  is_search_boosted?: boolean
 }
 
 // Same list-then-create-or-update shape as the seo module's upsert-seo —

@@ -1,5 +1,5 @@
 import { defineWidgetConfig } from "@medusajs/admin-sdk"
-import { Button, Container, Heading, Input, Label, Select, Text, Textarea, toast } from "@medusajs/ui"
+import { Button, Checkbox, Container, Heading, Input, Label, Select, Text, Textarea, toast } from "@medusajs/ui"
 import { useEffect, useState } from "react"
 
 // Local, minimal shape — see product-seo.tsx for why this isn't imported
@@ -11,6 +11,8 @@ type ExtraRecord = {
   badge_tone: "accent" | "success" | "neutral"
   warranty_text: string | null
   downloads_url: string | null
+  hide_from_search: boolean
+  is_search_boosted: boolean
 }
 
 const EMPTY_FORM: ExtraRecord = {
@@ -18,6 +20,8 @@ const EMPTY_FORM: ExtraRecord = {
   badge_tone: "neutral",
   warranty_text: "",
   downloads_url: "",
+  hide_from_search: false,
+  is_search_boosted: false,
 }
 
 // A second, independent widget in the same product.details.side.after
@@ -124,6 +128,32 @@ const ProductExtraWidget = ({ data }: { data: WidgetProductData }) => {
         <div className="flex flex-col gap-y-2">
           <Label size="small">Σύνδεσμος Downloads (π.χ. εγχειρίδιο PDF)</Label>
           <Input value={form.downloads_url ?? ""} onChange={(e) => update("downloads_url", e.target.value)} />
+        </div>
+
+        <div className="flex flex-col gap-y-3 border-t border-ui-border-base pt-4">
+          <Text size="small" weight="plus">
+            Αναζήτηση
+          </Text>
+          <div className="flex items-center gap-x-2">
+            <Checkbox
+              id="hide_from_search"
+              checked={form.hide_from_search}
+              onCheckedChange={(checked) => update("hide_from_search", checked === true)}
+            />
+            <Label htmlFor="hide_from_search" size="small">
+              Απόκρυψη από την αναζήτηση
+            </Label>
+          </div>
+          <div className="flex items-center gap-x-2">
+            <Checkbox
+              id="is_search_boosted"
+              checked={form.is_search_boosted}
+              onCheckedChange={(checked) => update("is_search_boosted", checked === true)}
+            />
+            <Label htmlFor="is_search_boosted" size="small">
+              Προτεραιότητα στα αποτελέσματα αναζήτησης
+            </Label>
+          </div>
         </div>
       </div>
     </Container>

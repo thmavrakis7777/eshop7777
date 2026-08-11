@@ -238,6 +238,18 @@ link to a downloadable manual (PDF or similar, hosted elsewhere and
 linked to, not uploaded here). Leave both empty and the section doesn't
 appear at all.
 
+**Αναζήτηση (Search) — Απόκρυψη από την αναζήτηση**: check this and the
+product never appears in search results, no matter what someone searches
+for — useful for a product you're not ready to sell yet but don't want to
+unpublish entirely.
+
+**Αναζήτηση (Search) — Προτεραιότητα στα αποτελέσματα αναζήτησης**: check
+this and the product jumps to the very top of results whenever it
+genuinely matches what someone searched for. It does **not** make the
+product appear for unrelated searches — it only changes where a real
+match lands, never invents one. If a product is both hidden and boosted,
+hidden wins (it never appears at all).
+
 **Known gaps, not oversights**:
 - The badge only shows on the product's own page right now, not on
   category pages or the homepage's product rows. Bringing it to those
@@ -251,6 +263,24 @@ appear at all.
 
 ---
 
-*(Sections for Cart/checkout marketing config and every other phase get
-appended here as they're built — see `TASKS.md` → "Admin-first platform"
-for what's next.)*
+## Search Management
+
+**Where**: **Αναζήτηση** in the left sidebar.
+
+**What it's for**: teaching search that two different words mean the same
+thing to your customers — e.g. someone typing the English "pan" should
+still find products titled "Τηγάνι". Click **+ Νέα ομάδα συνωνύμων**,
+type every word that should be treated as equivalent, separated by
+commas (e.g. `τηγάνι, tigani, pan`), save. Order inside the group doesn't
+matter — every term in it is fully interchangeable.
+
+**Hiding a product from search, or boosting it to the top of results**:
+not here — those are per-product settings, done on that product's own
+page (see **Product Merchandising** above, the same "Merchandising" card
+as the badge/warranty fields).
+
+---
+
+*(Sections for Media library and every other phase get appended here as
+they're built — see `TASKS.md` → "Admin-first platform" for what's
+next.)*

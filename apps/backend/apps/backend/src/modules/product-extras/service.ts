@@ -15,6 +15,8 @@ export interface ProductExtraRecord {
   badge_tone: "accent" | "success" | "neutral"
   warranty_text: string | null
   downloads_url: string | null
+  hide_from_search: boolean
+  is_search_boosted: boolean
 }
 
 export interface ProductExtraServiceMethods {

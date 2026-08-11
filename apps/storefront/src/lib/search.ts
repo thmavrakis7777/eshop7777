@@ -55,6 +55,7 @@ function wordDistanceThreshold(wordLength: number): number {
 }
 
 export type SearchTier =
+  | "boosted"
   | "sku-exact"
   | "sku-partial"
   | "title-exact"
@@ -65,8 +66,13 @@ export type SearchTier =
 
 // Lower is better — mirrors the priority order requested for this feature:
 // exact SKU, then partial SKU, then increasingly loose title matches,
-// then category, then bounded fuzzy as a last resort.
+// then category, then bounded fuzzy as a last resort. "boosted" (Admin-
+// first platform, Phase H) sits above all of them — an admin-boosted
+// product that matches via any tier gets promoted to this one instead of
+// blending a numeric score into the ranking, keeping every match
+// explainable as "this tier matched" rather than an opaque blended order.
 export const SEARCH_TIER_RANK: Record<SearchTier, number> = {
+  boosted: -1,
   "sku-exact": 0,
   "sku-partial": 1,
   "title-exact": 2,
@@ -101,7 +107,7 @@ export function buildSearchIndexEntry(input: {
 // Deliberately doesn't blend signals into a fuzzy numeric score — every
 // match is explainable as "this tier matched", which is what makes the
 // priority order predictable instead of an opaque ranking.
-export function matchTier(normalizedQuery: string, entry: SearchIndexEntry): SearchTier | null {
+function baseMatchTier(normalizedQuery: string, entry: SearchIndexEntry): SearchTier | null {
   if (!normalizedQuery) return null;
 
   if (entry.normalizedSkus.some((sku) => sku === normalizedQuery)) return "sku-exact";
@@ -125,22 +131,44 @@ export function matchTier(normalizedQuery: string, entry: SearchIndexEntry): Sea
   return null;
 }
 
+// isBoosted (Admin-first platform, Phase H): a product an admin marked as
+// search-boosted still has to genuinely match the query first — boosting
+// only changes *where in the ranking* a real match lands, never manufactures
+// a match that wouldn't otherwise exist.
+export function matchTier(normalizedQuery: string, entry: SearchIndexEntry, isBoosted = false): SearchTier | null {
+  const tier = baseMatchTier(normalizedQuery, entry);
+  if (tier && isBoosted) return "boosted";
+  return tier;
+}
+
 // Generic over the caller's item shape so both the dropdown preview and the
 // full /anazitisi results page can share one ranking pass without either
 // depending on the other's types. `tieBreak` orders same-tier matches
 // (normalized title works well — alphabetical within a tier, in the
 // customer's own alphabet since it's already Greek-folded).
+// `query` accepts multiple variants (Admin-first platform, Phase H —
+// synonym expansion): each admin-defined synonym group means "try every
+// term in the group as if it were the literal query, keep whichever
+// yields the best (lowest-rank) tier per item." Still one explainable
+// tier per match, just chosen from several candidate queries instead of
+// one — not a blended score across them.
 export function rankSearchMatches<T>(
-  query: string,
-  entries: Array<{ entry: SearchIndexEntry; item: T; tieBreak: string }>
+  query: string | string[],
+  entries: Array<{ entry: SearchIndexEntry; item: T; tieBreak: string; isBoosted?: boolean }>
 ): T[] {
-  const normalizedQuery = normalizeSearchText(query);
-  if (!normalizedQuery) return [];
+  const normalizedQueries = (Array.isArray(query) ? query : [query]).map(normalizeSearchText).filter(Boolean);
+  if (normalizedQueries.length === 0) return [];
 
   return entries
-    .map(({ entry, item, tieBreak }) => {
-      const tier = matchTier(normalizedQuery, entry);
-      return tier ? { item, rank: SEARCH_TIER_RANK[tier], tieBreak } : null;
+    .map(({ entry, item, tieBreak, isBoosted }) => {
+      let bestTier: SearchTier | null = null;
+      for (const nq of normalizedQueries) {
+        const tier = matchTier(nq, entry, isBoosted);
+        if (tier && (bestTier === null || SEARCH_TIER_RANK[tier] < SEARCH_TIER_RANK[bestTier])) {
+          bestTier = tier;
+        }
+      }
+      return bestTier ? { item, rank: SEARCH_TIER_RANK[bestTier], tieBreak } : null;
     })
     .filter((m): m is { item: T; rank: number; tieBreak: string } => m !== null)
     .sort((a, b) => a.rank - b.rank || a.tieBreak.localeCompare(b.tieBreak, "el"))

@@ -1,5 +1,6 @@
 import { getDefaultRegionId, medusaFetch, type MedusaProduct, type MedusaVariant } from "@/lib/medusa";
 import { getCategoryIdByHandle, getCategoryIdsForHandle } from "@/lib/data/categories";
+import { expandQueryWithSynonyms, getSearchOverrides, getSearchSynonymGroups } from "@/lib/data/search-management";
 import { buildSearchIndexEntry, rankSearchMatches, type SearchIndexEntry } from "@/lib/search";
 import type { Product, ProductCharacteristics, Tone } from "@/lib/types";
 
@@ -369,28 +370,34 @@ export async function getCartCrossSell(cartProductHandles: string[], limit = 4):
 // catalog grows into the hundreds. This is the one search implementation
 // used by both this results page and the header's live dropdown (see
 // lib/actions/search.ts) — no second, independent search path.
-async function getSearchCatalog(): Promise<Array<{ product: Product; entry: SearchIndexEntry }>> {
+async function getSearchCatalog(): Promise<Array<{ product: Product; entry: SearchIndexEntry; isBoosted: boolean }>> {
   const regionId = await getDefaultRegionId();
   const params = new URLSearchParams({
     region_id: regionId,
     fields: PRODUCT_FIELDS,
     limit: "1000",
   });
-  const { products } = await medusaFetch<{ products: MedusaProduct[] }>(
-    `/store/products?${params.toString()}`,
-    { next: { revalidate: 30 } }
-  );
+  const [{ products }, overrides] = await Promise.all([
+    medusaFetch<{ products: MedusaProduct[] }>(`/store/products?${params.toString()}`, { next: { revalidate: 30 } }),
+    getSearchOverrides(),
+  ]);
 
-  return products.map((p) => ({
-    product: toDomainProduct(p),
-    // Real Greek display names (e.g. "Τηγάνια"), not the Latin URL handle —
-    // the handle would never match a Greek-language query.
-    entry: buildSearchIndexEntry({
-      title: p.title,
-      skus: p.variants.map((v) => v.sku),
-      categoryNames: p.categories.map((c) => c.name),
-    }),
-  }));
+  return products
+    // Admin-first platform, Phase H — hidden products never enter the
+    // search catalog at all, rather than being ranked and then filtered
+    // out after the fact.
+    .filter((p) => !overrides.hidden.has(p.id))
+    .map((p) => ({
+      product: toDomainProduct(p),
+      // Real Greek display names (e.g. "Τηγάνια"), not the Latin URL handle —
+      // the handle would never match a Greek-language query.
+      entry: buildSearchIndexEntry({
+        title: p.title,
+        skus: p.variants.map((v) => v.sku),
+        categoryNames: p.categories.map((c) => c.name),
+      }),
+      isBoosted: overrides.boosted.has(p.id),
+    }));
 }
 
 export async function searchProducts(
@@ -401,11 +408,17 @@ export async function searchProducts(
   if (!trimmed) return { products: [], count: 0 };
 
   const { limit = 24, offset = 0 } = opts;
-  const catalog = await getSearchCatalog();
+  const [catalog, synonymGroups] = await Promise.all([getSearchCatalog(), getSearchSynonymGroups()]);
+  const queries = expandQueryWithSynonyms(trimmed, synonymGroups);
 
   const ranked = rankSearchMatches(
-    trimmed,
-    catalog.map(({ product, entry }) => ({ entry, item: product, tieBreak: entry.normalizedTitle }))
+    queries,
+    catalog.map(({ product, entry, isBoosted }) => ({
+      entry,
+      item: product,
+      tieBreak: entry.normalizedTitle,
+      isBoosted,
+    }))
   );
 
   return { products: ranked.slice(offset, offset + limit), count: ranked.length };

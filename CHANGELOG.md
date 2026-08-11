@@ -3,6 +3,68 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform, Phase H: Search Management (2026-08-11)
+
+Eighth phase — the roadmap named four things ("synonyms, pinned, hidden,
+boosts"); this phase ships three of them, respecting a real architectural
+constraint the existing search ranking already commits to.
+
+**The storefront's search (`lib/search.ts`) deliberately ranks by
+discrete, explainable tiers, not a blended numeric score** — its own
+existing comment says "every match is explainable as 'this tier
+matched'". That constraint shaped every decision in this phase:
+
+- **Hidden**: a `hide_from_search` boolean on the existing `product-
+  extras` module (Phase F). Hidden products are filtered out of the
+  search catalog entirely, before any ranking runs — not ranked-then-
+  hidden, and not something a boost can override.
+- **Boosted**: an `is_search_boosted` boolean, also on `product-extras` —
+  a boolean, not a numeric strength, because there's no continuous score
+  to nudge in this ranking model. A boosted product that genuinely
+  matches a query gets promoted to a new top-priority `"boosted"` tier
+  (rank -1, above `sku-exact`) instead of blending a score; a boosted
+  product that doesn't match still doesn't appear — boosting changes
+  *where* a real match lands, never manufactures one.
+- **Synonyms**: a new `search-synonyms` module — comma-separated term
+  groups (e.g. "τηγάνι, tigani, pan"). Query expansion happens *before*
+  ranking: `rankSearchMatches` now accepts multiple query variants and
+  picks each item's single best (lowest-rank) tier across every variant —
+  still one explainable tier per match, just chosen from several
+  candidate queries instead of one.
+- **Pinned — deliberately not this phase.** Interpreted as "always show
+  product X first for query Y specifically," a materially different
+  mechanic from a product-level boost that applies across every query it
+  matches (a query→product override map, not a product flag). Boosted is
+  the closest thing this phase ships; true per-query pinning is flagged
+  as a real, separate gap.
+
+**Admin**: the two new product-level flags were added to the existing
+Merchandising widget (Phase F), not a new one — they're per-product
+settings like everything else already there. Synonyms got a new
+standalone route (`Αναζήτηση`), same open-ended client-side list pattern
+as Homepage CMS (Phase E) and its no-nested-route reasoning.
+
+**A new batch endpoint** (`/store/product-extras/search-overrides`,
+returning just `{ hidden: string[], boosted: string[] }`) rather than
+the storefront's search catalog fetching each product's extras
+individually — the exact batch-vs-per-product tradeoff flagged as a
+deferred follow-up in Phase F's grid-listing-badge notes, actually solved
+here because search genuinely needs the whole catalog's flags at once
+(unlike a single PDP, which only ever needs one product's).
+
+**Verified live against the real Supabase database, full round trip**:
+created a real synonym group ("τηγάνι, tigani, pan") and boosted a real
+"Τηγάνι" product — searching the English synonym "pan" correctly returned
+both matching products with the boosted one ranked first; confirmed
+boosting does *not* leak into an unrelated query (zero results for
+"μαξιλάρι", not a false match); confirmed hidden wins over boosted when a
+product has both flags set (completely absent from search results, not
+just deprioritized); cleared all test data and confirmed both features
+cleanly revert. `medusa lint`, `tsc --noEmit` (storefront + backend
+admin), a full `next build` (19 routes), and a full `medusa build` all
+clean — with `.next` cleared proactively before this phase's dev server
+verification, per Phase G's lesson.
+
 ## Admin-first platform, Phase G: Cart/Checkout Marketing Config (2026-08-11)
 
 Seventh phase. The roadmap gave this one just a short label ("Cart/
