@@ -3,6 +3,67 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform, Phase G: Cart/Checkout Marketing Config (2026-08-11)
+
+Seventh phase. The roadmap gave this one just a short label ("Cart/
+checkout marketing config") with no itemized list like other phases, so
+the scope was defined this session: a single admin-editable message shown
+in the cart drawer and cart page.
+
+**Deliberately not this phase**: re-enabling `FreeShippingProgress`
+(disabled 2026-08-08 per `CHECKOUT_UX_SPEC.md` §0.2, `lib/cart-config.ts`'s
+`FREE_SHIPPING_MESSAGE_ENABLED = false`) — its own code comment is explicit
+that the fix is "once a real free-shipping rule/promotion exists on the
+backend," a real Medusa shipping-rule/promotion engine change, not a
+content-admin field. An admin-typed threshold number wouldn't make that
+message true; both real shipping options are still flat-rate. Flagged as
+still-blocked, not silently reinterpreted into something this phase could
+ship. **Also deliberately not checkout's own order summary** — kept
+minimal on purpose per `CHECKOUT_PREMIUM_SPEC.md`'s no-distraction
+principle for that specific screen; the message only ever appears
+pre-checkout (drawer, `/kalathi`).
+
+**Extended the existing `site-settings` module** (one new nullable
+`cart_message` column) rather than building a new module for a single text
+field — same singleton, same admin route, a new "Καλάθι" section appended
+to the existing four. Real, additive-only migration (`ALTER TABLE ...
+ADD COLUMN`) applied to the live database.
+
+**Storefront**: `CartDrawer` and `CartPageView` both gained a
+`cartMessage` prop, threaded down from `RootLayout` (already fetching
+`site-settings` for the announcement bar/footer) and `app/kalathi/page.tsx`
+respectively — plain prop-drilling into existing client components, no new
+data-fetching pattern.
+
+**A real, unrelated bug surfaced and root-caused during verification, not
+a code bug**: opening the cart drawer on the product page rendered a
+client-side 404 (`not-found` boundary), and `curl` confirmed `/kalathi`
+and `/proionta/[handle]` were genuinely returning HTTP 404 at the server.
+Root cause: `next build`'s TypeScript pass failed on
+`.next/dev/types/routes.d.ts`/`validator.ts` — Next's own auto-generated
+route-typing files, corrupted (unterminated string/template literals) from
+accumulated dev-server state across this session's many consecutive
+phases (D through G) without a restart. Same family of issue as Phase C's
+stale fetch-cache finding, a different symptom of the same
+already-documented "Turbopack dev-server HMR goes stale after long edit
+sessions" gotcha (`NEXT_STEPS.md`). **Fixed by deleting the entire
+`apps/storefront/.next` directory and restarting the dev server** — a
+clean `next build` immediately after confirmed the actual code was never
+wrong. **The general lesson, now confirmed twice in one session across two
+different corruption shapes (fetch-cache staleness in Phase C, corrupted
+type-generation files here): when a dev-server-only error contradicts a
+clean `next build`, delete `.next` before spending more time reading the
+error** — don't assume the code is broken just because the dev server
+says so.
+
+**Verified live against the real Supabase database, full round trip**: a
+real cart message set via the admin, confirmed it renders in both the
+drawer and the cart page (after the `.next` fix above) and is absent from
+checkout's order summary; cleared the field and confirmed it disappears
+from both surfaces. `medusa lint`, `tsc --noEmit` (storefront + backend
+admin), a full `next build` (19 routes), and a full `medusa build` all
+clean.
+
 ## Admin-first platform, Phase F: Product Merchandising (2026-08-11)
 
 Sixth phase — the roadmap named three things ("labels, cross-sell

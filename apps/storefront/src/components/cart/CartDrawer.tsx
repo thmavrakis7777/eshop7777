@@ -21,7 +21,7 @@ const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled
 // transition is disabled and no transitionend event would ever fire.
 const EXIT_TRANSITION_MS = 300;
 
-export function CartDrawer() {
+export function CartDrawer({ cartMessage }: { cartMessage: string | null }) {
   const { isDrawerOpen, closeDrawer } = useCartUI();
   // Stays mounted for EXIT_TRANSITION_MS after isDrawerOpen goes false so the
   // slide/fade-out has something to animate — CartDrawerInner drives the
@@ -41,6 +41,7 @@ export function CartDrawer() {
       open={isDrawerOpen}
       onRequestClose={closeDrawer}
       onClosed={() => setMounted(false)}
+      cartMessage={cartMessage}
     />
   );
 }
@@ -49,10 +50,12 @@ function CartDrawerInner({
   open,
   onRequestClose,
   onClosed,
+  cartMessage,
 }: {
   open: boolean;
   onRequestClose: () => void;
   onClosed: () => void;
+  cartMessage: string | null;
 }) {
   const controller = useCartController(null);
   const router = useRouter();
@@ -189,6 +192,7 @@ function CartDrawerInner({
 
         {cart && hasItems && (
           <div className="flex flex-col gap-3 border-t border-border p-4">
+            {cartMessage && <p className="text-xs text-ink-muted">{cartMessage}</p>}
             <FreeShippingProgress subtotalEur={cart.subtotal.amount} />
 
             <CouponForm

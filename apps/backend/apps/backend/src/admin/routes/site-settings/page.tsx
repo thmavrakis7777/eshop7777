@@ -12,6 +12,7 @@ type SiteSettingsRecord = {
   instagram_url: string | null
   tiktok_url: string | null
   announcement_text: string | null
+  cart_message: string | null
 }
 
 const EMPTY_FORM: SiteSettingsRecord = {
@@ -24,6 +25,7 @@ const EMPTY_FORM: SiteSettingsRecord = {
   instagram_url: "",
   tiktok_url: "",
   announcement_text: "",
+  cart_message: "",
 }
 
 // Standalone route, not a widget — site settings aren't attached to any
@@ -173,6 +175,22 @@ const SiteSettingsPage = () => {
               <div className="flex flex-col gap-y-2">
                 <Label size="small">TikTok URL</Label>
                 <Input value={form.tiktok_url ?? ""} onChange={(e) => update("tiktok_url", e.target.value)} />
+              </div>
+            </div>
+          </Container>
+
+          <Container className="divide-y p-0">
+            <div className="flex items-center justify-between px-6 py-4">
+              <Heading level="h2">Καλάθι</Heading>
+            </div>
+            <div className="flex flex-col gap-4 px-6 py-4">
+              <div className="flex flex-col gap-y-2">
+                <Label size="small">Μήνυμα καλαθιού</Label>
+                <Input
+                  value={form.cart_message ?? ""}
+                  onChange={(e) => update("cart_message", e.target.value)}
+                  placeholder="Άδειο = δεν εμφανίζεται τίποτα. Εμφανίζεται στο συρτάρι και τη σελίδα καλαθιού, όχι στο ταμείο."
+                />
               </div>
             </div>
           </Container>

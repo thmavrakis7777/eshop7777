@@ -1808,6 +1808,56 @@ nested Turborepo/pnpm workspace):
     the Εγγύηση & Downloads section. `medusa lint`, `tsc --noEmit`, a full
     `next build` (19 routes), and a full `medusa build` all clean.
 
+- **Admin-first platform, Phase G: Cart/Checkout Marketing Config
+  (2026-08-11)** — a single admin-editable message in the cart drawer and
+  cart page. Scope was self-defined (the roadmap's own bullet had no
+  itemized list, unlike other phases).
+  - **Deliberately did not touch `FreeShippingProgress`**
+    (`lib/cart-config.ts` / `components/cart/FreeShippingProgress.tsx`,
+    disabled since 2026-08-08). Its own code comment says the fix
+    condition is "once a real free-shipping rule/promotion exists on the
+    backend" — a real Medusa shipping/promotion engine change, not a
+    content field. An admin-typed number wouldn't make the message true;
+    both real shipping options are still flat-rate with no conditional
+    discount. **If a future phase builds a real shipping-rule engine, that
+    is the trigger to flip `FREE_SHIPPING_MESSAGE_ENABLED` back to `true`
+    — not before, and not via a simple admin text/number field.**
+  - **Deliberately excluded checkout's own order summary**
+    (`CheckoutOrderSummary.tsx`) — kept minimal per
+    `CHECKOUT_PREMIUM_SPEC.md`'s no-distraction principle for that screen;
+    the message only shows pre-checkout.
+  - Extended the existing `site-settings` singleton with one nullable
+    `cart_message` column rather than a new module for one field — same
+    pattern as reusing modules elsewhere in this initiative (Phase B
+    reusing Phase A's `seo` module).
+  - **A second, differently-shaped instance of the already-documented
+    "Turbopack dev-server HMR goes stale" gotcha, found live**: opening
+    the cart drawer triggered a client-side 404, and `curl` confirmed
+    `/kalathi`/`/proionta/[handle]` were genuinely 404ing at the server.
+    Root cause (found by running a full `next build`, which the dev
+    server alone never would have surfaced): `.next/dev/types/
+    routes.d.ts`/`validator.ts` — Next's own auto-generated route-typing
+    files — were corrupted (unterminated string/template literals) from
+    accumulated dev-server state across Phases D-G's many consecutive
+    file edits without a restart. Different symptom from Phase C's stale
+    fetch-cache finding (that was stale *data*; this was corrupted
+    *generated TypeScript*), same root family (accumulated dev-server
+    state on this Windows/Turbopack setup). **Fixed by deleting all of
+    `apps/storefront/.next` and restarting** — a clean `next build`
+    immediately after confirmed the code was never wrong. **General
+    lesson, now confirmed twice with two different corruption shapes: when
+    a dev-server-only error contradicts a clean `next build`, delete
+    `.next` before spending more time debugging "broken" code that isn't
+    broken.** Worth trying preemptively on any future session that's done
+    many consecutive edit-and-preview cycles without a server restart, not
+    just reactively after hitting a confusing error.
+  - **Verified live against the real Supabase database, full round
+    trip**: real cart message confirmed in both the drawer and `/kalathi`
+    (after the `.next` fix), confirmed absent from checkout's order
+    summary; cleared and confirmed it disappears from both surfaces.
+    `medusa lint`, `tsc --noEmit`, a full `next build` (19 routes), and a
+    full `medusa build` all clean.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

@@ -13,6 +13,7 @@ export type SiteSettings = {
   instagramUrl: string | null;
   tiktokUrl: string | null;
   announcementText: string | null;
+  cartMessage: string | null;
 };
 
 type MedusaSiteSettings = {
@@ -25,6 +26,7 @@ type MedusaSiteSettings = {
   instagram_url: string | null;
   tiktok_url: string | null;
   announcement_text: string | null;
+  cart_message: string | null;
 };
 
 function toDomainSettings(s: MedusaSiteSettings): SiteSettings {
@@ -38,6 +40,7 @@ function toDomainSettings(s: MedusaSiteSettings): SiteSettings {
     instagramUrl: s.instagram_url,
     tiktokUrl: s.tiktok_url,
     announcementText: s.announcement_text,
+    cartMessage: s.cart_message,
   };
 }
 

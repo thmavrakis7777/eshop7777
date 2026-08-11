@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getCart } from "@/lib/data/cart";
 import { getCartCrossSell } from "@/lib/data/products";
+import { getSiteSettings } from "@/lib/data/site-settings";
 import { CartPageView } from "@/components/cart/CartPageView";
 import { EmptyCartState } from "@/components/cart/EmptyCartState";
 import { ProductRail } from "@/components/home/ProductRail";
@@ -23,12 +24,15 @@ export default async function CartPage() {
     );
   }
 
-  const crossSell = await getCartCrossSell(cart.items.map((item) => item.productHandle));
+  const [crossSell, settings] = await Promise.all([
+    getCartCrossSell(cart.items.map((item) => item.productHandle)),
+    getSiteSettings(),
+  ]);
 
   return (
     <div className="container-shell py-8 md:py-12">
       <h1 className="mb-6 font-display text-2xl md:text-3xl">Το καλάθι σου</h1>
-      <CartPageView initialCart={cart} />
+      <CartPageView initialCart={cart} cartMessage={settings?.cartMessage ?? null} />
       <ProductRail title="Ταιριάζει καλά με ό,τι έχεις στο καλάθι" products={crossSell} />
     </div>
   );

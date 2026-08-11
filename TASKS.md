@@ -902,12 +902,32 @@ reference this initiative is building up phase by phase.
       (`getFeaturedProducts`, category listings, search, etc.) — design
       that before extending `ProductCard`, not a small add-on
 
-**Phase G onward — not started.** Roadmap as proposed: Cart/checkout
-marketing config → Search management (synonyms/pinned/hidden/boosts) →
-Media library → Campaigns (flash sales/countdown/newsletter popup) →
-Analytics/consent (GA4/GTM/Pixels/Clarity + a real cookie-consent banner,
-which doesn't exist yet). Each phase ships independently, same
-build-verify-document-commit rhythm as every other feature in this project.
+**Phase G — Cart/Checkout Marketing Config: done (2026-08-11).**
+- [x] Extended the existing `site-settings` module with one `cart_message`
+      field rather than a new module for a single text field
+- [x] Admin: new "Καλάθι" section in the existing Ρυθμίσεις Καταστήματος
+      page
+- [x] Storefront: `CartDrawer` + `CartPageView` both show the message
+      (prop-drilled from `RootLayout`/`kalathi/page.tsx`); checkout's
+      order summary deliberately excluded (no-distraction principle)
+- [x] Full round-trip verified live against the real Supabase database;
+      `medusa lint`, `tsc`, full `next build`, full `medusa build` all clean
+- **Deliberately did not re-enable `FreeShippingProgress`** — its own code
+  comment gates the fix on "a real free-shipping rule/promotion on the
+  backend," a shipping-engine change, not a content field. Still blocked
+  on that, not reinterpreted into something this phase could ship.
+- **Found a second instance of the Turbopack dev-server staleness
+  gotcha** (corrupted `.next/dev/types/*` files this time, not stale
+  fetch-cache) — see `CHANGELOG.md`/`PROJECT_MEMORY.md`'s Phase G entries.
+  When a dev-server error contradicts a clean `next build`, delete
+  `.next` before debugging further.
+
+**Phase H onward — not started.** Roadmap as proposed: Search management
+(synonyms/pinned/hidden/boosts) → Media library → Campaigns (flash sales/
+countdown/newsletter popup) → Analytics/consent (GA4/GTM/Pixels/Clarity +
+a real cookie-consent banner, which doesn't exist yet). Each phase ships
+independently, same build-verify-document-commit rhythm as every other
+feature in this project.
 
 ## Next
 

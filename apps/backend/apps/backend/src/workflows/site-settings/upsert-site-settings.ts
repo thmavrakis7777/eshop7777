@@ -12,6 +12,7 @@ export type UpsertSiteSettingsInput = {
   instagram_url?: string | null
   tiktok_url?: string | null
   announcement_text?: string | null
+  cart_message?: string | null
 }
 
 // Same list-then-create-or-update shape as the seo module's upsert

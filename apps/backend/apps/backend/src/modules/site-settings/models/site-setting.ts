@@ -19,6 +19,12 @@ const SiteSetting = model.define("site_setting", {
   instagram_url: model.text().nullable(),
   tiktok_url: model.text().nullable(),
   announcement_text: model.text().nullable(),
+  // Admin-first platform, Phase G — a short reassurance/promo line shown
+  // in the cart drawer and cart page (not checkout's order summary,
+  // deliberately: CHECKOUT_PREMIUM_SPEC.md's own no-distraction principle
+  // for that screen). Same site-wide singleton as everything else here
+  // rather than a new module for one more text field.
+  cart_message: model.text().nullable(),
 })
 
 export default SiteSetting

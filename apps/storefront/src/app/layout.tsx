@@ -99,7 +99,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               {children}
             </main>
             <Footer categories={categories} settings={settings} />
-            <CartDrawer />
+            <CartDrawer cartMessage={settings?.cartMessage ?? null} />
             <AddToCartToast />
           </CartUIProvider>
         </WishlistProvider>

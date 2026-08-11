@@ -21,6 +21,7 @@ export interface SiteSettingRecord {
   instagram_url: string | null
   tiktok_url: string | null
   announcement_text: string | null
+  cart_message: string | null
 }
 
 export interface SiteSettingServiceMethods {

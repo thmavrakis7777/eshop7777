@@ -90,7 +90,7 @@ above.
 
 ## Site Settings
 
-**Where**: **Ρυθμίσεις Καταστήματος** in the left sidebar — one page, four
+**Where**: **Ρυθμίσεις Καταστήματος** in the left sidebar — one page, five
 sections.
 
 **Announcement Bar**: a single line of text shown in a dark bar above the
@@ -111,6 +111,17 @@ and desktop both.
 **Κοινωνικά Δίκτυα (Social Networks)**: Facebook / Instagram / TikTok
 URLs. An icon for each filled-in URL appears in the footer, linking out in
 a new tab; a URL left empty means no icon for that network.
+
+**Καλάθι (Cart) — Μήνυμα καλαθιού**: a short line shown in the cart
+drawer (the slide-out panel) and the full cart page, above the totals.
+Leave it empty and nothing shows. This does **not** appear at checkout —
+that screen is kept deliberately free of extra messaging so nothing
+distracts from completing the order. This is a plain message, not a
+free-shipping promise — the store's real shipping options don't currently
+support a conditional free-shipping rule, so nothing here should claim one
+(a general reassurance line — e.g. about secure packaging, or payment
+method — is a safe use of this field; a specific "free shipping over €X"
+claim is not, unless a real shipping rule backs it up).
 
 **Note**: none of these fields are pre-filled from anything already in the
 system — including the store's real pickup address/hours, which already
