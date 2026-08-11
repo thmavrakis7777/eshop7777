@@ -3,6 +3,90 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform, Phase C: Site Settings (2026-08-11)
+
+Third phase of the Admin-first platform initiative — footer contact info,
+business hours, social links, and the top-of-site announcement bar, all
+made admin-editable. Unlike Phases A/B, this needed a genuinely new
+backend module: site settings are a single global object, not a
+per-resource record, so the `seo` module's `resource_type`/`resource_id`
+shape doesn't fit.
+
+**New `site-settings` backend module** (`apps/backend/src/modules/site-
+settings`) — a true singleton (`footer_tagline`, `contact_phone`,
+`contact_email`, `contact_address`, `business_hours`, `facebook_url`,
+`instagram_url`, `tiktok_url`, `announcement_text`, all nullable text).
+The model name is deliberately singular (`site_setting`, not
+`site_settings`) — Phase A hit a real `MedusaService` compile-time/runtime
+pluralization mismatch for the irregular name `"seo"`; `"setting"`
+pluralizes to `"settings"` by the regular English rule, so the same class
+of bug can't recur here. Verified the real runtime method names via a
+throwaway `medusa exec` script before trusting the generated types anyway
+(same discipline as Phase A) — this time they matched exactly
+(`listSiteSettings`/`createSiteSettings`/`updateSiteSettings`), no bug to
+work around. New `site_setting` table via a real, additive-only migration,
+applied to the live Supabase database. `upsertSiteSettingsWorkflow` is the
+same list-then-create-or-update shape as Phase A's `upsertSeoWorkflow`,
+minus resource_type/resource_id since there's only ever one row.
+
+**Admin**: a standalone **Ρυθμίσεις Καταστήματος** (Site Settings) route
+(no widget zone fits a global singleton, same reasoning as Phase B's
+homepage SEO route) with four sections — Announcement Bar, Footer, Contact
+Details, Social Networks — reading/writing through new `/admin/site-
+settings` and `/store/site-settings` routes.
+
+**Storefront**: `AnnouncementBar` now takes the admin text as a prop and
+renders nothing at all when it's empty, rather than showing hardcoded
+copy — the *previous* hardcoded text was itself a free-shipping claim
+already removed earlier in this project for not being backed by a real
+Medusa shipping rule (see `CHECKOUT_UX_SPEC.md` §0.2), so this component
+was already down to a placeholder with nothing genuine to say; now it says
+nothing until an admin actually types something. `Footer` gained a
+contact block (phone/email as real `tel:`/`mailto:` links, address, hours)
+and a social-icon row, both rendering only the fields that are actually
+populated — same "only show what's real" rule as the Product PDP's
+Characteristics section. Three new line-icon components
+(`FacebookIcon`/`InstagramIcon`/`TikTokIcon`) added to the shared
+`components/ui/Icons.tsx`, matching the existing stroke-based icon style
+rather than pulling in an icon library dependency for three icons.
+
+**A real, live-verified caching bug, not just a data bug**: after clearing
+test data from the admin, the storefront kept serving the *old* value for
+several minutes — but a direct `curl` against the Medusa backend (bypassing
+Next.js entirely) confirmed the database itself was already correctly
+empty. The cause: `next: { revalidate: 30 }`/`revalidate: 60}` fetches
+write to an on-disk cache (`.next/cache/fetch-cache/`) that **survives
+`next dev` server restarts** — entries from a session two days earlier
+were still present. On this Windows/Turbopack setup specifically, the
+disk-cache write path is already known to be flaky (`next build` prints
+`Failed to update prerender cache ... UNKNOWN: unknown error` warnings on
+every build, a Windows file-locking quirk against that same cache
+directory), which plausibly explains entries getting stuck instead of
+revalidating on schedule. **Fixed for this session by deleting
+`apps/storefront/.next/cache` and restarting the dev server** — not a code
+change, since the code (and the database) were already correct. **Any
+future session debugging "the admin change isn't showing up on the
+storefront" should treat a stale local disk cache as a real, first-class
+suspect** — verify the database directly via `curl` before assuming
+application code is wrong, exactly as this session did.
+
+**Verified live against the real Supabase database, full round trip**:
+set real values across all four Site Settings sections, confirmed the
+storefront's announcement bar, footer contact links, and social icons all
+picked them up; cleared every field and confirmed the storefront correctly
+fell back to no-announcement-bar and the default tagline (after working
+through the disk-cache issue above). One genuine browser-automation
+false-positive caught mid-session: a first "clear and save" attempt looked
+successful (screenshot showed the save button) but a direct backend
+`curl` check proved the POST never actually landed — re-verified via
+screenshot of actual field contents (not the `read_page` tool's textbox
+label, which echoes the `placeholder` attribute regardless of real value
+for fields that have one) before retrying, and confirmed via the record's
+`updated_at` timestamp advancing on the second, successful attempt.
+`medusa lint`, `tsc --noEmit` (storefront, and the backend admin's own
+`tsconfig.json`), a full `next build`, and a full `medusa build` all
+clean.
+
 ## Admin-first platform, Phase B: Category SEO + Homepage SEO (2026-08-11)
 
 Second phase of the Admin-first platform initiative — reuses Phase A's

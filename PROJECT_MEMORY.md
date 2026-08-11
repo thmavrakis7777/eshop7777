@@ -1568,6 +1568,80 @@ nested Turborepo/pnpm workspace):
     `qa-agent3@stia.gr`. Left in place, harmless, same "cleanup whenever
     convenient" status as the others.
 
+- **Admin-first platform, Phase C: Site Settings (2026-08-11)** — footer
+  contact info, business hours, social links, and the announcement bar
+  made admin-editable. First phase needing a genuinely new backend module
+  rather than reusing Phase A's `seo` module: site settings are a single
+  global object, not a per-resource record, so `resource_type`/
+  `resource_id` doesn't fit.
+  - **New `site-settings` module** — a true singleton, model name
+    deliberately singular (`site_setting`) so "setting" → "settings"
+    pluralizes by the regular rule, avoiding Phase A's `Seo`→`Seoes`
+    mismatch class of bug for a *different* reason than Phase A's fix
+    (there, an explicit interface override was needed; here, picking a
+    regular-plural model name avoided needing one at all). Verified the
+    real runtime method names via `medusa exec` anyway before trusting
+    the generated types — they matched this time, but the verification
+    step is now standard practice for any new custom module in this
+    project, not a one-off from Phase A.
+  - **Admin**: standalone `Ρυθμίσεις Καταστήματος` route (no widget zone
+    fits a global singleton, same reasoning as Phase B's homepage SEO
+    route), four sections (Announcement Bar, Footer, Contact Details,
+    Social Networks).
+  - **Storefront**: `AnnouncementBar` takes admin text as a prop, renders
+    `null` when empty — the component's prior hardcoded copy was itself a
+    stand-in left over from removing a free-shipping claim that wasn't
+    backed by a real shipping rule, so there was nothing genuine for it to
+    keep saying by default. `Footer` gained a contact block (real
+    `tel:`/`mailto:` links) and social icons, both showing only populated
+    fields. Added `FacebookIcon`/`InstagramIcon`/`TikTokIcon` to the
+    shared `Icons.tsx` rather than adding an icon-library dependency for
+    three icons.
+  - **A real, live-verified caching bug found and root-caused, distinct
+    from a data bug**: after clearing test data in the admin, the
+    storefront kept showing the old value for minutes. A direct `curl`
+    against the Medusa backend (port 9000, bypassing Next.js) proved the
+    database was already correctly empty — so this was never a lost-write
+    problem. Root cause: Next's `fetch(..., { next: { revalidate: N } })`
+    persists to `apps/storefront/.next/cache/fetch-cache/` **on disk**,
+    and that directory **survives `next dev` restarts** — files from a
+    session two days earlier were still sitting there. This machine's
+    Windows/Turbopack setup already has a known-flaky write path against
+    that exact directory (`next build` prints `Failed to update prerender
+    cache ... UNKNOWN` warnings on every run — see `NEXT_STEPS.md`'s
+    "Turbopack dev-server HMR goes stale" warning for the related, more
+    general symptom), which plausibly
+    explains why an entry got stuck instead of revalidating on its normal
+    30-60s schedule. **Fixed by deleting `.next/cache` and restarting the
+    dev server** — no code was wrong. **For any future session where an
+    admin-editable value "isn't showing up" on the storefront: check the
+    database directly via `curl` first** (proves whether it's a save bug
+    or a cache bug) **before touching application code** — this session
+    nearly went down the wrong path (re-editing the save logic) before
+    doing exactly that check.
+  - **A genuine browser-automation false-positive, worth remembering for
+    future verification work**: a first attempt to clear the Site
+    Settings form appeared to succeed (fields looked filled with the
+    intended new values, save button was clicked, a screenshot was taken)
+    but a backend `curl` check immediately after showed the *old* values
+    still present with an unchanged `updated_at`. The actual bug: the
+    `read_page` tool's synthesized "textbox" label **echoes the input's
+    `placeholder` attribute regardless of the field's real current
+    value**, for any field that has one — so a field that still visually
+    contains old text can misleadingly read as empty in `read_page`
+    output. **Verify a form field's true content via `computer` screenshot
+    (not `read_page`'s textbox label) before trusting that a clear/edit
+    actually took**, especially right before a save action whose result
+    will be asserted against a real backend.
+  - **Verified live against the real Supabase database, full round
+    trip**: set real values across all four sections, confirmed the
+    storefront's announcement bar/footer contact links/social icons all
+    picked them up; cleared every field (second attempt, after catching
+    the false-positive above) and confirmed the correct empty-state
+    fallback on the storefront, past the disk-cache issue. `medusa lint`,
+    `tsc --noEmit` (storefront + backend admin), a full `next build`, and
+    a full `medusa build` all clean.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

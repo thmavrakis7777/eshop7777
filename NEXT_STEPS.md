@@ -10,48 +10,63 @@ in these files. **Sections 1-7 below this point are historical/stale** (written
 mid-way through an earlier session) — trust this summary and `CHANGELOG.md`
 over that old detailed body if they ever disagree.
 
-**2026-08-11 (continuing the same day's session) — Phase B (Category SEO
-+ Homepage SEO) of the Admin-first platform is built and verified live
-against the real Supabase database. Not yet committed or pushed** — ask
-before doing either, same standing rule as every checkpoint in this
-project. `origin/main` itself is still only at the "Admin-first platform,
-Phase A" commit.
+**2026-08-11 (continuing the same day's session) — Phase C (Site
+Settings) of the Admin-first platform is built and verified live against
+the real Supabase database. Not yet committed or pushed** — ask before
+doing either, same standing rule as every checkpoint in this project.
+`origin/main` itself is at the "Admin-first platform, Phase B" commit
+(`b08e8a5`).
 
-1. **Exact phase we are currently in**: Phase B is done and verified, but
+1. **Exact phase we are currently in**: Phase C is done and verified, but
    sitting uncommitted in the working tree. **Check `git status` first
-   thing** to confirm nothing else changed since. **Phase C (Site
-   Settings) has not been started** — no build-approval gate is blocking
-   it (the user pre-approved starting Phase B without a separate spec
-   round-trip, same pattern likely applies to Phase C), but per this
-   project's standing rule, confirm before starting real code rather than
-   assuming silence means go. **Ask about commit/push for Phase B before
-   anything else** — this session did not ask, on purpose, so the next
-   session (or the user directly) makes that call with full context.
-2. **Last completed action**: Phase B end-to-end — reused Phase A's `seo`
-   module/routes/workflow completely unchanged (the model already
-   supported `resource_type: "category"|"homepage"`, zero migration
-   needed). Extracted Phase A's product widget into a shared `SeoForm`
-   component, added a Category SEO widget
-   (`product_category.details.side.after` zone), added a standalone
-   Homepage SEO admin route (`src/admin/routes/seo-homepage`, since the
-   homepage has no underlying Medusa entity for a widget zone), and wired
-   both into the storefront's `generateMetadata`. One genuinely new piece
-   of logic beyond copying the product/Phase-A pattern: category
-   pagination's canonical-override gate (page 1 only, `?page=2+` always
-   self-canonicalises) — full detail in `CHANGELOG.md`'s "Admin-first
-   platform, Phase B" entry and `PROJECT_MEMORY.md`'s matching section.
-3. **Next action to execute**: get the commit/push decision for Phase B,
-   then start Phase C (Site Settings — footer/contact/hours/social/
-   announcement bar; main nav/mega menu needs no work, it's already
-   Medusa-native via categories). See `TASKS.md` → "Admin-first platform"
-   for the full Phase C→K roadmap and what each later phase requires
-   architecturally.
+   thing** to confirm nothing else changed since. **Phase D (Content
+   Pages) has not been started** — no build-approval gate is blocking it
+   (the user has approved starting each phase with just a "continue" so
+   far, no separate spec round-trip needed), but per this project's
+   standing rule, confirm before starting real code rather than assuming
+   silence means go. **Ask about commit/push for Phase C before anything
+   else** — this session did not ask, on purpose, so the next session (or
+   the user directly) makes that call with full context.
+2. **Last completed action**: Phase C end-to-end — a genuinely new
+   `site-settings` backend module (first phase that couldn't reuse Phase
+   A's `seo` module, since site settings are one global object, not a
+   per-resource record), a standalone admin route with four sections
+   (Announcement Bar, Footer, Contact Details, Social Networks), and
+   storefront wiring into `AnnouncementBar`/`Footer`. Found and root-
+   caused a real caching bug along the way (Next's on-disk fetch-cache
+   surviving `next dev` restarts, serving stale admin content) — full
+   detail in `CHANGELOG.md`'s "Admin-first platform, Phase C" entry and
+   `PROJECT_MEMORY.md`'s matching section, including a browser-automation
+   false-positive this session caught and worked around (see warnings
+   below).
+3. **Next action to execute**: get the commit/push decision for Phase C,
+   then start Phase D (Content Pages — About/Shipping/Returns/Privacy/
+   Terms/FAQ). See `TASKS.md` → "Admin-first platform" for the full
+   Phase D→K roadmap and what each later phase requires architecturally.
 4. **First files to inspect**: `PROJECT_MEMORY.md`'s "Admin-first
-   platform, Phase A" and "Phase B" sections (architecture, in detail),
-   `ADMIN_GUIDE.md` (what's already admin-editable — now includes Category
-   SEO and Homepage SEO sections), `TASKS.md` → "Admin-first platform"
-   (the roadmap).
+   platform, Phase A/B/C" sections (architecture, in detail),
+   `ADMIN_GUIDE.md` (what's already admin-editable — now includes Site
+   Settings), `TASKS.md` → "Admin-first platform" (the roadmap).
 5. **Warnings / important context most likely to matter again**:
+   - **This machine's Next.js disk fetch-cache
+     (`apps/storefront/.next/cache/fetch-cache/`) can serve stale content
+     well past its `revalidate` window, and survives `next dev` restarts**
+     — found live this session: cleared admin data still showed on the
+     storefront minutes later, confirmed via direct backend `curl` that the
+     database itself was already correct. **If an admin-editable value
+     "isn't showing up" on the storefront, check the database directly via
+     `curl` first** (proves save vs. cache) **before touching application
+     code**. If it's a cache issue, `rm -rf apps/storefront/.next/cache`
+     and restart the dev server.
+   - **The `read_page` browser tool's synthesized textbox label echoes the
+     `placeholder` HTML attribute regardless of the field's real current
+     value**, for any input that has one. A field that visually still
+     contains old text can misleadingly `read_page` as empty. **Verify a
+     form field's true content via a `computer` screenshot, not
+     `read_page`'s label, before trusting that a clear/edit actually
+     took** — this session had a save silently no-op (caught only by
+     checking the backend directly) before switching to screenshot
+     verification.
    - **A category listing's canonical-URL admin override must only apply
      on page 1** — `?page=2` and beyond must keep self-canonicalising to
      their own URL regardless of what's in the admin field, or Google sees
@@ -59,16 +74,14 @@ Phase A" commit.
      future paginated-listing SEO override (if one gets added elsewhere)
      needs the same page-gate, not just a copy of the product/homepage
      pattern.
-   - **`/store/seo`'s `next: { revalidate: 30 }` means a just-saved admin
-     change won't show up on an immediate storefront reload** — this is
-     expected caching behavior, not a bug; wait out the 30s window (or
-     poll) before concluding a save didn't take effect.
    - **`MedusaService`'s generated TypeScript types can be wrong for an
      irregular model name** (verified for `"seo"` → real runtime methods
      are `listSeos`/`createSeos`/`updateSeos`, but the generated *types*
-     say `Seoes` and `tsc` will confidently suggest the wrong name). Any
-     new custom module should have its real method names verified via a
-     throwaway `medusa exec` script (inspect the resolved service's
+     say `Seoes` and `tsc` will confidently suggest the wrong name).
+     `site_setting` (Phase C) deliberately used a regular-plural-friendly
+     singular model name and hit no such mismatch — but **any new custom
+     module should still have its real method names verified via a
+     throwaway `medusa exec` script** (inspect the resolved service's
      prototype chain) before trusting `tsc --noEmit` as proof it'll run.
    - **Any admin-editable title field needs `title: { absolute: ... }`
      in the storefront's `generateMetadata`**, not a plain string — Root
@@ -78,9 +91,8 @@ Phase A" commit.
      `db:migrate`/`build`) has a ~100-150s cold start on this machine** —
      a command that looks hung at a 45-60s timeout may just need longer.
    - **The browser tool's console-log buffer does not clear on same-tab
-     navigation** — open a fresh tab or check `read_network_requests`
-     status codes, not the console, to confirm current behavior when
-     debugging a live fix.
+     navigation** — open a fresh tab to confirm current behavior when
+     debugging a live fix, rather than trusting a reused tab's console.
    - Still true from earlier sessions: any `IntersectionObserver`-driven
      "load more" must re-create the observer after every batch (a
      persistently-intersecting sentinel never fires twice); a prop

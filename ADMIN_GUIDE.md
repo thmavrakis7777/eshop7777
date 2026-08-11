@@ -88,6 +88,44 @@ above.
 
 ---
 
-*(Sections for Site Settings, Content Pages, Homepage CMS, and every other
-phase get appended here as they're built — see `TASKS.md` → "Admin-first
-platform" for what's next.)*
+## Site Settings
+
+**Where**: **Ρυθμίσεις Καταστήματος** in the left sidebar — one page, four
+sections.
+
+**Announcement Bar**: a single line of text shown in a dark bar above the
+header, on every page. Leave it empty and the bar doesn't appear at all —
+there's no default text, so nothing shows until you type something real.
+Keep it short; it doesn't wrap.
+
+**Footer — Σύντομη περιγραφή καταστήματος**: replaces the one-sentence
+description under the STIA logo in the footer. Leave empty and the
+existing default description keeps showing.
+
+**Στοιχεία Επικοινωνίας (Contact Details)**: Τηλέφωνο, Email, Διεύθυνση,
+Ωράριο. Each one is independent — fill in just a phone number and only a
+phone number appears, no placeholder or blank space for the others. Phone
+becomes a real tap-to-call link, Email a real tap-to-email link, on mobile
+and desktop both.
+
+**Κοινωνικά Δίκτυα (Social Networks)**: Facebook / Instagram / TikTok
+URLs. An icon for each filled-in URL appears in the footer, linking out in
+a new tab; a URL left empty means no icon for that network.
+
+**Note**: none of these fields are pre-filled from anything already in the
+system — including the store's real pickup address/hours, which already
+exist in code (`lib/pickup-config.ts`, used by checkout's Store Pickup
+option) but are intentionally a separate concept from what shows in the
+footer. If you want the footer's address/hours to match the pickup
+location, type them in here yourself.
+
+**Changes can take up to a minute to appear on the live storefront** (the
+storefront caches this content briefly for performance) — if you save a
+change and don't see it immediately, wait a minute and refresh before
+assuming something went wrong.
+
+---
+
+*(Sections for Content Pages, Homepage CMS, and every other phase get
+appended here as they're built — see `TASKS.md` → "Admin-first platform"
+for what's next.)*

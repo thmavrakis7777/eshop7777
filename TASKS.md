@@ -825,9 +825,25 @@ reference this initiative is building up phase by phase.
 - [x] Full round-trip verified live against the real Supabase database;
       `medusa lint`, `tsc`, full `next build`, full `medusa build` all clean
 
-**Phase C onward — not started.** Roadmap as proposed: Site Settings
-(footer/contact/hours/social/announcement bar — note: main nav/mega menu
-is *already* Medusa-native via categories, no work needed there) → Content
+**Phase C — Site Settings: done (2026-08-11).**
+- [x] New `site-settings` backend module (genuine singleton — first phase
+      needing a new module rather than reusing Phase A's `seo` module,
+      since a global object doesn't fit resource_type/resource_id)
+- [x] Standalone admin route (`Ρυθμίσεις Καταστήματος`) — Announcement Bar,
+      Footer tagline, Contact Details, Social Networks
+- [x] Storefront: `AnnouncementBar` now admin-driven (renders nothing when
+      empty, no more hardcoded placeholder copy), `Footer` gained a
+      contact block + social icon row, both showing only populated fields
+- [x] Full round-trip verified live against the real Supabase database;
+      `medusa lint`, `tsc`, full `next build`, full `medusa build` all clean
+- **Found and root-caused a real caching bug** (not a code bug): Next's
+  on-disk fetch-cache (`.next/cache/fetch-cache/`) survives `next dev`
+  restarts on this machine and can serve stale admin content past its
+  `revalidate` window — see `CHANGELOG.md`/`PROJECT_MEMORY.md`'s Phase C
+  entries for the full root-cause and the "check the database directly via
+  curl before assuming application code is wrong" lesson
+
+**Phase D onward — not started.** Roadmap as proposed: Content
 Pages (About/Shipping/Returns/Privacy/Terms/FAQ) → Homepage CMS (hero/
 sliders/promo blocks — the biggest single phase, replaces today's
 hardcoded homepage section arrangement) → Product merchandising extensions

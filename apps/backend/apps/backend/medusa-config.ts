@@ -60,5 +60,8 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/seo",
     },
+    {
+      resolve: "./src/modules/site-settings",
+    },
   ],
 })

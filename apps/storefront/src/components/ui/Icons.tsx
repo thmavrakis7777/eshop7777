@@ -75,3 +75,34 @@ export function PlusIcon({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function FacebookIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden="true">
+      <path d="M15 4.5h-2a3 3 0 00-3 3V10H8v3h2v6.5h3V13h2.2l.5-3H13V7.8c0-.7.3-1 1-1h1.7z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function InstagramIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden="true">
+      <rect x="4" y="4" width="16" height="16" rx="4.5" />
+      <circle cx="12" cy="12" r="3.5" />
+      <circle cx="16.7" cy="7.3" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function TikTokIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden="true">
+      <path
+        d="M13.5 3.5v11.2a2.8 2.8 0 11-2.8-2.8c.28 0 .55.03.8.1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M13.5 3.5c.3 2 1.9 3.5 3.9 3.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

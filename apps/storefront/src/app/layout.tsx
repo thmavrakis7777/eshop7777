@@ -11,6 +11,7 @@ import { WishlistProvider } from "@/components/wishlist/WishlistProvider";
 import { siteDefaultDescription, siteDefaultTitle, siteName, siteUrl } from "@/lib/site-config";
 import { getNavCategories } from "@/lib/data/categories";
 import { getCart } from "@/lib/data/cart";
+import { getSiteSettings } from "@/lib/data/site-settings";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -70,7 +71,7 @@ const organizationJsonLd = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [categories, cart] = await Promise.all([getNavCategories(), getCart()]);
+  const [categories, cart, settings] = await Promise.all([getNavCategories(), getCart(), getSiteSettings()]);
 
   return (
     <html
@@ -88,7 +89,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <WishlistProvider>
           <CartUIProvider>
-            <AnnouncementBar />
+            <AnnouncementBar text={settings?.announcementText ?? null} />
             <Header
               categories={categories}
               cartItemCount={cart?.itemCount ?? 0}
@@ -97,7 +98,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <main id="main-content" className="flex-1">
               {children}
             </main>
-            <Footer categories={categories} />
+            <Footer categories={categories} settings={settings} />
             <CartDrawer />
             <AddToCartToast />
           </CartUIProvider>
