@@ -3,6 +3,104 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Full technical audit — bugs, dead code, performance, SEO (2026-08-11)
+
+A whole-codebase audit (not a feature) requested with an explicit "fix,
+don't just report" mandate. `tsc`/`eslint`/`next build` (storefront) and
+`medusa lint` (backend) all clean before and after. Full architecture
+inspected: Server/Client component boundaries, data fetching, dead-code
+sweep (no orphaned files, no duplicate pricing/discount/formatting logic —
+confirmed via a whole-tree cross-reference script, not assumption), SEO
+(metadata/canonical/JSON-LD/sitemap/robots.txt across every page type),
+and the Next.js → Medusa → Supabase architecture (confirmed no direct
+Supabase/Postgres access anywhere in the storefront — everything still
+goes through `medusaFetch`).
+
+**One real, genuine bug found and fixed**: Next.js 16 warned live in the
+console — "Detected `scroll-behavior: smooth` on the `<html>` element" —
+because `globals.css` sets `scroll-behavior: smooth` on `html` but the
+`<html>` tag never carried the new `data-scroll-behavior="smooth"`
+attribute Next 16 needs to temporarily disable smooth scrolling during
+route transitions. Without it, *every* client-side navigation (any `<Link>`
+click) triggered an animated scroll-to-top instead of an instant one — a
+real, live UX/performance regression on every single page transition
+sitewide, not a cosmetic warning. Fixed by adding the attribute to
+`RootLayout`'s `<html>` tag. Confirmed live (fresh tab, since this browser
+tool's console buffer doesn't clear on same-tab navigation — a testing
+quirk worth remembering, not a real persistence bug) that the warning is
+gone and the attribute/computed style now match.
+
+**Checked and deliberately left alone** (real findings, not worth the
+risk/cost of touching): `next/font` preload warnings for Inter/Literata in
+dev console — both fonts are genuinely used (body + headings), this is a
+well-known Next.js dev-server-only heuristic false positive, not present
+in production; changing font-loading strategy to silence it would risk
+regressing a correctly-configured optimization for zero real gain.
+`ProductCard`'s full-component client hydration and the two near-identical
+focus-trap implementations (`MobileMenu`/`CartDrawer`) — both already
+identified and deliberately deferred in a prior session's audit (see
+`TASKS.md`), re-confirmed still low-risk/low-payoff, not re-litigated.
+`next/image`'s `priority` prop is unset everywhere `ProductImage` could
+use it (PDP, product grids) — currently zero live impact since every real
+product's `thumbnail` is still `null` (100% `PlaceholderTile` today, no
+`<Image>` ever actually renders), so wiring `priority` through would be
+speculative plumbing for data that doesn't exist yet; flagged for
+whoever adds real product photography, not fixed now.
+
+**Live-verified across desktop and mobile**: New Arrivals, infinite
+scroll, homepage carousels, cart (mini-cart + main page, with the real
+sale price still active), wishlist toggle + `/lista-epithymion`, Greek
+accent-insensitive search (now correctly surfacing the discounted product
+with its sale badge in results too), mobile hamburger menu — zero console
+errors on any of them. Checkout page loads cleanly; not re-run
+end-to-end since no checkout code was touched this session (verified
+clean in a prior session, see that entry below).
+
+## Cart price/discount alignment audit — verified against a real sale (2026-08-11)
+
+A follow-on request to audit the cart's SKU/pricing/discount presentation
+(mini-cart drawer + main cart page). Inspection found that every piece of
+the brief — SKU display, original+current price with strikethrough,
+discount badge, and one shared `discountPercent()` calculation used by both
+surfaces — had already been built and shipped in a prior session (commit
+`24c00e3`, "cart pricing/SKU polish"). Nothing to duplicate.
+
+**The only real, actionable gap**: the desktop cart table's Original Price
+column (`ΑΡΧΙΚΗ ΤΙΜΗ`) was deliberately right-aligned, from an earlier
+session's explicit decision to stay consistent with the other two numeric
+columns next to it. This session's brief asked for it centered. Flagged
+the conflict, user chose to center all three price columns (`ΑΡΧΙΚΗ ΤΙΜΗ`/
+`ΤΙΜΗ`/`ΣΥΝΟΛΟ`) together rather than centering just one — `CartTableHeader.tsx`
+and `CartLineItemTableRow.tsx` both switched from `text-right`/`items-end`
+to `text-center`/`items-center` for those three columns and their header
+labels. No other pricing/discount logic touched.
+
+**Why nothing showed live before this session**: the real catalog had zero
+active promotions — every product's `calculated_amount` equaled its
+`original_amount`, so `item.compareAtUnitPrice` was correctly always
+`undefined` and the strikethrough/badge never had anything to render. Not
+a bug; the honest empty state. The user created a real Medusa sale price
+list on one product (Αντικολλητικό Τηγάνι 28cm, €39.90 → €31.92) to make
+this verifiable, including a real (not simulated) test of the admin's own
+"mark a product on sale" workflow.
+
+**Verified live against that real discount, not just by inspection**:
+`discountPercent()` computed exactly 20% from the real Medusa
+`calculated_price`/`original_price` values (no floating-point drift); a
+mixed cart (2 regular-price items + the 1 discounted item) summed correctly
+(€54.50 + €32.00 + €31.92 = €118.42); the desktop table's three price
+columns measured pixel-identical column centers across the header and all
+three rows via `getBoundingClientRect()`, including the discounted row's
+taller two-line cell (price + badge) — vertical center matched the row's
+true center for every column, not just the single-line ones; quantity
+change on the discounted line recalculated the line total correctly
+(€31.92 × 2 = €63.84) while the discount badge correctly stayed a per-unit
+percentage; mini-cart drawer showed the same values as the main page (one
+shared `discountPercent()`, no drift possible); mobile (375px) rendered the
+full SKU/original-price/current-price/badge hierarchy with zero horizontal
+overflow; adding the item did not auto-open the drawer (existing behavior,
+untouched). `tsc --noEmit`, `eslint`, and `next build` all clean.
+
 ## Dynamic New Arrivals, infinite scroll, homepage carousels (2026-08-11)
 
 Three features built incrementally per an explicit, detailed brief that

@@ -1202,7 +1202,13 @@ nested Turborepo/pnpm workspace):
     horizontal-center as one brief literally requested — center-aligning
     only one of three adjacent numeric price columns (`ΑΡΧΙΚΗ ΤΙΜΗ`/`ΤΙΜΗ`/
     `ΣΥΝΟΛΟ`) would look inconsistent, not more aligned; flagged this
-    judgment call rather than silently deviating.
+    judgment call rather than silently deviating. **Superseded 2026-08-11**:
+    a later session's brief asked for the same centering again; flagged the
+    same trade-off again, and this time the user chose to center all three
+    columns together rather than keep them right-aligned — see the cart
+    price/discount alignment audit entry below for the actual current
+    state (`text-center` on all three, header + rows). Don't read this
+    right-aligned note as still accurate.
   - **Verified, not assumed**: real alignment was checked via
     `getBoundingClientRect()` on live cart rows with three different
     product-title lengths (up to a 2-line-wrapping title) — every price
@@ -1322,6 +1328,81 @@ nested Turborepo/pnpm workspace):
     `ProductCard` itself was not touched — the carousel only changes its
     container, per the brief's explicit "do not create a second product
     card design."
+
+- **Cart price/discount alignment audit, verified against a real sale
+  (2026-08-11)** — a request to audit the mini-cart/main-cart SKU, pricing,
+  and discount presentation. Inspection found the entire feature set
+  (SKU, original+current price with strikethrough, discount badge, one
+  shared `discountPercent()` in `lib/format.ts` used by both
+  `CartLineItemRow` and `CartLineItemTableRow`) already existed from the
+  prior session referenced above — nothing was rebuilt or duplicated. The
+  only real gap: the desktop table's `ΑΡΧΙΚΗ ΤΙΜΗ`/`ΤΙΜΗ`/`ΣΥΝΟΛΟ` columns
+  were right-aligned by a previous deliberate decision (see that entry
+  above); this session's brief asked for centering again, the trade-off
+  was re-flagged, and the user chose to center all three together —
+  `CartTableHeader.tsx` and `CartLineItemTableRow.tsx` now use
+  `text-center`/`items-center` for those three columns instead of
+  `text-right`/`items-end`.
+  - **Why nothing was visible live before this**: the real catalog had
+    zero active promotions (`calculated_amount === original_amount` on
+    every one of the 16 real products, confirmed via a direct Store API
+    check) — `item.compareAtUnitPrice` was correctly always `undefined`,
+    so the strikethrough/badge had nothing to render. Not a bug; the
+    honest empty state this codebase always prefers over a fabricated one.
+  - **Verified against a real Medusa sale price list the user created live**
+    (Αντικολλητικό Τηγάνι 28cm, €39.90 → €31.92): `discountPercent()`
+    computed exactly 20% from Medusa's real `calculated_price`; a mixed
+    cart (2 regular + 1 discounted) summed correctly; the three price
+    columns measured pixel-identical centers across the header and every
+    row via `getBoundingClientRect()`, **including** the discounted row's
+    taller two-line cell (price + badge stacked) — vertical center matched
+    the row's true center for every column, confirming `items-center` on
+    the shared grid handles mixed-height rows correctly, not just uniform
+    ones; a quantity change on the discounted line recalculated the line
+    total correctly while the badge stayed a per-unit percentage (didn't
+    scale with quantity, correct); mini-cart drawer matched the main page
+    exactly (impossible to drift — one shared calculation); mobile (375px)
+    showed the full hierarchy with zero horizontal overflow; adding the
+    item did not auto-open the drawer (pre-existing behavior, untouched).
+  - **Resetting a forgotten local admin password, same session**: no
+    admin password was ever recorded for this project (by design), and
+    `medusa user -e <email> -p <password>` only *creates* users — it
+    errors ("already exists") on an existing email, it does not reset one.
+    The correct fix, consistent with this backend's own AGENTS.md
+    ("writing raw SQL or importing DB clients directly" is listed as a
+    common mistake): a one-off `medusa exec <script>` script that resolves
+    `Modules.AUTH` from the container and calls
+    `authModuleService.updateProvider("emailpass", { entity_id, password })`
+    — the exact same code path `@medusajs/auth-emailpass`'s
+    `EmailPassAuthService.update()` uses internally, so the password is
+    hashed the same way Medusa hashes it at runtime. No raw SQL, no
+    reimplemented crypto. **The `medusa` CLI's cold start took ~100-150s
+    on this machine** — a command that appears to hang at a 45-60s timeout
+    may just need longer, not be stuck; confirmed by testing `medusa
+    --version` alone, which took the same ~100s before returning a normal
+    result.
+
+- **Full technical audit, no new feature (2026-08-11)** — a whole-codebase
+  bug/dead-code/performance/SEO/architecture pass. Found one real, live bug:
+  `globals.css` sets `scroll-behavior: smooth` on `html`, but Next.js 16
+  needs an explicit `data-scroll-behavior="smooth"` attribute on the
+  `<html>` tag to know it can temporarily disable smooth scrolling during
+  route transitions — without it, every client-side `<Link>` navigation
+  sitewide did an animated scroll-to-top instead of an instant one. Fixed
+  in `RootLayout`'s `<html>` tag (`app/layout.tsx`). **If this project's
+  `globals.css` ever changes `scroll-behavior` again, or a new root layout
+  is ever introduced, keep this attribute in sync with it** — Next 16
+  warns about it live in dev but the fix is easy to forget since it's not
+  a TypeScript/ESLint-caught class of bug. Everything else audited clean:
+  no orphaned files (verified via a cross-reference script, not
+  assumption), no duplicate pricing/discount/formatting logic, no direct
+  Supabase/Postgres access anywhere in the storefront (architecture
+  intact), correct metadata/canonical/JSON-LD/sitemap/robots.txt on every
+  page type. See `CHANGELOG.md` for the full list of what was checked and
+  deliberately left alone (font-preload dev warnings, `ProductCard`
+  hydration cost, dormant `next/image priority` — all previously
+  identified or currently zero-impact, not re-litigated or spuriously
+  "fixed").
 
 ## Environment setup
 

@@ -10,10 +10,10 @@ export function CartTableHeader() {
       className={`hidden lg:grid ${CART_TABLE_GRID_COLS} items-center gap-4 border-b border-border pb-3 text-xs font-medium tracking-wide text-ink-muted`}
     >
       <span>ΠΡΟΪΟΝ</span>
-      <span className="text-right">ΑΡΧΙΚΗ ΤΙΜΗ</span>
-      <span className="text-right">ΤΙΜΗ</span>
+      <span className="text-center">ΑΡΧΙΚΗ ΤΙΜΗ</span>
+      <span className="text-center">ΤΙΜΗ</span>
       <span className="text-center">ΠΟΣΟΤΗΤΑ</span>
-      <span className="text-right">ΣΥΝΟΛΟ</span>
+      <span className="text-center">ΣΥΝΟΛΟ</span>
     </div>
   );
 }

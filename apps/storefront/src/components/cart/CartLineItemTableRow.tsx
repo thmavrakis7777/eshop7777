@@ -52,11 +52,11 @@ export function CartLineItemTableRow({
         </div>
       </div>
 
-      <div className="text-right text-sm text-ink-muted tabular-nums">
+      <div className="text-center text-sm text-ink-muted tabular-nums">
         {item.compareAtUnitPrice ? <span className="line-through">{formatPrice(item.compareAtUnitPrice)}</span> : "–"}
       </div>
 
-      <div className="flex flex-col items-end gap-1">
+      <div className="flex flex-col items-center gap-1">
         <span className="text-sm font-semibold text-ink tabular-nums">{formatPrice(item.unitPrice)}</span>
         {pct !== null && (
           <span className="rounded-sm bg-accent px-1.5 py-0.5 text-[11px] font-medium tracking-wide text-white">
@@ -74,7 +74,7 @@ export function CartLineItemTableRow({
         />
       </div>
 
-      <div className="text-right text-sm font-semibold text-ink tabular-nums">{formatPrice(item.lineTotal)}</div>
+      <div className="text-center text-sm font-semibold text-ink tabular-nums">{formatPrice(item.lineTotal)}</div>
 
       {error && (
         <p role="alert" className="col-span-5 text-xs text-danger">

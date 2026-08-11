@@ -74,7 +74,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const [categories, cart] = await Promise.all([getNavCategories(), getCart()]);
 
   return (
-    <html lang="el" className={`${inter.variable} ${literata.variable} antialiased`}>
+    <html
+      lang="el"
+      data-scroll-behavior="smooth"
+      className={`${inter.variable} ${literata.variable} antialiased`}
+    >
       <body className="flex min-h-screen flex-col">
         <script
           type="application/ld+json"

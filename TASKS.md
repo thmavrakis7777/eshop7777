@@ -729,6 +729,58 @@ recommendation rather than fully pre-specified — see `CHANGELOG.md` and
       window. Code path is straightforward and type-checked; genuinely
       untested against real "old + tagged" data.
 
+## Completed (continued)
+
+**Cart price/discount alignment audit, verified against a real sale
+(2026-08-11).** Requested audit of mini-cart/main-cart SKU/pricing/discount
+presentation — inspection found the entire feature set already shipped in
+a prior session (SKU, original+current price, discount badge, one shared
+`discountPercent()`); nothing duplicated. See `CHANGELOG.md` and
+`PROJECT_MEMORY.md`'s newest architecture entry for full detail.
+
+- [x] Only real gap: desktop table's three price columns switched from
+      right-aligned to centered (a prior session's deliberate right-align
+      decision was re-flagged and explicitly overridden by the user this
+      time — see `PROJECT_MEMORY.md`, don't trust the older right-align
+      note as still current).
+- [x] Live-verified against a real Medusa sale price list the user created
+      (not simulated): exact 20% math, mixed-cart totals, pixel-identical
+      column alignment (including the taller two-line discounted cell),
+      quantity-change recalculation, mini-cart/main-cart parity, mobile
+      (375px) zero-overflow, no drawer auto-open regression.
+- [x] `tsc --noEmit`, `eslint`, and `next build` all clean.
+- [x] Reset a forgotten local `admin@stia.gr` password via a proper
+      `medusa exec` script through `AuthModuleService.updateProvider`, not
+      raw SQL — see `PROJECT_MEMORY.md` for why (`medusa user` only
+      creates, doesn't reset) and the CLI's ~100-150s cold-start note.
+
+## Completed (continued)
+
+**Full technical audit — bugs, dead code, performance, SEO (2026-08-11).**
+Explicit "fix, don't just report" request, no new feature. See
+`CHANGELOG.md`/`PROJECT_MEMORY.md` for full detail.
+
+- [x] One real bug found and fixed: missing `data-scroll-behavior="smooth"`
+      on `<html>` was causing every client-side navigation sitewide to do
+      an animated scroll-to-top instead of an instant one (Next.js 16
+      requirement, not caught by `tsc`/`eslint`).
+- [x] Dead code: none found (orphaned-file cross-reference script, no
+      duplicate pricing/discount/formatting logic, no debug leftovers).
+- [x] Architecture: confirmed no direct Supabase/Postgres access anywhere
+      in the storefront — Next.js → Medusa → Supabase intact.
+- [x] SEO: verified metadata/canonical/JSON-LD/sitemap/robots.txt correct
+      across every page type, including the two new pages from the prior
+      session.
+- [x] Live-verified desktop + mobile: New Arrivals, infinite scroll,
+      carousels, cart (with the real sale still active), wishlist, search,
+      mobile menu — zero console errors.
+- [x] `tsc --noEmit`, `eslint`, `next build` (storefront) and `medusa lint`
+      (backend) all clean, re-run after the fix.
+- [ ] **Deliberately not touched** (see `CHANGELOG.md` for why): `next/font`
+      dev-only preload warnings, `ProductCard`'s full-client hydration
+      (already flagged in a prior audit), `next/image priority` (currently
+      zero live impact — no real product photography exists yet).
+
 ## Next
 
 This session's New Arrivals/infinite-scroll/carousels work (above) is
