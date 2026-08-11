@@ -3,6 +3,103 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform, Phase A: Product SEO (2026-08-11)
+
+First phase of a much larger initiative — making the store manageable from
+the Medusa Admin without code changes for everyday business/marketing/SEO
+tasks (see `TASKS.md` → "Admin-first platform" for the full ~11-phase
+roadmap). Explicit architecture review before any code: inspected the
+running Medusa version (2.18.0), confirmed no admin extensions or
+data-holding custom modules existed yet (only `store-pickup`, a fulfillment
+*provider*, not a data module), and confirmed the real, documented
+extension mechanisms available — custom modules with their own migrations,
+module links, and admin widget injection zones (verified the exact zone
+list live from `@medusajs/admin-shared`'s bundled types rather than
+guessing).
+
+**New `seo` backend module** (`apps/backend/src/modules/seo`) — one
+polymorphic model (`resource_type` + `resource_id` + the SEO fields)
+instead of a separate model per entity or a Module Link per entity type.
+Chosen deliberately over Module Links: homepage SEO (a later phase) has no
+underlying Medusa entity to link against at all, so a generic row is the
+one design that covers products, categories, *and* homepage without
+duplicating the model three times. New `seo` table via a real, additive-
+only migration (`medusa db:generate`/`db:migrate`, applied to the live
+Supabase database — verified purely additive, zero risk to existing
+schema).
+
+**Admin side**: a new **SEO** widget on the product detail page
+(`product.details.side.after` zone) with dedicated fields — SEO Title,
+Meta Description, Canonical URL, OG Title/Description, Social Image URL,
+Keywords, Robots (Index/Noindex) — reading/writing through new
+`/admin/seo` and `/store/seo` routes (one shared route per side, reused
+across resource types rather than one per entity). The mutation goes
+through a proper workflow (`upsertSeoWorkflow`) rather than calling the
+module service directly from the route handler — Medusa's own
+`@medusajs/no-service-mutations-in-api-route` lint rule caught this during
+the build and it was fixed, not suppressed, per this backend's own
+"business logic belongs in workflows" convention.
+
+**Storefront side**: new `lib/data/seo.ts` (`getSeoOverride`, never
+throws — a missing/unreachable SEO record must never break the page it's
+decorating) wired into the PDP's `generateMetadata` and JSON-LD. Every
+field intelligently falls back to the existing generated default when
+empty — title falls back to the product title, description to the
+product's own description then title, canonical to the normal
+`/proionta/{handle}` URL, OG fields to the SEO Title/Description, robots
+defaults to indexable. A structured-data override field merges on top of
+the existing generated Product JSON-LD (not a wholesale replace) so a
+partial override doesn't silently drop sku/offers/material.
+
+**Two real bugs found and fixed live, not just by inspection:**
+1. **A genuine TypeScript/runtime pluralization mismatch.** `MedusaService`'s
+   generated *types* pluralize the "seo" model as `Seoes`
+   (hero/heroes-style: `listSeoes`, `createSeoes`, `updateSeoes`) — `tsc`
+   accepted this and even suggested it as the fix when the correct names
+   were used. But the *real* runtime-generated methods (verified directly
+   by inspecting the live prototype chain via a `medusa exec` script,
+   the same ground-truth technique used earlier this project for the CLI
+   investigation) are `listSeos`/`createSeos`/`updateSeos` — a plain "+s".
+   `tsc --noEmit` was clean while the actual route 500'd at runtime with
+   `seoModuleService.listSeoes is not a function`. Fixed by defining an
+   explicit `SeoServiceMethods` interface matching the verified real shape
+   and resolving the module against that type (`container.resolve<SeoServiceMethods>(...)`)
+   instead of trusting the auto-generated class type for this specific
+   model name. **If another model name hits this same mismatch, don't
+   trust `tsc`'s "did you mean" suggestion for `MedusaService`-generated
+   methods — verify the real method names via `medusa exec` first.**
+2. **A title-template collision**: an admin-entered SEO Title got the
+   root layout's `"%s | STIA"` template applied on top of itself, since
+   the title already contained "STIA" — producing a doubled
+   "... - STIA | STIA" title tag. Fixed by using Next's `title.absolute`
+   for the admin-override case specifically (opts out of the parent
+   template) while leaving the generated-default case untouched, so a
+   plain product title still correctly gets the site suffix.
+
+**Verified live, real round-trip through the real Supabase database**: set
+a real SEO title + description on a real product via the admin widget,
+confirmed the POST persisted (reload showed the same values, not just
+optimistic UI state), confirmed the storefront's `<title>`/meta
+description/canonical picked it up correctly (including the title-template
+fix), set `robots: noindex` and confirmed `<meta name="robots"
+content="noindex, follow">` appeared, confirmed an *untouched* product's
+page still renders its normal generated metadata unchanged (fallback path
+doesn't regress anything), then reset the test product back to empty
+fields (no permanent test data left on a real product). `tsc`, `eslint`
+(storefront) and `medusa lint`, `tsc` (backend) all clean; `next build`
+and a full `medusa build` (backend + admin bundle) both clean.
+
+New `ADMIN_GUIDE.md` started — a living reference of every admin-editable
+capability, growing one section per phase.
+
+**Known gap, honestly scoped, not silently skipped**: the Structured Data
+Override field has no form input in the widget yet (the model field and
+storefront merge logic both exist and work if set directly via the API) —
+a UI field is a small, low-risk follow-up, deferred because it's the
+single rarest-need field of the eight and the phase was already
+substantial. Category SEO and Homepage SEO (Phase B) reuse this exact
+same module/routes, just a new widget + a homepage settings page.
+
 ## Full technical audit — bugs, dead code, performance, SEO (2026-08-11)
 
 A whole-codebase audit (not a feature) requested with an explicit "fix,

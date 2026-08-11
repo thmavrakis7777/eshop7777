@@ -781,6 +781,48 @@ Explicit "fix, don't just report" request, no new feature. See
       (already flagged in a prior audit), `next/image priority` (currently
       zero live impact — no real product photography exists yet).
 
+## Admin-first platform
+
+A large, multi-phase initiative (user-requested, 2026-08-11): make the
+store manageable from the Medusa Admin without code changes for everyday
+business/marketing/SEO tasks. Architecture review + phased roadmap
+proposed and approved before any code — see `CHANGELOG.md`'s "Admin-first
+platform, Phase A" entry and `PROJECT_MEMORY.md`'s matching architecture
+section for full technical detail, and `ADMIN_GUIDE.md` for the end-user
+reference this initiative is building up phase by phase.
+
+**Phase A — Product SEO: done (2026-08-11).**
+- [x] `seo` custom module (polymorphic `resource_type`/`resource_id` model,
+      real migration applied to the live database)
+- [x] Admin widget on the product detail page, shared `/admin/seo` +
+      `/store/seo` routes, mutation through a proper workflow (not a
+      direct service call — a real Medusa lint rule caught this)
+- [x] Storefront PDP `generateMetadata`/JSON-LD wired with intelligent
+      fallback to the existing generated defaults
+- [x] Two real bugs found and fixed live: a `MedusaService` compile-time
+      vs. runtime method-name mismatch (`tsc` was clean, the route still
+      500'd), and a title-template collision (doubled "STIA" suffix) —
+      both documented in `PROJECT_MEMORY.md` since they're the kind of
+      thing likely to resurface in a future phase
+- [x] Full round-trip verified live against the real Supabase database
+- [ ] Structured Data Override has no form field in the widget yet (the
+      model/storefront merge logic both work if set via the API directly)
+      — small follow-up, not forgotten
+
+**Phase B onward — not started.** Roadmap as proposed: Category SEO +
+Homepage SEO (reuses Phase A's exact module/routes) → Site Settings
+(footer/contact/hours/social/announcement bar — note: main nav/mega menu
+is *already* Medusa-native via categories, no work needed there) → Content
+Pages (About/Shipping/Returns/Privacy/Terms/FAQ) → Homepage CMS (hero/
+sliders/promo blocks — the biggest single phase, replaces today's
+hardcoded homepage section arrangement) → Product merchandising extensions
+(labels, cross-sell curation, downloads/warranty text) → Cart/checkout
+marketing config → Search management (synonyms/pinned/hidden/boosts) →
+Media library → Campaigns (flash sales/countdown/newsletter popup) →
+Analytics/consent (GA4/GTM/Pixels/Clarity + a real cookie-consent banner,
+which doesn't exist yet). Each phase ships independently, same
+build-verify-document-commit rhythm as every other feature in this project.
+
 ## Next
 
 This session's New Arrivals/infinite-scroll/carousels work (above) is

@@ -12,6 +12,7 @@ import { Stars } from "@/components/ui/Stars";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
 import { getCategoryByHandle } from "@/lib/data/categories";
 import { getProductByHandle, getRelatedProducts } from "@/lib/data/products";
+import { getSeoOverride } from "@/lib/data/seo";
 import { formatPrice } from "@/lib/format";
 import { siteUrl } from "@/lib/site-config";
 
@@ -22,15 +23,31 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const product = await getProductByHandle(handle);
   if (!product) return {};
 
+  // Admin-editable SEO overrides (Admin-first platform, Phase A) — every
+  // field intelligently falls back to the existing generated default when
+  // left empty, never a blank title/description.
+  const seo = await getSeoOverride("product", product.id);
+  const title = seo?.seoTitle || product.title;
+  const description = seo?.metaDescription || product.shortDescription || product.title;
+  const canonicalPath = seo?.canonicalUrl || `/proionta/${product.handle}`;
+
   return {
-    title: product.title,
-    description: product.shortDescription || product.title,
-    alternates: { canonical: `/proionta/${product.handle}` },
+    // RootLayout's title template appends " | STIA" to every plain string
+    // title — correct for the generated default, but an admin-entered SEO
+    // Title is meant to be the exact, final <title> tag they typed, not run
+    // through that template again (which would double up the site name).
+    // `absolute` opts out of the parent template for this one page.
+    title: seo?.seoTitle ? { absolute: seo.seoTitle } : title,
+    description,
+    alternates: { canonical: canonicalPath },
+    ...(seo?.robots === "noindex" ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
-      title: product.title,
-      description: product.shortDescription || product.title,
-      url: `${siteUrl}/proionta/${product.handle}`,
+      title: seo?.ogTitle || title,
+      description: seo?.ogDescription || description,
+      url: `${siteUrl}${canonicalPath}`,
+      ...(seo?.socialImageUrl ? { images: [{ url: seo.socialImageUrl }] } : {}),
     },
+    ...(seo?.keywords ? { keywords: seo.keywords } : {}),
   };
 }
 
@@ -42,9 +59,10 @@ export default async function ProductPage({ params }: Props) {
   // Related products don't depend on the category lookups, so they're
   // fetched alongside rather than after them — this was a three-deep
   // request waterfall before.
-  const [category, relatedProducts] = await Promise.all([
+  const [category, relatedProducts, seo] = await Promise.all([
     product.categoryHandle ? getCategoryByHandle(product.categoryHandle) : undefined,
     getRelatedProducts(product),
+    getSeoOverride("product", product.id),
   ]);
   const parentCategory = category?.parentHandle ? await getCategoryByHandle(category.parentHandle) : undefined;
 
@@ -72,6 +90,11 @@ export default async function ProductPage({ params }: Props) {
         : "https://schema.org/OutOfStock",
       url: `${siteUrl}/proionta/${product.handle}`,
     },
+    // Admin-editable escape hatch for the rare product that needs a real
+    // structured-data field this generator doesn't produce — merged on top
+    // rather than replacing wholesale, so a partial override (e.g. just
+    // `brand`) doesn't silently drop sku/offers/material.
+    ...(seo?.structuredDataOverride ?? {}),
   };
 
   const breadcrumbItems = category

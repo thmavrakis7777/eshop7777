@@ -2,77 +2,87 @@
 
 ## START HERE NEXT SESSION
 
-Read `PROJECT_MEMORY.md`, `CURRENT_STATE.md`, and `TASKS.md` first — this file is
-the pointer to exactly where to resume, those three have the detail behind it. Do
-not restart the project, do not regenerate completed features, do not re-analyze
-the whole codebase from zero — everything needed is in these five files.
+Read `PROJECT_MEMORY.md`, `CURRENT_STATE.md`, `TASKS.md`, and `ADMIN_GUIDE.md`
+first — this file is the pointer to exactly where to resume, those four have the
+detail behind it. Do not restart the project, do not regenerate completed
+features, do not re-analyze the whole codebase from zero — everything needed is
+in these files. **Sections 1-7 below this point are historical/stale** (written
+mid-way through an earlier session) — trust this summary and `CHANGELOG.md`
+over that old detailed body if they ever disagree.
 
-**2026-08-11 — Dynamic New Arrivals, infinite scroll, homepage carousels:**
-explicit brief requiring an architecture review (products/categories/
-pagination/tags/homepage/carousel-library/SEO all inspected live) before any
-code, with several decisions (New Arrivals membership rule, page size,
-carousel implementation) explicitly delegated for a recommendation — see
-`CHANGELOG.md` and `PROJECT_MEMORY.md`'s newest architecture section for
-the full design and reasoning. Built and live-verified: New Arrivals is now
-a hybrid rolling-window/admin-tag collection with its own `/nea-afiksi`
-page; category/subcategory/search/New-Arrivals listings infinite-scroll
-with the classic pagination kept as a real `<noscript>` crawlable fallback;
-both homepage rails are now touch-friendly carousels (native CSS
-scroll-snap, no library) linking to full listing pages
-(`/nea-afiksi`, new `/protainomena`). Two real bugs were found and fixed
-live during the build (a Server→Client function-prop crash, and an
-`IntersectionObserver` that stopped re-firing on short lists) — see
-`CHANGELOG.md`. `tsc`/`eslint`/`next build` all clean. **Not yet
-committed** — ask before committing/pushing, same as always. **This
-session's own work has not had the user's own hands-on review yet.**
+**2026-08-11 (end of a very long session) — `origin/main` is fully
+committed and pushed through the "Admin-first platform, Phase A" commit.**
+In order, this session: (1) Dynamic New Arrivals + infinite scroll +
+homepage carousels, (2) a cart price/discount column-alignment fix
+verified against a real Medusa sale, (3) a full technical audit (found and
+fixed one real bug — a missing `data-scroll-behavior="smooth"` causing
+animated scroll on every route transition — everything else audited
+clean), (4) **Phase A of a new, much larger "Admin-first platform"
+initiative** — the user's newest ask, explicitly scoped as ~11 phases (see
+`TASKS.md` → "Admin-first platform" for the full roadmap). All four are
+committed and pushed. **The user is about to clear context and will return
+to continue with Phase B onward** — this file exists specifically for that
+handoff.
 
-**Important context this session surfaced**: `NEXT_STEPS.md`,
-`CURRENT_STATE.md`, and `TASKS.md` were all stale relative to `git log` at
-the start of this session — the Premium Checkout Phases 1-5, a
-card/wishlist/PDP-content session, and a search-dropdown/product-image/
-cart-polish session had all already landed and been pushed
-(`origin/main` was at `24c00e3`, not the `64540dd`/checkout-in-progress
-state these files previously described). Corrected the git-state claims in
-`CURRENT_STATE.md` and `TASKS.md`'s "Next" section this session; if either
-ever feels stale again, trust `git log`/`CHANGELOG.md` over the prose.
-
-1. **Exact phase we are currently in**: everything through the search-
-   dropdown/product-image/cart-polish session is **committed and pushed**
-   — `origin/main` is at `24c00e3`. On top of that, this session built and
-   verified Dynamic New Arrivals, infinite scroll, and homepage carousels
-   (above). **This work is not yet committed.**
-2. **Last completed action**: New Arrivals/infinite-scroll/carousels work,
-   verified live (see `CURRENT_STATE.md`) — including two real bugs caught
-   and fixed during the build (see `CHANGELOG.md`'s newest entry). **Check
-   `git status`/`git log` before assuming otherwise** — as of this writing
-   the working tree has real, uncommitted changes on top of `24c00e3`.
-3. **Next action to execute**: no unfulfilled build-approval gate is
-   blocking new work. Ask the user whether to commit this session's work
-   (same "ask, don't assume" pattern as every prior commit decision), and
-   separately whether to push. One real, honest gap to close first if a
-   suitable product exists: live-test the New Arrivals tag-override branch
-   against a genuinely old (>30 days) tagged product — none exists in the
-   16-product catalog today. After that, see `TASKS.md` → "Future" for the
-   rest of the honest list (payment processor still on hold, account/
-   content pages, housekeeping).
-4. **First files to inspect**: `PROJECT_MEMORY.md`'s newest architecture
-   section ("New Arrivals / infinite scroll / homepage carousels
-   architecture"), `CURRENT_STATE.md`, `TASKS.md`.
-5. **Warnings / important context**: see section 5 below. The newest things
-   most likely to matter again: **any `IntersectionObserver`-driven "load
-   more" on a list that might not exceed one viewport must re-create the
-   observer after every batch, not just attach it once** (a persistently-
-   intersecting sentinel never fires a second "changed" event); **a prop
-   crossing a Server Component → Client Component boundary must be plain
-   data, never a closure** (a Server Action is the one exception) — both
-   caused real, live 500s/stalls this session before being fixed, see
-   `PROJECT_MEMORY.md`. Also still true from before: **any
-   `useSyncExternalStore`-backed client store must return a stable/cached
-   reference from both `getSnapshot` and `getServerSnapshot`.**
+1. **Exact phase we are currently in**: Phase A (Product SEO) of the
+   Admin-first platform is done, verified live against the real Supabase
+   database, and pushed. **Phase B (Category SEO + Homepage SEO) has not
+   been started.** No build-approval gate is currently blocking — Phase A
+   was pre-approved as part of the overall roadmap, and the user said "go
+   ahead with phase A" without requiring a separate spec round-trip: same
+   pattern likely applies to Phase B, but per this project's standing rule,
+   confirm before starting real code rather than assuming silence means go.
+2. **Last completed action**: Phase A end-to-end — new `seo` custom Medusa
+   module (`apps/backend/src/modules/seo`), a product-detail admin widget,
+   shared `/admin/seo` + `/store/seo` routes behind a proper workflow, and
+   storefront `generateMetadata`/JSON-LD wiring with fallback. Two real
+   bugs found and fixed live (a `MedusaService` compile-time/runtime
+   method-name mismatch, and a title-template doubling) — full detail in
+   `CHANGELOG.md`'s "Admin-first platform, Phase A" entry and
+   `PROJECT_MEMORY.md`'s matching architecture section.
+3. **Next action to execute**: start Phase B (Category SEO + Homepage
+   SEO) — reuses Phase A's exact `seo` module/routes, just needs a second
+   admin widget (`product_category.details.side.after` zone) and a
+   homepage-settings admin route (homepage has no underlying Medusa
+   entity, so it can't use a widget zone — needs a genuine custom admin
+   route under `src/admin/routes/`, not yet built). See `TASKS.md` for the
+   full Phase B→K roadmap and what each later phase actually requires
+   architecturally.
+4. **First files to inspect**: `PROJECT_MEMORY.md`'s "Admin-first
+   platform, Phase A" section (architecture + the two bugs, in detail),
+   `ADMIN_GUIDE.md` (what's already admin-editable), `TASKS.md` → "Admin-
+   first platform" (the roadmap).
+5. **Warnings / important context most likely to matter again**:
+   - **`MedusaService`'s generated TypeScript types can be wrong for an
+     irregular model name** (verified for `"seo"` → real runtime methods
+     are `listSeos`/`createSeos`/`updateSeos`, but the generated *types*
+     say `Seoes` and `tsc` will confidently suggest the wrong name). Any
+     new custom module should have its real method names verified via a
+     throwaway `medusa exec` script (inspect the resolved service's
+     prototype chain) before trusting `tsc --noEmit` as proof it'll run.
+   - **Any admin-editable title field needs `title: { absolute: ... }`
+     in the storefront's `generateMetadata`**, not a plain string — Root
+     Layout's `"%s | STIA"` template will double up if the admin's value
+     already contains the site name.
+   - **The `medusa` CLI (`develop`/`exec`/`lint`/`db:generate`/
+     `db:migrate`/`build`) has a ~100-150s cold start on this machine** —
+     a command that looks hung at a 45-60s timeout may just need longer.
+   - **The browser tool's console-log buffer does not clear on same-tab
+     navigation** — open a fresh tab or check `read_network_requests`
+     status codes, not the console, to confirm current behavior when
+     debugging a live fix.
+   - Still true from earlier sessions: any `IntersectionObserver`-driven
+     "load more" must re-create the observer after every batch (a
+     persistently-intersecting sentinel never fires twice); a prop
+     crossing a Server→Client Component boundary must be plain data,
+     never a closure; any `useSyncExternalStore`-backed store needs
+     stable snapshot references.
 
 ---
 
-**The rest of this file is the detailed version of the five points above.**
+**The rest of this file (sections 1-7 below) is stale/historical** — written
+mid-session before several rounds of work landed. Kept for now in case any
+narrative detail in it is still useful, but do not treat it as current state.
 
 ## 1. Exact last action completed
 

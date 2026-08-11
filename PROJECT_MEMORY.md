@@ -1404,6 +1404,108 @@ nested Turborepo/pnpm workspace):
   identified or currently zero-impact, not re-litigated or spuriously
   "fixed").
 
+- **Admin-first platform, Phase A: Product SEO (2026-08-11)** — first phase
+  of a much larger initiative to make the store manageable from the Medusa
+  Admin without code changes (see `TASKS.md` for the ~11-phase roadmap,
+  `ADMIN_GUIDE.md` for the end-user-facing reference). Architecture review
+  done live before any code: Medusa 2.18.0, no admin extensions or
+  data-holding custom modules existed yet, confirmed the real widget
+  injection zone list from `@medusajs/admin-shared`'s bundled types rather
+  than guessing at zone names.
+  - **New `seo` module** (`apps/backend/src/modules/seo`) — a single
+    polymorphic model (`resource_type: "product"|"category"|"homepage"` +
+    `resource_id` + the SEO fields) rather than one model/Module Link per
+    entity type. Deliberate: homepage SEO has no underlying Medusa entity
+    to link against at all, so a Module Link per entity couldn't cover all
+    three uniformly, and a single shared model avoids the exact
+    "duplicate the field set three times" the project's own principles
+    warn against. New `seo` table, real additive-only migration applied to
+    the live Supabase database via `medusa db:generate`/`db:migrate`.
+  - **Admin**: new SEO widget on the product detail page
+    (`product.details.side.after` injection zone — confirmed real/stable
+    by reading `@medusajs/admin-shared`'s `INJECTION_ZONES` list directly,
+    not assumed), dedicated fields (SEO Title, Meta Description, Canonical
+    URL, OG Title/Description, Social Image URL, Keywords, Robots).
+    Reads/writes through shared `/admin/seo` and `/store/seo` routes (one
+    route per side, reused across every resource type via
+    `resource_type`/`resource_id`, not one route per entity).
+  - **The mutation goes through a real workflow**
+    (`upsertSeoWorkflow`/`upsert-seo` step), not a direct service call from
+    the route handler — Medusa's own
+    `@medusajs/no-service-mutations-in-api-route` ESLint rule caught the
+    first draft calling the module service directly in the POST handler;
+    fixed by moving the list-then-create-or-update logic into a workflow
+    step, matching this backend's own AGENTS.md convention ("business
+    logic belongs in workflows, not route handlers").
+  - **Storefront**: `lib/data/seo.ts`'s `getSeoOverride()` — never throws,
+    returns `null` on any failure so a missing/unreachable SEO record can
+    never break the page it's decorating (same defensive pattern as every
+    other "admin left this empty" case in this codebase). Wired into the
+    PDP's `generateMetadata` and Product JSON-LD; the structured-data
+    override field merges on top of the existing generated JSON-LD
+    (`...productJsonLd, ...seo?.structuredDataOverride`) rather than
+    replacing it wholesale, so a partial override (e.g. just `brand`)
+    doesn't silently drop `sku`/`offers`/`material`.
+  - **Two real bugs found and fixed live**, both worth remembering for any
+    future custom Medusa module:
+    1. **`MedusaService`'s generated TypeScript types can be wrong for the
+       runtime methods they claim to describe.** For a model named `"seo"`,
+       the generated *types* pluralize it as `Seoes` (hero/heroes-style —
+       `listSeoes`/`createSeoes`/`updateSeoes`), and `tsc --noEmit` not
+       only accepted this, it actively suggested `listSeoes` as the "did
+       you mean" fix when the correct name was used. The *actual*
+       runtime-generated methods — confirmed by writing a one-off
+       `medusa exec` script that resolves the real service and inspects
+       `Object.getOwnPropertyNames` up its prototype chain, the same
+       ground-truth technique already used earlier in this project for
+       the CLI/password investigation — are `listSeos`/`createSeos`/
+       `updateSeos`, a plain "+s". `tsc` was clean while the real route
+       500'd (`seoModuleService.listSeoes is not a function`). **Fixed by
+       defining an explicit `SeoServiceMethods` interface matching the
+       verified real shape and resolving the module against it**
+       (`container.resolve<SeoServiceMethods>(SEO_MODULE)`) instead of
+       trusting the class's auto-generated type for this model. **If a
+       future custom module hits the same class of bug (an irregular
+       model name where compile-time and runtime pluralization diverge),
+       verify the real method names via `medusa exec` before trusting
+       `tsc`** — a clean `tsc --noEmit` is not proof the code will run.
+    2. **Root layout's title template collided with an admin-entered SEO
+       Title.** `RootLayout`'s `title: { template: "%s | STIA" }` applies
+       to every plain-string page title — correct for the generated
+       default, but an admin who types a full custom SEO Title (which may
+       itself already end in "- STIA") got it doubled:
+       "... - STIA | STIA". Fixed with Next's `title: { absolute: ... }`
+       specifically for the admin-override branch (opts out of the parent
+       template for that one page), while the generated-default branch is
+       untouched and still correctly gets the site suffix. **Any future
+       admin-editable title field (category SEO, homepage SEO) needs the
+       same `title.absolute` treatment, not a plain string.**
+  - **Verified live against the real Supabase database, full round trip**:
+    set a real title/description on a real product via the widget,
+    confirmed the POST persisted past a reload (not just optimistic
+    client state), confirmed the storefront's `<title>`/meta
+    description/canonical picked it up (including the template-collision
+    fix), set `robots: noindex` and confirmed the real
+    `<meta name="robots" content="noindex, follow">` tag appeared,
+    confirmed an *untouched* product's page is completely unaffected
+    (fallback path doesn't regress anything), then reset the test
+    product's fields back to empty. `tsc`/`eslint`/`next build`
+    (storefront) and `medusa lint`/`tsc`/a full `medusa build` (backend,
+    including the admin Vite bundle) all clean.
+  - **Known, honestly-scoped gap**: the Structured Data Override field has
+    no form input in the widget yet — the model field and storefront
+    merge logic both exist and work if set directly via the API, but
+    there's no admin UI for it. Deferred as the single rarest-need field
+    of the eight; a small follow-up, not forgotten.
+  - **Testing note for this environment**: the browser tool's console-log
+    buffer does not clear on same-tab navigation (already noted elsewhere
+    in this file) — when debugging a live fix, open a fresh tab or check
+    `read_network_requests` (status codes, not the stale console) to
+    confirm current behavior. Also: `medusa exec`/`medusa lint`/`medusa
+    db:generate`/`db:migrate` all share the CLI's ~100-150s cold start
+    already documented below — budget for it rather than assuming a
+    45-60s timeout means the command hung.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

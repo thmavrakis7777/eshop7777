@@ -1,26 +1,31 @@
 # Current State
 
-Snapshot as of 2026-08-11 (Dynamic New Arrivals, infinite scroll, homepage
-carousels — designed and built). This documents **what exists right now**,
+Snapshot as of 2026-08-11, end of a very long session (New Arrivals/
+infinite-scroll/carousels → cart price alignment → full audit → Admin-first
+platform Phase A, in that order). This documents **what exists right now**,
 verified by inspection — not aspiration. Cross-check against `git log` /
 the actual file tree if this ever feels stale; update it whenever a session
-ends.
+ends. **This file itself is known to lag reality across sessions** (see the
+note below about the intervening-sessions gap) — `git log`, `CHANGELOG.md`,
+and `NEXT_STEPS.md`'s "START HERE" summary are the more reliably current
+sources; treat the detailed prose further down this file as directional,
+not authoritative, for anything it doesn't explicitly call out as recent.
 
 **Everything below the 2026-08-09 card/wishlist/PDP snapshot line was
 written across several intervening sessions this file was never fully
 updated for** — Premium Checkout Phases 1-5, a search-dropdown/product-
-image/cart-polish session, and now this session's three features. Treat
-the "What has been completed"/"What is working" prose below as reliable
-for what it explicitly describes, but not as an exhaustive list — `git log`
-and `CHANGELOG.md` are the authoritative record of everything that landed.
+image/cart-polish session, and this session's New Arrivals/infinite-scroll/
+carousels work. Treat the "What has been completed"/"What is working"
+prose below as reliable for what it explicitly describes, but not as an
+exhaustive list.
 
-Git state: `origin/main` is up to date through `24c00e3` (everything
-through the search-dropdown/product-image/cart-polish session — the
-checkout phases, card/wishlist/PDP work, and that session are all committed
-and pushed). This session's work (New Arrivals, infinite scroll, homepage
-carousels) has been built and verified (`tsc`/`eslint`/`next build`, live
-in-browser checks against the real backend) but is **not yet committed** —
-check `git status`/`git log` before assuming otherwise.
+Git state: `origin/main` is up to date through the "Admin-first platform,
+Phase A" commit — New Arrivals/infinite scroll/carousels, the cart
+alignment fix, the full technical audit, and Phase A (Product SEO: a new
+`seo` custom Medusa module + admin widget + storefront wiring, see
+`CHANGELOG.md`'s newest entries) are all committed and pushed. **Phase B
+onward of the Admin-first platform (Category SEO, Homepage SEO, and the
+rest of the ~11-phase roadmap in `TASKS.md`) has not been started.**
 
 ## What has been completed
 
