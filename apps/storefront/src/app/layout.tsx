@@ -3,6 +3,8 @@ import { Inter, Literata } from "next/font/google";
 import "./globals.css";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { PromoBannerBar } from "@/components/layout/PromoBannerBar";
+import { ConsentBanner } from "@/components/layout/ConsentBanner";
+import { AnalyticsScripts } from "@/components/layout/AnalyticsScripts";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CartUIProvider } from "@/components/cart/CartUIProvider";
@@ -14,6 +16,7 @@ import { getNavCategories } from "@/lib/data/categories";
 import { getCart } from "@/lib/data/cart";
 import { getPromoBanner } from "@/lib/data/promo-banner";
 import { getSiteSettings } from "@/lib/data/site-settings";
+import { getAnalyticsSettings } from "@/lib/data/analytics-settings";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -73,11 +76,12 @@ const organizationJsonLd = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [categories, cart, settings, promoBanner] = await Promise.all([
+  const [categories, cart, settings, promoBanner, analyticsSettings] = await Promise.all([
     getNavCategories(),
     getCart(),
     getSiteSettings(),
     getPromoBanner(),
+    getAnalyticsSettings(),
   ]);
 
   return (
@@ -111,6 +115,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <AddToCartToast />
           </CartUIProvider>
         </WishlistProvider>
+        <ConsentBanner settings={analyticsSettings} />
+        <AnalyticsScripts settings={analyticsSettings} />
       </body>
     </html>
   );

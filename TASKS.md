@@ -987,10 +987,34 @@ reference this initiative is building up phase by phase.
   any future component computing something from `Date.now()`/
   `Math.random()` during render
 
-**Phase K — not started.** Roadmap as proposed: Analytics/consent
-(GA4/GTM/Pixels/Clarity + a real cookie-consent banner, which doesn't
-exist yet). Each phase ships independently, same build-verify-document-
-commit rhythm as every other feature in this project.
+**Phase K — Analytics/Consent: done (2026-08-11). Final phase of the
+Admin-first platform roadmap.**
+- [x] New `analytics-settings` singleton module — four nullable text
+      fields (GA4 Measurement ID, GTM Container ID, Meta Pixel ID,
+      Microsoft Clarity Project ID), none fabricated or pre-filled
+- [x] Admin route (`Analytics`) — four plain text inputs, same
+      load/save shape as every other singleton settings page
+- [x] Real, functioning cookie-consent banner (`ConsentBanner`) — only
+      renders if at least one service is configured and no choice is
+      stored yet; Accept/Reject
+- [x] Conditional script injection (`AnalyticsScripts`) — nothing loads
+      until the visitor explicitly accepts; one independent `next/script`
+      block per configured service; GTM's `<noscript>` fallback
+      deliberately omitted (see `PROJECT_MEMORY.md` for why)
+- [x] Full round-trip verified live against the real Supabase database —
+      banner appears/absent correctly, scripts absent before accept,
+      load after accept, rejection persists and loads nothing, no banner
+      at all when nothing is configured; `medusa lint`, `eslint`, full
+      `next build`, full `medusa build` all clean
+- **This closes the Admin-first platform roadmap** — Phases A through K
+  are all built, verified live, and committed.
+
+**Admin-first platform: complete.** Phases A–K (Product SEO, Category/
+Homepage SEO, Site Settings, Content Pages, Homepage CMS, Product
+Merchandising, Cart/Checkout Marketing Config, Search Management, Media
+Library, Campaigns, Analytics/Consent) are all built, verified live
+against the real Supabase database, and committed. See `CHANGELOG.md`
+for each phase's own entry.
 
 ## Next
 
@@ -1124,12 +1148,12 @@ above for the current, real plan:
       real product counts exist — last full pass was Phase 1, before real data
 - [ ] Run an actual Lighthouse/axe pass — nothing has been run yet, only manual
       review
-- [ ] Delete the `test-agent@stia.gr`, `qa-agent@stia.gr`, and
-      `qa-agent2@stia.gr` admin users (created during Phase 4A, Phase 5, and
-      this session's verification respectively — all harmless but
-      unnecessary. Note: `qa-agent@stia.gr`'s original password stopped
-      authenticating this session for unknown reasons, hence the second
-      `qa-agent2` account — see `PROJECT_MEMORY.md`)
+- [ ] Delete the temporary `qa-agent`-pattern admin users — `test-agent@
+      stia.gr`, `qa-agent@stia.gr`, `qa-agent2@stia.gr`, `qa-agent3@stia.gr`,
+      `qa-agent4@stia.gr`, `qa-agent5@stia.gr` (created one per session as
+      needed to drive the Admin API directly for verification, Phase 4A
+      through Phase K — all harmless but unnecessary; see
+      `PROJECT_MEMORY.md` for which phase created each one)
 - [ ] Decide the real free-shipping threshold and set
       `NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD_EUR` accordingly (currently a €50
       placeholder default), then flip `FREE_SHIPPING_MESSAGE_ENABLED` back

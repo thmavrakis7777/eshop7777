@@ -81,5 +81,8 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/promo-banner",
     },
+    {
+      resolve: "./src/modules/analytics-settings",
+    },
   ],
 })

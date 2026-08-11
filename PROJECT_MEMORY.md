@@ -2010,6 +2010,77 @@ nested Turborepo/pnpm workspace):
     backend admin), a full `next build` (19 routes), and a full `medusa
     build` all clean.
 
+- **Admin-first platform, Phase K: Analytics/Consent (2026-08-11)** — the
+  final phase of the roadmap. A real, functioning cookie-consent banner
+  gating four optional admin-entered tracking-service IDs, not a
+  cosmetic one.
+  - **New `analytics-settings` module** — singleton, same shape as
+    `site-settings`/`promo-banner`: four nullable text fields (GA4
+    Measurement ID, GTM Container ID, Meta Pixel ID, Microsoft Clarity
+    Project ID), none fabricated or pre-filled. Model name
+    `analytics_setting` (singular) for the same regular-pluralization
+    reason as `site_setting` — verified live via a throwaway `medusa
+    exec` script that the real runtime methods
+    (`listAnalyticsSettings`/`createAnalyticsSettings`/
+    `updateAnalyticsSettings`) match the generated types, standing
+    practice since the `seo` module's `Seo`/`Seoes` mismatch. No
+    mismatch found here.
+  - **Consent architecture — three pieces sharing one localStorage-backed
+    external store, not talking to each other directly**:
+    `lib/consent-storage.ts` (same `useSyncExternalStore` shape as
+    `wishlist-storage.ts`, for the same SSR/hydration reasons — the
+    server has no localStorage, so "no choice yet" is the correct
+    honest server-rendered state); `ConsentBanner`, which renders only
+    if at least one service is configured *and* no choice is stored yet;
+    `AnalyticsScripts`, which renders nothing until the stored choice is
+    exactly `"accepted"`, then injects one independent `next/script`
+    block per configured service. **GTM's own `<noscript>` iframe
+    fallback is deliberately omitted** — a visitor with JavaScript
+    disabled can never interact with `ConsentBanner` to grant consent in
+    the first place, so an unconditional `noscript` tag would load
+    tracking with no consent signal at all. If a future phase adds a
+    fifth tracking service, follow this exact three-piece pattern rather
+    than inventing a new consent mechanism.
+  - **Verified live against the real Supabase database, full round
+    trip**: configured GA4 + GTM via the Admin API directly (faster/more
+    reliable than the dashboard through browser automation, standing
+    practice in this project); confirmed the banner appears with
+    literally nothing loaded (`gtag`/`gtm`/`fbq`/`clarity` script tags
+    all absent from the DOM, `window.dataLayer` undefined); accepted and
+    confirmed GA4+GTM scripts injected, Meta Pixel/Clarity correctly
+    absent (not configured), `dataLayer` populated, banner gone;
+    reloaded and confirmed acceptance persists with scripts loading
+    immediately and no banner; cleared the stored choice and confirmed
+    the banner reappears; rejected and confirmed no scripts, banner
+    gone, `"rejected"` stored; reloaded and confirmed the rejection
+    persists and nothing loads; cleared all four admin fields and
+    confirmed the banner does not appear at all even with no stored
+    choice, since there's nothing to consent to. `medusa lint`,
+    `eslint` (storefront), a full `next build` (19 routes, unchanged),
+    and a full `medusa build` all clean.
+  - **The `computer` tool's click landed on stale coordinates for the
+    Reject button specifically** (same documented browser-automation
+    unreliability as prior sessions — see "Warnings" in `NEXT_STEPS.md`)
+    — worked around by dispatching the click directly via
+    `javascript_tool` (`[...document.querySelectorAll('button')].find(b
+    => b.textContent.trim() === 'Απόρριψη').click()`) and confirming the
+    resulting state via `localStorage`/DOM inspection rather than
+    trusting the click alone. The Accept button's click *did* register
+    on a `ref`-targeted retry — inconsistent, not a hard rule about
+    which button fails, just more evidence that any click/type in this
+    environment needs independent verification, not just the click
+    tool's own success report.
+  - **Re-hit the disk fetch-cache staleness bug already documented from
+    an earlier session** (see "Warnings" in `NEXT_STEPS.md`): after
+    clearing all four fields via the Admin API, the storefront kept
+    showing the banner well past `next: { revalidate: 30 }`. Confirmed
+    via a direct `curl` to `/admin/analytics-settings` that the database
+    was already correct before touching any application code, then
+    cleared `apps/storefront/.next/cache` and restarted the dev server
+    to resolve it — exactly the documented remedy, not a new bug.
+  - **This closes the Admin-first platform roadmap.** Phases A through K
+    are all built, verified live, and committed.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

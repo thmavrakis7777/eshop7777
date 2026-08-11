@@ -615,13 +615,13 @@ that's stale and needs fixing.
   (in `apps/storefront/.env.local`, gitignored), **1 stock location**
   ("European Warehouse"), default shipping profile/options from Medusa's
   built-in demo seed.
-- **4 admin users**: `admin@stia.gr` (real, password not recorded in the
-  repo), `test-agent@stia.gr` (temporary, Phase 4A), `qa-agent@stia.gr`
-  (temporary, Phase 5 — its password stopped authenticating this session
-  for unknown reasons), and `qa-agent2@stia.gr` (temporary, created this
-  session as a result, used to drive the Admin API directly for the
-  out-of-stock test — see `PROJECT_MEMORY.md`; all three temporary accounts
-  are safe to delete whenever convenient).
+- **Several admin users**: `admin@stia.gr` (real, password not recorded in
+  the repo) plus a run of temporary `qa-agent`-pattern accounts created
+  one per session as needed to drive the Admin API directly (`test-agent@
+  stia.gr`, `qa-agent@stia.gr`, `qa-agent2@stia.gr` through `qa-agent5@
+  stia.gr` as of Admin-first platform Phase K — see `PROJECT_MEMORY.md`
+  for which phase created each one). All temporary accounts are safe to
+  delete whenever convenient; see `TASKS.md`.
 - **0 active promotions** — a test promotion was created and activated to
   verify the coupon flow, then deleted after verification. No real coupon
   campaigns exist.

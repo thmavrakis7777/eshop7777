@@ -3,6 +3,80 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform, Phase K: Analytics/Consent (2026-08-11)
+
+Eleventh and final phase of the Admin-first platform roadmap — a real,
+functioning cookie-consent banner, not a cosmetic one, gating four
+optional admin-entered tracking-service IDs.
+
+**New `analytics-settings` module** — a singleton (same shape as
+`site-settings`/`promo-banner`): four nullable text fields, GA4
+Measurement ID, GTM Container ID, Meta Pixel ID, Microsoft Clarity
+Project ID. None fabricated or pre-filled; admin fills in only the
+services actually in use. Real method names (`listAnalyticsSettings`/
+`createAnalyticsSettings`/`updateAnalyticsSettings`) verified live via a
+throwaway `medusa exec` script before trusting the generated types,
+standing practice since the `seo` module's `Seo`/`Seoes` mismatch —
+`analytics_setting` pluralizes regularly, no mismatch found.
+
+**Admin**: a new **Analytics** route, four plain text inputs, same
+load/save shape as every other singleton settings page in this project.
+
+**Storefront consent architecture, three independent pieces sharing one
+localStorage-backed external store** (`consent-storage.ts`, same
+`useSyncExternalStore` shape as `wishlist-storage.ts`, for the same
+SSR/hydration reasons):
+1. `ConsentBanner` — renders only if at least one service is configured
+   *and* no choice has been stored yet. Accept/Reject, Greek copy.
+2. `AnalyticsScripts` — renders nothing until the stored choice is
+   exactly `"accepted"`; one independent `next/script` block per
+   configured service (GA4's `gtag.js` + config call, GTM's base
+   snippet, Meta Pixel's `fbevents.js` + init + PageView, Clarity's tag
+   snippet). GTM's own `<noscript>` iframe fallback is deliberately
+   omitted — a visitor with JavaScript disabled can never interact with
+   `ConsentBanner` to grant consent in the first place, so an
+   unconditional `noscript` tag would load tracking with no consent
+   signal at all.
+3. The banner and the script injector never talk to each other
+   directly — they only share the one store, exactly like `Wishlist`/
+   `wishlist-storage.ts`.
+
+**Verified live against the real Supabase database, full round trip**:
+configured GA4 + GTM via the Admin API directly (faster/more reliable
+than driving the dashboard through browser automation, standing
+practice in this project); confirmed the banner appears with nothing
+loaded (`gtag`/`gtm`/`fbq`/`clarity` script tags all absent, `dataLayer`
+undefined); clicked Accept (via a dispatched click after the `computer`
+tool's click landed on stale coordinates — same documented
+browser-automation unreliability as prior sessions, worked around by
+dispatching the click directly and confirming via `javascript_tool`
+rather than trusting the click alone) and confirmed GA4+GTM scripts
+injected, Meta Pixel/Clarity correctly absent (not configured),
+`dataLayer` populated, banner gone; reloaded and confirmed the acceptance
+persists with scripts loading immediately, no banner; cleared the stored
+choice and confirmed the banner reappears; clicked Reject and confirmed
+no scripts, banner gone, choice stored as `"rejected"`; reloaded and
+confirmed the rejection persists and nothing loads; cleared all four
+admin fields and confirmed the banner does not appear at all even with
+no stored choice (nothing to consent to). Caught and worked around the
+same disk fetch-cache staleness documented in Phase A–J sessions — after
+clearing the DB fields the storefront kept showing the banner until
+`apps/storefront/.next/cache` was cleared and the dev server restarted;
+confirmed via a direct `curl` to `/admin/analytics-settings` that the
+database itself was already correct before touching any application
+code. `medusa lint`, `eslint` (storefront), a full `next build` (19
+routes, unchanged), and a full `medusa build` all clean.
+
+Left the singleton's four fields empty (no fabricated test data) —
+same as every prior phase's admin-first module before an admin fills it
+in for real. A new temporary admin user, `qa-agent5@stia.gr`, was
+created for this session's verification (same established pattern as
+`test-agent@stia.gr`/`qa-agent@stia.gr`/`qa-agent2@stia.gr`/
+`qa-agent3@stia.gr`/`qa-agent4@stia.gr`), left in place, harmless.
+
+**This closes the Admin-first platform roadmap** — Phases A through K
+are all built, verified live, and committed.
+
 ## Admin-first platform, Phase J: Campaigns (2026-08-11)
 
 Tenth phase — the roadmap named three things ("flash sales, countdown,
