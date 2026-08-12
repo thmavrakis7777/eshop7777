@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { NavCategory } from "@/lib/types";
-import { ChevronDownIcon, CloseIcon } from "@/components/ui/Icons";
+import { ChevronDownIcon, CloseIcon, HeartIcon, UserIcon } from "@/components/ui/Icons";
+import { useWishlist } from "@/components/wishlist/WishlistProvider";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -21,6 +22,7 @@ export function MobileMenu({
   const [expanded, setExpanded] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const { count: wishlistCount } = useWishlist();
 
   useEffect(() => {
     if (!open) return;
@@ -80,6 +82,32 @@ export function MobileMenu({
             <CloseIcon />
           </button>
         </div>
+        <div className="flex border-b border-border">
+          <Link
+            href="/lista-epithymion"
+            className="flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium text-ink hover:text-accent transition-colors"
+            onClick={onClose}
+          >
+            <span className="relative flex">
+              <HeartIcon filled={wishlistCount > 0} className="h-5 w-5" />
+              {wishlistCount > 0 && (
+                <span className="absolute -right-2 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-white tabular-nums">
+                  {wishlistCount}
+                </span>
+              )}
+            </span>
+            Λίστα επιθυμιών
+          </Link>
+          <Link
+            href="/logariasmos"
+            className="flex flex-1 items-center justify-center gap-2 border-l border-border py-3 text-sm font-medium text-ink hover:text-accent transition-colors"
+            onClick={onClose}
+          >
+            <UserIcon className="h-5 w-5" />
+            Λογαριασμός
+          </Link>
+        </div>
+
         <nav className="flex flex-col p-2">
           {navCategories.map((cat) => (
             <div key={cat.handle} className="border-b border-border last:border-0">

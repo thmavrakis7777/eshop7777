@@ -3,6 +3,55 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Mobile account/wishlist entry points, 5 more content-page routes, content drafts, account-system spec (2026-08-12)
+
+Follow-up to the full audit, scoping the "account/wishlist/content pages"
+bucket from `TASKS.md`. Inspected current state first rather than trusting
+`TASKS.md`'s (partly stale) notes — the six original content-page routes
+and their admin CMS already existed (Phase D) but all six 404 live because
+no content has ever been published for any of them; six more footer links
+had no route at all.
+
+**Real fix, not a stopgap**: `MobileMenu.tsx` had no wishlist/account entry
+point at all — both icons in `Header.tsx` are `hidden sm:block`, and the
+mobile drawer never had an equivalent. Added a two-item row (wishlist with
+live count badge, account) using the same `useWishlist()` context the
+desktop header already uses — verified live at a real 375px width via DOM
+inspection (dialog content, not just the click).
+
+**Footer**: removed "Δώρα Γάμου" per explicit instruction (page was never
+built, link deleted rather than a page added for it, since keeping a
+dead-end link marked as "coming eventually" wasn't wanted either).
+
+**5 new content-page routes** added, following the exact existing pattern
+(`sxetika`/`page.tsx` etc.) — `paraggelia`, `epikoinonia`, `odigoi-agoron`,
+`karieres`, `cookies`. Also added to `sitemap.ts`'s `CONTENT_PAGE_SLUGS`
+and the admin's `PAGES` list (`content-pages/page.tsx`) — the admin UI
+deliberately keeps this list hardcoded/non-authorable (see that file's own
+comment), so both sides need the same edit or a slug exists on one side
+with no way to reach it from the other.
+
+**Content drafts, not published content**: wrote starter copy for all 11
+pages to `CONTENT_DRAFTS.md` (new) — deliberately **not** pushed into the
+database. Creating a temporary admin user to push it via the Admin API was
+blocked by this session's permission classifier (account creation); rather
+than working around that, the drafts are a plain file for the user to
+paste into the already-built admin UI themselves. Two pages (Αποστολές,
+Επιστροφές) have bracketed placeholders for real business facts (delivery
+window, return window, who pays return shipping) not invented here. Three
+pages (Όροι Χρήσης, Απορρήτου, Cookies) are marked as needing real legal
+review — plain-language starting points, not compliant legal text.
+
+**`ACCOUNT_SYSTEM_SPEC.md`** (new): a proposal, not an implementation —
+`/logariasmos` needs a real customer-auth system that doesn't exist
+anywhere in this codebase yet (confirmed: no login, no session handling
+anywhere). Documents current state, proposed scope/architecture (Medusa's
+built-in `emailpass` auth provider, httpOnly JWT cookie matching the
+cart's existing cookie pattern, guest checkout staying the default), and
+three open decisions for the user before an implementation spec gets
+written. Same "spec before code" pattern as every other non-trivial
+feature in this project.
+
 ## Full technical audit (2026-08-12, Opus 5)
 
 Requested full-codebase audit (storefront + backend): bugs, dead code,

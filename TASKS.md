@@ -1129,13 +1129,22 @@ above for the current, real plan:
       revisit only if the catalog grows substantially.
 - [x] Wishlist — **done**: `localStorage`-backed, real `/lista-epithymion`
       page, header count badge. See "Completed" above.
-- [ ] Wishlist header icon on true mobile widths (`hidden sm:block`, same
-      as the account icon) — the heart-toggle interaction works everywhere
-      on mobile already, this is specifically the header nav entry point;
-      needs a `MobileMenu` change.
-- [ ] Account area (`/logariasmos` — real page, currently 404)
-- [ ] About/legal/help content pages (footer links to these — real pages,
-      currently 404; low priority, no business logic involved)
+- [x] Wishlist + account header icons on true mobile widths — **done**
+      2026-08-12: added both to `MobileMenu.tsx` (live count badge on
+      wishlist, same `useWishlist()` context as the desktop header).
+- [ ] Account area (`/logariasmos`) — still 404, no auth system exists.
+      Proposal written: `ACCOUNT_SYSTEM_SPEC.md` (2026-08-12) — needs the
+      user's sign-off on 3 open decisions before an implementation spec.
+- [ ] About/legal/help content pages — routes now exist for all 11 footer
+      links (5 added 2026-08-12: `paraggelia`, `epikoinonia`,
+      `odigoi-agoron`, `karieres`, `cookies`, alongside the original 6),
+      but **every one still 404s live** — no content has been published
+      for any of them. Starter drafts written to `CONTENT_DRAFTS.md`
+      (2026-08-12); user needs to paste into Admin → Σελίδες Περιεχομένου
+      and publish. Two pages (shipping/returns) have placeholder business
+      facts (delivery window, return window) that need real values before
+      publishing; three (terms/privacy/cookies) need real legal review —
+      see `CONTENT_DRAFTS.md`'s header for detail.
 - [x] Backend hosting decision — **Railway** (Supabase Postgres stays as-is,
       no Redis needed). Deployment config prepared and committed
       (`apps/backend/railway.json`, `DEPLOYMENT.md`) 2026-08-12; actual

@@ -17,7 +17,6 @@ const helpLinks = [
 const companyLinks = [
   { label: "Σχετικά με εμάς", href: "/sxetika" },
   { label: "Οδηγοί Αγορών", href: "/odigoi-agoron" },
-  { label: "Δώρα Γάμου", href: "/dora-gamou" },
   { label: "Καριέρα", href: "/karieres" },
 ];
 

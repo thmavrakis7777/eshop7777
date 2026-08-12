@@ -15,6 +15,11 @@ const PAGES = [
   { slug: "aporrito", label: "Πολιτική Απορρήτου" },
   { slug: "oroi-xrisis", label: "Όροι Χρήσης" },
   { slug: "faq", label: "Συχνές Ερωτήσεις" },
+  { slug: "paraggelia", label: "Παρακολούθηση Παραγγελίας" },
+  { slug: "epikoinonia", label: "Επικοινωνία" },
+  { slug: "odigoi-agoron", label: "Οδηγοί Αγορών" },
+  { slug: "karieres", label: "Καριέρα" },
+  { slug: "cookies", label: "Πολιτική Cookies" },
 ] as const
 
 type ContentPageRecord = {
@@ -29,9 +34,8 @@ const EMPTY_FORM: ContentPageRecord = { title: "", body: "", is_published: false
 // [slug]/page.tsx route — Medusa v2 admin dynamic route params
 // (useParams from react-router-dom) have a documented open bug
 // (medusajs/medusa#9794) where the parameter isn't reliably captured;
-// avoiding the pattern entirely sidesteps that risk for a fixed set of
-// only six pages, where a single-screen list+form is arguably better UX
-// anyway.
+// avoiding the pattern entirely sidesteps that risk for a fixed, small set
+// of pages, where a single-screen list+form is arguably better UX anyway.
 const ContentPagesPage = () => {
   const [selectedSlug, setSelectedSlug] = useState<string>(PAGES[0].slug)
   const [form, setForm] = useState<ContentPageRecord>(EMPTY_FORM)

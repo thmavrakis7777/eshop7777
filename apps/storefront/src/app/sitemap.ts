@@ -8,7 +8,19 @@ import { siteUrl } from "@/lib/site-config";
 // first platform, Phase D) — each only makes it into the sitemap if it's
 // actually published, since an unpublished page 404s and has no business
 // being offered to crawlers.
-const CONTENT_PAGE_SLUGS = ["sxetika", "apostoles", "epistrofes", "aporrito", "oroi-xrisis", "faq"] as const;
+const CONTENT_PAGE_SLUGS = [
+  "sxetika",
+  "apostoles",
+  "epistrofes",
+  "aporrito",
+  "oroi-xrisis",
+  "faq",
+  "paraggelia",
+  "epikoinonia",
+  "odigoi-agoron",
+  "karieres",
+  "cookies",
+] as const;
 
 const baseRoutes: MetadataRoute.Sitemap = [
   { url: siteUrl, changeFrequency: "daily", priority: 1 },
