@@ -1136,8 +1136,12 @@ above for the current, real plan:
 - [ ] Account area (`/logariasmos` — real page, currently 404)
 - [ ] About/legal/help content pages (footer links to these — real pages,
       currently 404; low priority, no business logic involved)
-- [ ] Backend hosting decision (Vercel can't run Medusa's persistent server —
-      deferred until actually needed, per explicit prior user decision)
+- [x] Backend hosting decision — **Railway** (Supabase Postgres stays as-is,
+      no Redis needed). Deployment config prepared and committed
+      (`apps/backend/railway.json`, `DEPLOYMENT.md`) 2026-08-12; actual
+      Railway/Vercel account creation and env var entry still needs the
+      user (can't be done without account access) — see `DEPLOYMENT.md`
+      "Manual steps."
 - [ ] Real material/weight/dimensions/origin-country data entry for the 16
       real products, in the Medusa admin — the PDP's Characteristics
       section is fully built and will render automatically the moment this

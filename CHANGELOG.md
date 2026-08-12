@@ -3,6 +3,54 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Deployment prep: Railway backend + Vercel storefront (2026-08-12)
+
+Follow-up to the same day's security/build-fix session (below) — the user
+chose a target architecture (Vercel free tier for the storefront, Railway
+for Medusa, Supabase unchanged) and asked for everything automatable to be
+prepared, with only genuinely account-gated steps left manual. Full runbook
+in the new `DEPLOYMENT.md`; summary here.
+
+**Backend (Railway)**: added `apps/backend/railway.json` — Nixpacks build
+(`pnpm run build`), start command runs `medusa db:migrate` before `medusa
+start` on every boot, health check on Medusa's existing `/health` endpoint.
+No Dockerfile (Nixpacks auto-detects Node/pnpm from `package.json`), no
+Redis add-on (confirmed by search: `REDIS_URL` is listed in
+`.env.template` but never referenced by `medusa-config.ts` or anywhere in
+`src/` — this app's event bus/workflow engine already use Medusa's
+in-memory defaults, so paying for Redis would add cost for a feature this
+app doesn't use).
+
+**Real SEO bug found and fixed**: `lib/site-config.ts`'s `siteUrl` was
+hardcoded to `https://www.stia.gr` — a domain that has never been
+registered (per `PROJECT_MEMORY.md`, "never trademark-checked"). Deployed
+as-is, every canonical URL, sitemap entry, JSON-LD block, and Open Graph
+tag would have pointed at a domain not serving the site — actively harmful
+to indexing, not just an imperfection. Fixed to resolve, in order: an
+explicit `NEXT_PUBLIC_SITE_URL` (for once a real domain exists) → Vercel's
+own auto-provided `VERCEL_URL` (correct on every deploy with zero config)
+→ the placeholder, kept only as the local-dev fallback.
+
+**Storefront image config now follows the backend automatically**:
+`next.config.ts`'s `images.remotePatterns` was hardcoded to
+`localhost:9000` only — product images would have been blocked by Next's
+image optimizer in production. Now derives an additional allowed host from
+`NEXT_PUBLIC_MEDUSA_BACKEND_URL` at build time, so a Railway URL (or any
+future backend host) works without a manual edit to this file per deploy.
+
+**Fresh production secrets generated** (`JWT_SECRET`, `COOKIE_SECRET`) —
+handed to the user directly, deliberately not written to any committed
+file. `AUTH_MFA_ENCRYPTION_KEY` explicitly **not** regenerated: it encrypts
+MFA data already stored in the same production Supabase database that
+Railway will connect to, so a new value would orphan existing encrypted
+rows — documented in `DEPLOYMENT.md` to copy the existing value unchanged.
+
+**Genuinely left manual** (needs real account access this session doesn't
+have — no Railway/Render/Vercel CLI authenticated, no connected browser
+session): creating the Railway and Vercel projects, connecting the GitHub
+repo, setting each project's Root Directory, and pasting in the documented
+environment variables. Full checklist in `DEPLOYMENT.md`.
+
 ## Production security fix + first-deploy build fix (2026-08-12)
 
 Triggered by a user report of two Supabase security-linter warnings

@@ -10,6 +10,16 @@ in these files. **Sections 1-7 below this point are historical/stale** (written
 mid-way through an earlier session) — trust this summary and `CHANGELOG.md`
 over that old detailed body if they ever disagree.
 
+**2026-08-12 (later the same day) — Deployment prep for Railway (backend) +
+Vercel (storefront) + Supabase (unchanged). Full runbook: `DEPLOYMENT.md`
+(new). `railway.json` added and committed. Real SEO bug fixed (hardcoded
+placeholder domain in `siteUrl` — would have broken canonical/sitemap/JSON-LD
+in production). Nothing deployed yet — this session has no Railway/Vercel
+account access (no CLI login, no connected browser). Next session or the
+user: follow `DEPLOYMENT.md`'s "Manual steps" to actually create the
+projects; once Railway's first deploy succeeds, its public URL is the
+`NEXT_PUBLIC_MEDUSA_BACKEND_URL` value for Vercel.**
+
 **2026-08-12 — Supabase RLS lockdown (all 152 tables, verified live) and a
 Vercel first-deploy build fix. Full detail in `CHANGELOG.md`'s newest entry;
 summary here:**
