@@ -164,6 +164,24 @@ export type MedusaOrder = {
   metadata: Record<string, unknown> | null;
 };
 
+export type MedusaCustomer = {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+};
+
+// Same shape as MedusaAddress (Medusa's address fields are consistent
+// across cart/order/customer) plus an id and default-shipping flag, since
+// unlike a cart/order's embedded address, a saved customer address is its
+// own addressable/editable/deletable resource.
+export type MedusaCustomerAddress = MedusaAddress & {
+  id: string;
+  address_name: string | null;
+  is_default_shipping: boolean;
+};
+
 // Medusa's `/store/carts/:id/complete` returns a discriminated union: a
 // successful completion produces the order; a workflow-level failure (e.g.
 // stock disappeared between checkout and submission) returns the cart back

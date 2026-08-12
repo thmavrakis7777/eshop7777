@@ -10,6 +10,18 @@ in these files. **Sections 1-7 below this point are historical/stale** (written
 mid-way through an earlier session) — trust this summary and `CHANGELOG.md`
 over that old detailed body if they ever disagree.
 
+**2026-08-12 (even later the same day) — Full customer authentication
+system built: register/login/logout/forgot-password/reset-password + a
+protected dashboard (profile, addresses, orders, change password). The
+account icon (previously a 404) now always resolves — to login when
+signed out, to the dashboard when signed in. Verified live end-to-end
+against the real backend, not just code-inspected. Full detail in
+`CHANGELOG.md`'s newest entry and `PROJECT_MEMORY.md`'s "Customer
+authentication architecture" section. Not committed yet. Not built this
+round: guest-cart merge on login, server-side wishlist sync for logged-in
+customers, checkout auto-fill from a saved address — real follow-ups, not
+forgotten.**
+
 **2026-08-12 (later still the same day) — Full technical audit (Opus 5
 agent). Three real bugs fixed (checkout-blocking cart-drawer link, dead
 search sort control, unescaped HTML in order-confirmation emails), two

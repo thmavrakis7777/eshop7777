@@ -1132,9 +1132,13 @@ above for the current, real plan:
 - [x] Wishlist + account header icons on true mobile widths — **done**
       2026-08-12: added both to `MobileMenu.tsx` (live count badge on
       wishlist, same `useWishlist()` context as the desktop header).
-- [ ] Account area (`/logariasmos`) — still 404, no auth system exists.
-      Proposal written: `ACCOUNT_SYSTEM_SPEC.md` (2026-08-12) — needs the
-      user's sign-off on 3 open decisions before an implementation spec.
+- [x] Account area (`/logariasmos`) — **done 2026-08-12**: real register/
+      login/logout/forgot-password/reset-password + a protected dashboard
+      (profile/addresses/orders/change-password), verified live end-to-end.
+      See `PROJECT_MEMORY.md`'s "Customer authentication architecture."
+      Explicitly not built this round (real follow-ups, not forgotten):
+      guest-cart merge on login, server-side wishlist sync, checkout
+      auto-fill from a saved address.
 - [ ] About/legal/help content pages — routes now exist for all 11 footer
       links (5 added 2026-08-12: `paraggelia`, `epikoinonia`,
       `odigoi-agoron`, `karieres`, `cookies`, alongside the original 6),

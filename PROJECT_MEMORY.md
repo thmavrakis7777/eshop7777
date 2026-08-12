@@ -2122,6 +2122,67 @@ nested Turborepo/pnpm workspace):
     this audit's live Admin API verification — same established pattern
     as its six predecessors, harmless, left in place.
 
+## Customer authentication architecture (2026-08-12)
+
+Built because the header/mobile-menu account icon pointed at `/logariasmos`
+with nothing behind it — confirmed by inspection that no auth system
+existed anywhere in this codebase before this. Full flow: register, login,
+logout, forgot/reset password (real email via the existing SendGrid
+integration, degrades to a logged no-op the same way order confirmations
+do when unconfigured — confirmed live), a protected dashboard (profile,
+address book, order history, change password), and a live link to the
+already-existing `/lista-epithymion` for wishlist rather than a duplicate.
+
+- **Session**: Medusa's JWT in an httpOnly, `sameSite=lax` cookie
+  (`_medusa_jwt`) — exact same shape and reasoning as the cart's `cart_id`
+  cookie. Set/cleared only from Server Actions (`lib/actions/customer.ts`),
+  read via `getCustomer()` (`lib/data/customer.ts`, never throws — an
+  expired/invalid token reads as "not logged in," same discipline as
+  `getCart()`).
+- **Register flow is three real Medusa calls**, not one — verified against
+  the installed `@medusajs/medusa` package's actual route source rather
+  than assumed: `POST /auth/customer/emailpass/register` (actorless
+  token) → `POST /store/customers` (creates the customer, links it to the
+  auth identity) → `POST /auth/token/refresh` (now returns a token with
+  the customer attached). Skipping the refresh step leaves a customer that
+  exists but can never be "logged in" as via the register response alone.
+- **Password change while already logged in needed a custom route** —
+  Medusa's own `POST /auth/customer/emailpass/update` only accepts a
+  reset-purpose token (its `validateToken` middleware explicitly rejects a
+  normal session/bearer token), there is no core "change my password"
+  endpoint. Added `POST /store/customers/me/password`
+  (`src/api/store/customers/me/password/route.ts`) — already covered by
+  Medusa's own `/store/customers/me*` wildcard customer-auth middleware,
+  no new middleware registration needed. Verifies the current password via
+  `authModuleService.authenticate("emailpass", ...)` (read-only, stays in
+  the route), then the actual mutation runs in a workflow step
+  (`change-customer-password.ts`) — required by this repo's
+  `@medusajs/no-service-mutations-in-api-route` lint rule, which core
+  Medusa's own auth routes don't follow (they predate/bypass it) but this
+  project's lint config enforces for custom routes.
+- **Password reset email**: `auth.password_reset` is Medusa's own emitted
+  event (`generateResetPasswordTokenWorkflow`, 15-minute single-use token)
+  — a new subscriber (`src/subscribers/auth-password-reset.ts`) builds the
+  storefront reset link and sends it via the same notification module as
+  order confirmations, same "never let an optional email break the
+  primary flow" try/catch discipline as `order-placed.ts`.
+- **Addresses reuse `Address`** (the checkout form's Greek Οδός/Αριθμός-
+  split type) for the saved address book, `AddressSummary`/`Order` for
+  order history — no new shapes invented where an existing one already
+  fit. Order history's "view details" link reuses the guest checkout
+  confirmation page (`/checkout/epibebaiosi?order=:id`) rather than a new
+  detail page — already confirmed elsewhere in this codebase to work with
+  just the order id, no session required.
+- **Not built this round** (out of scope for this pass, flagged, not
+  silently skipped): merging a guest cart into the customer session on
+  login, syncing wishlist server-side for logged-in customers, checkout
+  auto-fill from a saved address. All three are real, natural follow-ups
+  once this base exists, not forgotten.
+- Test accounts created live during verification (`test-account-*@stia.gr`
+  in the browser, two `curltest*@stia.gr` via direct API calls) — same
+  "harmless, cleanup whenever convenient" status as this project's other
+  documented test artifacts.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

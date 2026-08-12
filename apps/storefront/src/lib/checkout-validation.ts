@@ -21,6 +21,10 @@ export function isRequired(value: string): boolean {
   return value.trim().length > 0;
 }
 
+export function isValidPassword(value: string): boolean {
+  return value.length >= 8;
+}
+
 // Standard Greek ΑΦΜ checksum (the same publicly-documented mod-11 formula
 // used across Greek tax-ID validators): the last of the 9 digits is a check
 // digit computed from the first 8, weighted by descending powers of 2, mod

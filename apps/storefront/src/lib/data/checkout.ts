@@ -70,7 +70,7 @@ export async function getOrder(orderId: string): Promise<Order | null> {
   }
 }
 
-function toDomainOrder(o: MedusaOrder): Order {
+export function toDomainOrder(o: MedusaOrder): Order {
   return {
     id: o.id,
     displayId: o.display_id,

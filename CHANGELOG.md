@@ -3,6 +3,42 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Customer authentication system (2026-08-12)
+
+The header/mobile-menu account icon 404'd — `/logariasmos` had no route at
+all. Inspected first (per explicit instruction): confirmed zero auth
+infrastructure existed anywhere in this codebase, and read the actual
+installed `@medusajs/medusa` package source to get exact API shapes rather
+than guessing. Full detail in `PROJECT_MEMORY.md`'s new "Customer
+authentication architecture" section.
+
+Built: register (real 3-call Medusa flow: register → create customer →
+refresh token), login, logout, forgot/reset password (real email via the
+existing SendGrid integration, new subscriber
+`src/subscribers/auth-password-reset.ts`), and a protected dashboard —
+profile, address book (full CRUD), order history (reuses the guest
+checkout confirmation page as the detail view), change password (needed a
+small custom backend route + workflow — Medusa's own core `/update`
+endpoint is reset-flow-only and rejects a normal session token, confirmed
+by reading its middleware), and a wishlist link to the already-existing
+`/lista-epithymion` rather than a duplicate.
+
+Session: Medusa's JWT in an httpOnly cookie, same shape as the cart's
+`cart_id` cookie. `/logariasmos` itself redirects to login when signed out
+and to the dashboard when already signed in — the account icon now never
+404s regardless of auth state.
+
+Verified live end-to-end against the real backend, not just code-inspected:
+register → dashboard → profile update → add/edit/delete address → change
+password (confirmed via direct API calls that the old token keeps working
+after a password change, then confirmed in-browser that login with the old
+password now fails and the new password works) → logout → login → forgot-
+password request (confirmed the `auth.password_reset` subscriber fires and
+degrades gracefully without a configured SendGrid key, same as order
+confirmations) → reset-password page correctly shows an invalid-link state
+with no token. Full `tsc`/`eslint`/`build` (storefront) and `tsc`/`medusa
+lint` (backend) gate clean throughout.
+
 ## Real Content-Security-Policy with per-request nonces (2026-08-12)
 
 Closes the CSP gap flagged since the original production-readiness audit.

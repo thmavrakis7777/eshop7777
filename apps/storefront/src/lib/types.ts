@@ -206,3 +206,21 @@ export type Order = {
   invoiceDetails?: InvoiceDetails;
   createdAt: string;
 };
+
+export type Customer = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+};
+
+// A saved address book entry — the same field shape as the checkout
+// form's `Address` (street/number split, Greek convention) plus its own id
+// so it can be selected/edited/deleted, and an optional label since a
+// customer can have more than one saved address.
+export type CustomerAddress = Address & {
+  id: string;
+  label?: string;
+  isDefaultShipping: boolean;
+};
