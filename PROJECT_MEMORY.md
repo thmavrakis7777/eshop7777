@@ -2081,6 +2081,47 @@ nested Turborepo/pnpm workspace):
   - **This closes the Admin-first platform roadmap.** Phases A through K
     are all built, verified live, and committed.
 
+- **Admin-first platform post-implementation audit (2026-08-12)**: the
+  first holistic review of everything Phases A-K shipped (as opposed to
+  each phase's own self-contained verification). Full findings and fixes
+  are in `CHANGELOG.md`'s matching entry; the two load-bearing takeaways
+  to remember if this surface is touched again:
+  - **`ends_at`/expiry-style checks on a free-text date field must fail
+    closed, not open.** `new Date(x).getTime() <= Date.now()` silently
+    evaluates `false` for an unparseable `x` (`NaN <= anything` is
+    `false` in JS) — found live in both `promo-banner`'s store route and
+    its own admin page. Any future admin-entered "expires at"/"valid
+    until" field needs an explicit `Number.isNaN` guard that resolves to
+    "expired/hidden," not "still live."
+  - **Every admin create/update route needs the same validation
+    discipline as `seo`/`content-pages`/`homepage-blocks`'s create
+    route** — a 400 with a message for a missing required field, not a
+    bare pass-through to the workflow that lets the DB's NOT NULL/check
+    constraint throw an unhandled 500. `media-assets` and
+    `search-synonyms` had none at all before this audit; `homepage-
+    blocks`' own update route was missing the same `kind` check its
+    create route already had. Copy this pattern for any new module.
+  - Also fixed: no admin route anywhere had error handling on its
+    initial-load `fetch` (a failed GET looked identical to "nothing
+    saved yet") — now every singleton/list page's load effect has a
+    `.catch()` + error toast; `product-extras`' single-product store
+    route was trimmed to stop exposing `hide_from_search`/
+    `is_search_boosted` (internal search-tuning flags, not needed by the
+    PDP consumer); accessibility (`htmlFor`/`id` linking on every text
+    field, missing `<Label>`s in Media/Search) and narrow-sidebar
+    `grid-cols-2` layouts (the product detail page's side rail) were
+    also fixed for consistency.
+  - **Not fixed, flagged as a real but low-priority gap**: `site-
+    settings`/`promo-banner`/`analytics-settings` enforce "exactly one
+    row" only at the workflow level (list-then-create-or-update), no DB
+    unique constraint — a real race under concurrent writes, low
+    likelihood for a single-admin internal tool, would need a new
+    migration per module to close properly. Revisit if this ever becomes
+    a multi-admin-editor tool.
+  - A seventh temporary admin user, `qa-agent6@stia.gr`, was created for
+    this audit's live Admin API verification — same established pattern
+    as its six predecessors, harmless, left in place.
+
 ## Environment setup
 
 This machine has **no admin rights available to Claude Code sessions** (UAC

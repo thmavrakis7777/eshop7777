@@ -54,6 +54,9 @@ export function SeoForm({
         if (cancelled) return
         if (data.seo) setForm({ ...EMPTY_FORM, ...data.seo })
       })
+      .catch(() => {
+        if (!cancelled) toast.error("Η φόρτωση απέτυχε")
+      })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
       })
@@ -105,8 +108,9 @@ export function SeoForm({
 
       <div className="flex flex-col gap-4 px-6 py-4">
         <div className="flex flex-col gap-y-2">
-          <Label size="small">SEO Title</Label>
+          <Label htmlFor="seo-title" size="small">SEO Title</Label>
           <Input
+            id="seo-title"
             value={form.seo_title ?? ""}
             onChange={(e) => update("seo_title", e.target.value)}
             placeholder="Χρησιμοποιείται ο προεπιλεγμένος τίτλος αν μείνει κενό"
@@ -114,8 +118,9 @@ export function SeoForm({
         </div>
 
         <div className="flex flex-col gap-y-2">
-          <Label size="small">Meta Description</Label>
+          <Label htmlFor="seo-meta-description" size="small">Meta Description</Label>
           <Textarea
+            id="seo-meta-description"
             rows={3}
             value={form.meta_description ?? ""}
             onChange={(e) => update("meta_description", e.target.value)}
@@ -124,28 +129,34 @@ export function SeoForm({
         </div>
 
         <div className="flex flex-col gap-y-2">
-          <Label size="small">Canonical URL</Label>
+          <Label htmlFor="seo-canonical-url" size="small">Canonical URL</Label>
           <Input
+            id="seo-canonical-url"
             value={form.canonical_url ?? ""}
             onChange={(e) => update("canonical_url", e.target.value)}
             placeholder="Αυτόματο αν μείνει κενό"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-y-2">
-            <Label size="small">OG Title</Label>
-            <Input value={form.og_title ?? ""} onChange={(e) => update("og_title", e.target.value)} />
+            <Label htmlFor="seo-og-title" size="small">OG Title</Label>
+            <Input id="seo-og-title" value={form.og_title ?? ""} onChange={(e) => update("og_title", e.target.value)} />
           </div>
           <div className="flex flex-col gap-y-2">
-            <Label size="small">OG Description</Label>
-            <Input value={form.og_description ?? ""} onChange={(e) => update("og_description", e.target.value)} />
+            <Label htmlFor="seo-og-description" size="small">OG Description</Label>
+            <Input
+              id="seo-og-description"
+              value={form.og_description ?? ""}
+              onChange={(e) => update("og_description", e.target.value)}
+            />
           </div>
         </div>
 
         <div className="flex flex-col gap-y-2">
-          <Label size="small">Social Image URL</Label>
+          <Label htmlFor="seo-social-image-url" size="small">Social Image URL</Label>
           <Input
+            id="seo-social-image-url"
             value={form.social_image_url ?? ""}
             onChange={(e) => update("social_image_url", e.target.value)}
             placeholder="Ανέβασε εικόνα και επικόλλησε το URL της"
@@ -153,14 +164,19 @@ export function SeoForm({
         </div>
 
         <div className="flex flex-col gap-y-2">
-          <Label size="small">Λέξεις-κλειδιά (προαιρετικό)</Label>
-          <Input value={form.keywords ?? ""} onChange={(e) => update("keywords", e.target.value)} placeholder="χωρισμένες με κόμμα" />
+          <Label htmlFor="seo-keywords" size="small">Λέξεις-κλειδιά (προαιρετικό)</Label>
+          <Input
+            id="seo-keywords"
+            value={form.keywords ?? ""}
+            onChange={(e) => update("keywords", e.target.value)}
+            placeholder="χωρισμένες με κόμμα"
+          />
         </div>
 
         <div className="flex flex-col gap-y-2">
-          <Label size="small">Robots</Label>
+          <Label htmlFor="seo-robots" size="small">Robots</Label>
           <Select value={form.robots} onValueChange={(value) => update("robots", value as "index" | "noindex")}>
-            <Select.Trigger>
+            <Select.Trigger id="seo-robots">
               <Select.Value />
             </Select.Trigger>
             <Select.Content>

@@ -11,7 +11,11 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const service = req.scope.resolve<PromoBannerServiceMethods>(PROMO_BANNER_MODULE)
   const [banner] = await service.listPromoBanners()
 
-  const isExpired = banner?.ends_at ? new Date(banner.ends_at).getTime() <= Date.now() : false
+  // Fail closed, not open: an unparseable ends_at (only reachable via a
+  // malformed direct API write, never via the admin's datetime-local input)
+  // must hide the banner, not leave it live indefinitely.
+  const endsAtMs = banner?.ends_at ? new Date(banner.ends_at).getTime() : null
+  const isExpired = endsAtMs === null ? false : Number.isNaN(endsAtMs) ? true : endsAtMs <= Date.now()
   const isLive = banner?.is_published && !isExpired
 
   res.json({ banner: isLive ? banner : null })

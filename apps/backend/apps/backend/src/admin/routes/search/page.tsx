@@ -1,5 +1,5 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
-import { Button, Heading, Input, Text, toast } from "@medusajs/ui"
+import { Button, Heading, Input, Label, Text, toast } from "@medusajs/ui"
 import { useEffect, useState } from "react"
 
 type SynonymRecord = { id: string; terms: string }
@@ -60,7 +60,17 @@ function SynonymRow({
 
   return (
     <div className="flex items-center gap-2 border-b border-ui-border-base px-4 py-3 last:border-b-0">
-      <Input value={terms} onChange={(e) => setTerms(e.target.value)} placeholder="π.χ. τηγάνι, tigani, pan" />
+      <div className="flex flex-1 flex-col gap-y-1">
+        <Label htmlFor={`terms-${synonym.id}`} size="small" className="sr-only">
+          Όροι
+        </Label>
+        <Input
+          id={`terms-${synonym.id}`}
+          value={terms}
+          onChange={(e) => setTerms(e.target.value)}
+          placeholder="π.χ. τηγάνι, tigani, pan"
+        />
+      </div>
       <Button size="small" variant="secondary" onClick={handleSave} isLoading={isSaving}>
         Αποθήκευση
       </Button>
@@ -82,6 +92,9 @@ const SearchPage = () => {
       .then((res) => res.json())
       .then((data: { synonyms: SynonymRecord[] }) => {
         if (!cancelled) setSynonyms(data.synonyms)
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Η φόρτωση απέτυχε")
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false)

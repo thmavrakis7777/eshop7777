@@ -60,6 +60,9 @@ const PromoBannerPage = () => {
         if (cancelled) return
         if (data.banner) setForm({ ...EMPTY_FORM, ...data.banner })
       })
+      .catch(() => {
+        if (!cancelled) toast.error("Η φόρτωση απέτυχε")
+      })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
       })
@@ -90,7 +93,12 @@ const PromoBannerPage = () => {
     }
   }
 
-  const isExpired = form.ends_at ? new Date(form.ends_at).getTime() <= Date.now() : false
+  // Fail closed on a malformed ends_at (only reachable via a direct API
+  // write, never via this datetime-local input) — treat it as expired
+  // rather than silently reading as "still live indefinitely". Mirrors the
+  // storefront's /store/promo-banner route.
+  const endsAtMs = form.ends_at ? new Date(form.ends_at).getTime() : null
+  const isExpired = endsAtMs === null ? false : Number.isNaN(endsAtMs) ? true : endsAtMs <= Date.now()
 
   return (
     <div className="flex flex-col gap-y-3">
@@ -125,23 +133,24 @@ const PromoBannerPage = () => {
 
           <div className="flex flex-col gap-4 px-6 py-4">
             <div className="flex flex-col gap-y-2">
-              <Label size="small">Τίτλος</Label>
-              <Input value={form.headline ?? ""} onChange={(e) => update("headline", e.target.value)} />
+              <Label htmlFor="promo-headline" size="small">Τίτλος</Label>
+              <Input id="promo-headline" value={form.headline ?? ""} onChange={(e) => update("headline", e.target.value)} />
             </div>
 
             <div className="flex flex-col gap-y-2">
-              <Label size="small">Κείμενο</Label>
-              <Textarea rows={2} value={form.body ?? ""} onChange={(e) => update("body", e.target.value)} />
+              <Label htmlFor="promo-body" size="small">Κείμενο</Label>
+              <Textarea id="promo-body" rows={2} value={form.body ?? ""} onChange={(e) => update("body", e.target.value)} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-y-2">
-                <Label size="small">Κείμενο κουμπιού</Label>
-                <Input value={form.cta_label ?? ""} onChange={(e) => update("cta_label", e.target.value)} />
+                <Label htmlFor="promo-cta-label" size="small">Κείμενο κουμπιού</Label>
+                <Input id="promo-cta-label" value={form.cta_label ?? ""} onChange={(e) => update("cta_label", e.target.value)} />
               </div>
               <div className="flex flex-col gap-y-2">
-                <Label size="small">Σύνδεσμος κουμπιού</Label>
+                <Label htmlFor="promo-cta-href" size="small">Σύνδεσμος κουμπιού</Label>
                 <Input
+                  id="promo-cta-href"
                   value={form.cta_href ?? ""}
                   onChange={(e) => update("cta_href", e.target.value)}
                   placeholder="/kouzina"
@@ -150,8 +159,9 @@ const PromoBannerPage = () => {
             </div>
 
             <div className="flex flex-col gap-y-2">
-              <Label size="small">Λήγει στις</Label>
+              <Label htmlFor="promo-ends-at" size="small">Λήγει στις</Label>
               <Input
+                id="promo-ends-at"
                 type="datetime-local"
                 value={isoToLocalInputValue(form.ends_at)}
                 onChange={(e) => update("ends_at", localInputValueToIso(e.target.value))}

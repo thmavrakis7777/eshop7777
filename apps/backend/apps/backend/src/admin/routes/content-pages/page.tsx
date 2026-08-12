@@ -47,6 +47,9 @@ const ContentPagesPage = () => {
         if (cancelled) return
         setForm(data.page ? { ...EMPTY_FORM, ...data.page } : EMPTY_FORM)
       })
+      .catch(() => {
+        if (!cancelled) toast.error("Η φόρτωση απέτυχε")
+      })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
       })
@@ -116,13 +119,14 @@ const ContentPagesPage = () => {
         ) : (
           <div className="flex flex-col gap-4 px-6 py-4">
             <div className="flex flex-col gap-y-2">
-              <Label size="small">Τίτλος</Label>
-              <Input value={form.title} onChange={(e) => update("title", e.target.value)} />
+              <Label htmlFor="content-page-title" size="small">Τίτλος</Label>
+              <Input id="content-page-title" value={form.title} onChange={(e) => update("title", e.target.value)} />
             </div>
 
             <div className="flex flex-col gap-y-2">
-              <Label size="small">Περιεχόμενο</Label>
+              <Label htmlFor="content-page-body" size="small">Περιεχόμενο</Label>
               <Textarea
+                id="content-page-body"
                 rows={16}
                 value={form.body ?? ""}
                 onChange={(e) => update("body", e.target.value)}

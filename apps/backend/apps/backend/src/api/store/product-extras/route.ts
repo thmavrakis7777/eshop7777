@@ -13,5 +13,19 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 
   const service = req.scope.resolve<ProductExtraServiceMethods>(PRODUCT_EXTRA_MODULE)
   const [extra] = await service.listProductExtras({ product_id })
-  res.json({ extra: extra ?? null })
+
+  // Only the PDP-facing fields — hide_from_search/is_search_boosted are
+  // internal search-tuning signals (already surfaced, batched, through
+  // /store/product-extras/search-overrides for the search catalog itself)
+  // and have no reason to be exposed through this single-product lookup.
+  res.json({
+    extra: extra
+      ? {
+          badge_label: extra.badge_label,
+          badge_tone: extra.badge_tone,
+          warranty_text: extra.warranty_text,
+          downloads_url: extra.downloads_url,
+        }
+      : null,
+  })
 }

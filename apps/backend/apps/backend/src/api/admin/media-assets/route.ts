@@ -10,6 +10,12 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 }
 
 export async function POST(req: MedusaRequest<CreateMediaAssetInput>, res: MedusaResponse) {
+  const { label, url } = req.body
+  if (!label?.trim() || !url?.trim()) {
+    res.status(400).json({ message: "label and url are required" })
+    return
+  }
+
   const { result: asset } = await createMediaAssetWorkflow(req.scope).run({
     input: req.body,
   })

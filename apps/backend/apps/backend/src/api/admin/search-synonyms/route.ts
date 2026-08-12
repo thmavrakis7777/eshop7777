@@ -10,6 +10,11 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 }
 
 export async function POST(req: MedusaRequest<CreateSearchSynonymInput>, res: MedusaResponse) {
+  if (!req.body.terms?.trim()) {
+    res.status(400).json({ message: "terms is required" })
+    return
+  }
+
   const { result: synonym } = await createSearchSynonymWorkflow(req.scope).run({
     input: req.body,
   })

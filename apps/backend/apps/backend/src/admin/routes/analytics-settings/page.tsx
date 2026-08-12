@@ -35,6 +35,9 @@ const AnalyticsSettingsPage = () => {
         if (cancelled) return
         if (data.settings) setForm({ ...EMPTY_FORM, ...data.settings })
       })
+      .catch(() => {
+        if (!cancelled) toast.error("Η φόρτωση απέτυχε")
+      })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
       })
@@ -93,8 +96,9 @@ const AnalyticsSettingsPage = () => {
 
           <div className="flex flex-col gap-4 px-6 py-4">
             <div className="flex flex-col gap-y-2">
-              <Label size="small">Google Analytics 4 — Measurement ID</Label>
+              <Label htmlFor="ga4-measurement-id" size="small">Google Analytics 4 — Measurement ID</Label>
               <Input
+                id="ga4-measurement-id"
                 value={form.ga4_measurement_id ?? ""}
                 onChange={(e) => update("ga4_measurement_id", e.target.value)}
                 placeholder="G-XXXXXXXXXX"
@@ -102,8 +106,9 @@ const AnalyticsSettingsPage = () => {
             </div>
 
             <div className="flex flex-col gap-y-2">
-              <Label size="small">Google Tag Manager — Container ID</Label>
+              <Label htmlFor="gtm-container-id" size="small">Google Tag Manager — Container ID</Label>
               <Input
+                id="gtm-container-id"
                 value={form.gtm_container_id ?? ""}
                 onChange={(e) => update("gtm_container_id", e.target.value)}
                 placeholder="GTM-XXXXXXX"
@@ -111,8 +116,9 @@ const AnalyticsSettingsPage = () => {
             </div>
 
             <div className="flex flex-col gap-y-2">
-              <Label size="small">Meta Pixel ID</Label>
+              <Label htmlFor="meta-pixel-id" size="small">Meta Pixel ID</Label>
               <Input
+                id="meta-pixel-id"
                 value={form.meta_pixel_id ?? ""}
                 onChange={(e) => update("meta_pixel_id", e.target.value)}
                 placeholder="123456789012345"
@@ -120,8 +126,9 @@ const AnalyticsSettingsPage = () => {
             </div>
 
             <div className="flex flex-col gap-y-2">
-              <Label size="small">Microsoft Clarity — Project ID</Label>
+              <Label htmlFor="clarity-project-id" size="small">Microsoft Clarity — Project ID</Label>
               <Input
+                id="clarity-project-id"
                 value={form.clarity_project_id ?? ""}
                 onChange={(e) => update("clarity_project_id", e.target.value)}
                 placeholder="abcd1234ef"

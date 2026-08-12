@@ -1016,6 +1016,43 @@ Library, Campaigns, Analytics/Consent) are all built, verified live
 against the real Supabase database, and committed. See `CHANGELOG.md`
 for each phase's own entry.
 
+**Admin-first platform post-implementation audit: done (2026-08-12).**
+A full audit of the whole Admin-first platform surface plus its
+storefront integration (Admin Dashboard, custom modules/workflows/
+routes, storefront data flow, bugs, dead code, performance, SEO,
+security) — the pre-existing catalog/cart/checkout code was explicitly
+out of scope (already covered by the earlier "Full technical audit").
+See `CHANGELOG.md`'s "Admin-first platform post-implementation audit"
+entry for the full list.
+- [x] Two real logic bugs fixed (promo-banner expiry fail-open on a bad
+      date; content-pages create's spread-order bug that could bypass
+      the slug-fallback title)
+- [x] Missing input validation added to `media-assets`/`search-synonyms`
+      (create+update) and `homepage-blocks` (update, to match its own
+      create route)
+- [x] `product-extras`' single-product store route trimmed to stop
+      exposing internal search-tuning flags it doesn't need to
+- [x] Every admin route's initial-load fetch now has real error handling
+      (previously: none did, a failed load looked identical to "nothing
+      saved yet")
+- [x] Cross-page consistency fixes: Site Settings' Save button now
+      matches its siblings, Homepage CMS gained a real empty state,
+      Media/Search gained real `<Label>`s, every text field across all
+      nine admin routes now has `htmlFor`/`id` linking, narrow-sidebar
+      `grid-cols-2` layouts made responsive
+- [x] `tsc`/`eslint`/`medusa lint` clean, full `next build` (19 routes)
+      and full `medusa build` clean, before and after; backend fixes
+      re-verified live via direct Admin API calls, admin UI fixes
+      spot-checked live in the browser
+- [ ] **Not fixed, flagged as a real but low-priority gap**: the three
+      singleton modules (site-settings/promo-banner/analytics-settings)
+      have no DB-level unique constraint backing their "exactly one row"
+      invariant — a real race under concurrent writes, low likelihood
+      for a single-admin tool, needs a new migration per module to close
+- A seventh temporary admin user, `qa-agent6@stia.gr`, was created for
+  this audit's verification — see the housekeeping list below (now 7
+  qa-agent-pattern users to eventually delete, not 6).
+
 ## Next
 
 This session's New Arrivals/infinite-scroll/carousels work (above) is
@@ -1150,9 +1187,10 @@ above for the current, real plan:
       review
 - [ ] Delete the temporary `qa-agent`-pattern admin users — `test-agent@
       stia.gr`, `qa-agent@stia.gr`, `qa-agent2@stia.gr`, `qa-agent3@stia.gr`,
-      `qa-agent4@stia.gr`, `qa-agent5@stia.gr` (created one per session as
-      needed to drive the Admin API directly for verification, Phase 4A
-      through Phase K — all harmless but unnecessary; see
+      `qa-agent4@stia.gr`, `qa-agent5@stia.gr`, `qa-agent6@stia.gr`
+      (created one per session as needed to drive the Admin API directly
+      for verification, Phase 4A through the Admin-first platform
+      post-implementation audit — all harmless but unnecessary; see
       `PROJECT_MEMORY.md` for which phase created each one)
 - [ ] Decide the real free-shipping threshold and set
       `NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD_EUR` accordingly (currently a €50

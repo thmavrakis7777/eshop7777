@@ -1,5 +1,5 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
-import { Button, Heading, Input, Text, toast } from "@medusajs/ui"
+import { Button, Heading, Input, Label, Text, toast } from "@medusajs/ui"
 import { useEffect, useState } from "react"
 
 type AssetRecord = { id: string; label: string; url: string }
@@ -59,8 +59,18 @@ function AssetRow({
 
   return (
     <div className="flex flex-col gap-2 border-b border-ui-border-base px-4 py-3 last:border-b-0 md:flex-row md:items-center">
-      <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Ετικέτα" className="md:w-48" />
-      <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." className="flex-1" />
+      <div className="flex flex-col gap-y-1 md:w-48">
+        <Label htmlFor={`label-${asset.id}`} size="small" className="sr-only">
+          Ετικέτα
+        </Label>
+        <Input id={`label-${asset.id}`} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Ετικέτα" />
+      </div>
+      <div className="flex flex-col gap-y-1 flex-1">
+        <Label htmlFor={`url-${asset.id}`} size="small" className="sr-only">
+          URL
+        </Label>
+        <Input id={`url-${asset.id}`} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." />
+      </div>
       <div className="flex gap-2">
         <Button size="small" variant="secondary" onClick={handleSave} isLoading={isSaving}>
           Αποθήκευση
@@ -84,6 +94,9 @@ const MediaPage = () => {
       .then((res) => res.json())
       .then((data: { assets: AssetRecord[] }) => {
         if (!cancelled) setAssets(data.assets)
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Η φόρτωση απέτυχε")
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false)

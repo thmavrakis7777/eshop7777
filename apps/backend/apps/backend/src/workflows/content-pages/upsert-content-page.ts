@@ -22,7 +22,7 @@ const upsertContentPageStep = createStep("upsert-content-page", async (input: Up
 
   const page = existing
     ? await contentPageModuleService.updateContentPages({ id: existing.id, ...fields })
-    : await contentPageModuleService.createContentPages({ slug, title: fields.title ?? slug, ...fields })
+    : await contentPageModuleService.createContentPages({ slug, ...fields, title: fields.title ?? slug })
 
   return new StepResponse(page, page.id)
 })

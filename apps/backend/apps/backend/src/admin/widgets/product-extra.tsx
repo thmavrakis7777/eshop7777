@@ -41,6 +41,9 @@ const ProductExtraWidget = ({ data }: { data: WidgetProductData }) => {
         if (cancelled) return
         if (res.extra) setForm({ ...EMPTY_FORM, ...res.extra })
       })
+      .catch(() => {
+        if (!cancelled) toast.error("Η φόρτωση απέτυχε")
+      })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
       })
@@ -91,19 +94,20 @@ const ProductExtraWidget = ({ data }: { data: WidgetProductData }) => {
       </div>
 
       <div className="flex flex-col gap-4 px-6 py-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-y-2">
-            <Label size="small">Ετικέτα (badge)</Label>
+            <Label htmlFor="extra-badge-label" size="small">Ετικέτα (badge)</Label>
             <Input
+              id="extra-badge-label"
               value={form.badge_label ?? ""}
               onChange={(e) => update("badge_label", e.target.value)}
               placeholder="π.χ. Χειροποίητο, Best Seller"
             />
           </div>
           <div className="flex flex-col gap-y-2">
-            <Label size="small">Χρώμα ετικέτας</Label>
+            <Label htmlFor="extra-badge-tone" size="small">Χρώμα ετικέτας</Label>
             <Select value={form.badge_tone} onValueChange={(v) => update("badge_tone", v as ExtraRecord["badge_tone"])}>
-              <Select.Trigger>
+              <Select.Trigger id="extra-badge-tone">
                 <Select.Value />
               </Select.Trigger>
               <Select.Content>
@@ -116,8 +120,9 @@ const ProductExtraWidget = ({ data }: { data: WidgetProductData }) => {
         </div>
 
         <div className="flex flex-col gap-y-2">
-          <Label size="small">Κείμενο εγγύησης</Label>
+          <Label htmlFor="extra-warranty-text" size="small">Κείμενο εγγύησης</Label>
           <Textarea
+            id="extra-warranty-text"
             rows={3}
             value={form.warranty_text ?? ""}
             onChange={(e) => update("warranty_text", e.target.value)}
@@ -126,8 +131,12 @@ const ProductExtraWidget = ({ data }: { data: WidgetProductData }) => {
         </div>
 
         <div className="flex flex-col gap-y-2">
-          <Label size="small">Σύνδεσμος Downloads (π.χ. εγχειρίδιο PDF)</Label>
-          <Input value={form.downloads_url ?? ""} onChange={(e) => update("downloads_url", e.target.value)} />
+          <Label htmlFor="extra-downloads-url" size="small">Σύνδεσμος Downloads (π.χ. εγχειρίδιο PDF)</Label>
+          <Input
+            id="extra-downloads-url"
+            value={form.downloads_url ?? ""}
+            onChange={(e) => update("downloads_url", e.target.value)}
+          />
         </div>
 
         <div className="flex flex-col gap-y-3 border-t border-ui-border-base pt-4">

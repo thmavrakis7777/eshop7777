@@ -44,6 +44,9 @@ const SiteSettingsPage = () => {
         if (cancelled) return
         if (data.settings) setForm({ ...EMPTY_FORM, ...data.settings })
       })
+      .catch(() => {
+        if (!cancelled) toast.error("Η φόρτωση απέτυχε")
+      })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
       })
@@ -97,8 +100,9 @@ const SiteSettingsPage = () => {
             </div>
             <div className="flex flex-col gap-4 px-6 py-4">
               <div className="flex flex-col gap-y-2">
-                <Label size="small">Κείμενο</Label>
+                <Label htmlFor="announcement-text" size="small">Κείμενο</Label>
                 <Input
+                  id="announcement-text"
                   value={form.announcement_text ?? ""}
                   onChange={(e) => update("announcement_text", e.target.value)}
                   placeholder="Άδειο = η μπάρα δεν εμφανίζεται καθόλου"
@@ -113,8 +117,9 @@ const SiteSettingsPage = () => {
             </div>
             <div className="flex flex-col gap-4 px-6 py-4">
               <div className="flex flex-col gap-y-2">
-                <Label size="small">Σύντομη περιγραφή καταστήματος</Label>
+                <Label htmlFor="footer-tagline" size="small">Σύντομη περιγραφή καταστήματος</Label>
                 <Textarea
+                  id="footer-tagline"
                   rows={2}
                   value={form.footer_tagline ?? ""}
                   onChange={(e) => update("footer_tagline", e.target.value)}
@@ -129,27 +134,29 @@ const SiteSettingsPage = () => {
               <Heading level="h2">Στοιχεία Επικοινωνίας</Heading>
             </div>
             <div className="flex flex-col gap-4 px-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-y-2">
-                  <Label size="small">Τηλέφωνο</Label>
-                  <Input value={form.contact_phone ?? ""} onChange={(e) => update("contact_phone", e.target.value)} />
+                  <Label htmlFor="contact-phone" size="small">Τηλέφωνο</Label>
+                  <Input id="contact-phone" value={form.contact_phone ?? ""} onChange={(e) => update("contact_phone", e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-y-2">
-                  <Label size="small">Email</Label>
-                  <Input value={form.contact_email ?? ""} onChange={(e) => update("contact_email", e.target.value)} />
+                  <Label htmlFor="contact-email" size="small">Email</Label>
+                  <Input id="contact-email" value={form.contact_email ?? ""} onChange={(e) => update("contact_email", e.target.value)} />
                 </div>
               </div>
               <div className="flex flex-col gap-y-2">
-                <Label size="small">Διεύθυνση</Label>
+                <Label htmlFor="contact-address" size="small">Διεύθυνση</Label>
                 <Textarea
+                  id="contact-address"
                   rows={2}
                   value={form.contact_address ?? ""}
                   onChange={(e) => update("contact_address", e.target.value)}
                 />
               </div>
               <div className="flex flex-col gap-y-2">
-                <Label size="small">Ωράριο</Label>
+                <Label htmlFor="business-hours" size="small">Ωράριο</Label>
                 <Textarea
+                  id="business-hours"
                   rows={3}
                   value={form.business_hours ?? ""}
                   onChange={(e) => update("business_hours", e.target.value)}
@@ -165,16 +172,16 @@ const SiteSettingsPage = () => {
             </div>
             <div className="flex flex-col gap-4 px-6 py-4">
               <div className="flex flex-col gap-y-2">
-                <Label size="small">Facebook URL</Label>
-                <Input value={form.facebook_url ?? ""} onChange={(e) => update("facebook_url", e.target.value)} />
+                <Label htmlFor="facebook-url" size="small">Facebook URL</Label>
+                <Input id="facebook-url" value={form.facebook_url ?? ""} onChange={(e) => update("facebook_url", e.target.value)} />
               </div>
               <div className="flex flex-col gap-y-2">
-                <Label size="small">Instagram URL</Label>
-                <Input value={form.instagram_url ?? ""} onChange={(e) => update("instagram_url", e.target.value)} />
+                <Label htmlFor="instagram-url" size="small">Instagram URL</Label>
+                <Input id="instagram-url" value={form.instagram_url ?? ""} onChange={(e) => update("instagram_url", e.target.value)} />
               </div>
               <div className="flex flex-col gap-y-2">
-                <Label size="small">TikTok URL</Label>
-                <Input value={form.tiktok_url ?? ""} onChange={(e) => update("tiktok_url", e.target.value)} />
+                <Label htmlFor="tiktok-url" size="small">TikTok URL</Label>
+                <Input id="tiktok-url" value={form.tiktok_url ?? ""} onChange={(e) => update("tiktok_url", e.target.value)} />
               </div>
             </div>
           </Container>
@@ -185,8 +192,9 @@ const SiteSettingsPage = () => {
             </div>
             <div className="flex flex-col gap-4 px-6 py-4">
               <div className="flex flex-col gap-y-2">
-                <Label size="small">Μήνυμα καλαθιού</Label>
+                <Label htmlFor="cart-message" size="small">Μήνυμα καλαθιού</Label>
                 <Input
+                  id="cart-message"
                   value={form.cart_message ?? ""}
                   onChange={(e) => update("cart_message", e.target.value)}
                   placeholder="Άδειο = δεν εμφανίζεται τίποτα. Εμφανίζεται στο συρτάρι και τη σελίδα καλαθιού, όχι στο ταμείο."
@@ -196,7 +204,7 @@ const SiteSettingsPage = () => {
           </Container>
 
           <div className="flex justify-end px-2">
-            <Button onClick={handleSave} isLoading={isSaving}>
+            <Button size="small" variant="secondary" onClick={handleSave} isLoading={isSaving}>
               Αποθήκευση
             </Button>
           </div>

@@ -112,14 +112,15 @@ function BlockCard({
       </div>
 
       <div className="flex flex-col gap-3 px-4 py-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-y-1">
-            <Label size="small">Eyebrow (μικρός τίτλος πάνω)</Label>
-            <Input value={form.eyebrow ?? ""} onChange={(e) => update("eyebrow", e.target.value)} />
+            <Label htmlFor={`eyebrow-${block.id}`} size="small">Eyebrow (μικρός τίτλος πάνω)</Label>
+            <Input id={`eyebrow-${block.id}`} value={form.eyebrow ?? ""} onChange={(e) => update("eyebrow", e.target.value)} />
           </div>
           <div className="flex flex-col gap-y-1">
-            <Label size="small">Σειρά εμφάνισης</Label>
+            <Label htmlFor={`sort-order-${block.id}`} size="small">Σειρά εμφάνισης</Label>
             <Input
+              id={`sort-order-${block.id}`}
               type="number"
               value={form.sort_order}
               onChange={(e) => update("sort_order", Number(e.target.value) || 0)}
@@ -128,23 +129,24 @@ function BlockCard({
         </div>
 
         <div className="flex flex-col gap-y-1">
-          <Label size="small">Τίτλος</Label>
-          <Input value={form.heading ?? ""} onChange={(e) => update("heading", e.target.value)} />
+          <Label htmlFor={`heading-${block.id}`} size="small">Τίτλος</Label>
+          <Input id={`heading-${block.id}`} value={form.heading ?? ""} onChange={(e) => update("heading", e.target.value)} />
         </div>
 
         <div className="flex flex-col gap-y-1">
-          <Label size="small">Κείμενο</Label>
-          <Textarea rows={2} value={form.body ?? ""} onChange={(e) => update("body", e.target.value)} />
+          <Label htmlFor={`body-${block.id}`} size="small">Κείμενο</Label>
+          <Textarea id={`body-${block.id}`} rows={2} value={form.body ?? ""} onChange={(e) => update("body", e.target.value)} />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-y-1">
-            <Label size="small">Κείμενο κουμπιού</Label>
-            <Input value={form.cta_label ?? ""} onChange={(e) => update("cta_label", e.target.value)} />
+            <Label htmlFor={`cta-label-${block.id}`} size="small">Κείμενο κουμπιού</Label>
+            <Input id={`cta-label-${block.id}`} value={form.cta_label ?? ""} onChange={(e) => update("cta_label", e.target.value)} />
           </div>
           <div className="flex flex-col gap-y-1">
-            <Label size="small">Σύνδεσμος κουμπιού</Label>
+            <Label htmlFor={`cta-href-${block.id}`} size="small">Σύνδεσμος κουμπιού</Label>
             <Input
+              id={`cta-href-${block.id}`}
               value={form.cta_href ?? ""}
               onChange={(e) => update("cta_href", e.target.value)}
               placeholder="/kouzina"
@@ -153,8 +155,9 @@ function BlockCard({
         </div>
 
         <div className="flex flex-col gap-y-1">
-          <Label size="small">Εικόνα (URL)</Label>
+          <Label htmlFor={`image-url-${block.id}`} size="small">Εικόνα (URL)</Label>
           <Input
+            id={`image-url-${block.id}`}
             value={form.image_url ?? ""}
             onChange={(e) => update("image_url", e.target.value)}
             placeholder="Άδειο = εμφανίζεται το προεπιλεγμένο γραφικό"
@@ -187,6 +190,9 @@ function BlockSection({ kind, title, hint }: { kind: Kind; title: string; hint: 
       .then((res) => res.json())
       .then((data: { blocks: BlockRecord[] }) => {
         if (!cancelled) setBlocks(data.blocks)
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Η φόρτωση απέτυχε")
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
@@ -231,6 +237,11 @@ function BlockSection({ kind, title, hint }: { kind: Kind; title: string; hint: 
         </Text>
       ) : (
         <>
+          {blocks.length === 0 && (
+            <Text size="small" className="text-ui-fg-subtle">
+              Δεν έχουν προστεθεί στοιχεία ακόμα.
+            </Text>
+          )}
           {blocks
             .slice()
             .sort((a, b) => a.sort_order - b.sort_order)

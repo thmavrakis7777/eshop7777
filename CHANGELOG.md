@@ -3,6 +3,148 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Admin-first platform post-implementation audit (2026-08-12)
+
+A holistic, read-only-first audit of everything the Admin-first platform
+(Phases A–K) shipped, plus its storefront integration — the first time
+this new surface (9 custom Medusa modules, 8 admin routes, 3 widgets, and
+their storefront consumers) had been reviewed as a whole rather than
+phase-by-phase. Scope deliberately excluded the pre-existing catalog/
+cart/checkout code already covered by the earlier "Full technical audit"
+entry. Three parallel read-only research passes (backend modules/
+workflows/routes, admin dashboard UI, storefront data flow) surfaced a
+short list of small, real defects; every fix below is the smallest safe
+change, verified live against the running dev backend (and, where
+relevant, in-browser) — nothing was rewritten, no architecture changed,
+no feature added.
+
+**Two real logic bugs, fixed:**
+- `api/store/promo-banner/route.ts`'s expiry check
+  (`new Date(banner.ends_at).getTime() <= Date.now()`) failed **open**
+  on an unparseable `ends_at` — `NaN <= Date.now()` evaluates `false` in
+  JS, so a corrupted date would have left the banner live indefinitely
+  instead of hidden. Only reachable via a malformed direct API write
+  (the admin's `datetime-local` input can't produce one), but a real bug
+  in code that exists specifically to enforce an expiry. Fixed to fail
+  closed (`Number.isNaN` check, treat as expired); the admin route's own
+  identical `isExpired` computation (`routes/promo-banner/page.tsx`) got
+  the same fix for consistency, since it renders the same
+  Δημοσιευμένο/Πρόχειρο/Έληξε badge from the same kind of value.
+- `workflows/content-pages/upsert-content-page.ts`'s create branch
+  computed `title: fields.title ?? slug` and then spread `...fields`
+  *after* it — so an explicit `title: null` in the payload (a malformed
+  but possible direct API call; `title` is a non-nullable DB column)
+  would silently overwrite the safe fallback and 500 on the NOT NULL
+  constraint instead of falling back to the slug. Fixed by spreading
+  `fields` first, computing the fallback last.
+
+**Missing input validation, added** (each admin create/update route now
+matches the validation style already used by `seo`/`content-pages`/
+`homepage-blocks`'s own create route — a 400 with a message instead of
+an unhandled 500 on the DB's NOT NULL/check constraint):
+- `api/admin/media-assets/route.ts` (create) and `[id]/route.ts`
+  (update) — `label`/`url` are the two fields the whole feature exists
+  to hold and had zero validation.
+- `api/admin/search-synonyms/route.ts` (create) and `[id]/route.ts`
+  (update) — `terms` had zero validation.
+- `api/admin/homepage-blocks/[id]/route.ts` (update) — the create route
+  already validated `kind` against the `"hero"|"promo"` enum; the update
+  route didn't, a real drift between the two.
+
+**Minor information-exposure hardening**: `api/store/product-extras/
+route.ts` (the single-product lookup the PDP badge/warranty widget
+calls) was returning the full row, including `hide_from_search`/
+`is_search_boosted` — internal search-tuning flags with no PDP use.
+Trimmed the response to the four fields the storefront actually
+consumes (confirmed via `apps/storefront/src/lib/data/product-extras.ts`
+before touching it). The batched `/store/product-extras/
+search-overrides` endpoint, which legitimately needs both flags for the
+search catalog, is untouched.
+
+**Admin dashboard consistency and UX fixes**, found by comparing every
+singleton-settings page (Site Settings, Homepage SEO, Promo Banner,
+Analytics) and every open-ended-list page (Content Pages, Homepage CMS,
+Media Library, Search Synonyms) against each other rather than in
+isolation:
+- **No admin route's initial-load fetch had error handling at all** —
+  a failed/erroring GET rendered identically to "nothing saved yet,"
+  silently. Added a `.catch()` + `toast.error("Η φόρτωση απέτυχε")` to
+  all nine load effects (`site-settings`, `content-pages`, `homepage`,
+  `media`, `promo-banner`, `search`, `analytics-settings`, the shared
+  `seo-form.tsx`, and the `product-extra.tsx` widget) — the single most
+  consequential finding of the audit, now consistent everywhere.
+- Site Settings' Save button was the one page missing `size="small"
+  variant="secondary"` (every sibling singleton page has it) — fixed for
+  consistency.
+- Homepage CMS's block list had no "nothing here yet" empty-state
+  message, unlike Media Library and Search Synonyms, which both already
+  had one for the same zero-items case — added.
+- Media Library's and Search Synonyms' row inputs had no `<Label>` at
+  all (relied solely on `placeholder` text); every other admin field in
+  this codebase at least has a `<Label>`. Added visually-hidden
+  (`sr-only`) labels tied via `htmlFor`/`id`.
+- Every `<Label>`/`<Input>`/`<Textarea>`/`<Select>` pair across all nine
+  routes and the SEO/Merchandising widgets now has a real `htmlFor`/`id`
+  link (checkboxes already had this correctly; the text fields didn't).
+- Unguarded `grid-cols-2` layouts that render inside the product detail
+  page's narrow `product.details.side.after` sidebar zone
+  (`product-extra.tsx`'s badge/tone row, `seo-form.tsx`'s OG title/
+  description row) now use `grid-cols-1 sm:grid-cols-2` — the one
+  concrete narrow-viewport risk found, since every other `grid-cols-2`
+  instance sits in a full-width route. The same responsive treatment was
+  applied to the handful of full-width-route instances too
+  (`site-settings`, `promo-banner`, `homepage`'s `BlockCard`) for
+  consistency, at effectively zero risk since they already had room.
+
+**What the audit confirmed was already correct, not a finding**: every
+mutation across all 9 modules already goes through a real workflow (zero
+direct-service-call route handlers); every module already has a
+verified real migration matching its model; every module already
+defines an explicit `XxxServiceMethods` interface with real method names
+checked via `medusa exec`, so none is exposed to the `Seo`/`Seoes`-class
+generated-type bug; all four storefront `generateMetadata` callers
+(homepage/PDP/category/subcategory) correctly use `title: { absolute }`
+for admin overrides; the category canonical override correctly gates to
+page 1 only; the Homepage CMS whole-object-fallback rule (Phase E's own
+documented bug fix) holds for every slide, not just the first; the
+consent banner/script-injection gating is all correct; `lib/mock-data.ts`
+has zero remaining references anywhere in the storefront; no hardcoded
+secrets exist in any file read across the whole audit.
+
+**Known, deliberately not fixed** (documented here as findings, not
+silently dropped): the three singleton modules (`site-settings`,
+`promo-banner`, `analytics-settings`) enforce "exactly one row" only at
+the workflow level (list-then-create-or-update), with no DB-level unique
+constraint — a real but low-likelihood race (this is a single-admin
+internal tool) that would need a new migration per module to close;
+left as a follow-up rather than bundled into this audit's smallest-safe-
+change scope. The broader `htmlFor`/label-linking and empty-load-state
+gaps found here are specific to the *new* Admin-first-platform surface;
+the pre-existing admin/storefront code from before Phase A was
+explicitly out of scope (already covered by the earlier "Full technical
+audit" entry).
+
+**Verified**: `tsc --noEmit` (storefront, backend root, and backend
+admin's own `tsconfig.json`), `eslint` (storefront), `medusa lint`
+(backend) all clean; a full `next build` (19 routes, unchanged) and a
+full `medusa build` (including the admin Vite bundle) both clean, before
+and after every fix. Backend fixes re-verified live against the running
+dev database via direct `curl`/Admin API calls (not just re-reading the
+code): confirmed `/store/promo-banner` and `/store/product-extras` return
+the corrected shapes, confirmed the new validation on `media-assets`/
+`search-synonyms`/`homepage-blocks` rejects malformed input with a clean
+400 and still accepts valid input, then cleaned up the one temporary
+test asset created for that check. Admin UI fixes spot-checked live in
+the browser (Site Settings, Media, Homepage CMS) — no console errors,
+new empty-state message renders, Save button styling now matches its
+siblings. A new temporary admin user, `qa-agent6@stia.gr`, was created
+for this session's Admin API verification (same established pattern as
+`qa-agent@stia.gr` through `qa-agent5@stia.gr`), left in place, harmless.
+Storefront was not modified at all this session (the third parallel
+audit pass found no storefront-side bugs); a homepage load was spot-
+checked afterward purely to confirm the unrelated backend edits caused
+no regression, which they didn't.
+
 ## Admin-first platform, Phase K: Analytics/Consent (2026-08-11)
 
 Eleventh and final phase of the Admin-first platform roadmap — a real,

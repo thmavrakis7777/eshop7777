@@ -7,6 +7,10 @@ import {
 
 export async function POST(req: MedusaRequest<Omit<UpdateSearchSynonymInput, "id">>, res: MedusaResponse) {
   const { id } = req.params
+  if (req.body.terms !== undefined && !req.body.terms?.trim()) {
+    res.status(400).json({ message: "terms cannot be empty" })
+    return
+  }
 
   const { result: synonym } = await updateSearchSynonymWorkflow(req.scope).run({
     input: { id, ...req.body },
