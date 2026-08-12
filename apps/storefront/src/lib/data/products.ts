@@ -126,7 +126,7 @@ function toDomainProduct(p: MedusaProduct): Product {
 }
 
 const PRODUCT_FIELDS =
-  "id,title,handle,description,thumbnail,created_at,status," +
+  "id,title,handle,description,thumbnail,created_at," +
   "material,weight,length,width,height,origin_country," +
   "+variants.calculated_price,+variants.sku,+variants.inventory_quantity," +
   "+variants.manage_inventory,+variants.allow_backorder," +

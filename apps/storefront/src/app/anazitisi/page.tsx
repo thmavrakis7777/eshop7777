@@ -38,6 +38,7 @@ export default async function SearchPage({ searchParams }: Props) {
       products={products}
       count={count}
       sort="newest"
+      sortable={false}
       page={page}
       basePath="/anazitisi"
       source={{ type: "search", query }}

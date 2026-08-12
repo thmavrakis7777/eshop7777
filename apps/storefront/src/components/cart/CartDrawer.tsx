@@ -205,8 +205,14 @@ function CartDrawerInner({
 
             <CartTotals cart={cart} />
 
+            {/* Must close the drawer like every other link in here: the
+                drawer lives in RootLayout, so a client-side navigation
+                doesn't unmount it — without this it stays open on top of
+                /checkout with `body { overflow: hidden }` still applied,
+                covering the page entirely. Confirmed live. */}
             <Link
               href="/checkout"
+              onClick={handleClose}
               className="rounded-sm bg-ink px-6 py-3.5 text-center text-sm font-medium tracking-wide text-white transition-colors hover:bg-accent"
             >
               ΟΛΟΚΛΗΡΩΣΗ ΑΓΟΡΑΣ

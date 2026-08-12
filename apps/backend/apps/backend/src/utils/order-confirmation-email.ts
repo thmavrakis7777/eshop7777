@@ -21,6 +21,19 @@ function formatMoney(amount: number, currencyCode: string): string {
   return new Intl.NumberFormat("el-GR", { style: "currency", currency: currencyCode.toUpperCase() }).format(amount)
 }
 
+// Every value interpolated into the template below is customer- or
+// admin-entered free text (name, company name, activity, street, product
+// title). Without escaping, an ampersand or an angle bracket in any of
+// them corrupts the surrounding markup, and a deliberately crafted value
+// injects arbitrary HTML into an email this store sends out.
+function esc(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+}
+
 export type EmailOrderItem = {
   title: string
   sku: string | null
@@ -70,6 +83,7 @@ function addressBlock(address: EmailAddress): string {
     `${address.postalCode} ${address.city}`,
   ]
     .filter(Boolean)
+    .map(esc)
     .join("<br>")
 }
 
@@ -77,8 +91,8 @@ function itemRow(item: EmailOrderItem, currencyCode: string): string {
   return `
     <tr>
       <td style="padding:12px 0;border-bottom:1px solid ${BORDER};">
-        <span style="font-size:14px;color:${INK};">${item.title}</span>
-        ${item.sku ? `<br><span style="font-size:12px;color:${INK_MUTED};">Κωδικός: ${item.sku}</span>` : ""}
+        <span style="font-size:14px;color:${INK};">${esc(item.title)}</span>
+        ${item.sku ? `<br><span style="font-size:12px;color:${INK_MUTED};">Κωδικός: ${esc(item.sku)}</span>` : ""}
       </td>
       <td style="padding:12px 0;border-bottom:1px solid ${BORDER};text-align:center;font-size:13px;color:${INK_MUTED};white-space:nowrap;">
         ${item.quantity} × ${formatMoney(item.unitPrice, currencyCode)}
@@ -103,9 +117,9 @@ export function buildOrderConfirmationEmail(order: OrderConfirmationEmailData): 
   const documentBlock =
     order.taxDocumentType === "invoice" && order.invoiceDetails
       ? `<p style="margin:0;font-size:13px;color:${INK_MUTED};line-height:1.6;">
-           Τιμολόγιο — ${order.invoiceDetails.companyName}<br>
-           ΑΦΜ: ${order.invoiceDetails.afm} · ΔΟΥ: ${order.invoiceDetails.doy}<br>
-           ${order.invoiceDetails.activity}
+           Τιμολόγιο — ${esc(order.invoiceDetails.companyName)}<br>
+           ΑΦΜ: ${esc(order.invoiceDetails.afm)} · ΔΟΥ: ${esc(order.invoiceDetails.doy)}<br>
+           ${esc(order.invoiceDetails.activity)}
          </p>`
       : `<p style="margin:0;font-size:13px;color:${INK_MUTED};">Απόδειξη</p>`
 
@@ -139,7 +153,7 @@ export function buildOrderConfirmationEmail(order: OrderConfirmationEmailData): 
           </tr>
           <tr>
             <td style="padding:0 32px 24px;font-family:Arial,Helvetica,sans-serif;">
-              <p style="margin:0 0 16px;font-size:14px;color:${INK};">Γεια σου${order.customerName ? " " + order.customerName : ""},</p>
+              <p style="margin:0 0 16px;font-size:14px;color:${INK};">Γεια σου${order.customerName ? " " + esc(order.customerName) : ""},</p>
               <p style="margin:0;font-size:13px;color:${INK_MUTED};line-height:1.6;">
                 Ευχαριστούμε για την παραγγελία σου. Παρακάτω θα βρεις όλα τα στοιχεία της.
               </p>
@@ -157,7 +171,7 @@ export function buildOrderConfirmationEmail(order: OrderConfirmationEmailData): 
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 ${totalsRow("Υποσύνολο", formatMoney(order.subtotal, order.currencyCode))}
                 ${order.discountTotal > 0 ? totalsRow("Έκπτωση", `−${formatMoney(order.discountTotal, order.currencyCode)}`) : ""}
-                ${totalsRow(`Μεταφορικά (${order.shippingMethodName})`, formatMoney(order.shippingTotal, order.currencyCode))}
+                ${totalsRow(`Μεταφορικά (${esc(order.shippingMethodName)})`, formatMoney(order.shippingTotal, order.currencyCode))}
                 ${order.taxTotal > 0 ? totalsRow("ΦΠΑ", formatMoney(order.taxTotal, order.currencyCode)) : ""}
               </table>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;border-top:1px solid ${BORDER};padding-top:8px;">
@@ -187,7 +201,7 @@ export function buildOrderConfirmationEmail(order: OrderConfirmationEmailData): 
           <tr>
             <td style="padding:20px 32px 0;font-family:Arial,Helvetica,sans-serif;">
               <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:${INK_MUTED};text-transform:uppercase;letter-spacing:.02em;">Τρόπος πληρωμής</p>
-              <p style="margin:0;font-size:13px;color:${INK_MUTED};">${order.paymentMethodName}</p>
+              <p style="margin:0;font-size:13px;color:${INK_MUTED};">${esc(order.paymentMethodName)}</p>
             </td>
           </tr>
           <tr>

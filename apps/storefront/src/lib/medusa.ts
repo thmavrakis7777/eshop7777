@@ -31,15 +31,12 @@ export type MedusaVariant = {
   allow_backorder: boolean;
 };
 
-export type MedusaImage = { id: string; url: string };
-
 export type MedusaProduct = {
   id: string;
   title: string;
   handle: string;
   description: string | null;
   thumbnail: string | null;
-  images: MedusaImage[];
   variants: MedusaVariant[];
   categories: Array<{ id: string; name: string; handle: string }>;
   // Native Medusa product tags — confirmed live (2026-08-11) that
@@ -59,7 +56,6 @@ export type MedusaProduct = {
   width: number | null;
   height: number | null;
   origin_country: string | null;
-  status: string;
 };
 
 export type MedusaRegion = { id: string; name: string; currency_code: string };

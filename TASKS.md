@@ -1163,6 +1163,27 @@ above for the current, real plan:
 - [ ] **Content-Security-Policy** — baseline headers are in place, but a
       real CSP needs per-request nonces threaded through the inline JSON-LD
       `<script>` tags. Its own change, not a header-list tweak.
+
+**Found by the 2026-08-12 full technical audit, deliberately not fixed**
+
+- [ ] **`CheckoutForm.handleInvoiceFieldBlur` has a latent stale-closure
+      race** — sets `currentFields` from inside a `setInvoiceFields`
+      updater and validates/saves it on the next line; a preceding
+      `setAfmLookupLoading(false)` likely defers the updater, so the
+      "save immediately after a ΓΕΜΗ autofill" path uses pre-lookup data.
+      Unreachable today (`GEMI_API_KEY` unset, autofill branch never
+      runs). Every fix considered reintroduces the exact typing-during-
+      `await` race this pattern was built to prevent — needs a real
+      decision once ΓΕΜΗ is actually wired up (Phase 4.3), not a blind
+      patch now.
+- [ ] **Multiple `<h1>`s on the homepage if a second hero slide is ever
+      published** — `HeroSlide` renders one per slide, `HeroCarousel`
+      renders one `HeroSlide` per slide. Latent only: exactly one slide
+      renders today. Fix is a design decision (which heading demotes to
+      `h2`), not a bug patch.
+- [ ] **`completeCheckoutAction` may create a duplicate payment collection
+      on a retry after a failed completion** — unverified either way; no
+      failure-capable payment provider exists yet to force the retry path.
 - [ ] **Two near-identical hand-rolled focus traps** (`MobileMenu`,
       `CartDrawer`, ~30 lines each, subtly different focusable selectors).
       A shared `useFocusTrap` hook is the obvious dedupe, but both traps are

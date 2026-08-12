@@ -26,6 +26,7 @@ export function CategoryPLPView({
   source,
   extraParams,
   emptyMessage,
+  sortable = true,
 }: {
   title: string;
   description?: string;
@@ -46,6 +47,12 @@ export function CategoryPLPView({
   // malformed second "?" when basePath itself would otherwise carry a query.
   extraParams?: Record<string, string>;
   emptyMessage?: string;
+  // Search results are relevance-ranked by lib/search.ts, and
+  // searchProducts() takes no sort at all — rendering the sort control
+  // there produced a dropdown that rewrote the URL, changed nothing, and
+  // visibly snapped back to "Νεότερα πρώτα" (confirmed live). Listings
+  // that really are sortable leave this at its default.
+  sortable?: boolean;
 }) {
   return (
     <>
@@ -71,7 +78,7 @@ export function CategoryPLPView({
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
           <span className="text-sm text-ink-muted">{count} προϊόντα</span>
-          <SortControl current={sort} />
+          {sortable && <SortControl current={sort} />}
         </div>
 
         {products.length === 0 ? (

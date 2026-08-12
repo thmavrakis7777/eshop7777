@@ -3,6 +3,60 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Full technical audit (2026-08-12, Opus 5)
+
+Requested full-codebase audit (storefront + backend): bugs, dead code,
+duplicate logic, TS/ESLint/build gates, performance, SEO. Three real bugs
+found and fixed, all verified live and re-confirmed against a clean
+`tsc`/`eslint`/`build`/`medusa lint` gate:
+
+- **Checkout blocker**: the cart drawer's "ΟΛΟΚΛΗΡΩΣΗ ΑΓΟΡΑΣ" link
+  (`CartDrawer.tsx`) was the only link in the drawer missing
+  `onClick={handleClose}`. Since the drawer lives in `RootLayout` and a
+  client-side navigation never unmounts it, clicking through to `/checkout`
+  from the drawer left the drawer open on top of the page with
+  `body { overflow: hidden }` still applied — checkout was unusable from
+  that entry point. Fixed; re-verified live (dialog closes, scroll
+  restored, checkout page interactive).
+- **Dead sort control on search results**: `/anazitisi` always rendered
+  `CategoryPLPView`'s sort dropdown, but `searchProducts()` doesn't accept
+  a sort argument (results are relevance-ranked) — selecting a sort option
+  silently did nothing and the control snapped back. Added an optional
+  `sortable` prop to `CategoryPLPView` (default `true`), search page passes
+  `false`. Deliberately did not implement real price-sort for search
+  (would discard relevance ranking) — that's a product decision, not a bug
+  fix.
+- **Unescaped HTML in order-confirmation emails**: every free-text value
+  (item title/SKU, customer name, invoice company name/ΑΦΜ/ΔΟΥ/activity,
+  address lines) was interpolated raw into the email HTML — a stray `&`/`<`
+  corrupts the layout, and a crafted value could inject arbitrary HTML into
+  an email the store sends. Added an `esc()` helper, applied at every
+  free-text site in `order-confirmation-email.ts`.
+
+Dead code removed: `MedusaImage` type + `MedusaProduct.images` (requested
+in the type, never actually fetched — confirmed against the live Store API
+response), `MedusaProduct.status` + its field request (fetched, never
+read).
+
+**Found, deliberately left alone** (real judgment calls, not fixed blind):
+- `CheckoutForm.handleInvoiceFieldBlur` has a latent stale-closure race —
+  unreachable today since `GEMI_API_KEY` is unset (the ΓΕΜΗ-autofill
+  branch never runs), and every fix considered reintroduces the exact race
+  the current pattern was built to avoid. Needs a real decision once ΓΕΜΗ
+  is actually wired up, not a blind patch — added to `TASKS.md`.
+- Multiple `<h1>`s on the homepage if a second hero slide is ever
+  published (`HeroSlide` renders one per slide) — latent, not live today
+  (exactly one slide/default renders one `<h1>`), and the actual fix is a
+  design decision (which heading demotes) — added to `TASKS.md`.
+- `completeCheckoutAction` creates a new payment collection on every retry
+  after a failed completion — unverified without a failure-capable payment
+  provider to force it; flagged, not touched.
+
+Also surfaced: the catalog now has a genuinely discounted product
+(Αντικολλητικό Τηγάνι 28cm, -20%), so `CURRENT_STATE.md`'s "no active
+promotion exists to test against" note is stale — the discount rendering
+path is real and exercisable now, not just code-inspected.
+
 ## Deployment prep: Railway backend + Vercel storefront (2026-08-12)
 
 Follow-up to the same day's security/build-fix session (below) — the user

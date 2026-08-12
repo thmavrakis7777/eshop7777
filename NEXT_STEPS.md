@@ -10,6 +10,14 @@ in these files. **Sections 1-7 below this point are historical/stale** (written
 mid-way through an earlier session) — trust this summary and `CHANGELOG.md`
 over that old detailed body if they ever disagree.
 
+**2026-08-12 (later still the same day) — Full technical audit (Opus 5
+agent). Three real bugs fixed (checkout-blocking cart-drawer link, dead
+search sort control, unescaped HTML in order-confirmation emails), two
+dead type/field entries removed from `lib/medusa.ts`. Three more issues
+found and deliberately left for a real decision, not blind-patched — see
+`TASKS.md`'s new "Found by the 2026-08-12 full technical audit" section.
+Full detail in `CHANGELOG.md`'s newest entry. Not committed yet.**
+
 **2026-08-12 (later the same day) — Deployment prep for Railway (backend) +
 Vercel (storefront) + Supabase (unchanged). Full runbook: `DEPLOYMENT.md`
 (new). `railway.json` added and committed. Real SEO bug fixed (hardcoded
