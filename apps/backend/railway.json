@@ -5,7 +5,7 @@
     "buildCommand": "pnpm run build"
   },
   "deploy": {
-    "startCommand": "pnpm exec medusa db:migrate && pnpm run start",
+    "startCommand": "pnpm --dir apps/backend exec medusa db:migrate && pnpm run start",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
