@@ -21,6 +21,21 @@ import type { NextRequest } from "next/server";
 // nothing speculative. All four providers are optional/admin-configured
 // (see analytics-settings), so these stay in the policy whether or not a
 // given store has any of them turned on.
+//
+// style-src is split deliberately. A nonce can only ever whitelist an
+// *element* (<style>/<link>), never a `style="..."` **attribute** — so the
+// Next.js docs' single `style-src 'self' 'nonce-…'` line silently blocks
+// every React `style={{…}}` prop in production while dev's 'unsafe-inline'
+// branch hides it. Verified live against a real production build
+// (`next build` + `next start`): ~64 blocked-inline-style CSP errors on the
+// homepage alone, with PlaceholderTile's computed backgroundImage reading
+// `none` — i.e. every product placeholder, the hero pattern/photo, and the
+// free-shipping progress bar rendered blank. `style-src-attr` would be the
+// surgical fix but is not universally supported (unsupported browsers fall
+// back to style-src and stay broken), so style-src carries 'unsafe-inline'
+// for attributes and style-src-elem keeps the strict nonce for actual
+// <style>/<link> elements wherever it is supported. Script execution — the
+// directive that actually stops XSS — is unchanged.
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
@@ -28,7 +43,8 @@ export function proxy(request: NextRequest) {
   const cspHeader = `
     default-src 'self';
     script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
-    style-src 'self' ${isDev ? "'unsafe-inline'" : `'nonce-${nonce}'`};
+    style-src 'self' 'unsafe-inline';
+    style-src-elem 'self'${isDev ? " 'unsafe-inline'" : ` 'nonce-${nonce}'`};
     img-src 'self' blob: data: https://www.google-analytics.com https://www.facebook.com;
     connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://connect.facebook.net https://www.clarity.ms https://c.clarity.ms;
     font-src 'self';

@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { medusaFetch, MedusaApiError, type MedusaCustomer } from "@/lib/medusa";
-import { CUSTOMER_JWT_COOKIE, getCustomer, getCustomerAddresses, toDomainCustomer } from "@/lib/data/customer";
+import { CUSTOMER_JWT_COOKIE, getCustomerAddresses, toDomainCustomer } from "@/lib/data/customer";
 import { isValidEmail, isValidPassword, isRequired, isValidPostalCode } from "@/lib/checkout-validation";
 import type { Address, Customer, CustomerAddress } from "@/lib/types";
 
@@ -266,8 +266,4 @@ export async function deleteAddressAction(addressId: string): Promise<AddressAct
       headers: { Authorization: `Bearer ${token}` },
     })
   );
-}
-
-export async function getCustomerAction(): Promise<Customer | null> {
-  return getCustomer();
 }

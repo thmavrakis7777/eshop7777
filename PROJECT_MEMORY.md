@@ -1,10 +1,402 @@
 # Project Memory — STIA Houseware Store
 
-Living reference for anyone (human or agent) picking this project up cold. Keep this
-updated as architecture decisions are made — don't let it drift from reality.
+## START HERE — CURRENT PROJECT STATE
 
-Read this alongside `CURRENT_STATE.md` (what exists right now) and `NEXT_STEPS.md`
-(exactly where to resume).
+Written 2026-08-12, end of a very long session, specifically so a fresh Claude Code
+session with zero conversation history can read this one section and understand
+everything needed to continue accurately. Everything below is verified against the
+actual repo/live systems as of this date — not aspirational. If anything here
+conflicts with the more detailed sections further down this file (which can drift),
+**trust this section and `CHANGELOG.md`'s dated entries first.**
+
+### What this project is
+
+STIA (placeholder brand name, `stia.gr` placeholder domain — **never registered, never
+trademark-checked**) is a premium Greek-language home/kitchen/bathroom/garden ecommerce
+store, currently in active development, not yet publicly launched. Repo:
+[thmavrakis7777/eshop7777](https://github.com/thmavrakis7777/eshop7777) on GitHub, `main`
+branch, currently pushed through commit `68cbfdf`.
+
+### Architecture — do not change without explicit user sign-off
+
+```
+Next.js 16 (App Router, Turbopack) storefront  →  Medusa v2 backend  →  Supabase Postgres
+   apps/storefront                                 apps/backend/apps/backend
+```
+
+- **Frontend**: `apps/storefront` — Next.js 16.3.0, React 19.2.8, Tailwind v4, TypeScript.
+  **This Next.js version has real breaking changes from any model's training data** — e.g.
+  `middleware.ts` is renamed `proxy.ts` in this version (`src/proxy.ts` exists and is
+  correct). Always check `apps/storefront/node_modules/next/dist/docs/` before assuming
+  an API behaves like an older Next version.
+- **Backend**: `apps/backend/apps/backend` — Medusa v2.18.0, a Turborepo monorepo nested
+  two levels deep (`apps/backend` is the outer Turborepo root with its own
+  `pnpm-workspace.yaml`, deliberately excluded from the repo-root workspace; the actual
+  Medusa app is `apps/backend/apps/backend`, package name `@dtc/backend`). 10 custom
+  modules exist: `analytics-settings`, `content-pages`, `homepage-blocks`,
+  `media-assets`, `product-extras`, `promo-banner`, `search-synonyms`, `seo`,
+  `site-settings`, `store-pickup` — all part of the "Admin-first platform" roadmap
+  (Phases A–K, complete) that lets the store owner manage content/SEO/merchandising from
+  the Medusa Admin dashboard with zero code changes.
+- **Database**: Supabase-hosted Postgres. Medusa connects with a direct, privileged
+  connection (`postgres` role, confirmed to have `BYPASSRLS`) — **not** through
+  Supabase's PostgREST/Data API. No `supabase-js` or any Supabase client SDK exists
+  anywhere in either app; Supabase is purely Medusa's Postgres host.
+- **Local dev setup**: both dev servers must be started fresh each session via
+  `.claude/launch.json`'s `preview_start` configs (`backend`, `storefront`) — they don't
+  persist across sessions. Backend cold-boots in ~100-150s (don't assume a 45-60s
+  timeout means it hung). Storefront: `http://localhost:3000`. Backend:
+  `http://localhost:9000` (admin at `/app`).
+- **Planned production architecture** (prepared, **not deployed** — see Deployment
+  below): Vercel (free tier) for the storefront, Railway for the Medusa backend,
+  Supabase unchanged. No Medusa Cloud, no Redis (confirmed unused anywhere in the
+  codebase — the app's event bus/workflow engine use Medusa's in-memory defaults).
+
+### What must NOT be changed without explicit user instruction
+
+- The architecture itself — no migrating Medusa to Supabase's own API layer, no new CMS,
+  no framework swap.
+- `apps/backend/apps/backend/src/migration-scripts/initial-data-seed.ts` — Medusa's
+  default seed script.
+- `.env` / `.env.local` (both gitignored) — never print, commit, or copy secret values
+  out of them.
+- The lockfiles (`pnpm-lock.yaml` in either app workspace).
+- `apps/backend/pnpm-workspace.yaml`'s exclusion of `apps/backend` from the root
+  workspace — deliberate.
+- `.claude/launch.json` — the deliberate dev-server config; regenerating it from scratch
+  has broken things before (see historical detail further down this file).
+- Existing migrations under `src/modules/*/migrations/` — add a new migration, never
+  edit one that may already have run.
+- `lib/wishlist-storage.ts`'s stable-snapshot pattern in `getSnapshot`/`getServerSnapshot`
+  — a real, previously-fixed React infinite-loop bug if simplified carelessly.
+- `ProductCard`'s current layout (image → title → code → price → stock → Add to Cart) —
+  a deliberate redesign, reviewed and approved; don't reintroduce the old hover-overlay
+  pattern.
+- Content-page slugs are a fixed, non-open-ended set (11 pages, both the storefront's
+  literal route folders and the admin's hardcoded `PAGES` list in
+  `content-pages/page.tsx` must be edited together — see Editable Content below).
+
+### Completed phases (chronological, condensed — full detail in `CHANGELOG.md`)
+
+1. **Phase 0-3**: research/IA/design system, storefront foundation, Medusa backend on
+   Supabase with a real catalog (28 categories, 16 products), full technical audit.
+2. **Phase 4A/4B**: real cart (drawer + full page, coupons, free-shipping progress) and
+   guest checkout (Greek address form, real shipping options, order confirmation page).
+3. **Phase 5**: product code (SKU)/search/add-to-cart-everywhere, real stock-awareness.
+4. **Product card redesign, wishlist, PDP content sections** (`localStorage`-backed
+   wishlist, no customer auth existed yet at that point).
+5. **Premium Greek Checkout Phases 1-5**: Store Pickup, billing/tax documents (ΑΦΜ/ΔΟΥ),
+   Google Places autocomplete, ΓΕΜΗ business lookup, SendGrid order-confirmation emails.
+6. **New Arrivals / infinite scroll / homepage carousels.**
+7. **"Admin-first platform"** (11 phases, A–K) — the 10 custom modules above, making
+   nearly everything content-related admin-editable with zero code changes.
+8. **2026-08-12, this session, in order** (see `CHANGELOG.md` for full detail on each):
+   a. Supabase RLS lockdown — all 152 public-schema tables, verified live.
+   b. Vercel build-crash fix (`sitemap.ts` degrading gracefully) + a real hardcoded-
+      placeholder-domain SEO bug fix (`site-config.ts`).
+   c. Railway + Vercel deployment prep (`railway.json`, `DEPLOYMENT.md`) — **config
+      only, nothing deployed**.
+   d. Full technical audit (Opus 5) — 3 real bugs fixed: a checkout-blocking cart-drawer
+      bug, a dead search-sort control, unescaped HTML (XSS risk) in order-confirmation
+      emails.
+   e. Mobile account/wishlist nav entry points, 5 new content-page routes (11 total),
+      content drafts (`CONTENT_DRAFTS.md`, not yet published).
+   f. Real Content-Security-Policy with per-request nonces (`src/proxy.ts`).
+   g. **Full customer authentication system** — register/login/logout/forgot-reset-
+      password + a protected dashboard (profile, addresses, orders, change password).
+      `/logariasmos` never 404s now.
+   h. A further full audit pass (see this file's own "Known issues" section below and
+      `CHANGELOG.md`'s newest entry for what it found).
+
+### Current features — verified working, not aspirational
+
+- **Homepage**: hero, category grid, two touch-friendly product carousels
+  (Προτεινόμενα/Νέες αφίξεις), editorial banner, trust strip, newsletter form (UI only —
+  see Known Issues), admin-editable announcement bar and promo banner.
+- **Header**: sticky, mega menu (desktop), mobile hamburger drawer (categories +
+  wishlist/account quick links, added this session), live search dropdown (debounced,
+  matches product name or SKU), cart icon with live count/total.
+- **Footer**: real category links, 11 content-page links (all routed, most awaiting
+  published content — see Editable Content), admin-editable contact info/social links.
+- **Search**: `/anazitisi` — Medusa's own `q` full-text search (name + SKU), no fuzzy
+  matching (acceptable at today's catalog size).
+- **Category/subcategory pages**: real products, sort, infinite scroll with a
+  `<noscript>` pagination fallback, breadcrumbs with JSON-LD.
+- **Product detail pages**: real price/stock/variant picker, wishlist heart, related +
+  recently-viewed rails, Description/Characteristics sections (render nothing until real
+  spec data exists — no fabricated content), Product JSON-LD.
+- **Cart**: drawer + full page, quantity steppers, coupons, real Υποσύνολο/Έκπτωση/
+  Μεταφορικά/Σύνολο breakdown, cookie-persisted.
+- **Checkout**: real guest checkout, Greek address form, live shipping options, one real
+  payment method (`pp_system_default`, shown as "Αντικαταβολή" — no card processor yet),
+  order confirmation page.
+- **Wishlist**: `localStorage`-backed (`/lista-epithymion`), heart icon on every product
+  card + PDP. **Not yet synced to customer accounts** (see Known Issues).
+- **Customer accounts** (new this session): register, login, logout, forgot/reset
+  password (real email, degrades gracefully without a configured SendGrid key),
+  protected dashboard at `/logariasmos` — profile edit, address book (full CRUD), order
+  history (reuses the guest order-confirmation page as the detail view), change
+  password. **Not yet integrated with cart/checkout** (no guest-cart merge on login, no
+  address auto-fill at checkout — deliberately out of scope this round, real follow-up).
+- **SEO**: per-page metadata, JSON-LD (Organization/Product/BreadcrumbList), dynamic
+  sitemap.xml and robots.txt, canonical URLs. `siteUrl` resolves via
+  `NEXT_PUBLIC_SITE_URL` → Vercel's auto-provided `VERCEL_URL` → a placeholder for local
+  dev only (fixed this session — was hardcoded to the unregistered `stia.gr`).
+- **Security**: real CSP with per-request nonces (`src/proxy.ts`, this session), Supabase
+  RLS locked down on all 152 tables (this session), baseline security headers, httpOnly
+  session/cart cookies.
+- **Admin dashboard** (`localhost:9000/app`): manages products/categories/orders (native
+  Medusa) plus all 10 custom modules above (SEO, content pages, homepage CMS, site
+  settings, search synonyms, media library — URL-based only, promo banners, campaigns,
+  analytics/consent config, store pickup).
+
+### Important implementation details — key files
+
+- `apps/storefront/src/app/layout.tsx` — RootLayout; fetches nav/cart/settings, reads
+  the CSP nonce, mounts cart/wishlist providers and analytics/consent scripts.
+- `apps/storefront/src/proxy.ts` — the real CSP (renamed from `middleware.ts` in this
+  Next version). Generates a per-request nonce; if a new third-party script/embed is
+  ever added, its domain must be added here or it will be silently blocked.
+- `apps/storefront/src/lib/medusa.ts` — the entire Store API client (`medusaFetch`) +
+  every raw Medusa response type. `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` is required or
+  every call throws `MedusaConfigError`.
+- `apps/storefront/src/lib/data/*.ts` / `lib/actions/*.ts` — one file pair per domain
+  (cart, checkout, customer, products, categories, content-pages, etc.) — `data/` for
+  reads (Server-Component-safe, never throw), `actions/` for Server Action mutations.
+- `apps/storefront/src/lib/data/customer.ts` / `lib/actions/customer.ts` — the auth
+  system's data/action layer. Session: `_medusa_jwt` httpOnly cookie, same pattern as
+  the cart's `cart_id` cookie.
+- `apps/storefront/src/app/logariasmos/(auth)/*` and `(dashboard)/*` — route groups;
+  `(auth)` redirects to the dashboard if already logged in, `(dashboard)`'s `layout.tsx`
+  redirects to login if not.
+- `apps/backend/apps/backend/src/api/store/customers/me/password/route.ts` +
+  `src/workflows/auth/change-customer-password.ts` — custom change-password endpoint;
+  Medusa's own core `/auth/customer/emailpass/update` is reset-token-only and rejects a
+  normal session token (confirmed by reading its middleware source).
+- `apps/backend/apps/backend/src/subscribers/auth-password-reset.ts` +
+  `src/utils/reset-password-email.ts` — the password-reset email, same
+  degrade-gracefully-without-SendGrid pattern as `subscribers/order-placed.ts`.
+- `apps/backend/apps/backend/src/admin/routes/content-pages/page.tsx` — the admin's
+  hardcoded 11-slug content-page editor; adding a 12th page needs an entry here **and**
+  a matching storefront route folder **and** a `sitemap.ts` entry — three places kept in
+  lockstep by hand, not open-ended CRUD (deliberate, see the file's own comment).
+- `apps/backend/railway.json` + `DEPLOYMENT.md` — the (unused-so-far) Railway deployment
+  config and full runbook.
+
+### Editable content — what the store owner can already change without code
+
+Via Medusa Admin (`localhost:9000/app` in dev):
+- Products: title, description, price, images (URL-based), SKU, inventory/stock,
+  categories, collections, tags, material/weight/dimensions/origin-country.
+- Categories and their SEO overrides.
+- Homepage sections (hero, promo banner, blocks) — Homepage CMS module.
+- Site settings: announcement bar text, contact info, social links, cart/checkout
+  marketing copy, free-shipping messaging.
+- Content pages (11 fixed slugs — About/Shipping/Returns/Privacy/Terms/FAQ/Order-
+  tracking/Contact/Buying-guides/Careers/Cookies) — title + plain-text body +
+  publish toggle. **All 11 currently unpublished** — draft copy is sitting in
+  `CONTENT_DRAFTS.md` waiting for the owner to paste in and review.
+- Search synonyms, promo banners, campaigns, analytics/consent provider IDs
+  (GA4/GTM/Meta Pixel/Clarity — all optional).
+
+**Cannot be changed without code** (by design — these are structural, not content):
+- Anything about the cart/checkout/account flow logic itself.
+- Adding a 12th content-page slug (needs the three-place edit described above).
+- Payment methods (one exists: `pp_system_default`/"Αντικαταβολή" — a real card
+  processor, Stripe, is decided but on hold pending real API keys from the owner).
+- The CSP allowlist (`src/proxy.ts`) if a new third-party script is ever added.
+- Customer-account features beyond what's built (no saved-payment-methods, no
+  social login, no server-side wishlist sync).
+
+### Deployment status — read this carefully, it's easy to get wrong
+
+**Nothing is deployed to production anywhere.** This app has never been live.
+- **Railway (backend)**: the user created a Railway project and clicked Deploy once
+  during this session, but **deployment was explicitly postponed by the user's own
+  instruction** partway through troubleshooting it — do not assume Railway is live or
+  is "production." `apps/backend/railway.json` and `DEPLOYMENT.md` are prepared and
+  committed; whether Railway actually has a live, working deployment right now is
+  **unknown to this file** and must be asked about, not assumed, at the start of any
+  future session.
+- **Vercel (storefront)**: connected per the user at some point, but no confirmed live
+  deployment has been verified in this session either. The one confirmed real Vercel
+  build failure (`NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` missing, crashing `/sitemap.xml`)
+  was fixed and verified locally — but that fix has not been confirmed against an actual
+  live Vercel deployment.
+- **Supabase**: the only piece that's "real" in the sense of holding real data — the
+  same database has been used throughout local development and is what any future
+  deployment would connect to. RLS is locked down (see Security below).
+- **Before assuming any deployment state, ask the user directly** — this status changes
+  outside of Claude Code sessions (the user clicking around in Railway's/Vercel's own
+  dashboards) and this file cannot track that in real time.
+
+### Security
+
+- **Supabase RLS**: all 152 tables in the `public` schema have RLS enabled with zero
+  policies (full lockdown) — verified live via direct SQL query this session. Correct
+  for this architecture specifically because no `supabase-js`/PostgREST client exists
+  anywhere (confirmed by full-codebase grep) — nothing is meant to reach these tables
+  via Supabase's Data API. Medusa's own connection role (`postgres`) has `BYPASSRLS`, so
+  this has zero effect on the app. If a genuinely new Supabase-direct client is ever
+  added (unlikely given the architecture), this would need real per-table policies
+  instead of a blanket lockdown.
+- **CSP**: real, nonce-based, `strict-dynamic` (`src/proxy.ts`), `style-src` deliberately
+  split into an attribute branch (`'unsafe-inline'` — a CSP nonce can never whitelist a
+  `style="…"` attribute, only a `<style>`/`<link>` element) and a `style-src-elem` branch
+  (the strict nonce). **First implementation missed this and shipped a CSP that silently
+  blocked every inline `style={{...}}` prop in production** (dev's `'unsafe-inline'`
+  masked it — the original "verified live, zero violations" claim was only ever checked
+  against `next dev`) — found by a later audit pass testing an actual production build,
+  fixed same day. Lesson for any future CSP change: **verify against `next build` +
+  `next start`, not just `next dev`.** Every page was already dynamically rendered
+  (cart's `cookies()` usage), so nonce-based CSP cost nothing in static-generation terms.
+- **Authentication**: Medusa's built-in `emailpass` customer auth provider, httpOnly JWT
+  session cookie. Passwords never touch the storefront in plaintext beyond the request
+  itself; change-password re-verifies the current password server-side before allowing
+  a change.
+- **CORS**: `STORE_CORS`/`ADMIN_CORS`/`AUTH_CORS` are all env-driven in
+  `medusa-config.ts`, currently set to localhost values for dev. **Must be updated to
+  the real Vercel + Railway URLs once both are actually deployed** — see
+  `DEPLOYMENT.md`.
+- **Secrets**: `JWT_SECRET`/`COOKIE_SECRET`/`DATABASE_URL`/`AUTH_MFA_ENCRYPTION_KEY` live
+  only in gitignored `.env` files, never committed. Two fresh production secrets
+  (`JWT_SECRET`/`COOKIE_SECRET`) were generated during deployment prep and handed to the
+  user directly in chat, never written to a file.
+- **Known limitation**: no rate-limiting on login/register/password-reset endpoints
+  (Medusa's own defaults, not customized) — acceptable at pre-launch scale, worth
+  revisiting before real traffic.
+
+### SEO
+
+**Implemented**: per-page `generateMetadata`, canonical URLs (page-aware for
+pagination), JSON-LD (Organization sitewide, Product on PDPs, BreadcrumbList on
+listings), dynamic `sitemap.xml` (degrades gracefully if the backend is unreachable at
+build time) and `robots.txt`, Open Graph tags, admin-editable per-product/category SEO
+overrides.
+
+**Still missing/known gaps**:
+- Real product photography (placeholder tiles everywhere) — no image alt-text problem
+  exists yet because there are no real images, but this becomes relevant the moment
+  real photos are uploaded.
+- `Organization.logo` in JSON-LD — no real brand asset exists.
+- Favicon is still Next.js's own default.
+- No structured data beyond Organization/Product/BreadcrumbList (no Review/AggregateRating
+  — correctly absent, since no real review system exists; adding fake ratings was
+  explicitly rejected earlier in this project's history).
+
+### Performance
+
+**Implemented**: Next/Image via a dynamic `remotePatterns` list (derives the production
+backend host automatically), server-rendered data fetching (no client-side waterfalls
+for initial page data), infinite-scroll listings with a real `<noscript>` fallback
+instead of client-only pagination, `next/font` self-hosting (no external font CDN
+calls).
+
+**Known risks, never measured**: no Lighthoude/axe run has ever been performed — all
+Core Web Vitals work so far is structural (flattened request waterfalls, no
+layout-shifting images since there are no real images yet), not measured against real
+numbers. Worth doing once real product photography exists (image weight will be the
+first real CWV variable).
+
+### Known issues
+
+See `TASKS.md` for the full, longer-running list (payment processor, footer content
+pages, etc.). Specific to review before/after the newest audit pass:
+- **Guest-cart merge on login, server-side wishlist sync for logged-in customers, and
+  checkout auto-fill from a saved address were deliberately not built** in this
+  session's auth system — real, expected follow-ups, not bugs.
+- **The newsletter form does nothing** (validates, then silently no-ops) — needs a real
+  email-provider decision, flagged since the original production audit, deliberately
+  not invented.
+- **`PaymentSection`'s multi-provider UI is structurally broken** but harmless today
+  (exactly one payment provider exists) — needs a real fix alongside the first real
+  payment processor (Stripe, decided, on hold for real API keys).
+- **11 content pages are all unpublished** — drafts exist (`CONTENT_DRAFTS.md`), need
+  the owner to review and publish via Admin.
+- **No `not-found.tsx`/`error.tsx` exists anywhere in the app** — confirmed live: any
+  404 (e.g. any of the 11 unpublished content pages, or a mistyped URL) shows Next's
+  bare English "This page could not be found" with no header/footer/nav. Real, if minor,
+  UX/brand gap for a Greek-language store — content/design work, not a bug fix, roughly
+  a 15-minute build whenever prioritized.
+- **`registerAction` (`lib/actions/customer.ts`) has an unrecovered partial-failure
+  window** between its three sequential Medusa calls (register auth identity → create
+  customer → refresh token). If the customer-creation call fails after the auth identity
+  was already created, the affected email is left in a broken state: a second
+  registration attempt says "already exists," but logging in succeeds at the auth layer
+  (sets the session cookie) and then `getCustomer()` 404s, so the `(dashboard)` layout
+  bounces back to login — an unexplained, silent login loop for that one email, no error
+  shown anywhere. Rare (only happens if step 2 specifically fails), but permanent for
+  whoever hits it until manually fixed in the database. Needs a real compensating-action
+  design (delete/retry the orphaned auth identity), not a blind patch — flagged, not
+  fixed.
+- **`/logariasmos/nea-kodikos` (the password-reset-confirm page) sits inside the
+  `(auth)` route group**, whose layout redirects to the dashboard if already logged in.
+  Real scenario: a visitor requests a password reset on desktop while already signed in
+  on their phone, opens the emailed link on the phone, and gets silently redirected to
+  the dashboard instead of being able to set a new password. Needs moving that one page
+  out of the `(auth)` group (or excepting it from the redirect) — not done because it's
+  a routing structure change that wants live re-verification, not a same-audit blind fix.
+- **CSP's `img-src 'self'` will block any admin-configured hero image the moment one is
+  set**, since the Media Library is deliberately URL-based (Phase I) and a hero image
+  set to an off-origin URL renders as a CSS `background-image`, bypassing `next/image`'s
+  own domain allowlisting entirely. Not observable today (no hero image is published).
+  One-line fix when it comes up: add the real image host to `src/proxy.ts`'s `img-src`.
+- **No `og:image`/`twitter:image` anywhere** despite `twitter:card: summary_large_image`
+  — social shares render as bare link cards. Root cause is the same "no real product
+  photography exists yet" state documented everywhere else in this file; not fabricated
+  a placeholder, per this project's standing anti-fabrication rule.
+- Minor, not urgent: clearing a saved address's label silently no-ops (Medusa never
+  receives the clear — `JSON.stringify` drops `undefined`, and whether the field accepts
+  `null` wasn't verified live); `AddressBook`'s delete has no confirmation step; the
+  dashboard layout guard always redirects post-login to `/logariasmos` regardless of
+  which page was originally deep-linked to (App Router layouts can't read the current
+  pathname without extra plumbing through `src/proxy.ts`).
+
+### Next recommended steps
+
+- **P0 (critical)**: none currently open that block using the app in dev. Before any
+  real production traffic: (1) confirm actual Railway/Vercel deployment status with the
+  user (this file cannot know it), (2) update CORS env vars to real production URLs
+  once both are deployed, (3) get a real payment processor connected (Stripe, on hold
+  for the user's own API keys).
+- **P1 (important)**: review and publish the 11 content-page drafts; decide the
+  free-shipping threshold (currently a disabled placeholder); enter real product
+  characteristics data; run axe/Lighthouse for the first time; reconcile
+  `TrustStrip`/PDP payment copy (still overclaims card payment support).
+  Cart/wishlist/checkout integration with the new account system (guest-cart merge,
+  address auto-fill, server-side wishlist sync).
+- **P2 (useful later)**: real brand assets (logo, favicon), real product photography,
+  a real domain, account-area polish (order filtering/pagination if order volume grows),
+  social login if ever requested.
+
+### Important commit hashes (verified against real `git log`, not guessed)
+
+| Commit | What it is |
+|---|---|
+| `68cbfdf` | Full customer authentication system (register/login/logout/forgot-reset-password + protected dashboard) |
+| `45fb4f5` | Real CSP with per-request nonces via `src/proxy.ts`, JSON-LD/analytics nonce handling — verified clean `tsc`/`eslint`/build |
+| `ed9e0b9` | Mobile account/wishlist nav entry points, 5 new content-page routes, content drafts |
+| `a63b0f7` | Railway start-command fix (`medusa` CLI resolution via `pnpm --dir`) |
+| `e1c0382` | Checkout-blocking cart-drawer bug fix, dead search-sort fix, email XSS fix (first full audit pass) |
+| `f75de37` | Railway + Vercel deployment prep, hardcoded-domain SEO bug fix |
+| `3109016` | Supabase RLS lockdown (152 tables) + Vercel sitemap build-crash fix |
+| `50e10ad` | Admin-first platform post-implementation audit fixes |
+| `f043b31` | Admin-first platform, Phase K (Analytics/Consent) — last commit of the 11-phase roadmap |
+
+### Current priorities (as of end of this session)
+
+In order: keep the app functionally correct and secure in dev → get real deployment
+status confirmed and CORS/env vars finalized → real payment processor → content
+publication → account/cart/checkout integration → measured performance/SEO polish.
+This ordering is a reasonable default, not a directive — always confirm current
+priorities with the user at the start of a new session rather than assuming this list
+is still exactly right.
+
+---
+
+Everything below this point is older, more granular reference material. It hasn't been
+rewritten to match the "START HERE" section above — where the two disagree on anything
+dated, trust the section above and `CHANGELOG.md`.
 
 ## Project purpose / business goal
 

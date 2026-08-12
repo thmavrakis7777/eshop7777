@@ -43,7 +43,10 @@ export function ProfileForm({ customer }: { customer: Customer }) {
         <FormField id="profile-last-name" label="Επώνυμο" autoComplete="family-name" value={lastName} onChange={setLastName} />
       </div>
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-ink-muted">Email</label>
+        {/* Not a <label>: the email is read-only display text with no form
+            control to label, and a <label> with no associated control is
+            invalid HTML that assistive tech announces as a broken field. */}
+        <span className="text-xs font-medium text-ink-muted">Email</span>
         <p className="text-sm text-ink-muted">{customer.email}</p>
       </div>
       <FormField id="profile-phone" label="Τηλέφωνο (προαιρετικό)" inputMode="tel" autoComplete="tel" value={phone} onChange={setPhone} />

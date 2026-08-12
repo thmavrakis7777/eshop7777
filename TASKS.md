@@ -1173,16 +1173,21 @@ above for the current, real plan:
       payment processor, not speculatively.
 - [ ] **Favicon is still Next.js's own default logo** (`public/` is empty).
       Blocked on the same missing brand asset as `Organization.logo`.
-- [x] **Content-Security-Policy** — **done 2026-08-12**: real CSP with
-      per-request nonces via `src/proxy.ts` (this Next version renamed
-      `middleware.ts` to `proxy.ts`), threaded through all 3 inline JSON-LD
-      scripts (Organization, Product, BreadcrumbList) and all 4 analytics
-      init scripts (GA4/GTM/Meta Pixel/Clarity, `strict-dynamic` covers
-      their own dynamically-inserted `<script src>` tags). Verified live:
-      real nonces present, zero CSP violations in console on homepage/PDP/
-      category. No rendering-mode change needed — every page was already
-      dynamic (cart's `cookies()` usage); only `/robots.txt`/`/sitemap.xml`
-      stay static, neither needs a nonce.
+- [x] **Content-Security-Policy** — **done 2026-08-12**, fixed same day
+      after a real production bug: real CSP with per-request nonces via
+      `src/proxy.ts` (this Next version renamed `middleware.ts` to
+      `proxy.ts`), threaded through all 3 inline JSON-LD scripts and all 4
+      analytics init scripts. First implementation's `style-src
+      'nonce-…'` silently blocked every inline `style={{...}}` React prop
+      in production (a nonce can't whitelist a `style=` *attribute*, only
+      a `<style>`/`<link>` element — dev's `'unsafe-inline'` masked it, so
+      the original "verified live, zero violations" check only ever ran
+      against `next dev`). Found by testing an actual `next build` +
+      `next start`: fixed by splitting into `style-src 'unsafe-inline'`
+      (attributes) + `style-src-elem 'nonce-…'` (elements). `script-src`
+      unchanged. Re-verified against a real production build: zero
+      console errors anywhere. No rendering-mode change needed — every
+      page was already dynamic (cart's `cookies()` usage).
 
 **Found by the 2026-08-12 full technical audit, deliberately not fixed**
 
@@ -1218,6 +1223,31 @@ above for the current, real plan:
       business-policy claim (no returns policy page exists, and EU law
       mandates 14 days, not 30). Not changed — it needs a business
       decision, not a code fix.
+
+**Found by the pre-context-clear audit (2026-08-12, Opus 5), deliberately
+not fixed** — full detail in `PROJECT_MEMORY.md`'s "Known issues" section
+
+- [ ] **`registerAction` has an unrecovered partial-failure window**
+      between its 3 sequential Medusa calls — if customer creation fails
+      after the auth identity is created, that email is left permanently
+      unable to log in (a silent redirect loop, no error shown). Needs a
+      real compensating-action design, not a blind patch.
+- [ ] **`/logariasmos/nea-kodikos` is inside the `(auth)` route group**,
+      so an already-logged-in visitor clicking a password-reset email
+      link gets silently redirected to the dashboard instead of being
+      able to set a new password. Needs moving the page out of the group.
+- [ ] **No `not-found.tsx`/`error.tsx` exists anywhere** — any 404
+      (including all 11 currently-unpublished content pages) shows Next's
+      bare English default, no header/footer/nav. Content/design work,
+      ~15 minutes, not a bug fix.
+- [ ] **CSP's `img-src 'self'` will block an admin-set hero image** the
+      moment one exists off-origin (Media Library is URL-based by
+      design). Not observable today — no hero image is published yet.
+      One-line fix in `src/proxy.ts` when it comes up.
+- [ ] Minor: clearing a saved address's label silently no-ops; address
+      delete has no confirmation step; post-login redirect always lands
+      on `/logariasmos` regardless of which page was originally
+      deep-linked to.
 
 **Housekeeping / non-blocking, any time**
 

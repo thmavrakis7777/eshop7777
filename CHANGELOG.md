@@ -3,6 +3,67 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Pre-context-clear audit: real production CSP bug found and fixed (2026-08-12)
+
+Requested as part of a documentation consolidation before clearing the Claude Code
+context window. Full audit (Opus 5, background agent) of the whole codebase with extra
+scrutiny on the newest code (auth system, CSP, deployment prep).
+
+**Real bug, high impact, production-only**: the CSP's `style-src 'nonce-…'` (added in
+the earlier CSP session) blocked every inline `style={{...}}` React prop in production
+— a CSP nonce can only ever whitelist a `<style>`/`<link>` *element*, never a `style="…"`
+*attribute*. This exact gap is called out in Next.js's own CSP guide (under "Common CSP
+Violations") but was missed when the nonce-based CSP was first implemented, because dev
+mode's `'unsafe-inline'` branch hid it completely — the earlier live verification never
+caught it because it ran against `next dev`, not a production build.
+
+**Live impact, confirmed against a real `next build` + `next start`**: 64 blocked-inline-
+style console errors on the homepage alone. `PlaceholderTile`'s computed
+`backgroundImage` read `none` — every product placeholder tile, the hero fallback
+pattern, an admin-set hero background photo, and the cart's free-shipping progress bar
+would all have rendered blank/broken in production. `next/image`'s `fill` prop also sets
+`position: absolute` via an inline style, so this would have broken real product photos
+the moment any exist, too.
+
+**Fix**: split into `style-src 'self' 'unsafe-inline'` (covers the attribute case,
+where CSP nonces fundamentally cannot help) plus `style-src-elem 'self' 'nonce-…'` in
+production (keeps the strict nonce for actual `<style>`/`<link>` elements where
+supported). `script-src` — the directive that actually stops XSS — is unchanged, along
+with `strict-dynamic`/`object-src 'none'`/`frame-ancestors 'none'`/`base-uri`/
+`form-action`. Verified against a fresh production build: zero console errors on
+homepage/PDP/category/checkout/account pages, computed styles now resolve correctly,
+JSON-LD nonces still intact.
+
+**Two minor fixes**: removed a dead, unreferenced Server Action (`getCustomerAction` —
+zero call sites anywhere, and because the file is `"use server"` it had minted a
+publicly-callable endpoint for nothing); fixed an orphan `<label>` with no `htmlFor` and
+no control to label in `ProfileForm.tsx` (invalid HTML, announced as a broken field by
+assistive tech) — changed to a plain `<span>`.
+
+**Found and deliberately left alone, for the next session to weigh in on** (not bugs
+blind-patched, real judgment calls):
+- `registerAction` has an unrecovered partial-failure window between its three
+  sequential Medusa calls — if customer creation fails after the auth identity is
+  created, the visitor is left in a state where login succeeds but the dashboard bounces
+  them back to login forever (an unexplained loop). Needs a real compensating-action
+  design, not a blind patch.
+- `/logariasmos/nea-kodikos` sits inside the `(auth)` route group, so an already-logged-
+  in visitor clicking a password-reset email link gets silently redirected to the
+  dashboard instead of being able to use the link (real scenario: requested on desktop,
+  opened on an already-signed-in phone).
+- `img-src 'self'` in the CSP will block any admin-configured hero image the moment one
+  is off-origin (Media Library is URL-based by design) — not observable today since no
+  hero image is published yet.
+- No `not-found.tsx`/`error.tsx` exists anywhere — a real visitor hitting any of the 11
+  still-unpublished content pages gets Next's bare English 404 with no header/footer/nav,
+  not a branded Greek not-found page. Flagged as a real, if small, UX gap — content, not
+  a code bug, ~15 minutes whenever it's prioritized.
+- Full list with file:line detail in `PROJECT_MEMORY.md`'s "Known issues" section.
+
+Full `tsc`/`eslint`/`build` (storefront) and `tsc`/`medusa lint` (backend) gate clean,
+re-verified by the orchestrating session after the agent's fixes landed, not just taken
+on the agent's word.
+
 ## Customer authentication system (2026-08-12)
 
 The header/mobile-menu account icon 404'd — `/logariasmos` had no route at

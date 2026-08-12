@@ -10,6 +10,17 @@ in these files. **Sections 1-7 below this point are historical/stale** (written
 mid-way through an earlier session) — trust this summary and `CHANGELOG.md`
 over that old detailed body if they ever disagree.
 
+**2026-08-12 (final entry, end of session) — Pre-context-clear consolidation:
+`PROJECT_MEMORY.md` got a comprehensive new "START HERE" section at the very
+top — read that first from now on, before this file. A final Opus 5 audit
+pass found and fixed one real production-only bug (the CSP blocked all
+inline styles in production — see `CHANGELOG.md`'s newest entry) plus two
+minor fixes, and flagged several real, deliberately-unfixed issues (see
+`TASKS.md`'s newest "pre-context-clear audit" section). Full `tsc`/`eslint`/
+`build` gate clean on both apps, re-verified after the fixes. Not committed
+yet as of this entry — check `git status` and `git log` to see whether it
+was committed/pushed after this was written.**
+
 **2026-08-12 (even later the same day) — Full customer authentication
 system built: register/login/logout/forgot-password/reset-password + a
 protected dashboard (profile, addresses, orders, change password). The
