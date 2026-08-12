@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { Breadcrumbs } from "@/components/category/Breadcrumbs";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
 import { RecentlyViewed } from "@/components/product/RecentlyViewed";
@@ -61,11 +62,12 @@ export default async function ProductPage({ params }: Props) {
   // Related products don't depend on the category lookups, so they're
   // fetched alongside rather than after them — this was a three-deep
   // request waterfall before.
-  const [category, relatedProducts, seo, extra] = await Promise.all([
+  const [category, relatedProducts, seo, extra, nonce] = await Promise.all([
     product.categoryHandle ? getCategoryByHandle(product.categoryHandle) : undefined,
     getRelatedProducts(product),
     getSeoOverride("product", product.id),
     getProductExtra(product.id),
+    headers().then((h) => h.get("x-nonce") ?? undefined),
   ]);
   const parentCategory = category?.parentHandle ? await getCategoryByHandle(category.parentHandle) : undefined;
 
@@ -113,7 +115,7 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
+      <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
       <RecentlyViewedTracker handle={product.handle} />
       <Breadcrumbs items={breadcrumbItems} />
 

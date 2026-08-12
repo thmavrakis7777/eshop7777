@@ -17,7 +17,13 @@ import type { AnalyticsSettings } from "@/lib/data/analytics-settings";
 // first place, so an unconditional noscript tag would load tracking with
 // no consent signal at all. Skipping it is the honest tradeoff, not an
 // oversight.
-export function AnalyticsScripts({ settings }: { settings: AnalyticsSettings | null }) {
+export function AnalyticsScripts({
+  settings,
+  nonce,
+}: {
+  settings: AnalyticsSettings | null;
+  nonce?: string;
+}) {
   const consent = useSyncExternalStore(subscribeConsent, getConsentSnapshot, getConsentServerSnapshot);
 
   if (!settings || consent !== "accepted") return null;
@@ -30,8 +36,9 @@ export function AnalyticsScripts({ settings }: { settings: AnalyticsSettings | n
             id="ga4-lib"
             src={`https://www.googletagmanager.com/gtag/js?id=${settings.ga4MeasurementId}`}
             strategy="afterInteractive"
+            nonce={nonce}
           />
-          <Script id="ga4-init" strategy="afterInteractive">
+          <Script id="ga4-init" strategy="afterInteractive" nonce={nonce}>
             {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
@@ -41,7 +48,7 @@ gtag('config', '${settings.ga4MeasurementId}');`}
       )}
 
       {settings.gtmContainerId && (
-        <Script id="gtm-init" strategy="afterInteractive">
+        <Script id="gtm-init" strategy="afterInteractive" nonce={nonce}>
           {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});
 var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
 j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
@@ -51,7 +58,7 @@ f.parentNode.insertBefore(j,f);
       )}
 
       {settings.metaPixelId && (
-        <Script id="meta-pixel-init" strategy="afterInteractive">
+        <Script id="meta-pixel-init" strategy="afterInteractive" nonce={nonce}>
           {`!function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
 n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -66,7 +73,7 @@ fbq('track', 'PageView');`}
       )}
 
       {settings.clarityProjectId && (
-        <Script id="clarity-init" strategy="afterInteractive">
+        <Script id="clarity-init" strategy="afterInteractive" nonce={nonce}>
           {`(function(c,l,a,r,i,t,y){
 c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
 t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;

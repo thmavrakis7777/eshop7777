@@ -3,6 +3,37 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Real Content-Security-Policy with per-request nonces (2026-08-12)
+
+Closes the CSP gap flagged since the original production-readiness audit.
+Read this Next.js version's own CSP guide first per `AGENTS.md`'s warning
+about breaking changes — confirmed `middleware.ts` is renamed `proxy.ts`
+in this version, not just deprecated-but-working.
+
+Added `src/proxy.ts`: generates a fresh nonce per request, sets a real
+`Content-Security-Policy` header (`script-src 'self' 'nonce-…'
+'strict-dynamic'`, plus `connect-src`/`img-src` allowlisted to the exact
+domains GA4/GTM/Meta Pixel/Clarity actually use — nothing speculative).
+Threaded the nonce through every inline script in the app: the 3 JSON-LD
+`<script>` tags (`layout.tsx`'s Organization, the PDP's Product,
+`Breadcrumbs.tsx`'s BreadcrumbList — the last of these had to become an
+`async` Server Component to read it) and all 4 analytics init scripts in
+`AnalyticsScripts.tsx` via `next/script`'s `nonce` prop. `strict-dynamic`
+means those analytics scripts' own dynamically-inserted `<script src>`
+tags (how GA4/GTM/Meta Pixel/Clarity's snippets actually load their real
+libraries) are trusted automatically without needing their own nonce —
+exactly the mechanism the official docs describe for this scenario.
+
+No rendering-mode cost: nonces require dynamic rendering, but every page
+in this app was already dynamic (`cookies()` in `RootLayout` for the cart)
+except `/robots.txt`/`/sitemap.xml`, neither of which renders HTML or
+scripts and so was left alone. Verified live: real 48-char nonces present
+on every inline script (both the DOM `.nonce` property, which reflects the
+real value, and confirmed `getAttribute('nonce')` correctly returns empty
+per the browser's own anti-XSS spec — not a bug), zero CSP violations in
+the console on homepage/PDP/category pages, full `tsc`/`eslint`/`build`
+gate clean.
+
 ## Mobile account/wishlist entry points, 5 more content-page routes, content drafts, account-system spec (2026-08-12)
 
 Follow-up to the full audit, scoping the "account/wishlist/content pages"

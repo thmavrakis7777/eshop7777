@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Inter, Literata } from "next/font/google";
 import "./globals.css";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
@@ -76,12 +77,13 @@ const organizationJsonLd = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [categories, cart, settings, promoBanner, analyticsSettings] = await Promise.all([
+  const [categories, cart, settings, promoBanner, analyticsSettings, nonce] = await Promise.all([
     getNavCategories(),
     getCart(),
     getSiteSettings(),
     getPromoBanner(),
     getAnalyticsSettings(),
+    headers().then((h) => h.get("x-nonce") ?? undefined),
   ]);
 
   return (
@@ -93,6 +95,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-screen flex-col">
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
         <a href="#main-content" className="sr-only-focusable fixed left-4 top-4 z-50 rounded-sm bg-ink px-4 py-2 text-sm text-white">
@@ -116,7 +119,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           </CartUIProvider>
         </WishlistProvider>
         <ConsentBanner settings={analyticsSettings} />
-        <AnalyticsScripts settings={analyticsSettings} />
+        <AnalyticsScripts settings={analyticsSettings} nonce={nonce} />
       </body>
     </html>
   );

@@ -1169,9 +1169,16 @@ above for the current, real plan:
       payment processor, not speculatively.
 - [ ] **Favicon is still Next.js's own default logo** (`public/` is empty).
       Blocked on the same missing brand asset as `Organization.logo`.
-- [ ] **Content-Security-Policy** — baseline headers are in place, but a
-      real CSP needs per-request nonces threaded through the inline JSON-LD
-      `<script>` tags. Its own change, not a header-list tweak.
+- [x] **Content-Security-Policy** — **done 2026-08-12**: real CSP with
+      per-request nonces via `src/proxy.ts` (this Next version renamed
+      `middleware.ts` to `proxy.ts`), threaded through all 3 inline JSON-LD
+      scripts (Organization, Product, BreadcrumbList) and all 4 analytics
+      init scripts (GA4/GTM/Meta Pixel/Clarity, `strict-dynamic` covers
+      their own dynamically-inserted `<script src>` tags). Verified live:
+      real nonces present, zero CSP violations in console on homepage/PDP/
+      category. No rendering-mode change needed — every page was already
+      dynamic (cart's `cookies()` usage); only `/robots.txt`/`/sitemap.xml`
+      stay static, neither needs a nonce.
 
 **Found by the 2026-08-12 full technical audit, deliberately not fixed**
 

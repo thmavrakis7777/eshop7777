@@ -12,6 +12,14 @@ is the checked-in half of the setup: config-as-code, exact variable *names*,
 and non-secret values. **Actual secret values are never written here** — see
 each section for where to get them.
 
+**A real CSP is now active** (`apps/storefront/src/proxy.ts`, added
+2026-08-12) — `script-src`/`connect-src`/`img-src` only allow the domains
+this app actually uses today (self, plus GA4/GTM/Meta Pixel/Clarity's real
+domains). If a new third-party script/embed gets added later, it will be
+silently blocked by the browser until its domain is added to `proxy.ts`'s
+CSP header — check the browser console for a CSP violation error first if
+something added later "doesn't load" in production.
+
 ## Why Railway, no Dockerfile, no Redis
 
 - **Railway over Render**: equivalent fit for a persistent Node server: both

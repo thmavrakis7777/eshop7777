@@ -1,11 +1,11 @@
 import type { NextConfig } from "next";
 
-// Baseline security headers. Deliberately no Content-Security-Policy yet:
-// the app emits inline JSON-LD <script> tags (Organization, Product,
-// BreadcrumbList), so a real CSP needs per-request nonces wired through
-// those — worth doing, but it's its own change, not a header list.
-// Strict-Transport-Security is left to the hosting layer (Vercel adds it
-// automatically for production https deployments).
+// Baseline security headers. Content-Security-Policy is deliberately not
+// here — it needs a fresh nonce per request, which a static header list
+// can't produce; see src/proxy.ts for the real CSP (nonce'd JSON-LD
+// scripts, analytics scripts, strict-dynamic). Strict-Transport-Security is
+// left to the hosting layer (Vercel adds it automatically for production
+// https deployments).
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
