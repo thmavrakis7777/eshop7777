@@ -10,6 +10,37 @@ in these files. **Sections 1-7 below this point are historical/stale** (written
 mid-way through an earlier session) — trust this summary and `CHANGELOG.md`
 over that old detailed body if they ever disagree.
 
+**2026-08-12 — Supabase RLS lockdown (all 152 tables, verified live) and a
+Vercel first-deploy build fix. Full detail in `CHANGELOG.md`'s newest entry;
+summary here:**
+
+1. **Supabase security linter warnings (`rls_disabled_in_public`,
+   `sensitive_columns_exposed`) are fixed and verified.** Every `public`
+   table now has RLS enabled with zero policies (full lockdown) — the
+   correct fix here specifically, since no `supabase-js`/PostgREST client
+   exists anywhere in this codebase (confirmed by grep) and Medusa's own
+   DB role has `BYPASSRLS`, so this closes the Supabase Data API exposure
+   gap with zero effect on Medusa. Re-verified live: storefront, Store
+   API, and Medusa admin login all work correctly after the change; full
+   `tsc`/`eslint`/`next build`/`medusa lint` gate clean.
+2. **Vercel deploy is still not possible today — this was a real, user-
+   reported build failure, not fixed by code alone.** Root cause (from a
+   real Vercel build log): `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` isn't set
+   in the Vercel project (matches the earlier "no production environment
+   variables configured anywhere" note below) — `app/sitemap.ts` was the
+   only route hitting the Medusa Store API at build time and has been
+   fixed to degrade gracefully instead of crashing the build, but the
+   deployed site still needs, in Vercel's project environment variables:
+   `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` (from Medusa admin → Settings →
+   API Key Management) **and** `NEXT_PUBLIC_MEDUSA_BACKEND_URL` pointing at
+   a real, internet-reachable Medusa deployment. **No such deployment
+   exists yet** — Medusa only runs as a local dev server on this machine.
+   Standing one up (Railway/Render/Fly/DigitalOcean, etc.) is a real
+   hosting decision for the user to make; not attempted here.
+3. **Not committed/pushed yet** — ask before either, per the project's
+   standing rule (the "don't ask per-phase" exception was specific to the
+   Admin-first roadmap and is no longer in effect).
+
 **2026-08-11 (continuing the same day's session) — Phases D through K of
 the Admin-first platform are all built, verified live against the real
 Supabase database, and committed locally. The full A–K roadmap is

@@ -10,20 +10,37 @@ import { siteUrl } from "@/lib/site-config";
 // being offered to crawlers.
 const CONTENT_PAGE_SLUGS = ["sxetika", "apostoles", "epistrofes", "aporrito", "oroi-xrisis", "faq"] as const;
 
+const baseRoutes: MetadataRoute.Sitemap = [
+  { url: siteUrl, changeFrequency: "daily", priority: 1 },
+  { url: `${siteUrl}/nea-afiksi`, changeFrequency: "daily", priority: 0.8 },
+  { url: `${siteUrl}/protainomena`, changeFrequency: "weekly", priority: 0.7 },
+];
+
 // Enumerates the full catalog directly (fine at today's scale). Once the
 // catalog grows past a few thousand SKUs, split into paginated sitemap
 // files (Next supports generateSitemaps) to stay under the 50k-URL limit.
+//
+// This is the only route in the app that talks to Medusa at build time
+// (every page itself is request-time rendered) — `next build` runs this
+// function, so an unreachable backend must degrade to the always-available
+// static routes instead of failing the whole production build.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [navCategories, productHandles, contentPages] = await Promise.all([
-    getNavCategories(),
-    getAllProductHandles(),
-    Promise.all(CONTENT_PAGE_SLUGS.map(async (slug) => ({ slug, page: await getContentPage(slug) }))),
-  ]);
+  let navCategories: Awaited<ReturnType<typeof getNavCategories>>;
+  let productHandles: Awaited<ReturnType<typeof getAllProductHandles>>;
+  let contentPages: { slug: (typeof CONTENT_PAGE_SLUGS)[number]; page: unknown }[];
+  try {
+    [navCategories, productHandles, contentPages] = await Promise.all([
+      getNavCategories(),
+      getAllProductHandles(),
+      Promise.all(CONTENT_PAGE_SLUGS.map(async (slug) => ({ slug, page: await getContentPage(slug) }))),
+    ]);
+  } catch (error) {
+    console.warn("sitemap: Medusa backend unreachable, generating static-only sitemap.", error);
+    return baseRoutes;
+  }
 
   const staticRoutes: MetadataRoute.Sitemap = [
-    { url: siteUrl, changeFrequency: "daily", priority: 1 },
-    { url: `${siteUrl}/nea-afiksi`, changeFrequency: "daily", priority: 0.8 },
-    { url: `${siteUrl}/protainomena`, changeFrequency: "weekly", priority: 0.7 },
+    ...baseRoutes,
     ...contentPages
       .filter(({ page }) => page)
       .map(({ slug }) => ({ url: `${siteUrl}/${slug}`, changeFrequency: "monthly" as const, priority: 0.3 })),

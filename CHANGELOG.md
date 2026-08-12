@@ -3,6 +3,62 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Production security fix + first-deploy build fix (2026-08-12)
+
+Triggered by a user report of two Supabase security-linter warnings
+(`rls_disabled_in_public`, `sensitive_columns_exposed`) and a real Vercel
+build failure. Investigated both against live systems before changing
+anything — no fix here is speculative.
+
+**Supabase RLS lockdown (all 152 public tables).** Queried the live
+database directly: every table in `public` (all of Medusa's own tables
+plus the Admin-first platform's custom modules — `seo`, `site_setting`,
+`content_page`, `homepage_block`, `analytics_setting`, etc.) had RLS
+disabled and zero policies. 39 columns matched sensitive-data patterns
+(`customer.email`/`phone`, `order.email`, `user.email`, `api_key.token`,
+`auth_password_reset_token.token_hash`, `auth_mfa_recovery_code.code_hash`,
+full address fields). Confirmed via `pg_roles` that Medusa's own DB
+connection role (`postgres`) has `rolbypassrls = true`, and confirmed via
+a full codebase grep that **no `supabase-js`/PostgREST client exists
+anywhere** in either app — Supabase is purely Medusa's Postgres host, never
+a direct data API for the storefront or admin. That means there is no
+"which tables should be publicly readable" question to answer per-table
+the way a Supabase-native app would have: nothing in this architecture is
+meant to be reachable via Supabase's auto-generated Data API at all, so
+the correct policy for every table is full lockdown. Applied
+`apps/backend/apps/backend/src/migration-scripts/2026-08-12-enable-rls-lockdown.sql`
+(a `DO $$ ... $$` block enabling RLS on every `public` table with zero
+policies — Postgres denies all rows to non-bypassrls roles with no
+policies present) directly against the live database, then re-queried to
+confirm all 152 tables show `rls_enabled: true`. Verified live afterward:
+storefront homepage/category pages render real product/category data with
+a clean console (fresh tab), a direct `curl` against the Store API
+succeeds with real data, the Medusa admin login page loads correctly, and
+`tsc`/`eslint`/`next build`/`medusa lint` are all clean — Medusa's own
+data access is unaffected, exactly as predicted by the `bypassrls` check.
+
+**Vercel build failure — root cause confirmed from a real build log the
+user shared.** `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY is not set` thrown from
+`lib/medusa.ts`'s `medusaFetch`, surfaced while generating `/sitemap.xml`
+— `sitemap.ts` is the only route in the app that calls the Medusa Store
+API at build time (every page itself is request-time rendered; confirmed
+via a repo-wide search that no route uses `generateStaticParams`). Fixed
+`app/sitemap.ts` to catch a failed/misconfigured Medusa call and degrade
+to the always-available static routes (home, New Arrivals, Recommended)
+instead of crashing the whole production build — verified by reproducing
+the exact failure locally (temporarily stripped the publishable key from
+`.env.local`, confirmed the same error, confirmed `next build` now
+completes instead of exiting with code 1) and then confirming a normal
+build with the real key still produces the full real sitemap. **This
+does not make the site deployable on its own** — see `NEXT_STEPS.md`: the
+Vercel project still needs `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` and
+`NEXT_PUBLIC_MEDUSA_BACKEND_URL` set in its environment variables, and
+`NEXT_PUBLIC_MEDUSA_BACKEND_URL` must point to a real, internet-reachable
+Medusa deployment — today Medusa only runs as a local dev server on this
+machine, so no backend URL Vercel could be given today would actually
+work. Choosing/standing up that backend host is a real infrastructure
+decision, deliberately left to the user rather than guessed at.
+
 ## Admin-first platform post-implementation audit (2026-08-12)
 
 A holistic, read-only-first audit of everything the Admin-first platform
