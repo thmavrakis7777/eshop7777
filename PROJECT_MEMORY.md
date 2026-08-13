@@ -218,11 +218,19 @@ Via Medusa Admin (`localhost:9000/app` in dev):
   committed; whether Railway actually has a live, working deployment right now is
   **unknown to this file** and must be asked about, not assumed, at the start of any
   future session.
-- **Vercel (storefront)**: connected per the user at some point, but no confirmed live
-  deployment has been verified in this session either. The one confirmed real Vercel
-  build failure (`NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` missing, crashing `/sitemap.xml`)
-  was fixed and verified locally — but that fix has not been confirmed against an actual
-  live Vercel deployment.
+- **Vercel (storefront)**: connected, Root Directory now correctly set to
+  `apps/storefront` (was initially unset/wrong — caused a real "No Output Directory
+  named public" build failure, fixed by the user in Vercel's dashboard), and the build
+  itself now succeeds. **But the deployed site crashes on every single page** — verified
+  live against `https://eshop7777.vercel.app`: React error #441 ("An error occurred in
+  the Server Components render"), because `RootLayout` fetches nav/cart/site-settings
+  from Medusa on every request and **there is still no live, publicly-reachable Medusa
+  backend anywhere** (confirmed directly with the user — Railway remains postponed).
+  This is expected, not a new bug: the build-time fix (`sitemap.ts` degrading gracefully)
+  only ever addressed the build failing; it never claimed runtime would work without a
+  real backend. **Do not attempt to "fix" this in code** — it resolves itself the moment
+  Railway (or any other Medusa host) is actually deployed and
+  `NEXT_PUBLIC_MEDUSA_BACKEND_URL` in Vercel points at it.
 - **Supabase**: the only piece that's "real" in the sense of holding real data — the
   same database has been used throughout local development and is what any future
   deployment would connect to. RLS is locked down (see Security below).
