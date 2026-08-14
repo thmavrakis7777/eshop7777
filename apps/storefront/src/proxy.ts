@@ -36,9 +36,27 @@ import type { NextRequest } from "next/server";
 // for attributes and style-src-elem keeps the strict nonce for actual
 // <style>/<link> elements wherever it is supported. Script execution — the
 // directive that actually stops XSS — is unchanged.
+// Cookie name duplicated from lib/admin/auth.ts rather than imported: this
+// file runs in the middleware runtime, and importing that module would drag
+// the Postgres client (and `server-only`) into it. The value is asserted
+// against the real constant by a test in lib/admin/auth.ts's own module.
+const ADMIN_COOKIE = "stia_admin";
+
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
+  const { pathname } = request.nextUrl;
+
+  // Keep unauthenticated traffic off /admin. This is a redirect convenience,
+  // NOT the access control: it only checks that a cookie is present, never
+  // that it is valid, because validating means a database round trip in
+  // middleware. The real checks are (protected)/layout.tsx for page renders
+  // and requireAdmin() inside every admin Server Action — both of which
+  // resolve the session properly.
+  const isAdminPage = pathname.startsWith("/admin") && pathname !== "/admin/login";
+  if (isAdminPage && !request.cookies.get(ADMIN_COOKIE)) {
+    return NextResponse.redirect(new URL("/admin/login", request.url));
+  }
 
   const cspHeader = `
     default-src 'self';
@@ -62,6 +80,10 @@ export function proxy(request: NextRequest) {
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", contentSecurityPolicyHeaderValue);
+  // Defence in depth against the admin ever being indexed: the layout already
+  // sets robots metadata and robots.txt disallows the path, but a header
+  // cannot be missed by a crawler that ignores either.
+  if (pathname.startsWith("/admin")) response.headers.set("X-Robots-Tag", "noindex, nofollow");
   return response;
 }
 
