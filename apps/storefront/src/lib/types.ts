@@ -115,18 +115,20 @@ export type InvoiceDetails = {
 
 export type Cart = {
   id: string;
-  // Carried through so order completion can resolve the cart's payment
-  // providers without a second round-trip just to read region_id back.
-  regionId: string;
   email?: string;
   items: CartLineItem[];
   itemCount: number;
-  // Items only, pre-discount — see PROJECT_MEMORY.md "Cart architecture" for
-  // why this is mapped from Medusa's `item_subtotal`, not `subtotal` (the
-  // latter silently includes shipping once a shipping method is set).
+  // Items only, pre-discount. Computed in lib/db/cart.ts from the cart's own
+  // rows, so it means exactly one thing — unlike Medusa's `subtotal`, which
+  // silently folded in shipping once a method was set and needed a separate
+  // `item_subtotal` to get an items-only figure.
   subtotal: Money;
   discountTotal: Money;
   shippingTotal: Money;
+  // ΦΠΑ already contained in `total`, broken out for display — Greek B2C
+  // prices are VAT-inclusive by law, so this is never added on top.
+  vatTotal: Money;
+  vatRate: number;
   hasShippingMethod: boolean;
   total: Money;
   promotions: AppliedPromotion[];

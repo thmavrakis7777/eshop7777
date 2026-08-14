@@ -1,60 +1,75 @@
-import { medusaFetch, MedusaApiError, type MedusaOrder, type MedusaPaymentProvider, type MedusaShippingOption } from "@/lib/medusa";
-import { parseTaxDocumentMetadata, toAddressSummary } from "@/lib/data/cart";
+import { medusaFetch, MedusaApiError, type MedusaOrder } from "@/lib/medusa";
+import { sql } from "@/lib/db/client";
+import { toAddressSummary } from "@/lib/db/cart";
 import { toneFor } from "@/lib/data/products";
-import type { Order, PaymentProvider, ShippingOption } from "@/lib/types";
+import type { Order, PaymentProvider, ShippingOption, TaxDocumentType, InvoiceDetails } from "@/lib/types";
 
-// Real backend content ("standard"/"express" codes), just only available in
-// English at the source (`type.description`, e.g. "Ship in 2-3 days.") —
-// translating a known, stable code is not the same as inventing a claim the
-// data doesn't back. Unrecognized codes fall back to no estimate shown
-// rather than a guess.
+// Delivery estimates are storefront copy keyed off the method name, not data
+// the shipping table carries — a promise about lead time belongs with the
+// people who can honour it. Unknown names show no estimate rather than a guess.
 const DELIVERY_ESTIMATES: Record<string, string> = {
-  standard: "Παράδοση σε 2-3 εργάσιμες",
-  express: "Παράδοση εντός 24 ωρών",
+  "Standard Shipping": "Παράδοση σε 2-3 εργάσιμες",
+  "Express Shipping": "Παράδοση εντός 24 ωρών",
 };
 
-// The pickup shipping option's shipping_option_type.code — set once, by
-// hand, when the option is created in the admin (StorePickupSpec). Matched
-// here rather than by provider ID so the storefront never needs to know
-// Medusa's internal `fp_store-pickup_...` provider ID string.
-const PICKUP_TYPE_CODE = "pickup";
+/**
+ * Shipping options. Under Medusa these were resolved per-cart against
+ * fulfillment service zones — real complexity for a store that ships to one
+ * country with three flat-rate options. They are now rows in
+ * shop.shipping_method, so the cart id is no longer part of the question.
+ *
+ * The signature keeps its cart argument because checkout still calls it that
+ * way and Phase 6 may reintroduce address-dependent rules (islands, remote
+ * postcodes) — at which point the cart is exactly what it will need.
+ */
+export async function getShippingOptionsForCart(_cartId?: string): Promise<ShippingOption[]> {
+  const rows = await sql<
+    { id: string; name: string; price_cents: number; is_pickup: boolean }[]
+  >`SELECT id, name, price_cents, is_pickup
+      FROM shop.shipping_method WHERE is_active ORDER BY sort_order, name`;
 
-// Shipping options are scoped to a specific cart (Medusa resolves them
-// against that cart's shipping address + fulfillment service zones) — see
-// PROJECT_MEMORY.md "Cart architecture" for the real fulfillment-service-zone
-// gotcha found while verifying this endpoint. Empty array (not an error) is
-// a legitimate real state: no shipping is available for this address yet.
-export async function getShippingOptionsForCart(cartId: string): Promise<ShippingOption[]> {
-  const { shipping_options } = await medusaFetch<{ shipping_options: MedusaShippingOption[] }>(
-    `/store/shipping-options?cart_id=${cartId}&fields=id,name,amount,*type`,
-    { cache: "no-store" }
-  );
-  return shipping_options.map((o) => ({
+  return rows.map((o) => ({
     id: o.id,
     name: o.name,
-    price: { amount: o.amount, currencyCode: "EUR" },
-    deliveryEstimate: o.type?.code ? DELIVERY_ESTIMATES[o.type.code] : undefined,
-    isPickup: o.type?.code === PICKUP_TYPE_CODE,
+    price: { amount: o.price_cents / 100, currencyCode: "EUR" },
+    deliveryEstimate: DELIVERY_ESTIMATES[o.name],
+    isPickup: o.is_pickup,
   }));
 }
 
-// Confirmed live (CHECKOUT_UX_SPEC.md §0.3): exactly one provider exists
-// today, `pp_system_default` — presented to the customer as "Αντικαταβολή"
-// by the payment UI, not renamed here. Never hardcoded: a real processor
-// added later just appears as another entry.
-export async function getPaymentProviders(regionId: string): Promise<PaymentProvider[]> {
-  const { payment_providers } = await medusaFetch<{ payment_providers: MedusaPaymentProvider[] }>(
-    `/store/payment-providers?region_id=${regionId}`,
-    { next: { revalidate: 300 } }
-  );
-  return payment_providers.filter((p) => p.is_enabled).map((p) => ({ id: p.id }));
+/**
+ * Payment methods. Exactly one exists — cash on delivery (Αντικαταβολή) —
+ * and Medusa's payment-collection/payment-session ceremony around it bought
+ * nothing. Still returned as a list, never hardcoded at the call site, so a
+ * real card processor is one row rather than a refactor.
+ */
+export async function getPaymentProviders(): Promise<PaymentProvider[]> {
+  return [{ id: "cod" }];
 }
 
-// Guest order lookup by ID — confirmed live to work with just the
-// publishable key, no customer session required (Medusa's default guest-
-// order behavior in this setup). The order ID itself (a long ULID) is the
-// de facto access token for the confirmation page, the same trust model
-// used by most hosted-checkout "thank you" pages.
+// ---------------------------------------------------------------------------
+// Orders — still read from Medusa until Phase 6 moves order creation over.
+// Everything below this line is scheduled for deletion in that phase.
+// ---------------------------------------------------------------------------
+
+// Medusa has no field for Greek tax-document details, so they were stored in
+// `order.metadata`. Kept here (rather than shared) precisely because it is
+// Medusa-shaped and dies with the rest of this section.
+function parseMedusaTaxDocument(
+  metadata: Record<string, unknown> | null
+): { taxDocumentType: TaxDocumentType; invoiceDetails?: InvoiceDetails } {
+  const type = metadata?.tax_document_type === "invoice" ? "invoice" : "receipt";
+  if (type !== "invoice") return { taxDocumentType: "receipt" };
+
+  const companyName = typeof metadata?.invoice_company_name === "string" ? metadata.invoice_company_name : "";
+  const afm = typeof metadata?.invoice_afm === "string" ? metadata.invoice_afm : "";
+  const doy = typeof metadata?.invoice_doy === "string" ? metadata.invoice_doy : "";
+  const activity = typeof metadata?.invoice_activity === "string" ? metadata.invoice_activity : "";
+  if (!companyName && !afm) return { taxDocumentType: "receipt" };
+
+  return { taxDocumentType: "invoice", invoiceDetails: { companyName, afm, doy, activity } };
+}
+
 export async function getOrder(orderId: string): Promise<Order | null> {
   try {
     const { order } = await medusaFetch<{ order: MedusaOrder }>(
@@ -89,7 +104,7 @@ export function toDomainOrder(o: MedusaOrder): Order {
     shippingMethodName: o.shipping_methods[0]?.name,
     shippingAddress: o.shipping_address ? toAddressSummary(o.shipping_address) : undefined,
     billingAddress: o.billing_address ? toAddressSummary(o.billing_address) : undefined,
-    ...parseTaxDocumentMetadata(o.metadata),
+    ...parseMedusaTaxDocument(o.metadata),
     createdAt: o.created_at,
   };
 }

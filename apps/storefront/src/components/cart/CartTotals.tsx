@@ -34,6 +34,11 @@ export function CartTotals({ cart }: { cart: Cart }) {
         <span className="text-base font-semibold text-ink">Σύνολο</span>
         <span className="text-lg font-semibold text-ink tabular-nums">{formatPrice(cart.total)}</span>
       </div>
+      {/* Greek retail prices are VAT-inclusive by law, so this is a breakdown
+          of the total above — never an amount added to it. */}
+      <p className="text-xs text-ink-muted">
+        Στην τιμή περιλαμβάνεται ΦΠΑ {cart.vatRate}% ({formatPrice(cart.vatTotal)})
+      </p>
       {!cart.hasShippingMethod && (
         <p className="text-xs text-ink-muted">Τα μεταφορικά υπολογίζονται στο επόμενο βήμα.</p>
       )}

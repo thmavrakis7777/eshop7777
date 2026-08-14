@@ -37,30 +37,50 @@ function withOptimisticRemoval(cart: Cart, lineId: string): Cart {
 export function useCartController(initialCart: Cart | null) {
   const [cart, setCart] = useState<Cart | null>(initialCart);
   const [error, setError] = useState<string | null>(null);
+  // Which line the current error belongs to. Deliberately separate from
+  // `pendingLineId`: the consumers used to key the error off that, but it is
+  // cleared in the same state batch the error is set in, so the "show this
+  // line's error" condition was never true and line-item errors were silently
+  // invisible — including the real "not enough stock" case. Found while
+  // verifying the stock guard; the bug predates the Postgres migration.
+  const [errorLineId, setErrorLineId] = useState<string | null>(null);
   const [pendingLineId, setPendingLineId] = useState<string | null>(null);
   const [couponPending, setCouponPending] = useState(false);
   const [, startTransition] = useTransition();
 
-  function updateQuantity(lineId: string, quantity: number) {
+  function clearError() {
     setError(null);
+    setErrorLineId(null);
+  }
+
+  function updateQuantity(lineId: string, quantity: number) {
+    clearError();
     setPendingLineId(lineId);
     setCart((prev) => (prev ? withOptimisticQuantity(prev, lineId, quantity) : prev));
     startTransition(async () => {
       const result = await updateLineItemQuantityAction(lineId, quantity);
+      // On failure the server cart is authoritative — assigning it also
+      // rolls back the optimistic quantity that was never accepted.
       if (result.cart) setCart(result.cart);
-      if (!result.ok) setError(result.error);
+      if (!result.ok) {
+        setError(result.error);
+        setErrorLineId(lineId);
+      }
       setPendingLineId(null);
     });
   }
 
   function removeItem(lineId: string) {
-    setError(null);
+    clearError();
     setPendingLineId(lineId);
     setCart((prev) => (prev ? withOptimisticRemoval(prev, lineId) : prev));
     startTransition(async () => {
       const result = await removeLineItemAction(lineId);
       if (result.cart) setCart(result.cart);
-      if (!result.ok) setError(result.error);
+      if (!result.ok) {
+        setError(result.error);
+        setErrorLineId(lineId);
+      }
       setPendingLineId(null);
     });
   }
@@ -88,6 +108,7 @@ export function useCartController(initialCart: Cart | null) {
     cart,
     setCart,
     error,
+    errorLineId,
     pendingLineId,
     couponPending,
     updateQuantity,

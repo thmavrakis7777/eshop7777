@@ -226,7 +226,7 @@ export async function completeCheckoutAction(): Promise<CheckoutCompleteResult> 
       return { ok: false, error: "Συμπλήρωσε όλα τα απαραίτητα στοιχεία πριν ολοκληρώσεις την παραγγελία." };
     }
 
-    const providers = await getPaymentProviders(cart.regionId);
+    const providers = await getPaymentProviders();
     const providerId = providers[0]?.id;
     if (!providerId) {
       return { ok: false, error: "Δεν υπάρχει διαθέσιμος τρόπος πληρωμής αυτή τη στιγμή. Επικοινώνησε μαζί μας." };

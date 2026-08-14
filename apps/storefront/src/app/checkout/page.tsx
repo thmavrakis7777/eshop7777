@@ -21,7 +21,7 @@ export default async function CheckoutPage() {
   // The cart already carries its own region — no need to resolve "the"
   // default region separately, which was both an extra request and wrong
   // the moment a second region exists.
-  const paymentProviders = await getPaymentProviders(cart.regionId);
+  const paymentProviders = await getPaymentProviders();
 
   return (
     <div className="container-shell py-8 md:py-12">

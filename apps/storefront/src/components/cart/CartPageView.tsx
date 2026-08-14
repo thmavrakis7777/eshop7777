@@ -27,7 +27,7 @@ export function CartPageView({ initialCart, cartMessage }: { initialCart: Cart; 
 
   const rowProps = (itemId: string) => ({
     pending: controller.pendingLineId === itemId,
-    error: controller.pendingLineId === itemId ? (controller.error ?? undefined) : undefined,
+    error: controller.errorLineId === itemId ? (controller.error ?? undefined) : undefined,
   });
 
   return (
