@@ -91,7 +91,8 @@ try {
     SELECT p.id, p.handle, p.title, p.description, p.status, p.created_at,
            p.material, p.weight, p.length, p.width, p.height, p.origin_country,
            c.handle AS category_handle,
-           pe.badge_label, pe.warranty_text, pe.hide_from_search, pe.is_search_boosted
+           pe.badge_label, pe.badge_tone, pe.downloads_url,
+           pe.warranty_text, pe.hide_from_search, pe.is_search_boosted
       FROM product p
       LEFT JOIN product_category_product pcp ON pcp.product_id = p.id
       LEFT JOIN product_category c ON c.id = pcp.product_category_id AND c.deleted_at IS NULL
@@ -104,13 +105,15 @@ try {
       INSERT INTO shop.product (
         slug, title, description, category_id, is_active, created_at,
         material, weight_grams, length_cm, width_cm, height_cm, origin_country,
-        badge_label, warranty_text, hide_from_search, is_search_boosted)
+        badge_label, badge_tone, downloads_url, warranty_text,
+        hide_from_search, is_search_boosted)
       VALUES (
         ${p.handle}, ${p.title}, ${p.description || null},
         ${p.category_handle ? catIdBySlug.get(p.category_handle) ?? null : null},
         ${p.status === "published"}, ${p.created_at},
         ${p.material}, ${p.weight}, ${p.length}, ${p.width}, ${p.height}, ${p.origin_country},
-        ${p.badge_label || null}, ${p.warranty_text || null},
+        ${p.badge_label || null}, ${p.badge_tone || "neutral"}, ${p.downloads_url || null},
+        ${p.warranty_text || null},
         ${p.hide_from_search ?? false}, ${p.is_search_boosted ?? false})
       ON CONFLICT (slug) DO UPDATE SET
         title = EXCLUDED.title, description = EXCLUDED.description,
@@ -118,7 +121,8 @@ try {
         material = EXCLUDED.material, weight_grams = EXCLUDED.weight_grams,
         length_cm = EXCLUDED.length_cm, width_cm = EXCLUDED.width_cm,
         height_cm = EXCLUDED.height_cm, origin_country = EXCLUDED.origin_country,
-        badge_label = EXCLUDED.badge_label, warranty_text = EXCLUDED.warranty_text,
+        badge_label = EXCLUDED.badge_label, badge_tone = EXCLUDED.badge_tone,
+        downloads_url = EXCLUDED.downloads_url, warranty_text = EXCLUDED.warranty_text,
         hide_from_search = EXCLUDED.hide_from_search,
         is_search_boosted = EXCLUDED.is_search_boosted`;
   }
@@ -306,15 +310,19 @@ try {
     await sql`
       INSERT INTO shop.seo_meta (
         resource_type, resource_id, seo_title, meta_description, canonical_url,
-        og_title, og_description, keywords, robots)
+        og_title, og_description, social_image_path, keywords, robots,
+        structured_data_override)
       VALUES (
         ${s.resource_type}, ${String(resourceId)}, ${s.seo_title}, ${s.meta_description},
-        ${s.canonical_url}, ${s.og_title}, ${s.og_description}, ${s.keywords}, ${s.robots || "index"})
+        ${s.canonical_url}, ${s.og_title}, ${s.og_description}, ${s.social_image_url},
+        ${s.keywords}, ${s.robots || "index"}, ${s.structured_data_override})
       ON CONFLICT (resource_type, resource_id) DO UPDATE SET
         seo_title = EXCLUDED.seo_title, meta_description = EXCLUDED.meta_description,
         canonical_url = EXCLUDED.canonical_url, og_title = EXCLUDED.og_title,
-        og_description = EXCLUDED.og_description, keywords = EXCLUDED.keywords,
-        robots = EXCLUDED.robots`;
+        og_description = EXCLUDED.og_description,
+        social_image_path = EXCLUDED.social_image_path,
+        keywords = EXCLUDED.keywords, robots = EXCLUDED.robots,
+        structured_data_override = EXCLUDED.structured_data_override`;
     seoImported++;
   }
   log("seo rows", seoImported);

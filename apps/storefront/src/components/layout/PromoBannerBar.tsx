@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { PromoBanner } from "@/lib/data/promo-banner";
+import type { PromoBanner } from "@/lib/content-types";
 
 type Remaining = { days: number; hours: number; minutes: number; seconds: number };
 

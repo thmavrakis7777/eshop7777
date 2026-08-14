@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { HomepageBlock } from "@/lib/data/homepage-blocks";
+import type { HomepageBlock } from "@/lib/content-types";
 import { HeroSlide } from "@/components/home/Hero";
 import { ChevronDownIcon } from "@/components/ui/Icons";
 

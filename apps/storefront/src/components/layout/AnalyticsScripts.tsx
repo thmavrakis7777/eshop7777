@@ -3,7 +3,7 @@
 import Script from "next/script";
 import { useSyncExternalStore } from "react";
 import { getConsentServerSnapshot, getConsentSnapshot, subscribeConsent } from "@/lib/consent-storage";
-import type { AnalyticsSettings } from "@/lib/data/analytics-settings";
+import type { AnalyticsSettings } from "@/lib/content-types";
 
 // Admin-first platform, Phase K. Renders nothing until the visitor has
 // actively accepted (see ConsentBanner) — no script tag for any service

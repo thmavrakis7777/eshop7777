@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { getConsentServerSnapshot, getConsentSnapshot, setConsentChoice, subscribeConsent } from "@/lib/consent-storage";
-import { hasAnyAnalyticsService, type AnalyticsSettings } from "@/lib/data/analytics-settings";
+import { hasAnyAnalyticsService, type AnalyticsSettings } from "@/lib/content-types";
 
 // Admin-first platform, Phase K. Only ever renders if at least one
 // tracking service is actually configured (nothing to consent to
