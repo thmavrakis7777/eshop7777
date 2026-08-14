@@ -20,7 +20,13 @@ export async function generateMetadata(): Promise<Metadata> {
   const description = seo?.metaDescription || siteDefaultDescription;
 
   return {
-    title: seo?.seoTitle ? { absolute: seo.seoTitle } : title,
+    // Always absolute. The root layout's "%s | STIA" template is right for
+    // inner pages but wrong here: the homepage title already carries the
+    // brand, so letting the template apply produced
+    // "STIA — Είδη Σπιτιού… | STIA". Only the admin-set title was absolute
+    // before, so the double-brand appeared whenever the SEO field was empty —
+    // which is its default state.
+    title: { absolute: title },
     description,
     alternates: { canonical: seo?.canonicalUrl || "/" },
     ...(seo?.robots === "noindex" ? { robots: { index: false, follow: true } } : {}),
