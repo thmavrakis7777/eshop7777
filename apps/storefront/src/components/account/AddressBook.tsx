@@ -44,8 +44,13 @@ export function AddressBook({ addresses: initialAddresses }: { addresses: Custom
                   {address.firstName} {address.lastName}
                 </p>
                 <p className="text-ink-muted">
-                  {address.street} {address.number}
-                  {address.area ? `, ${address.area}` : ""}
+                  {/* `number` is empty for a saved address — Οδός and Αριθμός are
+                      stored combined in one column and splitting them back apart
+                      is not reliably reversible. Joining on filtered parts keeps
+                      that from rendering as a stray space before the comma. */}
+                  {[[address.street, address.number].filter(Boolean).join(" "), address.area]
+                    .filter(Boolean)
+                    .join(", ")}
                   <br />
                   {address.postalCode} {address.city}
                   {address.phone && (

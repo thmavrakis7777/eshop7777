@@ -200,6 +200,11 @@ export type Order = {
   subtotal: Money;
   discountTotal: Money;
   shippingTotal: Money;
+  // ΦΠΑ contained in `total`, recorded at the rate in force when the order
+  // was placed — never recomputed from today's rate, so an old order still
+  // reconciles against the invoice the customer received.
+  vatTotal: Money;
+  vatRate: number;
   total: Money;
   shippingMethodName?: string;
   shippingAddress?: AddressSummary;
