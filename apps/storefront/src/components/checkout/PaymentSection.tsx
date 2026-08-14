@@ -1,13 +1,18 @@
 import { SectionHeading } from "@/components/checkout/SectionHeading";
 import type { PaymentProvider } from "@/lib/types";
 
-// Driven by the live `/store/payment-providers` list, not hardcoded —
-// confirmed only one provider exists today (`pp_system_default`), so this
-// is presented honestly as "Αντικαταβολή" (explicit decision, see
-// CHECKOUT_UX_SPEC.md §0.3) rather than implying card/wallet support that
-// doesn't exist. A second real provider later just appears as another card.
+// Driven by the payment-provider list, not hardcoded at the call site.
+// Exactly one method exists today, presented honestly as "Αντικαταβολή"
+// (explicit decision, see CHECKOUT_UX_SPEC.md §0.3) rather than implying
+// card/wallet support that doesn't exist. A second real provider later just
+// appears as another card.
+//
+// The id is `cod` now, not Medusa's `pp_system_default` — that string was a
+// Medusa internal ("system default payment provider"), and keeping a
+// vendor's identifier for cash on delivery after removing the vendor is
+// exactly the debris this migration exists to avoid.
 const PROVIDER_LABELS: Record<string, { label: string; description: string }> = {
-  pp_system_default: {
+  cod: {
     label: "Αντικαταβολή",
     description: "Πληρώνεις τοις μετρητοίς όταν παραλάβεις την παραγγελία σου.",
   },
