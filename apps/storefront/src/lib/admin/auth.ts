@@ -113,6 +113,17 @@ export async function setAdminSessionCookie(token: string): Promise<void> {
 }
 
 /**
+ * The hash of the CURRENT session's token. Needed when changing a password:
+ * every other session is destroyed, but the tab doing the changing should
+ * stay signed in — so it has to be identifiable without ever exposing the
+ * raw token beyond the cookie.
+ */
+export async function getCurrentAdminTokenHash(): Promise<string | null> {
+  const token = (await cookies()).get(ADMIN_SESSION_COOKIE)?.value;
+  return token ? hashToken(token) : null;
+}
+
+/**
  * Records who changed what. Called by mutating admin actions. Deliberately
  * never throws: an audit-log failure must not roll back the operation the
  * admin actually asked for — a missing log line is recoverable, a half-applied
