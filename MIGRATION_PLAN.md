@@ -25,7 +25,7 @@ is committed locally only, per the project's standing instruction.
 | 9 — Orders, customers, discounts | ✅ | `e18a5da` |
 | 10 — Storefront CMS | ✅ | `903ccde` |
 | 11 — Settings & admin users | ✅ | `5d9c3d2` |
-| **6b — Storefront variants + collections** | **⬜ NOT STARTED** | — |
+| 6b — Storefront variants + collections | ✅ | — |
 | **12 — Data migration & verification** | ⬜ partially done early | — |
 | **13 — Remove Medusa** | ⬜ NOT STARTED | — |
 | 14 — Security audit | ⬜ | — |
@@ -95,8 +95,12 @@ during Phase 7; the owner intends to change it via
 
 ## Live data (verified, all test data removed)
 
-16 products · 28 categories · 0 collections · 36 variants · 7 customers ·
-0 orders · 0 discounts · 1 admin · 3 shipping methods · stock all 100.
+16 products · 28 categories · 0 collections · 16 variants (every real product
+has exactly one — the earlier "36 variants" figure in this file was stale/
+wrong, confirmed 2026-08-16 by querying both `shop.product_variant` and
+Medusa's original `public.product_variant`: neither ever had a real
+multi-variant product) · 7 customers · 0 orders · 0 discounts · 1 admin ·
+3 shipping methods · stock all 100.
 
 **Medusa's 152 `public` tables are untouched and still hold the original data.**
 
@@ -104,16 +108,27 @@ during Phase 7; the owner intends to change it via
 
 ## What is NOT done — start here
 
-### 1. Phase 6b — storefront variants + collections (decisions 2 and 3)
-The owner chose real variants and full collections. The **admin** side of both
-is built; the **storefront** side is not:
-- PDP variant selector is still the bare radio list from before the migration,
-  never designed for real multi-variant data.
-- `Product.price` is a single number; listings need a range ("από 24,90 €")
-  once variants differ in price. Touches `lib/types.ts`, `toDomainProduct`
-  (`lib/db/catalog.ts`) and `ProductCard`.
-- No `/syllogi/[slug]` route exists. Collections have no storefront surface at
-  all — needs the route, PLP reuse, SEO, sitemap entries.
+### 1. Phase 6b — storefront variants + collections (decisions 2 and 3) — DONE, with a scope note
+Completed 2026-08-16. Built: `Product.priceRange` (`lib/types.ts`,
+`toDomainProduct` in `lib/db/catalog.ts`) rendering "από X €" on `ProductCard`
+and the PDP plus an `AggregateOffer` JSON-LD fallback when it's set; the full
+`/syllogi/[slug]` storefront route (catalog queries, `ProductSource` union +
+load-more action, SEO via the existing `getSeoOverride("collection", …)`,
+sitemap entries) — all verified live against a temporary real collection +
+variant, created via the admin UI and reverted after.
+
+**Deliberately not built**: the option-grouped variant selector redesign
+(swatches/size chips grouped by option type). `shop.product_option` /
+`product_option_value` / `product_variant_option_value` exist in the schema
+for this but are and have always been empty — Medusa's own original source
+data never had a real multi-variant STIA product either (confirmed live,
+2026-08-16), only its unrelated demo seed data (`SHIRT-S-BLACK` etc., already
+excluded from migration per `MIGRATION_AUDIT.md` §12.5). Building a grouped
+option UI now would mean verifying it against fabricated structure with
+nothing real behind it — the existing flat radio list (`AddToCartButton.tsx`)
+already works correctly for any number of variants, just isn't pretty. Revisit
+once a real multi-option product exists, or if the owner wants to invest in it
+speculatively anyway.
 
 ### 2. Image upload (blocked on credentials)
 Everything else in the admin works; images do not. Needs two values in

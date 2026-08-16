@@ -1,10 +1,12 @@
 import {
+  getAllCollectionSlugs,
   getAllProductSlugs,
   getCartCrossSell as dbGetCartCrossSell,
   getFeaturedProductsPaged as dbGetFeaturedProductsPaged,
   getNewArrivalsPaged as dbGetNewArrivalsPaged,
   getProductBySlug,
   getProductsByCategorySlug,
+  getProductsByCollectionSlug,
   getProductsBySlugs,
   getRelatedProducts as dbGetRelatedProducts,
   getSearchCatalog,
@@ -35,6 +37,13 @@ export async function getProductsByCategoryHandle(
   opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
 ): Promise<{ products: Product[]; count: number }> {
   return getProductsByCategorySlug(categoryHandle, opts);
+}
+
+export async function getProductsByCollectionHandle(
+  collectionHandle: string,
+  opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
+): Promise<{ products: Product[]; count: number }> {
+  return getProductsByCollectionSlug(collectionHandle, opts);
 }
 
 export async function getProductByHandle(handle: string): Promise<Product | undefined> {
@@ -118,4 +127,9 @@ export async function searchProducts(
 
 export async function getAllProductHandles(): Promise<{ handle: string; updatedAt: string }[]> {
   return getAllProductSlugs();
+}
+
+export async function getAllCollectionHandles(): Promise<{ handle: string; updatedAt: string }[]> {
+  const collections = await getAllCollectionSlugs();
+  return collections.map((c) => ({ handle: c.slug, updatedAt: c.updatedAt }));
 }

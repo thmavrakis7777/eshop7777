@@ -109,6 +109,16 @@ export function toDomainProduct(r: ProductRow): Product {
   const compareAt = first?.compare_at_price_cents ?? null;
   const onSale = compareAt != null && compareAt > (first?.price_cents ?? 0);
 
+  const prices = r.variants.map((v) => v.price_cents);
+  const minCents = prices.length ? Math.min(...prices) : 0;
+  const maxCents = prices.length ? Math.max(...prices) : 0;
+  const priceRange = minCents !== maxCents
+    ? {
+        min: { amount: toEuros(minCents), currencyCode: "EUR" as const },
+        max: { amount: toEuros(maxCents), currencyCode: "EUR" as const },
+      }
+    : undefined;
+
   return {
     id: r.id,
     title: r.title,
@@ -117,6 +127,7 @@ export function toDomainProduct(r: ProductRow): Product {
     shortDescription: r.description ?? "",
     price: { amount, currencyCode: "EUR" },
     compareAtPrice: onSale ? { amount: toEuros(compareAt), currencyCode: "EUR" } : undefined,
+    priceRange,
     badges: [
       ...(onSale ? (["sale"] as const) : []),
       ...(isNewArrival(r) ? (["new"] as const) : []),
@@ -197,6 +208,57 @@ export async function getProductsByCategorySlug(
     products: rows.map(toDomainProduct),
     count: rows.length > 0 ? Number(rows[0].total_count) : 0,
   };
+}
+
+export type Collection = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+};
+
+// Active-only, public fields — the admin's own AdminCollection (lib/admin/
+// taxonomy.ts) additionally carries sortOrder/isActive/productCount, which
+// have no storefront-facing meaning.
+export async function getCollectionBySlug(slug: string): Promise<Collection | undefined> {
+  const rows = await sql<Collection[]>`
+    SELECT id, slug, title, description
+      FROM shop.collection
+     WHERE slug = ${slug} AND is_active
+     LIMIT 1
+  `;
+  return rows[0];
+}
+
+// Flat membership via product_collection — no category-style recursive tree,
+// collections don't nest.
+export async function getProductsByCollectionSlug(
+  slug: string,
+  opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
+): Promise<{ products: Product[]; count: number }> {
+  const { sort = "newest", limit = 24, offset = 0 } = opts;
+
+  const rows = (await sql`
+    SELECT ${productFields}, COUNT(*) OVER () AS total_count
+      FROM shop.product p
+      LEFT JOIN shop.category c ON c.id = p.category_id
+      JOIN shop.product_collection pc ON pc.product_id = p.id
+      JOIN shop.collection col ON col.id = pc.collection_id
+     WHERE p.is_active AND col.slug = ${slug} AND col.is_active
+     ${orderBy(sort)}
+     LIMIT ${limit} OFFSET ${offset}
+  `) as unknown as Array<ProductRow & { total_count: string }>;
+
+  return {
+    products: rows.map(toDomainProduct),
+    count: rows.length > 0 ? Number(rows[0].total_count) : 0,
+  };
+}
+
+export async function getAllCollectionSlugs(): Promise<{ slug: string; updatedAt: string }[]> {
+  const rows = await sql<{ slug: string; updated_at: Date }[]>`
+    SELECT slug, updated_at FROM shop.collection WHERE is_active ORDER BY slug`;
+  return rows.map((r) => ({ slug: r.slug, updatedAt: new Date(r.updated_at).toISOString() }));
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {

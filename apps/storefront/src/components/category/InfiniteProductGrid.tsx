@@ -7,6 +7,7 @@ import type { Product } from "@/lib/types";
 import type { ProductSort } from "@/lib/data/products";
 import {
   loadMoreCategoryProductsAction,
+  loadMoreCollectionProductsAction,
   loadMoreFeaturedProductsAction,
   loadMoreNewArrivalsAction,
   loadMoreSearchProductsAction,
@@ -14,12 +15,14 @@ import {
 
 export type ProductSource =
   | { type: "category"; categoryHandle: string }
+  | { type: "collection"; collectionHandle: string }
   | { type: "new-arrivals" }
   | { type: "featured" }
   | { type: "search"; query: string };
 
 function sourceKeyOf(source: ProductSource): string {
   if (source.type === "category") return `category:${source.categoryHandle}`;
+  if (source.type === "collection") return `collection:${source.collectionHandle}`;
   if (source.type === "search") return `search:${source.query}`;
   return source.type;
 }
@@ -31,6 +34,8 @@ function fetchNextPage(
   limit: number
 ): Promise<{ products: Product[]; count: number }> {
   if (source.type === "category") return loadMoreCategoryProductsAction(source.categoryHandle, sort, offset, limit);
+  if (source.type === "collection")
+    return loadMoreCollectionProductsAction(source.collectionHandle, sort, offset, limit);
   if (source.type === "search") return loadMoreSearchProductsAction(source.query, offset, limit);
   if (source.type === "featured") return loadMoreFeaturedProductsAction(sort, offset, limit);
   return loadMoreNewArrivalsAction(sort, offset, limit);

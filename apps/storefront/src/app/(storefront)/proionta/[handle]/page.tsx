@@ -16,7 +16,7 @@ import { getCategoryByHandle } from "@/lib/data/categories";
 import { getProductByHandle, getRelatedProducts } from "@/lib/data/products";
 import { getProductExtra } from "@/lib/data/product-extras";
 import { getSeoOverride } from "@/lib/data/seo";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatPriceFrom } from "@/lib/format";
 import { siteUrl } from "@/lib/site-config";
 
 type Props = { params: Promise<{ handle: string }> };
@@ -86,15 +86,30 @@ export default async function ProductPage({ params }: Props) {
     ...(product.characteristics?.weightGrams != null
       ? { weight: { "@type": "QuantitativeValue", value: product.characteristics.weightGrams, unitCode: "GRM" } }
       : {}),
-    offers: {
-      "@type": "Offer",
-      priceCurrency: product.price.currencyCode,
-      price: product.price.amount,
-      availability: product.isAvailable
-        ? "https://schema.org/InStock"
-        : "https://schema.org/OutOfStock",
-      url: `${siteUrl}/proionta/${product.handle}`,
-    },
+    // AggregateOffer (not a single Offer) when variants don't share one
+    // price — a single `price` would be schema.org-incorrect once it's only
+    // true for one of several variants.
+    offers: product.priceRange
+      ? {
+          "@type": "AggregateOffer",
+          priceCurrency: product.priceRange.min.currencyCode,
+          lowPrice: product.priceRange.min.amount,
+          highPrice: product.priceRange.max.amount,
+          offerCount: product.variants.length,
+          availability: product.isAvailable
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
+          url: `${siteUrl}/proionta/${product.handle}`,
+        }
+      : {
+          "@type": "Offer",
+          priceCurrency: product.price.currencyCode,
+          price: product.price.amount,
+          availability: product.isAvailable
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
+          url: `${siteUrl}/proionta/${product.handle}`,
+        },
     // Admin-editable escape hatch for the rare product that needs a real
     // structured-data field this generator doesn't produce — merged on top
     // rather than replacing wholesale, so a partial override (e.g. just
@@ -152,8 +167,10 @@ export default async function ProductPage({ params }: Props) {
           )}
 
           <div className="mt-4 flex items-baseline gap-3">
-            <span className="text-2xl font-semibold text-ink">{formatPrice(product.price)}</span>
-            {product.compareAtPrice && (
+            <span className="text-2xl font-semibold text-ink">
+              {product.priceRange ? formatPriceFrom(product.priceRange.min) : formatPrice(product.price)}
+            </span>
+            {!product.priceRange && product.compareAtPrice && (
               <span className="text-base text-ink-muted line-through">{formatPrice(product.compareAtPrice)}</span>
             )}
           </div>

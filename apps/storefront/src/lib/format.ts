@@ -9,6 +9,11 @@ export function formatPrice(money: Money): string {
   return formatter.format(money.amount);
 }
 
+// "από 24,90 €" — used when a product's variants don't all share one price.
+export function formatPriceFrom(min: Money): string {
+  return `από ${formatPrice(min)}`;
+}
+
 // null when there's nothing to show — callers render a neutral placeholder
 // ("–") rather than a fake 0%, keeping every row the same shape.
 export function discountPercent(unitPrice: Money, compareAtUnitPrice?: Money): number | null {

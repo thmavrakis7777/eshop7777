@@ -4,6 +4,7 @@ import {
   getFeaturedProductsPaged,
   getNewArrivalsPaged,
   getProductsByCategoryHandle,
+  getProductsByCollectionHandle,
   searchProducts,
   type ProductSort,
 } from "@/lib/data/products";
@@ -22,6 +23,15 @@ export async function loadMoreCategoryProductsAction(
   limit: number
 ): Promise<{ products: Product[]; count: number }> {
   return getProductsByCategoryHandle(categoryHandle, { sort, limit, offset });
+}
+
+export async function loadMoreCollectionProductsAction(
+  collectionHandle: string,
+  sort: ProductSort,
+  offset: number,
+  limit: number
+): Promise<{ products: Product[]; count: number }> {
+  return getProductsByCollectionHandle(collectionHandle, { sort, limit, offset });
 }
 
 export async function loadMoreNewArrivalsAction(

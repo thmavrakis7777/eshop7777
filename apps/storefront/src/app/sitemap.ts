@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getNavCategories } from "@/lib/data/categories";
 import { getContentPage } from "@/lib/data/content-pages";
-import { getAllProductHandles } from "@/lib/data/products";
+import { getAllCollectionHandles, getAllProductHandles } from "@/lib/data/products";
 import { siteUrl } from "@/lib/site-config";
 
 // Same fixed slug set as the storefront's literal route folders (Admin-
@@ -39,11 +39,13 @@ const baseRoutes: MetadataRoute.Sitemap = [
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let navCategories: Awaited<ReturnType<typeof getNavCategories>>;
   let productHandles: Awaited<ReturnType<typeof getAllProductHandles>>;
+  let collectionHandles: Awaited<ReturnType<typeof getAllCollectionHandles>>;
   let contentPages: { slug: (typeof CONTENT_PAGE_SLUGS)[number]; page: unknown }[];
   try {
-    [navCategories, productHandles, contentPages] = await Promise.all([
+    [navCategories, productHandles, collectionHandles, contentPages] = await Promise.all([
       getNavCategories(),
       getAllProductHandles(),
+      getAllCollectionHandles(),
       Promise.all(CONTENT_PAGE_SLUGS.map(async (slug) => ({ slug, page: await getContentPage(slug) }))),
     ]);
   } catch (error) {
@@ -67,6 +69,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ]);
 
+  const collectionRoutes: MetadataRoute.Sitemap = collectionHandles.map((c) => ({
+    url: `${siteUrl}/syllogi/${c.handle}`,
+    lastModified: c.updatedAt,
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }));
+
   const productRoutes: MetadataRoute.Sitemap = productHandles.map((p) => ({
     url: `${siteUrl}/proionta/${p.handle}`,
     lastModified: p.updatedAt,
@@ -74,5 +83,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  return [...staticRoutes, ...categoryRoutes, ...productRoutes];
+  return [...staticRoutes, ...categoryRoutes, ...collectionRoutes, ...productRoutes];
 }

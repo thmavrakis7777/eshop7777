@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Product } from "@/lib/types";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatPriceFrom } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { Stars } from "@/components/ui/Stars";
 import { StockStatus } from "@/components/product/StockStatus";
@@ -79,9 +79,9 @@ export function ProductCard({ product }: { product: Product }) {
         {product.code && <span className="text-xs text-ink-muted">Κωδικός: {product.code}</span>}
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-semibold text-ink">
-            {formatPrice(product.price)}
+            {product.priceRange ? formatPriceFrom(product.priceRange.min) : formatPrice(product.price)}
           </span>
-          {product.compareAtPrice && (
+          {!product.priceRange && product.compareAtPrice && (
             <span className="text-xs text-ink-muted line-through">
               {formatPrice(product.compareAtPrice)}
             </span>

@@ -54,6 +54,12 @@ export type Product = {
   shortDescription: string;
   price: Money;
   compareAtPrice?: Money;
+  // Set only when the product's active variants don't all share one price —
+  // callers show "από {min.amount} €" instead of a single price when this
+  // is present. Every real product today has exactly one variant, so this
+  // is always undefined in practice until a second, differently-priced
+  // variant exists — see toDomainProduct in lib/db/catalog.ts.
+  priceRange?: { min: Money; max: Money };
   // No review system exists yet — real products carry no rating. Never
   // fabricate one; a fake trust signal is worse than showing none.
   rating?: number;
