@@ -26,15 +26,17 @@ is committed locally only, per the project's standing instruction.
 | 10 — Storefront CMS | ✅ | `903ccde` |
 | 11 — Settings & admin users | ✅ | `5d9c3d2` |
 | 6b — Storefront variants + collections | ✅ | — |
-| **12 — Data migration & verification** | ⬜ partially done early | — |
-| **13 — Remove Medusa** | 🟡 code removed, DB drop still pending | — |
+| 12 — Data migration & verification | ✅ | — |
+| 13 — Remove Medusa | ✅ | — |
 | 14 — Security audit | ⬜ | — |
 | 15 — SEO audit | ⬜ | — |
 | 16 — Performance audit | ⬜ | — |
 | 17 — Final cleanup & docs | ⬜ | — |
 
-**The storefront and the admin are both fully functional on Postgres.**
-Medusa is no longer used by any running code — but it has not been deleted yet.
+**The storefront and the admin are both fully functional on Postgres, and
+Medusa is completely gone** — code deleted from the repo, tables dropped from
+the database (both 2026-08-16). Everything the app needs lives in the `shop`
+schema.
 
 ---
 
@@ -80,16 +82,16 @@ pnpm db:status             # what is applied vs pending
 pnpm db:test-concurrency   # proves order completion cannot oversell
 pnpm typecheck && pnpm lint && pnpm build
 
-node db/import-from-medusa.mjs      # re-sync catalog from Medusa (read-only on public)
 node db/create-admin.mjs <email> <password> "<name>" owner
 node db/seed-test-order.mjs create|remove
 node ../../scripts/db/export-backup.mjs   # full JSON backup → gitignored backups/
 ```
 
 Admin: `http://localhost:3000/admin/login` — owner account is
-`th.mavrakis@gmail.com`. **The password is still the temporary one generated
-during Phase 7; the owner intends to change it via
-`/admin/settings`.**
+`th.mavrakis@gmail.com`. **The password was reset 2026-08-16 (via
+`db/create-admin.mjs`, to verify Phase 6b through the real admin UI) to a
+known temporary value handed to the owner in chat; the owner still intends to
+change it via `/admin/settings`.**
 
 ---
 
@@ -102,7 +104,11 @@ Medusa's original `public.product_variant`: neither ever had a real
 multi-variant product) · 7 customers · 0 orders · 0 discounts · 1 admin ·
 3 shipping methods · stock all 100.
 
-**Medusa's 152 `public` tables are untouched and still hold the original data.**
+**Medusa's 152 `public` tables are gone** (dropped 2026-08-16, after a fresh
+backup — `backups/2026-08-16T19-57-53/`, gitignored — and a field-level
+verification against `shop` found zero real mismatches). If a genuinely
+missing field ever surfaces later, that backup is the only remaining source
+for Medusa's original data — the live database no longer has it.
 
 ---
 
@@ -142,30 +148,34 @@ SUPABASE_SERVICE_ROLE_KEY=<service role key>
 rather than showing a dead button. Once set: upload, reorder, alt text,
 primary selection for products, hero blocks and category images.
 
-### 3. Phase 13 — remove Medusa — code done 2026-08-16, DB drop still pending
-`apps/backend/` (132 tracked files + all its untracked `.medusa`/`node_modules`
-build artifacts) is deleted, both from git and disk. Also done: removed
-`NEXT_PUBLIC_MEDUSA_*` from `next.config.ts`/`.env.example` (`next.config.ts`'s
-image `remotePatterns` now derives from `NEXT_PUBLIC_SUPABASE_URL` instead —
-was pointed at Medusa's static file host, now ready for the real image-upload
-feature above), removed the nested-workspace exclusion from
-`pnpm-workspace.yaml` (no longer needed once the excluded directory doesn't
-exist), removed the `backend` entry from `.claude/launch.json` and deleted
+### 3. Phase 13 — remove Medusa — DONE (2026-08-16)
+**Code**: `apps/backend/` (132 tracked files + all its untracked
+`.medusa`/`node_modules` build artifacts) deleted from both git and disk.
+Removed `NEXT_PUBLIC_MEDUSA_*` from `next.config.ts`/`.env.example`
+(`next.config.ts`'s image `remotePatterns` now derives from
+`NEXT_PUBLIC_SUPABASE_URL` instead — was pointed at Medusa's static file
+host, now ready for the still-pending image-upload feature above), removed
+the nested-workspace exclusion from `pnpm-workspace.yaml`, removed the
+`backend` entry from `.claude/launch.json` and deleted
 `.claude/dev-backend.cmd`, rewrote `DEPLOYMENT.md` for the real
-Vercel-only-plus-Supabase architecture (no more Railway/Render section — there
-is no longer a second service to deploy). `railway.json`/`render.yaml` never
-existed at repo root — only inside the now-deleted `apps/backend/`, gone with
-it. `tsc`/`eslint`/`next build` all clean after removal; live-verified the
-homepage and a product/category page still render correctly.
+Vercel-only-plus-Supabase architecture (no more Railway/Render section — no
+second service to deploy). `railway.json`/`render.yaml` never existed at
+repo root — only inside the now-deleted `apps/backend/`, gone with it.
 
-**Still open**: dropping Medusa's ~152 tables in the `public` Postgres schema.
-Deliberately not done in the same pass as the code removal — this is a real,
-hard-to-reverse database change (unlike the code deletion, which is fully
-recoverable from git history since nothing has been pushed). Do this only
-after: a fresh backup (`node ../../scripts/db/export-backup.mjs` from
-`apps/storefront`), a final field-level verification that every real value in
-`public` has its counterpart in `shop`, and the owner's explicit go-ahead on
-that specific step.
+**Database**: fresh backup taken first (`backups/2026-08-16T19-57-53/`,
+gitignored, 89 non-empty tables / 1,443 rows), then a field-level
+verification — re-ran `db/import-from-medusa.mjs` one last time (zero
+warnings, every row matched) plus a direct title/price/category/customer
+diff between `public` and `shop` (zero real mismatches) — then all 152
+tables in the `public` schema were dropped in a single transaction, with the
+owner's explicit go-ahead on that specific step. `shop` schema counts
+confirmed unchanged before/after (16 products, 28 categories, 7 customers).
+`db/import-from-medusa.mjs` itself is deleted too — its only job was reading
+`public`, which no longer exists.
+
+`tsc`/`eslint`/`next build` all clean throughout; live-verified the
+homepage, a product/category page, and the admin dashboard all render
+correctly after both the code removal and the table drop.
 
 ### 4. Phases 14–17
 Security, SEO, performance audits and final doc consolidation.

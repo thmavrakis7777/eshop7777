@@ -37,11 +37,7 @@ function databaseUrl() {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
   const local = readEnvFile(path.join(dir, "../.env.local")).DATABASE_URL;
   if (local) return local;
-  // Transitional fallback: the connection string still lives in the Medusa
-  // backend's .env until Phase 13 removes that app. Never printed.
-  const legacy = readEnvFile(path.join(dir, "../../backend/apps/backend/.env")).DATABASE_URL;
-  if (legacy) return legacy;
-  throw new Error("DATABASE_URL is not set (checked env, .env.local, legacy backend .env)");
+  throw new Error("DATABASE_URL is not set (checked env, .env.local)");
 }
 
 const sql = postgres(databaseUrl(), { ssl: "require", max: 1, idle_timeout: 5 });

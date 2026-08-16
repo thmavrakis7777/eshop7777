@@ -20,9 +20,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 function databaseUrl() {
   const fromEnv = process.env.DATABASE_URL;
   if (fromEnv) return fromEnv;
-  // Falls back to the Medusa backend's .env — the only place the connection
-  // string lives today. Never printed, never copied anywhere else.
-  const envPath = path.join(root, "apps/backend/apps/backend/.env");
+  // Falls back to the storefront's .env.local — the only place the
+  // connection string lives now that apps/backend/ (Medusa) is gone (Phase
+  // 13, MIGRATION_PLAN.md). Never printed, never copied anywhere else.
+  const envPath = path.join(root, "apps/storefront/.env.local");
   const match = fs.readFileSync(envPath, "utf8").match(/^DATABASE_URL=(.*)$/m);
   if (!match) throw new Error("DATABASE_URL not found in env or " + envPath);
   return match[1].trim().replace(/^["']|["']$/g, "");
