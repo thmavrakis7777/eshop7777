@@ -6,12 +6,6 @@
       "runtimeExecutable": "C:\\Users\\t.mavrakis\\Desktop\\CLAUDE\\.claude\\dev-storefront.cmd",
       "runtimeArgs": [],
       "port": 3000
-    },
-    {
-      "name": "backend",
-      "runtimeExecutable": "C:\\Users\\t.mavrakis\\Desktop\\CLAUDE\\.claude\\dev-backend.cmd",
-      "runtimeArgs": [],
-      "port": 9000
     }
   ]
 }

@@ -32,10 +32,10 @@ const baseRoutes: MetadataRoute.Sitemap = [
 // catalog grows past a few thousand SKUs, split into paginated sitemap
 // files (Next supports generateSitemaps) to stay under the 50k-URL limit.
 //
-// This is the only route in the app that talks to Medusa at build time
-// (every page itself is request-time rendered) — `next build` runs this
-// function, so an unreachable backend must degrade to the always-available
-// static routes instead of failing the whole production build.
+// `next build` runs this function at build time (every other page is
+// request-time rendered) — an unreachable database must degrade to the
+// always-available static routes instead of failing the whole production
+// build.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let navCategories: Awaited<ReturnType<typeof getNavCategories>>;
   let productHandles: Awaited<ReturnType<typeof getAllProductHandles>>;
@@ -49,7 +49,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       Promise.all(CONTENT_PAGE_SLUGS.map(async (slug) => ({ slug, page: await getContentPage(slug) }))),
     ]);
   } catch (error) {
-    console.warn("sitemap: Medusa backend unreachable, generating static-only sitemap.", error);
+    console.warn("sitemap: database unreachable, generating static-only sitemap.", error);
     return baseRoutes;
   }
 

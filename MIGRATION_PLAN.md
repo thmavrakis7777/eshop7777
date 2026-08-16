@@ -27,7 +27,7 @@ is committed locally only, per the project's standing instruction.
 | 11 — Settings & admin users | ✅ | `5d9c3d2` |
 | 6b — Storefront variants + collections | ✅ | — |
 | **12 — Data migration & verification** | ⬜ partially done early | — |
-| **13 — Remove Medusa** | ⬜ NOT STARTED | — |
+| **13 — Remove Medusa** | 🟡 code removed, DB drop still pending | — |
 | 14 — Security audit | ⬜ | — |
 | 15 — SEO audit | ⬜ | — |
 | 16 — Performance audit | ⬜ | — |
@@ -142,12 +142,30 @@ SUPABASE_SERVICE_ROLE_KEY=<service role key>
 rather than showing a dead button. Once set: upload, reorder, alt text,
 primary selection for products, hero blocks and category images.
 
-### 3. Phase 13 — remove Medusa
-Not started. `apps/backend/` (4,682 LOC + ~500 `.medusa` build artifacts) is
-still on disk and still in git. Also to remove: `NEXT_PUBLIC_MEDUSA_*` env
-vars, `railway.json`, `render.yaml`, the nested workspace/turbo config, and
-finally the Medusa tables in `public` — **only after** a fresh backup and a
-final field-level verification against `shop`.
+### 3. Phase 13 — remove Medusa — code done 2026-08-16, DB drop still pending
+`apps/backend/` (132 tracked files + all its untracked `.medusa`/`node_modules`
+build artifacts) is deleted, both from git and disk. Also done: removed
+`NEXT_PUBLIC_MEDUSA_*` from `next.config.ts`/`.env.example` (`next.config.ts`'s
+image `remotePatterns` now derives from `NEXT_PUBLIC_SUPABASE_URL` instead —
+was pointed at Medusa's static file host, now ready for the real image-upload
+feature above), removed the nested-workspace exclusion from
+`pnpm-workspace.yaml` (no longer needed once the excluded directory doesn't
+exist), removed the `backend` entry from `.claude/launch.json` and deleted
+`.claude/dev-backend.cmd`, rewrote `DEPLOYMENT.md` for the real
+Vercel-only-plus-Supabase architecture (no more Railway/Render section — there
+is no longer a second service to deploy). `railway.json`/`render.yaml` never
+existed at repo root — only inside the now-deleted `apps/backend/`, gone with
+it. `tsc`/`eslint`/`next build` all clean after removal; live-verified the
+homepage and a product/category page still render correctly.
+
+**Still open**: dropping Medusa's ~152 tables in the `public` Postgres schema.
+Deliberately not done in the same pass as the code removal — this is a real,
+hard-to-reverse database change (unlike the code deletion, which is fully
+recoverable from git history since nothing has been pushed). Do this only
+after: a fresh backup (`node ../../scripts/db/export-backup.mjs` from
+`apps/storefront`), a final field-level verification that every real value in
+`public` has its counterpart in `shop`, and the owner's explicit go-ahead on
+that specific step.
 
 ### 4. Phases 14–17
 Security, SEO, performance audits and final doc consolidation.

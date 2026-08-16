@@ -13,24 +13,20 @@ const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "on" },
 ];
 
-// Medusa's default local file provider serves uploaded product photos from
-// its own /static path — no real photography exists yet, but every product
-// image consumer (ProductCard, SearchResultRow) already renders one
-// correctly the moment a thumbnail is set. Revisit this pattern if the file
-// provider ever moves to S3/a CDN. Always allows local dev; also allows the
-// production backend host (Railway) derived from the same env var the data
-// layer uses, so a new deploy never needs a manual images-config edit here.
-const remotePatterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
-  { protocol: "http", hostname: "localhost", port: "9000", pathname: "/static/**" },
-];
-const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL;
-if (backendUrl && !backendUrl.includes("localhost")) {
-  const parsed = new URL(backendUrl);
+// Product photos live in Supabase Storage (lib/storage/urls.ts derives the
+// public URL from NEXT_PUBLIC_SUPABASE_URL) — no real photography exists yet
+// (publicImageUrl returns null until it's configured, and every image
+// consumer already falls back to PlaceholderTile), but this pattern needs to
+// be in place before the first real upload, not discovered as a broken-image
+// bug after.
+const remotePatterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [];
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+if (supabaseUrl) {
+  const parsed = new URL(supabaseUrl);
   remotePatterns.push({
-    protocol: parsed.protocol.replace(":", "") as "http" | "https",
+    protocol: "https",
     hostname: parsed.hostname,
-    port: parsed.port || undefined,
-    pathname: "/static/**",
+    pathname: "/storage/v1/object/public/**",
   });
 }
 

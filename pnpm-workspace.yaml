@@ -1,7 +1,5 @@
 packages:
   - "apps/*"
   - "packages/*"
-  - "!apps/backend"
-  - "!apps/backend/**"
 allowBuilds:
   unrs-resolver: true
