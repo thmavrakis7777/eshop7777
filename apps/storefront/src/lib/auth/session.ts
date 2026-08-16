@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
+import { headers } from "next/headers";
 import { sql } from "@/lib/db/client";
 
 /**
@@ -102,6 +103,17 @@ export async function consumePasswordResetToken(token: string): Promise<string |
 // ---------------------------------------------------------------------------
 
 /**
+ * Rate limiting keys off the client IP. Behind Vercel the first entry of
+ * x-forwarded-for is the real client; the header is attacker-controllable in
+ * general, so this is a throttle, not an access control.
+ */
+export async function rateLimitKey(scope: string): Promise<string> {
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+  return `${scope}:${ip}`;
+}
+
+/**
  * Fixed-window rate limit, stored in Postgres rather than memory because
  * serverless instances do not share memory — an in-process counter would
  * reset on every cold start and be trivially bypassed.
@@ -134,6 +146,13 @@ export async function checkRateLimit(
           ELSE shop.rate_limit.window_start
         END
       RETURNING count`;
+    // Opportunistic, low-probability cleanup piggybacked on the most
+    // frequently-hit auth code path — there is no cron in this deployment
+    // target, so "call it from somewhere that runs often" is the mechanism.
+    // Never awaited: a pruning query must not add latency to every
+    // rate-limited request.
+    if (Math.random() < 0.01) void pruneExpiredAuthRows();
+
     return (rows[0]?.count ?? 1) <= limit;
   } catch {
     return true;

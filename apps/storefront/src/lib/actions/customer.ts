@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -24,23 +24,12 @@ import {
   createPasswordResetToken,
   destroyAllCustomerSessions,
   destroyCustomerSession,
+  rateLimitKey,
 } from "@/lib/auth/session";
 import { getCustomerAddresses, getCustomerId } from "@/lib/data/customer";
 import { sendPasswordResetEmail } from "@/lib/email/send";
 import { isValidEmail, isValidPassword, isRequired, isValidPostalCode } from "@/lib/checkout-validation";
 import type { Address, Customer, CustomerAddress } from "@/lib/types";
-
-/**
- * Rate limiting keys off the client IP. Behind Vercel the first entry of
- * x-forwarded-for is the real client; the header is attacker-controllable in
- * general, so this is a throttle, not an access control — the real controls
- * are the password hash and the constant-time comparison behind it.
- */
-async function rateLimitKey(scope: string): Promise<string> {
-  const h = await headers();
-  const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-  return `${scope}:${ip}`;
-}
 
 const RATE_LIMITED = "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο.";
 

@@ -13,6 +13,7 @@ import {
   updateItemQuantity,
 } from "@/lib/db/cart";
 import { CART_ID_COOKIE, getCart } from "@/lib/data/cart";
+import { checkRateLimit, rateLimitKey } from "@/lib/auth/session";
 import type { Cart } from "@/lib/types";
 
 // Guest cart persists across visits, not just one browser session — 30 days
@@ -112,6 +113,11 @@ export async function removeLineItemAction(lineItemId: string): Promise<CartActi
 export async function applyPromoCodeAction(code: string): Promise<CartActionResult> {
   const cartId = await requireCartId();
   if (!cartId) return EXPIRED;
+  // Unauthenticated, unlimited-guess codes are an enumeration surface — a
+  // typo-retry budget is generous, a scripted sweep of the codespace is not.
+  if (!(await checkRateLimit(await rateLimitKey("promo-code"), 20, 300))) {
+    return { ok: false, error: "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο.", cart: await getCart() };
+  }
   return resultFrom(() => applyDiscount(cartId, code));
 }
 

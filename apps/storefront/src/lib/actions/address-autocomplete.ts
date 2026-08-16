@@ -1,5 +1,7 @@
 "use server";
 
+import { checkRateLimit, rateLimitKey } from "@/lib/auth/session";
+
 // Google Places API (New), called server-side only — the API key
 // (GOOGLE_PLACES_API_KEY) never reaches the browser, unlike the typical
 // client-side Places widget setup. Both actions degrade to an empty/null
@@ -26,6 +28,12 @@ export type AddressSuggestion = {
 export async function getAddressSuggestions(input: string, sessionToken: string): Promise<AddressSuggestion[]> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey || input.trim().length < 3) return [];
+
+  // Every call is billable against a real Google Places quota — this is an
+  // unauthenticated Server Action, so without a limit a scripted loop could
+  // burn through the quota for free. Generous limit: normal typing triggers
+  // several calls per address.
+  if (!(await checkRateLimit(await rateLimitKey("places-autocomplete"), 40, 60))) return [];
 
   try {
     const res = await fetch(`${PLACES_BASE}:autocomplete`, {
@@ -95,13 +103,18 @@ export async function getPlaceDetails(placeId: string, sessionToken: string): Pr
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey || !placeId) return null;
 
+  if (!(await checkRateLimit(await rateLimitKey("places-details"), 20, 60))) return null;
+
   try {
-    const res = await fetch(`${PLACES_BASE}/${placeId}?sessionToken=${encodeURIComponent(sessionToken)}`, {
-      headers: {
-        "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "addressComponents",
-      },
-    });
+    const res = await fetch(
+      `${PLACES_BASE}/${encodeURIComponent(placeId)}?sessionToken=${encodeURIComponent(sessionToken)}`,
+      {
+        headers: {
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "addressComponents",
+        },
+      }
+    );
     if (!res.ok) return null;
 
     const data: { addressComponents?: Array<{ longText?: string; types?: string[] }> } = await res.json();

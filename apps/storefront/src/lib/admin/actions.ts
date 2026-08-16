@@ -1,10 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { z } from "zod";
 import { AdminAuthError, loginAdmin, setAdminSessionCookie } from "@/lib/admin/auth";
-import { checkRateLimit } from "@/lib/auth/session";
+import { checkRateLimit, rateLimitKey } from "@/lib/auth/session";
 
 /**
  * Admin Server Actions.
@@ -36,8 +35,7 @@ export async function adminLoginAction(
 
   // Tighter than the storefront's customer login (10/15min): far fewer people
   // legitimately hit this form, and it is the higher-value target.
-  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
-  if (!(await checkRateLimit(`admin-login:${ip}`, 5, 900))) {
+  if (!(await checkRateLimit(await rateLimitKey("admin-login"), 5, 900))) {
     return { error: "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο." };
   }
 

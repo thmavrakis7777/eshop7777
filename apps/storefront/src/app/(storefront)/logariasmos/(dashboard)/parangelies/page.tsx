@@ -25,9 +25,11 @@ export default async function OrdersPage() {
           {orders.map((order) => (
             <li key={order.id}>
               {/* Reuses the guest order-confirmation page as the order-detail
-                  view — confirmed elsewhere in this codebase that /store/orders/:id
-                  works with just the order id, no session required, so it's a
-                  real, already-built detail page rather than a new one. */}
+                  view — a real, already-built detail page rather than a new
+                  one. Safe to link to directly: getOrder/getOrderById only
+                  return a customer-owned order (this list is already scoped
+                  to the current session) to that same customer's session,
+                  never via the uuid alone. */}
               <Link
                 href={`/checkout/epibebaiosi?order=${order.id}`}
                 className="flex items-center justify-between gap-4 rounded-sm border border-border p-4 transition-colors hover:border-ink"

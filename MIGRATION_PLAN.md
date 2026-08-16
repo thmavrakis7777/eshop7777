@@ -28,7 +28,7 @@ is committed locally only, per the project's standing instruction.
 | 6b — Storefront variants + collections | ✅ | — |
 | 12 — Data migration & verification | ✅ | — |
 | 13 — Remove Medusa | ✅ | — |
-| 14 — Security audit | ⬜ | — |
+| 14 — Security audit | ✅ | — |
 | 15 — SEO audit | ⬜ | — |
 | 16 — Performance audit | ⬜ | — |
 | 17 — Final cleanup & docs | ⬜ | — |
@@ -177,8 +177,94 @@ confirmed unchanged before/after (16 products, 28 categories, 7 customers).
 homepage, a product/category page, and the admin dashboard all render
 correctly after both the code removal and the table drop.
 
-### 4. Phases 14–17
-Security, SEO, performance audits and final doc consolidation.
+### 4. Phase 14 — security audit — DONE (2026-08-16)
+Full audit of auth, authorization/RLS, injection surfaces, XSS, secrets,
+session/cookie mechanics, rate limiting, and dependencies. Checked clean, no
+action needed: password hashing (scrypt, correct params), session revocation
+(real server-side delete, not just cookie clearing), RLS on all `shop`
+tables, admin action auth (all 40 exported admin Server Actions call
+`requireAdmin()`/`requireOwner()` first — full census, not a sample), SQL
+injection (zero raw interpolation anywhere — exhaustive grep), IDOR in cart/
+checkout/address-book/order-list, secrets never reaching the client bundle,
+CSRF posture (Next's same-origin Server Action enforcement, `SameSite=Lax`,
+`form-action 'self'`).
+
+**Fixed:**
+- **Stored XSS via analytics settings** (medium-high) — `ga4MeasurementId`/
+  `gtmContainerId`/`metaPixelId`/`clarityProjectId` were saved with zero
+  validation and interpolated raw into executing, CSP-nonce'd inline
+  `<script>` tags (`AnalyticsScripts.tsx`). Any `staff`-role admin could store
+  a value that breaks out of the string literal and runs arbitrary JS on
+  every consenting storefront visitor. Fixed with two layers: format
+  validation on save (`settings-actions.ts`'s `TRACKING_ID` regex — real IDs
+  are alphanumeric plus hyphens, anything else is rejected outright) and
+  `JSON.stringify` escaping at the render site regardless. Live-verified: a
+  breakout payload is now rejected with a clear error; a real-shaped ID still
+  saves and activates correctly.
+- **Order detail accessible by uuid alone, even for logged-in customers'
+  orders** (medium) — the guest-checkout "uuid is the access token" model
+  was also being used, unchanged, for the account dashboard's order-detail
+  view. A customer-owned order (unlike a guest one) persists indefinitely, no
+  expiry, more complete PII (address, ΑΦΜ) — so `getOrderById` now returns
+  `null` (indistinguishable from "no such order") unless the viewer's own
+  session matches the order's `customer_id`; guest orders (`customer_id`
+  null) are unaffected. Live-verified end-to-end with a real temporary test
+  order and a throwaway test customer: owner access works, unauthenticated
+  access is now blocked — both reverted after.
+- **No rate limiting on billable/enumerable unauthenticated actions** —
+  Google Places autocomplete + place-details and the ΓΕΜΗ ΑΦΜ lookup (both
+  billable third-party calls) and promo-code apply (enumeration risk) had
+  none. Added, reusing the existing Postgres-backed `checkRateLimit`
+  (extracted the duplicated `rateLimitKey` IP-derivation helper into
+  `lib/auth/session.ts` rather than triplicating it further).
+- **`nanoid` <3.3.18** (`pnpm audit`'s one high finding, GHSA-2v37-7h3g-55p8) —
+  transitive via postcss, not reachable from application code, but a free
+  fix: pinned via `overrides` in `pnpm-workspace.yaml`. `pnpm audit` now
+  clean.
+- Two low-severity hardening fixes: JSON-LD `<script>` tags now escape `<` to
+  block a `</script>` breakout via an admin-authored `structuredDataOverride`
+  (`lib/json-ld.ts`, shared by all three JSON-LD call sites); a client-supplied
+  `placeId` is now `encodeURIComponent`-ed before being interpolated into the
+  Google Places URL path (was already done for `sessionToken` on the same
+  line, just missed for `placeId`).
+- `pruneExpiredAuthRows()` existed but was never called anywhere — expired
+  session/token/rate-limit rows accumulated forever (not a vulnerability,
+  every read already filters by expiry, but unbounded growth). Wired up as a
+  1%-probability fire-and-forget call from inside `checkRateLimit`, the most
+  frequently-hit auth code path — there's no cron in this deployment target.
+- Verified live (not just read) that an unauthenticated request to a
+  `/admin/(protected)/*` page returns a clean redirect with zero page body —
+  no admin data ever reaches an unauthenticated response, regardless of
+  Next's internal parallel-render scheduling.
+
+**Policy call, resolved**: site-wide settings (VAT rate, free-shipping
+threshold, shipping method prices, analytics config) were gated to
+`requireAdmin()` (any admin) — the owner decided these should be
+owner-only, since they're revenue-affecting and store-wide, same tier as
+the admin-account-management actions. Moved to `requireOwner()`:
+`saveSiteSettingsAction` (`cms-actions.ts`), `saveShippingMethodAction`/
+`deleteShippingMethodAction`/`saveAnalyticsAction` (`settings-actions.ts`).
+The three admin pages that render these forms (`content/layout` — only its
+site-settings section, the promo banner on the same page stays
+`requireAdmin`; `settings/shipping`; `settings/analytics`) now show a
+"owners only" explanation instead of a form a `staff` account would only
+have rejected, mirroring the existing pattern in `settings/users/page.tsx`.
+Live-verified by temporarily downgrading the current session to `staff`:
+all three correctly showed the restriction (with the layout page's promo
+banner still editable) and reverted to the full form once restored to
+`owner`.
+
+**Also unresolved, low severity, left as-is**: the rate limiter fails open
+on a database error (deliberate, documented trade-off — availability over
+strictness for a login throttle) and keys on the spoofable
+`x-forwarded-for` header (a throttle, not an access control — the real
+control is the password hash behind it). Both pre-existing, both already
+understood trade-offs in the code's own comments, not new findings.
+
+`tsc`/`eslint`/`next build` all clean after every fix.
+
+### 5. Phases 15–17
+SEO audit, performance audit, final doc consolidation.
 
 ---
 

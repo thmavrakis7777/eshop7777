@@ -45,7 +45,11 @@ export async function getPaymentProviders(): Promise<PaymentProvider[]> {
   return [{ id: "cod" }];
 }
 
-/** Guest order lookup for the confirmation page. */
-export async function getOrder(orderId: string): Promise<Order | null> {
-  return getOrderById(orderId);
+/**
+ * Order lookup for the confirmation page / account order-detail view.
+ * `viewerCustomerId` (the current session's customer, if any) is required
+ * for a customer-owned order to be returned at all — see getOrderById.
+ */
+export async function getOrder(orderId: string, viewerCustomerId: string | null = null): Promise<Order | null> {
+  return getOrderById(orderId, viewerCustomerId);
 }

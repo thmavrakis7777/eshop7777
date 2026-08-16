@@ -18,6 +18,7 @@ import { getProductExtra } from "@/lib/data/product-extras";
 import { getSeoOverride } from "@/lib/data/seo";
 import { formatPrice, formatPriceFrom } from "@/lib/format";
 import { siteUrl } from "@/lib/site-config";
+import { safeJsonLd } from "@/lib/json-ld";
 
 type Props = { params: Promise<{ handle: string }> };
 
@@ -130,7 +131,7 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <>
-      <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
+      <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />
       <RecentlyViewedTracker handle={product.handle} />
       <Breadcrumbs items={breadcrumbItems} />
 

@@ -17,6 +17,15 @@ import type { AnalyticsSettings } from "@/lib/content-types";
 // first place, so an unconditional noscript tag would load tracking with
 // no consent signal at all. Skipping it is the honest tradeoff, not an
 // oversight.
+// Second layer of defense: these IDs are already format-validated on save
+// (settings-actions.ts's TRACKING_ID regex) before they can reach here, but
+// every value interpolated into an executing inline <script> body gets
+// JSON.stringify'd at the point of use regardless — never trust a stored
+// value to still be safe by the time it's rendered.
+function js(id: string): string {
+  return JSON.stringify(id).replace(/</g, "\\u003c");
+}
+
 export function AnalyticsScripts({
   settings,
   nonce,
@@ -42,7 +51,7 @@ export function AnalyticsScripts({
             {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', '${settings.ga4MeasurementId}');`}
+gtag('config', ${js(settings.ga4MeasurementId)});`}
           </Script>
         </>
       )}
@@ -53,7 +62,7 @@ gtag('config', '${settings.ga4MeasurementId}');`}
 var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
 j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
 f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','${settings.gtmContainerId}');`}
+})(window,document,'script','dataLayer',${js(settings.gtmContainerId)});`}
         </Script>
       )}
 
@@ -67,7 +76,7 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '${settings.metaPixelId}');
+fbq('init', ${js(settings.metaPixelId)});
 fbq('track', 'PageView');`}
         </Script>
       )}
@@ -78,7 +87,7 @@ fbq('track', 'PageView');`}
 c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
 t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
 y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-})(window, document, "clarity", "script", "${settings.clarityProjectId}");`}
+})(window, document, "clarity", "script", ${js(settings.clarityProjectId)});`}
         </Script>
       )}
     </>

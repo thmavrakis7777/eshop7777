@@ -15,6 +15,13 @@ import type { Product } from "@/lib/types";
 // lib/actions/search.ts and recently-viewed.ts are already called from
 // Client Components for reads, not just mutations — same established
 // pattern, just for "load the next batch" instead of "resolve these handles."
+//
+// Every Server Action is a publicly reachable endpoint regardless of what the
+// UI ever sends — InfiniteProductGrid always passes PAGE_SIZE (24), but a
+// direct call could pass anything. Clamp rather than trust.
+const MAX_PAGE_SIZE = 100;
+const clampLimit = (limit: number) => Math.min(Math.max(1, Math.trunc(limit) || 1), MAX_PAGE_SIZE);
+const clampOffset = (offset: number) => Math.max(0, Math.trunc(offset) || 0);
 
 export async function loadMoreCategoryProductsAction(
   categoryHandle: string,
@@ -22,7 +29,7 @@ export async function loadMoreCategoryProductsAction(
   offset: number,
   limit: number
 ): Promise<{ products: Product[]; count: number }> {
-  return getProductsByCategoryHandle(categoryHandle, { sort, limit, offset });
+  return getProductsByCategoryHandle(categoryHandle, { sort, limit: clampLimit(limit), offset: clampOffset(offset) });
 }
 
 export async function loadMoreCollectionProductsAction(
@@ -31,7 +38,11 @@ export async function loadMoreCollectionProductsAction(
   offset: number,
   limit: number
 ): Promise<{ products: Product[]; count: number }> {
-  return getProductsByCollectionHandle(collectionHandle, { sort, limit, offset });
+  return getProductsByCollectionHandle(collectionHandle, {
+    sort,
+    limit: clampLimit(limit),
+    offset: clampOffset(offset),
+  });
 }
 
 export async function loadMoreNewArrivalsAction(
@@ -39,7 +50,7 @@ export async function loadMoreNewArrivalsAction(
   offset: number,
   limit: number
 ): Promise<{ products: Product[]; count: number }> {
-  return getNewArrivalsPaged({ sort, limit, offset });
+  return getNewArrivalsPaged({ sort, limit: clampLimit(limit), offset: clampOffset(offset) });
 }
 
 export async function loadMoreFeaturedProductsAction(
@@ -47,7 +58,7 @@ export async function loadMoreFeaturedProductsAction(
   offset: number,
   limit: number
 ): Promise<{ products: Product[]; count: number }> {
-  return getFeaturedProductsPaged({ sort, limit, offset });
+  return getFeaturedProductsPaged({ sort, limit: clampLimit(limit), offset: clampOffset(offset) });
 }
 
 export async function loadMoreSearchProductsAction(
@@ -55,5 +66,5 @@ export async function loadMoreSearchProductsAction(
   offset: number,
   limit: number
 ): Promise<{ products: Product[]; count: number }> {
-  return searchProducts(query, { offset, limit });
+  return searchProducts(query, { offset: clampOffset(offset), limit: clampLimit(limit) });
 }

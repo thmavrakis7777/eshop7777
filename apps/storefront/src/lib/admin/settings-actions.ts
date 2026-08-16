@@ -52,12 +52,14 @@ const EXPIRED: ActionResult = { ok: false, error: "Η συνεδρία σου έ
 // Shipping
 // ---------------------------------------------------------------------------
 
+// Shipping prices are revenue-affecting, store-wide values — owner-only,
+// same tier as the admin-account actions below.
 export async function saveShippingMethodAction(formData: FormData): Promise<ActionResult> {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return EXPIRED;
+    admin = await requireOwner();
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
   }
 
   const name = String(formData.get("name") ?? "").trim();
@@ -89,9 +91,9 @@ export async function saveShippingMethodAction(formData: FormData): Promise<Acti
 export async function deleteShippingMethodAction(id: string): Promise<ActionResult> {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return EXPIRED;
+    admin = await requireOwner();
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
   }
   try {
     const outcome = await deleteShippingMethod(id);
@@ -114,20 +116,45 @@ export async function deleteShippingMethodAction(id: string): Promise<ActionResu
 // Analytics
 // ---------------------------------------------------------------------------
 
+// These four values are interpolated directly into executing inline <script>
+// tags (AnalyticsScripts.tsx) that carry the page's CSP nonce — an
+// unvalidated value here is stored XSS on every storefront page for every
+// consenting visitor. Every real tracking-service ID is plain alphanumeric
+// plus hyphens, so reject anything else rather than trying to escape it
+// later — AnalyticsScripts.tsx also JSON.stringifies at the interpolation
+// site as a second layer, but this is the one that stops it from ever being
+// saved. Owner-only (store-wide config, same tier as shipping/site
+// settings), not just a defense against the XSS risk above.
+const TRACKING_ID = /^[A-Za-z0-9-]{1,40}$/;
+
+function validTrackingId(v: string | null): string | null {
+  if (v === null) return null;
+  return TRACKING_ID.test(v) ? v : "__invalid__";
+}
+
 export async function saveAnalyticsAction(formData: FormData): Promise<ActionResult> {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return EXPIRED;
+    admin = await requireOwner();
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
   }
+
+  const fields = {
+    ga4MeasurementId: validTrackingId(text(formData.get("ga4MeasurementId"))),
+    gtmContainerId: validTrackingId(text(formData.get("gtmContainerId"))),
+    metaPixelId: validTrackingId(text(formData.get("metaPixelId"))),
+    clarityProjectId: validTrackingId(text(formData.get("clarityProjectId"))),
+  };
+  if (Object.values(fields).includes("__invalid__")) {
+    return {
+      ok: false,
+      error: "Μη έγκυρο αναγνωριστικό — επιτρέπονται μόνο γράμματα, αριθμοί και παύλες.",
+    };
+  }
+
   try {
-    await saveAnalytics({
-      ga4MeasurementId: text(formData.get("ga4MeasurementId")),
-      gtmContainerId: text(formData.get("gtmContainerId")),
-      metaPixelId: text(formData.get("metaPixelId")),
-      clarityProjectId: text(formData.get("clarityProjectId")),
-    });
+    await saveAnalytics(fields);
     await auditLog(admin.id, "analytics.update", "analytics_setting", "singleton");
   } catch (err) {
     return { ok: false, error: mapError(err) };

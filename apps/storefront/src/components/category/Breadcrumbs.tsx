@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { siteUrl } from "@/lib/site-config";
+import { safeJsonLd } from "@/lib/json-ld";
 
 export type Crumb = { label: string; href: string };
 
@@ -21,7 +22,7 @@ export async function Breadcrumbs({ items }: { items: Crumb[] }) {
 
   return (
     <nav aria-label="Breadcrumb" className="container-shell pt-4 text-sm text-ink-muted">
-      <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <ol className="flex flex-wrap items-center gap-1.5">
         {withHome.map((item, i) => (
           <li key={item.href} className="flex items-center gap-1.5">

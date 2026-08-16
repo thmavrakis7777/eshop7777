@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getOrder } from "@/lib/data/checkout";
+import { getCustomerId } from "@/lib/data/customer";
 import { formatPrice } from "@/lib/format";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 
@@ -16,17 +17,19 @@ export const metadata: Metadata = {
 const TIMELINE_STEPS = ["Παραλάβαμε την παραγγελία", "Προετοιμασία", "Αποστολή", "Παράδοση"];
 
 // Own URL (not a modal) so it survives a refresh/bookmark, per
-// CHECKOUT_UX_SPEC.md §15 — the order ID in the query string is the de
-// facto access token, the same trust model most hosted "thank you" pages
-// use (confirmed live: /store/orders/:id works for a guest with just the
-// publishable key, no session needed).
+// CHECKOUT_UX_SPEC.md §15 — the order ID in the query string is the de facto
+// access token for a *guest* order, the same trust model most hosted "thank
+// you" pages use. A customer-owned order additionally requires the viewer's
+// own session to match (getOrder/getOrderById) — see the security-audit note
+// there for why the uuid alone isn't enough once an order is tied to a
+// persistent account.
 export default async function OrderConfirmationPage({
   searchParams,
 }: {
   searchParams: Promise<{ order?: string }>;
 }) {
   const { order: orderId } = await searchParams;
-  const order = orderId ? await getOrder(orderId) : null;
+  const order = orderId ? await getOrder(orderId, await getCustomerId()) : null;
 
   if (!order) {
     return (

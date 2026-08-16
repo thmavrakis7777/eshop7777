@@ -1,3 +1,4 @@
+import { getAdminUser } from "@/lib/admin/auth";
 import { getAdminAnalytics } from "@/lib/admin/settings";
 import { saveAnalyticsAction } from "@/lib/admin/settings-actions";
 import { CmsForm } from "@/components/admin/CmsForm";
@@ -6,8 +7,26 @@ import { Card, SectionTitle } from "@/components/admin/ui/primitives";
 export const metadata = { title: "Analytics" };
 
 export default async function AdminAnalyticsSettingsPage() {
+  const admin = await getAdminUser();
   const analytics = await getAdminAnalytics();
   const configured = Object.values(analytics).filter(Boolean).length;
+
+  // Store-wide config, injected into every storefront page — owner-only
+  // (saveAnalyticsAction requireOwner). Same "explain, don't disable"
+  // pattern as settings/users/page.tsx.
+  if (admin?.role !== "owner") {
+    return (
+      <>
+        <SectionTitle>Υπηρεσίες παρακολούθησης</SectionTitle>
+        <Card>
+          <p className="text-sm text-ink-muted">
+            Οι ρυθμίσεις analytics είναι διαθέσιμες μόνο στους ιδιοκτήτες. Ο δικός σου ρόλος είναι
+            «Προσωπικό».
+          </p>
+        </Card>
+      </>
+    );
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">

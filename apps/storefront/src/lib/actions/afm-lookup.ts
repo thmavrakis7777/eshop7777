@@ -1,5 +1,7 @@
 "use server";
 
+import { checkRateLimit, rateLimitKey } from "@/lib/auth/session";
+
 // ΓΕΜΗ Open Data API (opendata-api.businessportal.gr) — looks up a company's
 // registered details by ΑΦΜ. Request/response shapes verified live against
 // the real Swagger 2.0 spec served at
@@ -36,6 +38,11 @@ export async function lookupCompanyByAfm(afm: string): Promise<CompanyLookupResu
   // guarantees this input is a 9-digit string, but pad defensively anyway.
   const paddedAfm = afm.trim().padStart(9, "0");
   if (!apiKey || paddedAfm.length !== 9) return null;
+
+  // Every call is billable/quota'd against a real ΓΕΜΗ account — this is an
+  // unauthenticated Server Action, so without a limit a scripted loop could
+  // burn through the quota for free.
+  if (!(await checkRateLimit(await rateLimitKey("gemi-lookup"), 20, 300))) return null;
 
   try {
     const res = await fetch(`${GEMI_BASE}/companies?afm=${paddedAfm}`, {

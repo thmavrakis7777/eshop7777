@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import { requireAdmin, auditLog } from "@/lib/admin/auth";
+import { requireAdmin, requireOwner, auditLog } from "@/lib/admin/auth";
 import { CACHE_TAGS } from "@/lib/db/content";
 import {
   deleteHomepageBlock,
@@ -41,6 +41,23 @@ async function guard(): Promise<{ id: string } | null> {
     return await requireAdmin();
   } catch {
     return null;
+  }
+}
+
+// Site settings carry the VAT rate and the free-shipping threshold —
+// revenue-affecting, store-wide values, unlike the rest of this file's
+// content/marketing writes. Owner-only, same tier as the admin-account
+// actions in settings-actions.ts. Distinguishes "not signed in" from "signed
+// in but not an owner" so a staff admin sees the real reason, not a
+// misleading "session expired".
+async function ownerGuard(): Promise<{ admin: { id: string } | null; insufficientRole: boolean }> {
+  try {
+    return { admin: await requireOwner(), insufficientRole: false };
+  } catch (err) {
+    if (err instanceof Error && err.message === "Insufficient permissions") {
+      return { admin: null, insufficientRole: true };
+    }
+    return { admin: null, insufficientRole: false };
   }
 }
 
@@ -101,7 +118,8 @@ export async function deleteHomepageBlockAction(id: string): Promise<ActionResul
 // ---------------------------------------------------------------------------
 
 export async function saveSiteSettingsAction(formData: FormData): Promise<ActionResult> {
-  const admin = await guard();
+  const { admin, insufficientRole } = await ownerGuard();
+  if (insufficientRole) return { ok: false, error: "Δεν έχεις δικαίωμα για αυτή την ενέργεια." };
   if (!admin) return EXPIRED;
 
   const vatRaw = String(formData.get("defaultVatRate") ?? "24").replace(",", ".");

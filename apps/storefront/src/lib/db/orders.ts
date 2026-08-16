@@ -18,6 +18,7 @@ import type { Order } from "@/lib/types";
 type OrderRow = {
   id: string;
   order_number: number;
+  customer_id: string | null;
   email: string;
   subtotal_cents: number;
   discount_cents: number;
@@ -46,7 +47,7 @@ type OrderRow = {
 const eur = (cents: number) => ({ amount: cents / 100, currencyCode: "EUR" as const });
 
 const ORDER_FIELDS = sql`
-  o.id, o.order_number, o.email, o.subtotal_cents, o.discount_cents,
+  o.id, o.order_number, o.customer_id, o.email, o.subtotal_cents, o.discount_cents,
   o.shipping_cents, o.vat_cents, o.total_cents, o.vat_rate,
   o.shipping_method_name, o.shipping_address, o.billing_address,
   o.tax_document_type, o.invoice_company_name, o.invoice_afm,
@@ -98,16 +99,29 @@ export function toDomainOrder(o: OrderRow): Order {
 }
 
 /**
- * Guest order lookup by id. The uuid is the de facto access token for the
- * confirmation page — the same trust model as most hosted-checkout "thank
- * you" pages, and unguessable at 122 bits of entropy.
+ * Order lookup by id — shared by the guest confirmation page and (reusing
+ * the same page/query) the logged-in customer's own order-detail view.
+ *
+ * The uuid is the de facto access token for a *guest* order (customer_id
+ * null) — the same trust model as most hosted-checkout "thank you" pages,
+ * and unguessable at 122 bits of entropy. An order placed by a logged-in
+ * customer is not covered by that model: it stays reachable indefinitely
+ * (no expiry) from browser history, a copied link, etc., and carries more
+ * complete PII (full address, ΑΦΜ) tied to a real identified account. So for
+ * a customer-owned order, the uuid alone is not enough — the caller's own
+ * session must belong to that same customer, or this returns null exactly
+ * as if the order didn't exist (never leaks whether a mismatched id is
+ * "wrong customer" vs. "no such order").
  */
-export async function getOrderById(orderId: string): Promise<Order | null> {
+export async function getOrderById(orderId: string, viewerCustomerId: string | null = null): Promise<Order | null> {
   if (!/^[0-9a-f-]{36}$/i.test(orderId)) return null;
   try {
     const rows = await sql<OrderRow[]>`
       SELECT ${ORDER_FIELDS} FROM shop.orders o WHERE o.id = ${orderId} LIMIT 1`;
-    return rows[0] ? toDomainOrder(rows[0]) : null;
+    const row = rows[0];
+    if (!row) return null;
+    if (row.customer_id && row.customer_id !== viewerCustomerId) return null;
+    return toDomainOrder(row);
   } catch {
     return null;
   }

@@ -10,6 +10,7 @@ import { CartDrawer } from "@/components/cart/CartDrawer";
 import { AddToCartToast } from "@/components/cart/AddToCartToast";
 import { WishlistProvider } from "@/components/wishlist/WishlistProvider";
 import { siteName, siteUrl } from "@/lib/site-config";
+import { safeJsonLd } from "@/lib/json-ld";
 import { getNavCategories } from "@/lib/data/categories";
 import { getCart } from "@/lib/data/cart";
 import { getPromoBanner } from "@/lib/data/promo-banner";
@@ -56,7 +57,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
       <script
         type="application/ld+json"
         nonce={nonce}
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(organizationJsonLd) }}
       />
       <a
         href="#main-content"

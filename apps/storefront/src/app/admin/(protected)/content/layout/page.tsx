@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getAdminUser } from "@/lib/admin/auth";
 import { getAdminPromoBanner, getAdminSiteSettings } from "@/lib/admin/cms";
 import { savePromoBannerAction, saveSiteSettingsAction } from "@/lib/admin/cms-actions";
 import { CmsForm } from "@/components/admin/CmsForm";
@@ -9,7 +10,11 @@ export const metadata = { title: "Header & Footer" };
 const euros = (cents: number | null) => (cents == null ? "" : (cents / 100).toFixed(2).replace(".", ","));
 
 export default async function AdminLayoutContentPage() {
-  const [settings, banner] = await Promise.all([getAdminSiteSettings(), getAdminPromoBanner()]);
+  const [admin, settings, banner] = await Promise.all([getAdminUser(), getAdminSiteSettings(), getAdminPromoBanner()]);
+  // Carries the VAT rate and free-shipping threshold — owner-only
+  // (saveSiteSettingsAction requireOwner), unlike the promo banner below
+  // (still requireAdmin — marketing copy, not revenue-affecting config).
+  const isOwner = admin?.role === "owner";
 
   return (
     <>
@@ -22,6 +27,14 @@ export default async function AdminLayoutContentPage() {
         <div className="flex flex-col gap-6">
           <section>
             <SectionTitle hint="Πάνω από το header">Μπάρα ανακοίνωσης</SectionTitle>
+            {!isOwner ? (
+              <Card>
+                <p className="text-sm text-ink-muted">
+                  Αυτές οι ρυθμίσεις (συμπεριλαμβανομένου του ΦΠΑ και του ορίου δωρεάν μεταφορικών) είναι
+                  διαθέσιμες μόνο στους ιδιοκτήτες. Ο δικός σου ρόλος είναι «Προσωπικό».
+                </p>
+              </Card>
+            ) : (
             <Card>
               <CmsForm
                 action={saveSiteSettingsAction}
@@ -67,6 +80,7 @@ export default async function AdminLayoutContentPage() {
                 ]}
               />
             </Card>
+            )}
           </section>
         </div>
 

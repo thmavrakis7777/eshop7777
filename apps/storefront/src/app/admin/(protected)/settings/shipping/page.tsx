@@ -1,3 +1,4 @@
+import { getAdminUser } from "@/lib/admin/auth";
 import { listShippingMethods } from "@/lib/admin/settings";
 import { ShippingManager } from "@/components/admin/ShippingManager";
 import { Card, SectionTitle } from "@/components/admin/ui/primitives";
@@ -5,8 +6,26 @@ import { Card, SectionTitle } from "@/components/admin/ui/primitives";
 export const metadata = { title: "Αποστολές" };
 
 export default async function AdminShippingSettingsPage() {
+  const admin = await getAdminUser();
   const methods = await listShippingMethods();
   const active = methods.filter((m) => m.isActive).length;
+
+  // Shipping prices are revenue-affecting, store-wide values — owner-only
+  // (saveShippingMethodAction/deleteShippingMethodAction both requireOwner).
+  // Same "explain, don't disable" pattern as settings/users/page.tsx.
+  if (admin?.role !== "owner") {
+    return (
+      <>
+        <SectionTitle>Μέθοδοι αποστολής</SectionTitle>
+        <Card>
+          <p className="text-sm text-ink-muted">
+            Οι μέθοδοι αποστολής είναι διαθέσιμες μόνο στους ιδιοκτήτες. Ο δικός σου ρόλος είναι
+            «Προσωπικό».
+          </p>
+        </Card>
+      </>
+    );
+  }
 
   return (
     <>

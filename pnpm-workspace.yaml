@@ -3,3 +3,8 @@ packages:
   - "packages/*"
 allowBuilds:
   unrs-resolver: true
+overrides:
+  # GHSA-2v37-7h3g-55p8 (CWE-835): fixed in 3.3.18+. Transitive via
+  # postcss/@tailwindcss-postcss's build-time use of nanoid, not reachable
+  # from application code — pinned anyway since it's a free fix.
+  nanoid: ^3.3.18
