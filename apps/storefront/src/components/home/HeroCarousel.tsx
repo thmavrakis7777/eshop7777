@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { HomepageBlock } from "@/lib/content-types";
+import type { HomepageSection } from "@/lib/content-types";
 import { HeroSlide } from "@/components/home/Hero";
 import { ChevronDownIcon } from "@/components/ui/Icons";
 
@@ -9,7 +9,7 @@ import { ChevronDownIcon } from "@/components/ui/Icons";
 // ProductRail — no carousel library, real keyboard/touch scrolling, dot
 // indicators track scroll position instead of driving it directly (so a
 // user swiping never fights a controlled index).
-export function HeroCarousel({ slides, storeName }: { slides: HomepageBlock[]; storeName: string }) {
+export function HeroCarousel({ slides, storeName }: { slides: HomepageSection[]; storeName: string }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 

@@ -63,6 +63,43 @@ export type HomepageBlock = {
   ctaLabel: string | null;
   ctaHref: string | null;
   imageUrl: string | null;
+  mobileImageUrl: string | null;
+  imageAlt: string | null;
+};
+
+/**
+ * The homepage's section types. Adding one costs a member here, a case in
+ * the storefront renderer and a case in the admin form — deliberately not a
+ * migration, which is why per-kind settings live in a `config` jsonb rather
+ * than in their own columns (see migration 0004).
+ */
+export type HomepageSectionKind = "hero" | "promo" | "category_grid" | "product_rail" | "content";
+
+/** Where a product rail gets its products. */
+export type ProductRailSource =
+  | { type: "newest"; limit: number }
+  | { type: "featured"; limit: number }
+  | { type: "sale"; limit: number }
+  | { type: "category"; categorySlug: string; limit: number }
+  | { type: "collection"; collectionSlug: string; limit: number }
+  // Exact products, in the order the owner arranged them — the "Summer
+  // Essentials, and I pick precisely these" case.
+  | { type: "manual"; productSlugs: string[] };
+
+export type HomepageSectionConfig = {
+  /** category_grid: which categories, in which order. Empty = every top-level category, nav order. */
+  categorySlugs?: string[];
+  /** product_rail: where its products come from. */
+  source?: ProductRailSource;
+  /** product_rail: optional "see all" destination shown beside the heading. */
+  viewAllHref?: string | null;
+  /** hero/promo/content: hide the CTA without losing its configured label/href. */
+  showButton?: boolean;
+};
+
+export type HomepageSection = HomepageBlock & {
+  kind: HomepageSectionKind;
+  config: HomepageSectionConfig;
 };
 
 export type ContentPage = { id: string; title: string; body: string | null };

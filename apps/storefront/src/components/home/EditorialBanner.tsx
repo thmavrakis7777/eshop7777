@@ -1,18 +1,22 @@
 import Link from "next/link";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
-import type { HomepageBlock } from "@/lib/data/homepage-blocks";
+import type { HomepageSection } from "@/lib/content-types";
 
-const DEFAULT_BLOCK: HomepageBlock = {
+const DEFAULT_BLOCK: HomepageSection = {
   id: "default",
+  kind: "promo",
   eyebrow: "Οδηγός Αγοράς",
   heading: "Πώς να διαλέξεις το σωστό αντικολλητικό τηγάνι",
   body: "Υλικό, μέγεθος, συμβατότητα με εστίες — ό,τι χρειάζεται να ξέρεις πριν αγοράσεις.",
   ctaLabel: "Διάβασε τον οδηγό",
   ctaHref: "/odigoi-agoron/tigania",
   imageUrl: null,
+  mobileImageUrl: null,
+  imageAlt: null,
+  config: {},
 };
 
-function PromoSection({ block, imageFirst }: { block: HomepageBlock; imageFirst: boolean }) {
+function PromoSection({ block, imageFirst }: { block: HomepageSection; imageFirst: boolean }) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
       <div
@@ -53,7 +57,7 @@ function PromoSection({ block, imageFirst }: { block: HomepageBlock; imageFirst:
 // Phase E) — zero published blocks falls back to the store's original
 // promo copy, one or more render in sort_order, alternating image side
 // for visual rhythm when there's more than one.
-export function EditorialBanner({ blocks }: { blocks: HomepageBlock[] }) {
+export function EditorialBanner({ blocks }: { blocks: HomepageSection[] }) {
   const items = blocks.length > 0 ? blocks : [DEFAULT_BLOCK];
 
   return (

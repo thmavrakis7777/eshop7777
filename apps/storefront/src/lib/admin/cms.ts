@@ -1,5 +1,6 @@
 import "server-only";
-import { sql } from "@/lib/db/client";
+import { sql, transaction } from "@/lib/db/client";
+import type { HomepageSectionConfig, HomepageSectionKind } from "@/lib/content-types";
 
 /**
  * Storefront content management.
@@ -34,62 +35,83 @@ export const CONTENT_PAGE_SLUGS: Array<{ slug: string; label: string }> = [
 
 export type AdminHomepageBlock = {
   id: string;
-  kind: "hero" | "promo";
+  kind: HomepageSectionKind;
   eyebrow: string | null;
   heading: string | null;
   body: string | null;
   ctaLabel: string | null;
   ctaHref: string | null;
   imagePath: string | null;
+  mobileImagePath: string | null;
+  imageAlt: string | null;
+  config: HomepageSectionConfig;
   sortOrder: number;
   isPublished: boolean;
 };
 
-export async function listHomepageBlocks(): Promise<AdminHomepageBlock[]> {
-  const rows = await sql<
-    {
-      id: string; kind: "hero" | "promo"; eyebrow: string | null; heading: string | null;
-      body: string | null; cta_label: string | null; cta_href: string | null;
-      image_path: string | null; sort_order: number; is_published: boolean;
-    }[]
-  >`SELECT id, kind, eyebrow, heading, body, cta_label, cta_href, image_path,
-           sort_order, is_published
-      FROM shop.homepage_block ORDER BY kind, sort_order, created_at`;
+type BlockRow = {
+  id: string; kind: HomepageSectionKind; eyebrow: string | null; heading: string | null;
+  body: string | null; cta_label: string | null; cta_href: string | null;
+  image_path: string | null; mobile_image_path: string | null; image_alt: string | null;
+  config: HomepageSectionConfig | null; sort_order: number; is_published: boolean;
+};
 
-  return rows.map((r) => ({
-    id: r.id, kind: r.kind, eyebrow: r.eyebrow, heading: r.heading, body: r.body,
-    ctaLabel: r.cta_label, ctaHref: r.cta_href, imagePath: r.image_path,
-    sortOrder: r.sort_order, isPublished: r.is_published,
-  }));
+const toAdminBlock = (r: BlockRow): AdminHomepageBlock => ({
+  id: r.id, kind: r.kind, eyebrow: r.eyebrow, heading: r.heading, body: r.body,
+  ctaLabel: r.cta_label, ctaHref: r.cta_href, imagePath: r.image_path,
+  mobileImagePath: r.mobile_image_path, imageAlt: r.image_alt, config: r.config ?? {},
+  sortOrder: r.sort_order, isPublished: r.is_published,
+});
+
+// Ordered exactly as the storefront renders them — the admin list IS the
+// page order now, so sorting by kind here would misrepresent the result.
+export async function listHomepageBlocks(): Promise<AdminHomepageBlock[]> {
+  const rows = await sql<BlockRow[]>`
+    SELECT id, kind, eyebrow, heading, body, cta_label, cta_href, image_path,
+           mobile_image_path, image_alt, config, sort_order, is_published
+      FROM shop.homepage_block ORDER BY sort_order, created_at`;
+  return rows.map(toAdminBlock);
 }
 
-export async function saveHomepageBlock(input: {
+export type SaveHomepageBlockInput = {
   id?: string;
-  kind: "hero" | "promo";
+  kind: HomepageSectionKind;
   eyebrow: string | null;
   heading: string | null;
   body: string | null;
   ctaLabel: string | null;
   ctaHref: string | null;
   imagePath: string | null;
+  mobileImagePath: string | null;
+  imageAlt: string | null;
+  config: HomepageSectionConfig;
   sortOrder: number;
   isPublished: boolean;
-}): Promise<string> {
+};
+
+export async function saveHomepageBlock(input: SaveHomepageBlockInput): Promise<string> {
+  // postgres.js's JSONValue type doesn't accept an arbitrary object shape;
+  // the config really is plain JSON, so this cast is the honest narrowing.
+  const config = sql.json(input.config as Parameters<typeof sql.json>[0]);
   if (input.id) {
     await sql`
       UPDATE shop.homepage_block SET
         kind = ${input.kind}, eyebrow = ${input.eyebrow}, heading = ${input.heading},
         body = ${input.body}, cta_label = ${input.ctaLabel}, cta_href = ${input.ctaHref},
-        image_path = ${input.imagePath}, sort_order = ${input.sortOrder},
-        is_published = ${input.isPublished}
+        image_path = ${input.imagePath}, mobile_image_path = ${input.mobileImagePath},
+        image_alt = ${input.imageAlt}, config = ${config},
+        sort_order = ${input.sortOrder}, is_published = ${input.isPublished},
+        updated_at = now()
       WHERE id = ${input.id}`;
     return input.id;
   }
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO shop.homepage_block (kind, eyebrow, heading, body, cta_label, cta_href,
-                                     image_path, sort_order, is_published)
+                                     image_path, mobile_image_path, image_alt, config,
+                                     sort_order, is_published)
     VALUES (${input.kind}, ${input.eyebrow}, ${input.heading}, ${input.body},
             ${input.ctaLabel}, ${input.ctaHref}, ${input.imagePath},
+            ${input.mobileImagePath}, ${input.imageAlt}, ${config},
             ${input.sortOrder}, ${input.isPublished})
     RETURNING id`;
   return row.id;
@@ -97,6 +119,65 @@ export async function saveHomepageBlock(input: {
 
 export async function deleteHomepageBlock(id: string): Promise<void> {
   await sql`DELETE FROM shop.homepage_block WHERE id = ${id}`;
+}
+
+/** Show/hide without opening the editor — the list's most-used control. */
+export async function setHomepageBlockPublished(id: string, isPublished: boolean): Promise<void> {
+  await sql`
+    UPDATE shop.homepage_block SET is_published = ${isPublished}, updated_at = now()
+     WHERE id = ${id}`;
+}
+
+/**
+ * Swaps a section with its neighbour. Same approach as category reordering:
+ * two rows change, in a transaction, rather than renumbering the whole list
+ * — so two admins reordering at once can't interleave into a broken order.
+ */
+export async function moveHomepageBlock(id: string, direction: "up" | "down"): Promise<void> {
+  await transaction(async (tx) => {
+    const [current] = await tx<{ sort_order: number; created_at: Date }[]>`
+      SELECT sort_order, created_at FROM shop.homepage_block WHERE id = ${id}`;
+    if (!current) return;
+
+    // `id <> ${id}` is load-bearing, not belt-and-braces: a JS Date carries
+    // millisecond precision while timestamptz stores microseconds, so the
+    // round-tripped created_at parameter is fractionally EARLIER than the
+    // stored value and the row satisfies its own `>` comparison — every
+    // section found itself as its own neighbour and reordering silently
+    // did nothing (caught live, not in review).
+    const [neighbour] = direction === "up"
+      ? await tx<{ id: string; sort_order: number }[]>`
+          SELECT id, sort_order FROM shop.homepage_block
+           WHERE id <> ${id}
+             AND (sort_order, created_at) < (${current.sort_order}, ${current.created_at})
+           ORDER BY sort_order DESC, created_at DESC LIMIT 1`
+      : await tx<{ id: string; sort_order: number }[]>`
+          SELECT id, sort_order FROM shop.homepage_block
+           WHERE id <> ${id}
+             AND (sort_order, created_at) > (${current.sort_order}, ${current.created_at})
+           ORDER BY sort_order, created_at LIMIT 1`;
+    if (!neighbour) return; // already at the end — a no-op, not an error
+
+    // Equal sort_order values (possible after an import) would make a plain
+    // swap a no-op, so give the pair distinct values around the neighbour's.
+    const a = neighbour.sort_order;
+    const b = current.sort_order === a ? (direction === "up" ? a - 1 : a + 1) : current.sort_order;
+    await tx`UPDATE shop.homepage_block SET sort_order = ${a} WHERE id = ${id}`;
+    await tx`UPDATE shop.homepage_block SET sort_order = ${b} WHERE id = ${neighbour.id}`;
+  });
+}
+
+/** Duplicate a section, unpublished, immediately after the original. */
+export async function duplicateHomepageBlock(id: string): Promise<string | null> {
+  const [row] = await sql<{ id: string }[]>`
+    INSERT INTO shop.homepage_block (
+      kind, eyebrow, heading, body, cta_label, cta_href, image_path,
+      mobile_image_path, image_alt, config, sort_order, is_published)
+    SELECT kind, eyebrow, heading, body, cta_label, cta_href, image_path,
+           mobile_image_path, image_alt, config, sort_order + 1, false
+      FROM shop.homepage_block WHERE id = ${id}
+    RETURNING id`;
+  return row?.id ?? null;
 }
 
 // ---------------------------------------------------------------------------

@@ -5,13 +5,17 @@ import { requireAdmin, requireOwner, auditLog } from "@/lib/admin/auth";
 import { CACHE_TAGS } from "@/lib/db/content";
 import {
   deleteHomepageBlock,
+  duplicateHomepageBlock,
+  moveHomepageBlock,
   saveCategorySeo,
   saveContentPage,
   saveHomepageBlock,
   saveHomepageSeo,
   savePromoBanner,
   saveSiteSettings,
+  setHomepageBlockPublished,
 } from "@/lib/admin/cms";
+import type { HomepageSectionConfig, HomepageSectionKind } from "@/lib/content-types";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
 
 /**
@@ -67,11 +71,92 @@ const EXPIRED: ActionResult = { ok: false, error: "Η συνεδρία σου έ
 // Homepage blocks
 // ---------------------------------------------------------------------------
 
+const SECTION_KINDS: HomepageSectionKind[] = [
+  "hero",
+  "promo",
+  "category_grid",
+  "product_rail",
+  "content",
+];
+
+const RAIL_SOURCE_TYPES = [
+  "newest",
+  "featured",
+  "sale",
+  "category",
+  "collection",
+  "manual",
+] as const;
+
+/**
+ * Validates the per-kind `config` before it reaches the jsonb column.
+ *
+ * This is where the JSONB-over-columns trade-off gets paid: the database
+ * only knows `config` is valid JSON, so a malformed source here would
+ * surface as a broken homepage section rather than a constraint violation.
+ * Everything is parsed from known keys and clamped — nothing from the form
+ * is passed through verbatim.
+ */
+function parseConfig(kind: HomepageSectionKind, formData: FormData): HomepageSectionConfig {
+  const config: HomepageSectionConfig = {};
+
+  // Applies to every kind that can render a button.
+  if (kind === "hero" || kind === "promo" || kind === "content") {
+    config.showButton = formData.get("showButton") === "on";
+  }
+
+  if (kind === "category_grid") {
+    // Comma- or newline-separated slugs, in the owner's chosen order.
+    const raw = String(formData.get("categorySlugs") ?? "");
+    config.categorySlugs = raw
+      .split(/[\n,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  if (kind === "product_rail") {
+    const rawType = String(formData.get("sourceType") ?? "newest");
+    const type = (RAIL_SOURCE_TYPES as readonly string[]).includes(rawType)
+      ? (rawType as (typeof RAIL_SOURCE_TYPES)[number])
+      : "newest";
+    const limit = Math.min(Math.max(1, Number(formData.get("limit") ?? 12) || 12), 24);
+
+    switch (type) {
+      case "category":
+        config.source = { type, categorySlug: String(formData.get("categorySlug") ?? "").trim(), limit };
+        break;
+      case "collection":
+        config.source = {
+          type,
+          collectionSlug: String(formData.get("collectionSlug") ?? "").trim(),
+          limit,
+        };
+        break;
+      case "manual":
+        config.source = {
+          type,
+          productSlugs: String(formData.get("productSlugs") ?? "")
+            .split(/[\n,]/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .slice(0, 24),
+        };
+        break;
+      default:
+        config.source = { type, limit };
+    }
+    config.viewAllHref = text(formData.get("viewAllHref"));
+  }
+
+  return config;
+}
+
 export async function saveHomepageBlockAction(formData: FormData): Promise<ActionResult> {
   const admin = await guard();
   if (!admin) return EXPIRED;
 
-  const kind = formData.get("kind") === "promo" ? "promo" : "hero";
+  const rawKind = String(formData.get("kind") ?? "hero") as HomepageSectionKind;
+  const kind = SECTION_KINDS.includes(rawKind) ? rawKind : "hero";
   const id = text(formData.get("id")) ?? undefined;
 
   try {
@@ -84,6 +169,9 @@ export async function saveHomepageBlockAction(formData: FormData): Promise<Actio
       ctaLabel: text(formData.get("ctaLabel")),
       ctaHref: text(formData.get("ctaHref")),
       imagePath: text(formData.get("imagePath")),
+      mobileImagePath: text(formData.get("mobileImagePath")),
+      imageAlt: text(formData.get("imageAlt")),
+      config: parseConfig(kind, formData),
       sortOrder: Number(formData.get("sortOrder") ?? 0) || 0,
       isPublished: formData.get("isPublished") === "on",
     });
@@ -92,10 +180,8 @@ export async function saveHomepageBlockAction(formData: FormData): Promise<Actio
     return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
   }
 
-  updateTag(CACHE_TAGS.homepageBlocks);
-  revalidatePath("/admin/content/homepage");
-  revalidatePath("/");
-  return { ok: true, message: id ? "Το μπλοκ ενημερώθηκε." : "Το μπλοκ δημιουργήθηκε." };
+  revalidateHomepage();
+  return { ok: true, message: id ? "Η ενότητα ενημερώθηκε." : "Η ενότητα δημιουργήθηκε." };
 }
 
 export async function deleteHomepageBlockAction(id: string): Promise<ActionResult> {
@@ -107,10 +193,62 @@ export async function deleteHomepageBlockAction(id: string): Promise<ActionResul
   } catch {
     return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
   }
+  revalidateHomepage();
+  return { ok: true, message: "Η ενότητα διαγράφηκε." };
+}
+
+export async function setHomepageBlockPublishedAction(
+  id: string,
+  isPublished: boolean
+): Promise<ActionResult> {
+  const admin = await guard();
+  if (!admin) return EXPIRED;
+  try {
+    await setHomepageBlockPublished(id, isPublished);
+    await auditLog(admin.id, `homepage_block.${isPublished ? "show" : "hide"}`, "homepage_block", id);
+  } catch {
+    return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
+  }
+  revalidateHomepage();
+  return { ok: true, message: isPublished ? "Η ενότητα εμφανίζεται." : "Η ενότητα κρύφτηκε." };
+}
+
+export async function moveHomepageBlockAction(
+  id: string,
+  direction: "up" | "down"
+): Promise<ActionResult> {
+  const admin = await guard();
+  if (!admin) return EXPIRED;
+  try {
+    await moveHomepageBlock(id, direction);
+    await auditLog(admin.id, "homepage_block.move", "homepage_block", id, { direction });
+  } catch {
+    return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
+  }
+  revalidateHomepage();
+  return { ok: true };
+}
+
+export async function duplicateHomepageBlockAction(id: string): Promise<ActionResult> {
+  const admin = await guard();
+  if (!admin) return EXPIRED;
+  try {
+    const newId = await duplicateHomepageBlock(id);
+    if (!newId) return { ok: false, error: "Δεν βρέθηκε η ενότητα." };
+    await auditLog(admin.id, "homepage_block.duplicate", "homepage_block", newId);
+  } catch {
+    return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
+  }
+  revalidateHomepage();
+  // Created hidden on purpose: a duplicate is a starting point to edit, not
+  // something that should appear on the live homepage the instant it's made.
+  return { ok: true, message: "Η ενότητα αντιγράφηκε (κρυφή)." };
+}
+
+function revalidateHomepage() {
   updateTag(CACHE_TAGS.homepageBlocks);
   revalidatePath("/admin/content/homepage");
   revalidatePath("/");
-  return { ok: true, message: "Το μπλοκ διαγράφηκε." };
 }
 
 // ---------------------------------------------------------------------------

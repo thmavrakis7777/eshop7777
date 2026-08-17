@@ -4,10 +4,18 @@ import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 
 const TONES = ["clay", "sage", "stone", "linen"] as const;
 
-export function CategoryGrid({ categories }: { categories: NavCategory[] }) {
+export function CategoryGrid({
+  categories,
+  heading = "Ψώνισε κατά κατηγορία",
+}: {
+  categories: NavCategory[];
+  heading?: string;
+}) {
+  if (categories.length === 0) return null;
+
   return (
     <section className="container-shell mt-16 md:mt-24">
-      <h2 className="text-2xl text-ink md:text-3xl">Ψώνισε κατά κατηγορία</h2>
+      <h2 className="text-2xl text-ink md:text-3xl">{heading}</h2>
       <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         {categories.map((cat, i) => (
           <Link key={cat.handle} href={`/${cat.handle}`} className="group flex flex-col gap-2">

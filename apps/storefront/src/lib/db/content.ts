@@ -6,6 +6,9 @@ import type {
   AnalyticsSettings,
   ContentPage,
   HomepageBlock,
+  HomepageSection,
+  HomepageSectionConfig,
+  HomepageSectionKind,
   ProductExtra,
   PromoBanner,
   SeoOverride,
@@ -36,6 +39,9 @@ export type {
   AnalyticsSettings,
   ContentPage,
   HomepageBlock,
+  HomepageSection,
+  HomepageSectionConfig,
+  HomepageSectionKind,
   ProductExtra,
   PromoBanner,
   SeoOverride,
@@ -189,37 +195,63 @@ export const getAnalyticsSettings = unstable_cache(
 // Homepage blocks
 // ---------------------------------------------------------------------------
 
-export const getHomepageBlocks = unstable_cache(
-  async (kind: "hero" | "promo"): Promise<HomepageBlock[]> => {
+type HomepageSectionRow = {
+  id: string;
+  kind: HomepageSectionKind;
+  eyebrow: string | null;
+  heading: string | null;
+  body: string | null;
+  cta_label: string | null;
+  cta_href: string | null;
+  image_path: string | null;
+  mobile_image_path: string | null;
+  image_alt: string | null;
+  config: HomepageSectionConfig | null;
+};
+
+const SECTION_FIELDS = sql`
+  id, kind, eyebrow, heading, body, cta_label, cta_href,
+  image_path, mobile_image_path, image_alt, config`;
+
+function toSection(b: HomepageSectionRow): HomepageSection {
+  return {
+    id: b.id,
+    kind: b.kind,
+    eyebrow: b.eyebrow,
+    heading: b.heading,
+    body: b.body,
+    ctaLabel: b.cta_label,
+    ctaHref: b.cta_href,
+    imageUrl: publicImageUrl(b.image_path),
+    mobileImageUrl: publicImageUrl(b.mobile_image_path),
+    imageAlt: b.image_alt,
+    // NOT NULL DEFAULT '{}' in the schema, but a hand-edited row could still
+    // be null — the homepage must never 500 over a settings row.
+    config: b.config ?? {},
+  };
+}
+
+/**
+ * Every published homepage section, in the order the owner arranged them.
+ *
+ * One query for the whole page rather than one per section type: the
+ * homepage is a single ordered list now, and the previous per-kind reads
+ * couldn't express "category grid above the sale rail" at all.
+ */
+export const getHomepageSections = unstable_cache(
+  async (): Promise<HomepageSection[]> => {
     try {
-      const rows = await sql<
-        {
-          id: string;
-          eyebrow: string | null;
-          heading: string | null;
-          body: string | null;
-          cta_label: string | null;
-          cta_href: string | null;
-          image_path: string | null;
-        }[]
-      >`SELECT id, eyebrow, heading, body, cta_label, cta_href, image_path
+      const rows = await sql<HomepageSectionRow[]>`
+        SELECT ${SECTION_FIELDS}
           FROM shop.homepage_block
-         WHERE kind = ${kind} AND is_published
-         ORDER BY sort_order, id`;
-      return rows.map((b) => ({
-        id: b.id,
-        eyebrow: b.eyebrow,
-        heading: b.heading,
-        body: b.body,
-        ctaLabel: b.cta_label,
-        ctaHref: b.cta_href,
-        imageUrl: publicImageUrl(b.image_path),
-      }));
+         WHERE is_published
+         ORDER BY sort_order, created_at`;
+      return rows.map(toSection);
     } catch {
       return [];
     }
   },
-  ["homepage-blocks"],
+  ["homepage-sections"],
   { revalidate: 60, tags: [CACHE_TAGS.homepageBlocks] }
 );
 

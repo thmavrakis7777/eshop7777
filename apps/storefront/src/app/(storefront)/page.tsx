@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { Hero } from "@/components/home/Hero";
 import { CategoryGrid } from "@/components/home/CategoryGrid";
-import { ProductRail } from "@/components/home/ProductRail";
-import { ProductRailSkeleton } from "@/components/home/ProductRailSkeleton";
-import { EditorialBanner } from "@/components/home/EditorialBanner";
+import { HomepageSectionGroup } from "@/components/home/HomepageSections";
 import { TrustStrip } from "@/components/home/TrustStrip";
 import { Newsletter } from "@/components/home/Newsletter";
 import { getNavCategories } from "@/lib/data/categories";
-import { getHomepageBlocks } from "@/lib/data/homepage-blocks";
-import { getFeaturedProducts, getNewArrivals } from "@/lib/data/products";
+import { getHomepageSections, groupSections } from "@/lib/data/homepage-sections";
 import { getSeoOverride } from "@/lib/data/seo";
 import { getBranding } from "@/lib/data/branding";
 import { siteUrl } from "@/lib/site-config";
@@ -46,44 +42,43 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// Below-the-fold and mutually independent — each streams in on its own
-// once its own query resolves, instead of the whole page (including the
-// above-the-fold Hero/CategoryGrid) blocking on the slowest of the three.
-async function FeaturedRail() {
-  const featured = await getFeaturedProducts(12);
-  return <ProductRail title="Προτεινόμενα" viewAllHref="/protainomena" products={featured} />;
-}
-
-async function NewArrivalsRail() {
-  const newArrivals = await getNewArrivals(12);
-  return <ProductRail title="Νέες αφίξεις" viewAllHref="/nea-afiksi" products={newArrivals} />;
-}
-
-async function PromoBanner() {
-  const promoBlocks = await getHomepageBlocks("promo");
-  return <EditorialBanner blocks={promoBlocks} />;
-}
-
+/**
+ * The homepage is composed from admin-arranged sections, not a hardcoded
+ * list. Every section's type, order, visibility and content comes from
+ * shop.homepage_block — see components/home/HomepageSections.tsx for the
+ * kind → UI mapping and lib/data/homepage-sections.ts for how a product
+ * rail's configured source resolves to real products.
+ *
+ * The fallback matters: a store with no sections configured yet still gets
+ * a real homepage (default hero + category grid) rather than a blank page,
+ * which is what a fresh install and the current database both hit.
+ */
 export default async function HomePage() {
-  const [categories, heroSlides, branding] = await Promise.all([
+  const [categories, sections, branding] = await Promise.all([
     getNavCategories(),
-    getHomepageBlocks("hero"),
+    getHomepageSections(),
     getBranding(),
   ]);
 
+  const groups = groupSections(sections);
+
   return (
     <>
-      <Hero slides={heroSlides} storeName={branding.storeName} />
-      <CategoryGrid categories={categories} />
-      <Suspense fallback={<ProductRailSkeleton title="Προτεινόμενα" />}>
-        <FeaturedRail />
-      </Suspense>
-      <Suspense fallback={null}>
-        <PromoBanner />
-      </Suspense>
-      <Suspense fallback={<ProductRailSkeleton title="Νέες αφίξεις" />}>
-        <NewArrivalsRail />
-      </Suspense>
+      {groups.length > 0 ? (
+        groups.map((group) => (
+          <HomepageSectionGroup
+            key={group[0].id}
+            group={group}
+            categories={categories}
+            storeName={branding.storeName}
+          />
+        ))
+      ) : (
+        <>
+          <Hero slides={[]} storeName={branding.storeName} />
+          <CategoryGrid categories={categories} />
+        </>
+      )}
       <TrustStrip />
       <Newsletter />
     </>

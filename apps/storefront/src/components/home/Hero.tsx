@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { HomepageBlock } from "@/lib/data/homepage-blocks";
+import type { HomepageSection } from "@/lib/content-types";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
 
 const DIAGONAL_PATTERN = {
@@ -9,14 +9,18 @@ const DIAGONAL_PATTERN = {
   opacity: 0.6,
 } as const;
 
-const DEFAULT_HERO: HomepageBlock = {
+const DEFAULT_HERO: HomepageSection = {
   id: "default",
+  kind: "hero",
   eyebrow: "Νέα Συλλογή",
   heading: "Το σπίτι σου, αναβαθμισμένο.",
   body: "Ποιοτικά είδη κουζίνας, μπάνιου και οργάνωσης — σχεδιασμένα να διαρκούν χρόνια, όχι σεζόν.",
   ctaLabel: "Ανακάλυψε τη συλλογή",
   ctaHref: "/kouzina",
   imageUrl: null,
+  mobileImageUrl: null,
+  imageAlt: null,
+  config: {},
 };
 
 // content is always a real, whole object — either the store's own default
@@ -40,20 +44,37 @@ export function HeroSlide({
   asH1 = true,
   storeName,
 }: {
-  content: HomepageBlock;
+  content: HomepageSection;
   asH1?: boolean;
   // Only ever rendered as the sr-only fallback <h1> when a slide has no
   // heading of its own — the page still needs exactly one real h1.
   storeName: string;
 }) {
-  const { eyebrow, heading, body, ctaLabel, ctaHref, imageUrl } = content;
+  const { eyebrow, heading, body, ctaLabel, ctaHref, imageUrl, mobileImageUrl, imageAlt } = content;
   const HeadingTag = asH1 ? "h1" : "p";
+  // Optional by design: the same banner can be a plain image with no button.
+  const showButton = content.config?.showButton !== false && Boolean(ctaLabel && ctaHref);
 
   return (
     <div
       className="relative flex min-h-[26rem] flex-col justify-end overflow-hidden rounded-lg bg-surface-strong bg-cover bg-center p-8 md:min-h-[32rem] md:p-14"
-      style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}
+      style={imageUrl && !mobileImageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}
     >
+      {/* A separate mobile crop can't be done with one background-image, so
+          when the owner supplies one the art-directed pair is rendered as a
+          real <picture> behind the copy instead. */}
+      {imageUrl && mobileImageUrl && (
+        <picture>
+          <source media="(min-width: 768px)" srcSet={imageUrl} />
+          <img
+            src={mobileImageUrl}
+            alt={imageAlt ?? ""}
+            className="absolute inset-0 h-full w-full object-cover"
+            // The hero is the LCP element — never lazy.
+            fetchPriority="high"
+          />
+        </picture>
+      )}
       {!imageUrl && <div className="pointer-events-none absolute inset-0" style={DIAGONAL_PATTERN} aria-hidden="true" />}
       <div className="relative max-w-xl">
         {eyebrow && <p className="text-xs font-medium uppercase tracking-[0.15em] text-accent">{eyebrow}</p>}
@@ -63,9 +84,9 @@ export function HeroSlide({
           asH1 && <h1 className="sr-only">{storeName}</h1>
         )}
         {body && <p className="mt-4 max-w-md text-base text-ink-muted md:text-lg">{body}</p>}
-        {ctaLabel && ctaHref && (
+        {showButton && (
           <Link
-            href={ctaHref}
+            href={ctaHref!}
             className="mt-8 inline-flex items-center rounded-sm bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent"
           >
             {ctaLabel}
@@ -80,7 +101,7 @@ export function HeroSlide({
 // Phase E) — zero published slides falls back to the store's own default
 // copy, one slide renders statically, two or more become a swipeable
 // carousel (see HeroCarousel).
-export function Hero({ slides, storeName }: { slides: HomepageBlock[]; storeName: string }) {
+export function Hero({ slides, storeName }: { slides: HomepageSection[]; storeName: string }) {
   return (
     <section className="container-shell pt-6 md:pt-10">
       {slides.length >= 2 ? (
