@@ -3,6 +3,59 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Store branding + homepage become fully owner-managed (2026-08-17)
+
+Two things the owner could not change without a developer, both now
+self-service. Full architecture in `PROJECT_MEMORY.md`'s "CURRENT
+ARCHITECTURE" section at the top.
+
+**Real bug: the shop name was already changed and silently ignored.**
+`site_setting.store_name` and `logo_path` were written by the admin form
+and read by *nothing* — `getSiteSettings()` never selected them and the
+`SiteSettings` type had no field for them. The database already held
+"MAVRAKIS"; the storefront kept rendering "STIA" everywhere. Every visible
+brand mention was its own hardcoded literal (header, mobile menu, footer,
+copyright, `<title>` template, Organization/WebSite JSON-LD, email sender
+and footer, hero fallback h1) — eight files to rename a shop. Now one
+`getBranding()` resolver feeds all of them, with `site-config.ts` demoted
+to a build-time fallback. Added the branding fields that had no home at
+all: favicon, OG image, default SEO title and description (the last two
+were TS constants needing a deploy to change).
+
+**The homepage is now a real CMS.** Its structure used to be hardcoded in
+`page.tsx`; the admin could edit two banners' copy and nothing else.
+It is now an ordered list of owner-composed sections — hero, promo banner,
+category grid, product rail, free-form content — each with add / edit /
+hide / move / duplicate / delete. Product rails resolve from a chosen
+source (newest, featured, on sale, a category, a collection, or an exact
+manual list in the owner's order); category grids pick and order their own
+categories independently of the nav; heroes and content sections carry
+separate desktop/mobile images, alt text and a genuinely optional button
+with a destination picker.
+
+Schema choice worth knowing (migration 0004): shared presentational columns
+plus one `config` jsonb per row, rather than a column per field or a table
+per kind. New section kinds now cost a type and two switch cases, not a
+migration — at the price of validating `config` in the Server Action rather
+than in the database. `sort_order` also became global rather than per-kind,
+so any section can sit anywhere.
+
+**Bug found during live verification**: reordering silently did nothing.
+The neighbour lookup tie-breaks on `created_at`, but a JS `Date` carries
+millisecond precision while `timestamptz` stores microseconds — the
+round-tripped parameter came back fractionally earlier than the stored
+value, so every section satisfied its own `>` comparison and found *itself*
+as its neighbour. Fixed with an explicit `id <> $1`. Caught by clicking the
+button and checking the database, not by review.
+
+Verified live end to end: built a real homepage through the admin UI, saw
+the storefront render exactly it (including a sale rail correctly
+auto-filtering to the one genuinely discounted product), then reordered and
+hid/showed sections and confirmed the storefront followed each time.
+
+Removed as superseded: `lib/data/homepage-blocks.ts`,
+`components/admin/HomepageBlockManager.tsx`.
+
 ## Medusa → direct SQL migration complete, full audit pass (2026-08-14 to 2026-08-17)
 
 The `custom-dashboard-migration` branch: replaced the Medusa v2 backend

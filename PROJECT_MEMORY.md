@@ -1,15 +1,137 @@
-# Project Memory — STIA Houseware Store
+# Project Memory — Houseware Store
 
-> **⚠ Superseded (2026-08-17).** Everything below predates the
-> `custom-dashboard-migration` branch and describes the old Medusa v2
-> backend, which no longer exists — the storefront and admin now run
-> entirely on direct SQL against Supabase Postgres. **Read `MIGRATION_PLAN.md`
-> first** — it's the actively-maintained source of truth for current
-> architecture and status (all 17 phases complete as of 2026-08-17). Treat
-> everything below as historical: real product/UX decisions worth mining,
-> but any mention of Medusa, `apps/backend`, or `localhost:9000` is dead.
+## CURRENT ARCHITECTURE (2026-08-17) — read this section first
 
-## START HERE — CURRENT PROJECT STATE
+> Everything from "START HERE — CURRENT PROJECT STATE" downward is
+> **historical**: it predates the `custom-dashboard-migration` branch and
+> describes the old Medusa v2 backend, which no longer exists. Real
+> product/UX decisions there are still worth mining, but any mention of
+> Medusa, `apps/backend`, or `localhost:9000` is dead. `MIGRATION_PLAN.md`
+> holds the phase-by-phase migration record; this section holds the
+> resulting architecture.
+
+### Stack
+
+One Next.js 16 app (`apps/storefront`) — storefront and admin are two route
+trees in it, not two apps — talking directly to Supabase Postgres (schema
+`shop`) with `postgres.js`. No ORM, no Medusa, no `supabase-js`. Runtime
+dependencies are `next`, `react`, `react-dom`, `postgres`, `server-only`,
+`zod`.
+
+### URLs
+
+| What | URL |
+|---|---|
+| Storefront | `http://localhost:3000` |
+| Admin | `http://localhost:3000/admin` (login at `/admin/login`) |
+| Dev server | `pnpm dev` from repo root, or the `storefront` preview config |
+
+Admin owner account: `th.mavrakis@gmail.com`. Password was reset
+2026-08-16 to a temporary value handed over in chat — change it from
+`/admin/settings`.
+
+### Store branding — how to rename the shop
+
+`shop.site_setting` is a singleton row holding `store_name`, `logo_path`,
+`favicon_path`, `og_image_path`, `default_seo_title`,
+`default_seo_description`, contact details and social URLs. Edit it at
+**`/admin/content/layout`** (owner-only).
+
+`lib/data/branding.ts`'s `getBranding()` is the single resolver every
+user-visible brand mention reads: header/mobile-menu/footer logos, footer
+copyright, the `<title>` template, Organization + WebSite JSON-LD, and
+transactional email sender name and footer. `lib/site-config.ts` remains
+only as the build-time fallback for when the settings row is missing or the
+database is unreachable — it is not the source of truth.
+
+Changing "Store name" in the admin renames the whole storefront. Nothing
+about the brand is hardcoded in a component any more.
+
+### Homepage CMS — how to control the homepage
+
+The homepage is an **ordered list of sections** stored in
+`shop.homepage_block`, composed at **`/admin/content/homepage`**. The admin
+list order IS the page order, top to bottom.
+
+Five section kinds:
+
+| Kind | What it renders | Key settings |
+|---|---|---|
+| `hero` | Full-width banner | desktop + mobile image, alt, eyebrow/title/text, optional button + destination |
+| `promo` | Two-column editorial banner | same field set as hero |
+| `category_grid` | Category tiles | which categories and in what order (blank = all top-level, nav order); own heading |
+| `product_rail` | Horizontal product strip | source: newest / featured / on sale / from category / from collection / **manual list**; count; optional "see all" link |
+| `content` | Free-form image + text | image pair, alt, heading, body, optional button |
+
+Per-section controls: **add, edit, hide/show, move up/down, duplicate,
+delete**. Two or more *consecutive* hero sections merge into one carousel.
+A section that resolves to nothing (e.g. a rail whose category was deleted)
+renders nothing rather than an empty heading.
+
+Schema shape: shared presentational columns (`eyebrow`, `heading`, `body`,
+`cta_label`, `cta_href`, `image_path`, `mobile_image_path`, `image_alt`,
+`sort_order`, `is_published`) plus one `config` **jsonb** for per-kind
+settings — see `HomepageSectionConfig` in `lib/content-types.ts`. New
+section kinds cost a type + a renderer case + an admin form case, **not a
+migration**. The trade-off, accepted deliberately: `config`'s shape is
+validated in `cms-actions.ts`'s `parseConfig()`, not by the database.
+
+Code map:
+- `lib/db/content.ts` → `getHomepageSections()` (cached, tag `homepage-blocks`)
+- `lib/data/homepage-sections.ts` → `resolveRailProducts()`, `groupSections()`
+- `components/home/HomepageSections.tsx` → kind → UI mapping
+- `components/admin/HomepageSectionBuilder.tsx` → the builder UI
+- `lib/admin/cms.ts` / `cms-actions.ts` → queries and Server Actions
+
+Still fixed (not yet CMS-driven): the trust strip and newsletter band at
+the bottom of the page.
+
+### Images
+
+`lib/storage/urls.ts` derives a public URL from a stored **path**, and
+passes an absolute `http(s)` URL straight through. So every image field
+accepts either today. File **upload** does not exist yet — it is gated on
+`NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`, which are not in
+`.env.local`; `/admin/content/media` explains this rather than showing a
+dead button.
+
+### SEO architecture
+
+- Per-resource overrides in `shop.seo_meta`, keyed
+  `(resource_type, resource_id)` where `resource_type` ∈ product, category,
+  collection, page, homepage. Read via `getSeoOverride()`.
+- Site-wide defaults from branding (above).
+- JSON-LD: Organization + WebSite (storefront layout), BreadcrumbList,
+  Product with Offer/AggregateOffer. All escaped via `lib/json-ld.ts`.
+- `sitemap.ts` enumerates categories, collections and products;
+  `robots.ts` disallows admin/cart/checkout/account/wishlist.
+- Paginated listings self-canonicalize on page 2+.
+
+### Performance architecture
+
+- `unstable_cache` + precise `updateTag` invalidation on settings, promo
+  banner, analytics, homepage sections, content pages, SEO, nav categories
+  and the search catalogue.
+- `React.cache()` for per-request dedup (`getNavCategories`,
+  `getProductByHandle`, `getBranding`).
+- `<Suspense>` around below-the-fold rails; `loading.tsx` for the
+  storefront route group.
+- One pool per instance (`lib/db/client.ts`), capped to 1 during
+  `next build` — see MIGRATION_PLAN.md Phase 16 for the pooler-mode issue
+  that is still open.
+
+### Security posture
+
+RLS enabled with zero policies on all 37 `shop` tables (access is
+server-side via the connection string, which bypasses RLS by design — the
+lockdown closes the PostgREST/Data API surface). Admin Server Actions all
+call `requireAdmin()`/`requireOwner()` before reading arguments. Store-wide
+settings (VAT, shipping prices, analytics, branding) are owner-only. See
+MIGRATION_PLAN.md Phase 14 for the full audit and the fixes it produced.
+
+---
+
+## START HERE — CURRENT PROJECT STATE (HISTORICAL — pre-migration)
 
 Written 2026-08-12, end of a very long session, specifically so a fresh Claude Code
 session with zero conversation history can read this one section and understand
