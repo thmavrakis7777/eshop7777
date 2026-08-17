@@ -3,6 +3,36 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Pooler question settled by measurement; admin guide rewritten (2026-08-17)
+
+**The transaction-pooler question is closed, with data.** Two earlier
+attempts had failed for reasons that looked unrelated ("57014 statement
+timeout" once, "15-20s page loads" the next). A controlled benchmark ran
+the same six real query shapes — scalar, array, transaction, 6-way
+concurrency, numeric parse, post-idle reuse — against both ports, three
+times each, at the same pool size:
+
+| Pooler | Clean runs | Behaviour |
+|---|---|---|
+| Session (5432) | **3/3** | consistently ~1.87s |
+| Transaction (6543) | 1/3 | two runs deadlocked 20s on the concurrency step |
+
+Both earlier failures were this same intermittent deadlock wearing
+different clothes. Since a serverless deployment is precisely the
+concurrent-burst workload that triggers it, this is a reason **not** to
+switch — the opposite of the conventional advice, and worth having
+measured rather than assumed. Staying on session mode; the connection cap
+that motivated the whole investigation is separately handled by capping
+the pool to 1 during `next build`. Recorded in `DEPLOYMENT.md` with the
+bar for revisiting it (reproduce 3/3 clean runs first).
+
+**`ADMIN_GUIDE.md` rewritten** for the actual admin. It had been describing
+the old Medusa dashboard at `localhost:9000/app`, which hasn't existed
+since Phase 13 — actively misleading rather than merely stale. The new
+version documents the real screens, verified against the running UI rather
+than written from memory, and ends with an honest list of what still needs
+a developer.
+
 ## Product picker, positionable trust/newsletter, and a `fetch_types` regression fixed (2026-08-17)
 
 **Serious self-inflicted bug found and fixed.** During the Phase 16

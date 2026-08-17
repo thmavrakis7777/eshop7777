@@ -44,34 +44,42 @@ the full list with explanations:
 | `GOOGLE_PLACES_API_KEY` | optional | address autocomplete degrades to manual entry if unset |
 | `GEMI_API_KEY` | optional | ΓΕΜΗ company lookup degrades to manual entry if unset |
 
-**Pooler mode is an open question — read this before deploying with real
-traffic.** Vercel runs every read and write directly against Postgres
-(instead of a persistent Node server holding its own connections), so a
-raw direct connection is wrong here regardless — some Supabase pooler is
-required. Local dev currently runs on the **session-mode** pooler (port
-5432), which is proven working but has a hard 15-connection cap and
-doesn't multiplex: a Phase 16 performance audit (2026-08-16) found this is
-exactly what caused every local build's `EMAXCONNSESSION` warning (11
-build workers × `max: 5` each), and the same cap is a real
-connection-exhaustion risk once concurrent production traffic exists.
-**Transaction mode (port 6543)** is the normal answer for many short-lived
-serverless connections — but a real attempt to switch to it that session
-broke every single query with Postgres error 57014 ("canceling statement
-due to statement timeout"), and was reverted. A second attempt with
-`fetch_types: false` added cleared that error and passed an isolated test,
-but made real page requests take 15-20s, and was also reverted.
+**Use the session-mode pooler (port 5432). This is a measured decision.**
 
-`lib/db/client.ts` has `prepare: false` (required for transaction mode,
-genuinely harmless on session mode). It deliberately does **not** set
-`fetch_types: false`: that flag is not harmless — without pg_catalog type
-introspection, postgres.js serialises array parameters as comma-joined
-strings and Postgres rejects them with 22P02, silently breaking every
-`= ANY(${array})` query while scalar queries keep working. A third attempt
-at transaction mode must cast array parameters explicitly instead.
+Vercel runs every read and write directly against Postgres rather than
+from a persistent Node server, so a raw direct connection is wrong here
+regardless — some Supabase pooler is required. Conventional advice is that
+**transaction mode (6543)** suits many short-lived serverless connections
+better than session mode's hard 15-connection cap. That advice does not
+survive contact with this project.
 
-Do not flip `DATABASE_URL` to port 6543 for production without first
-reproducing and resolving both failures against this project's real
-Supavisor configuration. See `MIGRATION_PLAN.md`'s Phase 16 section.
+A controlled benchmark (2026-08-17) ran the same six real query shapes —
+scalar, array, transaction, 6-way concurrency, numeric parse, post-idle
+reuse — against both ports, three times each, at the same pool size:
+
+| Pooler | Clean runs | Behaviour |
+|---|---|---|
+| Session (5432) | **3/3** | consistently ~1.87s |
+| Transaction (6543) | 1/3 | two runs deadlocked 20s on the concurrency step |
+
+Transaction mode is **intermittently** unreliable here — a concurrent
+burst can wedge until `statement_timeout` (120s, confirmed in the
+dashboard). Both earlier failed attempts were this same deadlock wearing
+different clothes: once as "57014 statement timeout", once as "15-20s page
+loads". A serverless deployment is exactly the concurrent-burst workload
+that triggers it, so this is a reason not to switch, not a reason to
+switch.
+
+**If you ever revisit it**, reproduce 3/3 clean benchmark runs first, and
+note that `fetch_types: false` is not an acceptable workaround: without
+pg_catalog introspection postgres.js serialises array parameters as
+comma-joined strings and Postgres rejects them with 22P02, silently
+breaking every `= ANY(${array})` query while scalar queries keep working.
+
+The session-mode connection cap that motivated all this is separately
+handled: `lib/db/client.ts` caps the pool at 1 during `next build` (which
+is what produced the old `EMAXCONNSESSION` warnings), and at 5 per
+instance at runtime.
 
 ## 2. Supabase (database)
 

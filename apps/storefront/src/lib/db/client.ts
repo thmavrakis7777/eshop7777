@@ -49,7 +49,8 @@ function createClient() {
     // Safe on the session-mode pooler this connects to, and required if it
     // ever moves to transaction mode: a prepared statement is tied to one
     // specific physical connection, which transaction-mode pooling doesn't
-    // guarantee.
+    // guarantee. (Transaction mode was benchmarked and rejected — it
+    // deadlocked on 2 of 3 identical runs; see DEPLOYMENT.md.)
     prepare: false,
     // DELIBERATELY NOT `fetch_types: false`. It was set here briefly during
     // the 2026-08-17 transaction-pooler investigation on the assumption it
