@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/Icons";
 import { MobileMenu } from "./MobileMenu";
 import { SearchBox } from "./SearchBox";
+import { StoreLogo } from "./StoreLogo";
 import { useCartUI } from "@/components/cart/CartUIProvider";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 
@@ -22,10 +23,14 @@ export function Header({
   categories: navCategories,
   cartItemCount,
   cartTotal,
+  storeName,
+  logoUrl,
 }: {
   categories: NavCategory[];
   cartItemCount: number;
   cartTotal: Money;
+  storeName: string;
+  logoUrl: string | null;
 }) {
   const { openDrawer } = useCartUI();
   const { count: wishlistCount } = useWishlist();
@@ -54,9 +59,7 @@ export function Header({
             <MenuIcon />
           </button>
 
-          <Link href="/" className="font-display text-2xl tracking-tight text-ink shrink-0">
-            STIA
-          </Link>
+          <StoreLogo storeName={storeName} logoUrl={logoUrl} />
 
           <nav className="hidden lg:flex items-center gap-1" aria-label="Κύρια πλοήγηση">
             {navCategories.map((cat) => (
@@ -187,6 +190,8 @@ export function Header({
       <MobileMenu
         open={mobileOpen}
         categories={navCategories}
+        storeName={storeName}
+        logoUrl={logoUrl}
         onClose={() => {
           setMobileOpen(false);
           mobileTriggerRef.current?.focus();

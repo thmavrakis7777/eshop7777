@@ -61,7 +61,25 @@ export default async function AdminLayoutContentPage() {
                   },
                   // Every other field on the singleton must round-trip, or
                   // saving this form would blank the ones it does not show.
-                  { name: "storeName", label: "Όνομα καταστήματος", type: "text" },
+                  {
+                    name: "storeName",
+                    label: "Όνομα καταστήματος",
+                    type: "text",
+                    hint: "Αλλάζει παντού: header, footer, τίτλος σελίδας, δομημένα δεδομένα και emails.",
+                  },
+                  {
+                    name: "defaultSeoTitle",
+                    label: "Προεπιλεγμένος τίτλος SEO",
+                    type: "text",
+                    hint: "Ο τίτλος της αρχικής και το «| Όνομα» που μπαίνει σε κάθε άλλη σελίδα. Κενό = αυτόματο από το όνομα καταστήματος.",
+                  },
+                  {
+                    name: "defaultSeoDescription",
+                    label: "Προεπιλεγμένη περιγραφή SEO",
+                    type: "textarea",
+                    rows: 2,
+                    hint: "Χρησιμοποιείται όπου δεν έχει οριστεί δική της περιγραφή.",
+                  },
                   { name: "footerTagline", label: "Σύντομη περιγραφή (υποσέλιδο)", type: "textarea", rows: 2 },
                   { name: "contactPhone", label: "Τηλέφωνο", type: "tel" },
                   { name: "contactEmail", label: "Email επικοινωνίας", type: "email" },
@@ -70,7 +88,24 @@ export default async function AdminLayoutContentPage() {
                   { name: "facebookUrl", label: "Facebook URL", type: "url" },
                   { name: "instagramUrl", label: "Instagram URL", type: "url" },
                   { name: "tiktokUrl", label: "TikTok URL", type: "url" },
-                  { name: "logoPath", label: "Λογότυπο (διαδρομή αρχείου)", type: "text" },
+                  {
+                    name: "logoPath",
+                    label: "Λογότυπο",
+                    type: "text",
+                    hint: "Διαδρομή αρχείου ή πλήρες URL. Κενό = εμφανίζεται το όνομα του καταστήματος ως κείμενο.",
+                  },
+                  {
+                    name: "faviconPath",
+                    label: "Favicon",
+                    type: "text",
+                    hint: "Το εικονίδιο στην καρτέλα του browser. Διαδρομή αρχείου ή πλήρες URL.",
+                  },
+                  {
+                    name: "ogImagePath",
+                    label: "Εικόνα κοινοποίησης (OG image)",
+                    type: "text",
+                    hint: "Εμφανίζεται όταν μοιράζεται κάποιος σύνδεσμο του καταστήματος σε social/messaging.",
+                  },
                   {
                     name: "defaultVatRate",
                     label: "Συντελεστής ΦΠΑ (%)",

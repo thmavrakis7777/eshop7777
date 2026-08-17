@@ -106,6 +106,10 @@ export async function deleteHomepageBlock(id: string): Promise<void> {
 export type AdminSiteSettings = {
   storeName: string | null;
   logoPath: string | null;
+  faviconPath: string | null;
+  ogImagePath: string | null;
+  defaultSeoTitle: string | null;
+  defaultSeoDescription: string | null;
   footerTagline: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
@@ -124,12 +128,16 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
   const rows = await sql<
     {
       store_name: string | null; logo_path: string | null; footer_tagline: string | null;
+      favicon_path: string | null; og_image_path: string | null;
+      default_seo_title: string | null; default_seo_description: string | null;
       contact_phone: string | null; contact_email: string | null; contact_address: string | null;
       business_hours: string | null; facebook_url: string | null; instagram_url: string | null;
       tiktok_url: string | null; announcement_text: string | null; cart_message: string | null;
       free_shipping_threshold_cents: number | null; default_vat_rate: number;
     }[]
-  >`SELECT store_name, logo_path, footer_tagline, contact_phone, contact_email,
+  >`SELECT store_name, logo_path, favicon_path, og_image_path,
+           default_seo_title, default_seo_description,
+           footer_tagline, contact_phone, contact_email,
            contact_address, business_hours, facebook_url, instagram_url, tiktok_url,
            announcement_text, cart_message, free_shipping_threshold_cents, default_vat_rate
       FROM shop.site_setting LIMIT 1`;
@@ -139,7 +147,9 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
   // deleted row) must not crash the settings screen.
   if (!s) {
     return {
-      storeName: null, logoPath: null, footerTagline: null, contactPhone: null,
+      storeName: null, logoPath: null, faviconPath: null, ogImagePath: null,
+      defaultSeoTitle: null, defaultSeoDescription: null,
+      footerTagline: null, contactPhone: null,
       contactEmail: null, contactAddress: null, businessHours: null, facebookUrl: null,
       instagramUrl: null, tiktokUrl: null, announcementText: null, cartMessage: null,
       freeShippingThresholdCents: null, defaultVatRate: 24,
@@ -147,7 +157,10 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
   }
 
   return {
-    storeName: s.store_name, logoPath: s.logo_path, footerTagline: s.footer_tagline,
+    storeName: s.store_name, logoPath: s.logo_path,
+    faviconPath: s.favicon_path, ogImagePath: s.og_image_path,
+    defaultSeoTitle: s.default_seo_title, defaultSeoDescription: s.default_seo_description,
+    footerTagline: s.footer_tagline,
     contactPhone: s.contact_phone, contactEmail: s.contact_email,
     contactAddress: s.contact_address, businessHours: s.business_hours,
     facebookUrl: s.facebook_url, instagramUrl: s.instagram_url, tiktokUrl: s.tiktok_url,
@@ -160,17 +173,24 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
 export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> {
   await sql`
     INSERT INTO shop.site_setting (
-      id, store_name, logo_path, footer_tagline, contact_phone, contact_email,
+      id, store_name, logo_path, favicon_path, og_image_path,
+      default_seo_title, default_seo_description,
+      footer_tagline, contact_phone, contact_email,
       contact_address, business_hours, facebook_url, instagram_url, tiktok_url,
       announcement_text, cart_message, free_shipping_threshold_cents, default_vat_rate, updated_at)
     VALUES (
-      true, ${input.storeName}, ${input.logoPath}, ${input.footerTagline},
+      true, ${input.storeName}, ${input.logoPath}, ${input.faviconPath},
+      ${input.ogImagePath}, ${input.defaultSeoTitle}, ${input.defaultSeoDescription},
+      ${input.footerTagline},
       ${input.contactPhone}, ${input.contactEmail}, ${input.contactAddress},
       ${input.businessHours}, ${input.facebookUrl}, ${input.instagramUrl},
       ${input.tiktokUrl}, ${input.announcementText}, ${input.cartMessage},
       ${input.freeShippingThresholdCents}, ${input.defaultVatRate}, now())
     ON CONFLICT (id) DO UPDATE SET
       store_name = EXCLUDED.store_name, logo_path = EXCLUDED.logo_path,
+      favicon_path = EXCLUDED.favicon_path, og_image_path = EXCLUDED.og_image_path,
+      default_seo_title = EXCLUDED.default_seo_title,
+      default_seo_description = EXCLUDED.default_seo_description,
       footer_tagline = EXCLUDED.footer_tagline, contact_phone = EXCLUDED.contact_phone,
       contact_email = EXCLUDED.contact_email, contact_address = EXCLUDED.contact_address,
       business_hours = EXCLUDED.business_hours, facebook_url = EXCLUDED.facebook_url,

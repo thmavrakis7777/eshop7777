@@ -35,7 +35,17 @@ const DEFAULT_HERO: HomepageBlock = {
 // slide 2+ renders its heading as a visually identical <p> instead, or the
 // carousel would put a second (or third, or fourth) <h1> on the homepage
 // the moment an admin publishes more than one slide.
-export function HeroSlide({ content, asH1 = true }: { content: HomepageBlock; asH1?: boolean }) {
+export function HeroSlide({
+  content,
+  asH1 = true,
+  storeName,
+}: {
+  content: HomepageBlock;
+  asH1?: boolean;
+  // Only ever rendered as the sr-only fallback <h1> when a slide has no
+  // heading of its own — the page still needs exactly one real h1.
+  storeName: string;
+}) {
   const { eyebrow, heading, body, ctaLabel, ctaHref, imageUrl } = content;
   const HeadingTag = asH1 ? "h1" : "p";
 
@@ -50,7 +60,7 @@ export function HeroSlide({ content, asH1 = true }: { content: HomepageBlock; as
         {heading ? (
           <HeadingTag className="mt-3 text-4xl text-ink md:text-6xl">{heading}</HeadingTag>
         ) : (
-          asH1 && <h1 className="sr-only">STIA</h1>
+          asH1 && <h1 className="sr-only">{storeName}</h1>
         )}
         {body && <p className="mt-4 max-w-md text-base text-ink-muted md:text-lg">{body}</p>}
         {ctaLabel && ctaHref && (
@@ -70,10 +80,14 @@ export function HeroSlide({ content, asH1 = true }: { content: HomepageBlock; as
 // Phase E) — zero published slides falls back to the store's own default
 // copy, one slide renders statically, two or more become a swipeable
 // carousel (see HeroCarousel).
-export function Hero({ slides }: { slides: HomepageBlock[] }) {
+export function Hero({ slides, storeName }: { slides: HomepageBlock[]; storeName: string }) {
   return (
     <section className="container-shell pt-6 md:pt-10">
-      {slides.length >= 2 ? <HeroCarousel slides={slides} /> : <HeroSlide content={slides[0] ?? DEFAULT_HERO} />}
+      {slides.length >= 2 ? (
+        <HeroCarousel slides={slides} storeName={storeName} />
+      ) : (
+        <HeroSlide content={slides[0] ?? DEFAULT_HERO} storeName={storeName} />
+      )}
     </section>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FacebookIcon, InstagramIcon, TikTokIcon } from "@/components/ui/Icons";
+import { StoreLogo } from "./StoreLogo";
 import type { SiteSettings } from "@/lib/data/site-settings";
 import type { NavCategory } from "@/lib/types";
 
@@ -26,7 +27,17 @@ const legalLinks = [
   { label: "Πολιτική Cookies", href: "/cookies" },
 ];
 
-export function Footer({ categories, settings }: { categories: NavCategory[]; settings: SiteSettings | null }) {
+export function Footer({
+  categories,
+  settings,
+  storeName,
+  logoUrl,
+}: {
+  categories: NavCategory[];
+  settings: SiteSettings | null;
+  storeName: string;
+  logoUrl: string | null;
+}) {
   const hasContact = settings?.contactPhone || settings?.contactEmail || settings?.contactAddress;
   const socialLinks = [
     { href: settings?.facebookUrl, label: "Facebook", Icon: FacebookIcon },
@@ -38,7 +49,7 @@ export function Footer({ categories, settings }: { categories: NavCategory[]; se
     <footer className="mt-24 border-t border-border bg-surface">
       <div className="container-shell grid grid-cols-2 gap-8 py-12 md:grid-cols-4 lg:grid-cols-6">
         <div className="col-span-2">
-          <span className="font-display text-xl text-ink">STIA</span>
+          <StoreLogo storeName={storeName} logoUrl={logoUrl} href={null} className="font-display text-xl text-ink" />
           <p className="mt-3 max-w-xs text-sm text-ink-muted">{settings?.footerTagline || DEFAULT_TAGLINE}</p>
 
           {hasContact && (
@@ -91,7 +102,7 @@ export function Footer({ categories, settings }: { categories: NavCategory[]; se
 
       <div className="border-t border-border">
         <div className="container-shell flex flex-col gap-4 py-6 text-xs text-ink-muted md:flex-row md:items-center md:justify-between">
-          <span>© {new Date().getFullYear()} STIA. Με επιφύλαξη παντός δικαιώματος.</span>
+          <span>© {new Date().getFullYear()} {storeName}. Με επιφύλαξη παντός δικαιώματος.</span>
           {/* Only methods checkout can actually process — the one configured
               Medusa provider is pp_system_default ("Αντικαταβολή"). Listing
               Visa/Mastercard/Viva Wallet here advertised card payments the

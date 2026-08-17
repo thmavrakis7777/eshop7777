@@ -18,6 +18,16 @@
  */
 
 export type SiteSettings = {
+  // Branding. `storeName` is the one every visible brand mention reads —
+  // header/footer/mobile-menu logos, <title> template, JSON-LD, emails —
+  // so changing it in the admin renames the whole storefront. Falls back to
+  // lib/site-config.ts's build-time constant only when unset/unreadable.
+  storeName: string | null;
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  ogImageUrl: string | null;
+  defaultSeoTitle: string | null;
+  defaultSeoDescription: string | null;
   footerTagline: string | null;
   contactPhone: string | null;
   contactEmail: string | null;

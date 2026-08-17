@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { NavCategory } from "@/lib/types";
 import { ChevronDownIcon, CloseIcon, HeartIcon, UserIcon } from "@/components/ui/Icons";
+import { StoreLogo } from "./StoreLogo";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 
 const FOCUSABLE_SELECTOR =
@@ -14,10 +15,14 @@ export function MobileMenu({
   open,
   onClose,
   categories: navCategories,
+  storeName,
+  logoUrl,
 }: {
   open: boolean;
   onClose: () => void;
   categories: NavCategory[];
+  storeName: string;
+  logoUrl: string | null;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -77,7 +82,7 @@ export function MobileMenu({
       <div className="absolute inset-0 bg-ink/40" aria-hidden="true" onClick={onClose} />
       <div className="absolute inset-y-0 left-0 flex w-[85%] max-w-sm flex-col overflow-y-auto bg-bg shadow-xl">
         <div className="flex items-center justify-between border-b border-border p-4">
-          <span className="font-display text-xl">STIA</span>
+          <StoreLogo storeName={storeName} logoUrl={logoUrl} href={null} className="font-display text-xl" />
           <button ref={closeButtonRef} type="button" className="p-2" aria-label="Κλείσιμο μενού" onClick={onClose}>
             <CloseIcon />
           </button>

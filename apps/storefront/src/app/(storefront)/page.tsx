@@ -11,15 +11,19 @@ import { getNavCategories } from "@/lib/data/categories";
 import { getHomepageBlocks } from "@/lib/data/homepage-blocks";
 import { getFeaturedProducts, getNewArrivals } from "@/lib/data/products";
 import { getSeoOverride } from "@/lib/data/seo";
-import { siteDefaultDescription, siteDefaultTitle, siteUrl } from "@/lib/site-config";
+import { getBranding } from "@/lib/data/branding";
+import { siteUrl } from "@/lib/site-config";
 
 // Admin-editable SEO overrides (Admin-first platform, Phase B) — same
 // resource_id: "homepage" singleton pattern as the admin route, falling
 // back to RootLayout's own defaults when nothing's been entered.
 export async function generateMetadata(): Promise<Metadata> {
-  const seo = await getSeoOverride("homepage", "homepage");
-  const title = seo?.seoTitle || siteDefaultTitle;
-  const description = seo?.metaDescription || siteDefaultDescription;
+  const [seo, branding] = await Promise.all([
+    getSeoOverride("homepage", "homepage"),
+    getBranding(),
+  ]);
+  const title = seo?.seoTitle || branding.defaultSeoTitle;
+  const description = seo?.metaDescription || branding.defaultSeoDescription;
 
   return {
     // Always absolute. The root layout's "%s | STIA" template is right for
@@ -61,11 +65,15 @@ async function PromoBanner() {
 }
 
 export default async function HomePage() {
-  const [categories, heroSlides] = await Promise.all([getNavCategories(), getHomepageBlocks("hero")]);
+  const [categories, heroSlides, branding] = await Promise.all([
+    getNavCategories(),
+    getHomepageBlocks("hero"),
+    getBranding(),
+  ]);
 
   return (
     <>
-      <Hero slides={heroSlides} />
+      <Hero slides={heroSlides} storeName={branding.storeName} />
       <CategoryGrid categories={categories} />
       <Suspense fallback={<ProductRailSkeleton title="Προτεινόμενα" />}>
         <FeaturedRail />

@@ -71,14 +71,28 @@ export const getSiteSettings = unstable_cache(
           tiktok_url: string | null;
           announcement_text: string | null;
           cart_message: string | null;
+          store_name: string | null;
+          logo_path: string | null;
+          favicon_path: string | null;
+          og_image_path: string | null;
+          default_seo_title: string | null;
+          default_seo_description: string | null;
         }[]
       >`SELECT footer_tagline, contact_phone, contact_email, contact_address,
                business_hours, facebook_url, instagram_url, tiktok_url,
-               announcement_text, cart_message
+               announcement_text, cart_message,
+               store_name, logo_path, favicon_path, og_image_path,
+               default_seo_title, default_seo_description
           FROM shop.site_setting LIMIT 1`;
       const s = rows[0];
       if (!s) return null;
       return {
+        storeName: s.store_name,
+        logoUrl: publicImageUrl(s.logo_path),
+        faviconUrl: publicImageUrl(s.favicon_path),
+        ogImageUrl: publicImageUrl(s.og_image_path),
+        defaultSeoTitle: s.default_seo_title,
+        defaultSeoDescription: s.default_seo_description,
         footerTagline: s.footer_tagline,
         contactPhone: s.contact_phone,
         contactEmail: s.contact_email,

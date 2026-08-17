@@ -9,7 +9,7 @@ import { ChevronDownIcon } from "@/components/ui/Icons";
 // ProductRail — no carousel library, real keyboard/touch scrolling, dot
 // indicators track scroll position instead of driving it directly (so a
 // user swiping never fights a controlled index).
-export function HeroCarousel({ slides }: { slides: HomepageBlock[] }) {
+export function HeroCarousel({ slides, storeName }: { slides: HomepageBlock[]; storeName: string }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -48,7 +48,7 @@ export function HeroCarousel({ slides }: { slides: HomepageBlock[] }) {
       >
         {slides.map((slide, i) => (
           <div key={slide.id} className="w-full flex-none snap-start">
-            <HeroSlide content={slide} asH1={i === 0} />
+            <HeroSlide content={slide} asH1={i === 0} storeName={storeName} />
           </div>
         ))}
       </div>

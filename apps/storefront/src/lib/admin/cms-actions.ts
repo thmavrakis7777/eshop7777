@@ -132,6 +132,10 @@ export async function saveSiteSettingsAction(formData: FormData): Promise<Action
     await saveSiteSettings({
       storeName: text(formData.get("storeName")),
       logoPath: text(formData.get("logoPath")),
+      faviconPath: text(formData.get("faviconPath")),
+      ogImagePath: text(formData.get("ogImagePath")),
+      defaultSeoTitle: text(formData.get("defaultSeoTitle")),
+      defaultSeoDescription: text(formData.get("defaultSeoDescription")),
       footerTagline: text(formData.get("footerTagline")),
       contactPhone: text(formData.get("contactPhone")),
       contactEmail: text(formData.get("contactEmail")),

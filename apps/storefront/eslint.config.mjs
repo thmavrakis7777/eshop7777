@@ -13,6 +13,19 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      // Honour the standard `_foo` convention for a deliberately-unused
+      // binding, instead of forcing the parameter to be deleted. Real case:
+      // getShippingOptionsForCart(_cartId) keeps its argument because every
+      // caller passes one and address-dependent shipping rules will need it —
+      // removing it to satisfy the linter would be the wrong fix.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;
