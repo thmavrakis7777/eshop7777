@@ -55,7 +55,7 @@ export type HomepageBlock = {
   imageUrl: string | null;
 };
 
-export type ContentPage = { title: string; body: string | null };
+export type ContentPage = { id: string; title: string; body: string | null };
 
 export type SeoResourceType = "product" | "category" | "collection" | "page" | "homepage";
 

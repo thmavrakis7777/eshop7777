@@ -46,9 +46,9 @@ export function HeroCarousel({ slides }: { slides: HomepageBlock[] }) {
         aria-label="Κεντρικό banner — κύλιση με το πληκτρολόγιο ή αφή"
         className="scrollbar-hide flex snap-x snap-mandatory overflow-x-auto scroll-smooth focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-4"
       >
-        {slides.map((slide) => (
+        {slides.map((slide, i) => (
           <div key={slide.id} className="w-full flex-none snap-start">
-            <HeroSlide content={slide} />
+            <HeroSlide content={slide} asH1={i === 0} />
           </div>
         ))}
       </div>

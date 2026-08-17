@@ -9,7 +9,7 @@ import { StockStatus } from "@/components/product/StockStatus";
 import { ProductCharacteristics } from "@/components/product/ProductCharacteristics";
 import { ProductWarranty } from "@/components/product/ProductWarranty";
 import { ProductRail } from "@/components/home/ProductRail";
-import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { Stars } from "@/components/ui/Stars";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
 import { getCategoryByHandle } from "@/lib/data/categories";
@@ -77,6 +77,9 @@ export default async function ProductPage({ params }: Props) {
     "@type": "Product",
     name: product.title,
     description: product.shortDescription || product.title,
+    // Only when a real photo exists — no placeholder/fabricated image URL,
+    // same "only what's populated" rule as material/weight below.
+    ...(product.imageUrl ? { image: product.imageUrl } : {}),
     // Medusa's real variant SKU — the same value shown as "Κωδικός
     // προϊόντος" below. Omitted rather than faked when a variant has none.
     ...(product.code ? { sku: product.code } : {}),
@@ -137,7 +140,12 @@ export default async function ProductPage({ params }: Props) {
 
       <div className="container-shell mt-4 grid grid-cols-1 gap-8 md:mt-8 md:grid-cols-2 md:gap-12">
         <div className="relative md:sticky md:top-24 md:self-start">
-          <PlaceholderTile label={product.title} tone={product.placeholderTone} />
+          <ProductImage
+            imageUrl={product.imageUrl}
+            label={product.title}
+            tone={product.placeholderTone}
+            sizes="(min-width: 768px) 50vw, 100vw"
+          />
           <WishlistButton
             handle={product.handle}
             title={product.title}

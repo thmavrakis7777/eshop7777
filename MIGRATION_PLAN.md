@@ -29,7 +29,7 @@ is committed locally only, per the project's standing instruction.
 | 12 — Data migration & verification | ✅ | — |
 | 13 — Remove Medusa | ✅ | — |
 | 14 — Security audit | ✅ | — |
-| 15 — SEO audit | ⬜ | — |
+| 15 — SEO audit | ✅ | — |
 | 16 — Performance audit | ⬜ | — |
 | 17 — Final cleanup & docs | ⬜ | — |
 
@@ -263,8 +263,96 @@ understood trade-offs in the code's own comments, not new findings.
 
 `tsc`/`eslint`/`next build` all clean after every fix.
 
-### 5. Phases 15–17
-SEO audit, performance audit, final doc consolidation.
+### 5. Phase 15 — SEO audit — DONE (2026-08-16)
+Full audit of metadata coverage, canonicals, JSON-LD, sitemap/robots
+consistency, Open Graph, heading hierarchy, and URL structure. Checked
+clean, no action needed: every route has real per-page metadata (no generic
+fallback), all noindex coverage (cart/checkout/account/search/wishlist,
+admin) correct, page-2+ self-canonicalization handled on all five paginated
+listings, zero fabricated ratings/reviews, real `availability`, honest OG
+image degradation (never a broken/placeholder URL), Latin-transliterated
+slugs throughout, exactly one `<h1>` per page at runtime in the current
+data.
+
+**Verified no broken URLs from the migration**: diffed every product and
+category slug in the Phase 13 backup (Medusa's original data) against the
+current `shop` schema — byte-for-byte identical, 16/16 products and 28/28
+categories. No slug changed, so no redirect rules are needed.
+
+**Fixed:**
+- **PDP hardcoded the placeholder instead of the real-image-aware
+  component** — `proionta/[handle]/page.tsx` called `PlaceholderTile`
+  directly while `ProductCard`/`SearchResultRow` both use `ProductImage`
+  (which renders the real photo via `next/image` the moment one exists).
+  The single most important page for image SEO was the one place that
+  would have silently stayed placeholder-only forever. Swapped in
+  `ProductImage`; also added `image` to the Product JSON-LD, conditional on
+  a real photo existing (same "only what's populated" rule as
+  material/weight).
+- **Homepage could render zero or multiple `<h1>`s** — `HeroSlide`'s
+  heading was conditional on admin content (`{heading && <h1>}`), and
+  `HeroCarousel` mounts every slide simultaneously (CSS scroll-snap, not a
+  single-active-slide carousel) — so 2+ published hero slides would put 2+
+  real `<h1>`s on the page at once (not caught by the audit's own
+  single-slide sample, since 0 slides are published in production today).
+  Fixed: only the first/active slide renders `asH1`, later slides render
+  the same heading as a `<p>`; a blank heading on the first slide now falls
+  back to an `sr-only` `<h1>STIA</h1>` instead of omitting the tag
+  entirely.
+- **11 content pages shared one meta description** — `sxetika`,
+  `apostoles`, `epistrofes`, `aporrito`, `oroi-xrisis`, `faq`,
+  `paraggelia`, `epikoinonia`, `odigoi-agoron`, `karieres`, `cookies` all
+  inherited the root layout's generic storefront description verbatim,
+  since none set their own. Fixed with a real fix, not a fabricated one:
+  `lib/seo-text.ts`'s `deriveMetaDescription` derives a real description
+  from the page's own `body` text (truncated to ~160 chars at a word
+  boundary) — genuinely that page's own content, never invented copy. Also
+  wired `getSeoOverride("page", page.id)` into all 11 (the `"page"`
+  `SeoResourceType` already existed in the schema but was never read
+  anywhere) so a hand-written override takes priority the moment one is
+  set — no admin UI exists yet to set one, deliberately not built in this
+  pass (see below).
+- **No `WebSite`/`SearchAction` JSON-LD** — `/anazitisi` is a real
+  server-side search with its own `q` param, so it genuinely qualifies.
+  Added (Google retired the sitelinks-search-box UI in 2024, so the
+  practical payoff is now small — added anyway since the markup itself is
+  still valid/harmless and cheap).
+
+**Live-verified**: `WebSite`/`SearchAction` JSON-LD present and correctly
+shaped on the homepage; homepage still renders exactly one real `<h1>`; a
+product page's `ProductImage` swap renders identically (still the
+placeholder tile, since no product has a real photo yet) with no visual
+regression; Product JSON-LD correctly omits `image` until one exists.
+**Not live-verified** (honestly, not just assumed): the content-page
+description fix — every one of the 11 pages is unpublished with no real
+body text in this database (confirmed via the admin: "0 από 11 σελίδες
+είναι δημοσιευμένες"), so `generateMetadata`'s new code path has never
+actually executed against real content. `deriveMetaDescription` itself was
+verified directly against representative Greek text (short/long/multiline/
+empty), not fabricated into the live database — this project's standing
+rule against writing placeholder content into real tables. Whoever
+publishes the first real page should spot-check its rendered `<meta
+name="description">`.
+
+**Deliberately deferred, not built in this pass:**
+- A full admin SEO-override UI for content pages (title/description/OG/
+  robots/keywords per page, mirroring `CategorySeoEditor`) — the read side
+  (`getSeoOverride("page", …)`) is wired and ready, but nothing can write
+  to it yet. A real feature addition, not an audit-scope fix.
+- `/syllogi/*` collections are in the sitemap with zero internal links —
+  discussed with the owner; 0 real collections exist in production yet, so
+  there's nothing to link to today. Revisit once the first real collection
+  is published.
+- No default OG image — blocked on real photography/brand assets, same
+  category as every other image-dependent gap in this project.
+- No www/protocol canonicalization in code — likely a Vercel
+  domain-config-layer decision once a real domain is attached, not a code
+  gap; needs an explicit decision at that point, not a guess now.
+
+`tsc`/`eslint`/`next build` all clean after every fix.
+
+### 6. Phases 16–17
+Performance audit, final doc consolidation.
 
 ---
 

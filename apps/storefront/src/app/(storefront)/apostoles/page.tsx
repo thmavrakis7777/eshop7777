@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ContentPageView } from "@/components/content/ContentPageView";
 import { getContentPage } from "@/lib/data/content-pages";
+import { getSeoOverride } from "@/lib/data/seo";
+import { deriveMetaDescription } from "@/lib/seo-text";
 import { siteUrl } from "@/lib/site-config";
 
 const SLUG = "apostoles";
@@ -11,10 +13,23 @@ export async function generateMetadata(): Promise<Metadata> {
   const page = await getContentPage(SLUG);
   if (!page) return {};
 
+  const seo = await getSeoOverride("page", page.id);
+  const title = seo?.seoTitle || page.title;
+  const description = seo?.metaDescription || deriveMetaDescription(page.body);
+  const path = seo?.canonicalUrl || PATH;
+
   return {
-    title: page.title,
-    alternates: { canonical: PATH },
-    openGraph: { title: page.title, url: `${siteUrl}${PATH}` },
+    title: seo?.seoTitle ? { absolute: seo.seoTitle } : title,
+    description,
+    alternates: { canonical: path },
+    ...(seo?.robots === "noindex" ? { robots: { index: false, follow: true } } : {}),
+    openGraph: {
+      title: seo?.ogTitle || title,
+      description: seo?.ogDescription || description,
+      url: `${siteUrl}${path}`,
+      ...(seo?.socialImageUrl ? { images: [{ url: seo.socialImageUrl }] } : {}),
+    },
+    ...(seo?.keywords ? { keywords: seo.keywords } : {}),
   };
 }
 

@@ -42,6 +42,22 @@ const organizationJsonLd = {
   ],
 };
 
+// /anazitisi is a real server-side search (lib/search.ts) with its own `q`
+// param — genuinely qualifies for a SearchAction, not added speculatively.
+// Google retired the sitelinks search box UI in 2024, so the practical
+// payoff is now small, but the markup itself is still valid/harmless.
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: siteName,
+  url: siteUrl,
+  potentialAction: {
+    "@type": "SearchAction",
+    target: { "@type": "EntryPoint", urlTemplate: `${siteUrl}/anazitisi?q={search_term_string}` },
+    "query-input": "required name=search_term_string",
+  },
+};
+
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
   const [categories, cart, settings, promoBanner, analyticsSettings, nonce] = await Promise.all([
     getNavCategories(),
@@ -58,6 +74,11 @@ export default async function StorefrontLayout({ children }: { children: React.R
         type="application/ld+json"
         nonce={nonce}
         dangerouslySetInnerHTML={{ __html: safeJsonLd(organizationJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        nonce={nonce}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(websiteJsonLd) }}
       />
       <a
         href="#main-content"

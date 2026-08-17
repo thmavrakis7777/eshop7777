@@ -216,10 +216,10 @@ export const getHomepageBlocks = unstable_cache(
 export const getContentPage = unstable_cache(
   async (slug: string): Promise<ContentPage | null> => {
     try {
-      const rows = await sql<{ title: string; body: string | null }[]>`
-        SELECT title, body FROM shop.content_page
+      const rows = await sql<{ id: string; title: string; body: string | null }[]>`
+        SELECT id, title, body FROM shop.content_page
          WHERE slug = ${slug} AND is_published LIMIT 1`;
-      return rows[0] ? { title: rows[0].title, body: rows[0].body } : null;
+      return rows[0] ? { id: rows[0].id, title: rows[0].title, body: rows[0].body } : null;
     } catch {
       return null;
     }

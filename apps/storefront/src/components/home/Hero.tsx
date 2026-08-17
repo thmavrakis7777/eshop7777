@@ -29,8 +29,15 @@ const DEFAULT_HERO: HomepageBlock = {
 // fallback that made sense for "no admin content exists at all" but not
 // for "this one real field is blank"). Same whole-object-fallback pattern
 // as EditorialBanner's DEFAULT_BLOCK.
-export function HeroSlide({ content }: { content: HomepageBlock }) {
+// `asH1` is only true for the page's own first/only hero slide — a page
+// must have exactly one real <h1>. HeroCarousel mounts every slide
+// simultaneously (CSS scroll-snap, not a single-active-slide carousel), so
+// slide 2+ renders its heading as a visually identical <p> instead, or the
+// carousel would put a second (or third, or fourth) <h1> on the homepage
+// the moment an admin publishes more than one slide.
+export function HeroSlide({ content, asH1 = true }: { content: HomepageBlock; asH1?: boolean }) {
   const { eyebrow, heading, body, ctaLabel, ctaHref, imageUrl } = content;
+  const HeadingTag = asH1 ? "h1" : "p";
 
   return (
     <div
@@ -40,7 +47,11 @@ export function HeroSlide({ content }: { content: HomepageBlock }) {
       {!imageUrl && <div className="pointer-events-none absolute inset-0" style={DIAGONAL_PATTERN} aria-hidden="true" />}
       <div className="relative max-w-xl">
         {eyebrow && <p className="text-xs font-medium uppercase tracking-[0.15em] text-accent">{eyebrow}</p>}
-        {heading && <h1 className="mt-3 text-4xl text-ink md:text-6xl">{heading}</h1>}
+        {heading ? (
+          <HeadingTag className="mt-3 text-4xl text-ink md:text-6xl">{heading}</HeadingTag>
+        ) : (
+          asH1 && <h1 className="sr-only">STIA</h1>
+        )}
         {body && <p className="mt-4 max-w-md text-base text-ink-muted md:text-lg">{body}</p>}
         {ctaLabel && ctaHref && (
           <Link
