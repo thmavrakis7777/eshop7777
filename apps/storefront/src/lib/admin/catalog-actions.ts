@@ -15,6 +15,7 @@ import {
   bulkSetStock,
   createProduct,
   deleteVariant,
+  listProducts,
   saveVariant,
   slugify,
   updateProduct,
@@ -28,6 +29,44 @@ import { SEARCH_CACHE_TAG } from "@/lib/db/catalog";
  */
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
+
+export type ProductPickerHit = { slug: string; title: string; categoryName: string | null };
+
+/**
+ * Product search for admin pickers (currently the homepage rail's manual
+ * product selection). Returns only what a picker row shows — never the full
+ * admin product payload — so it stays a cheap keystroke-rate call.
+ */
+export async function searchProductsForPickerAction(query: string): Promise<ProductPickerHit[]> {
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
+  const { products } = await listProducts({ q: query.trim() || undefined, perPage: 10 });
+  return products.map((p) => ({
+    slug: p.slug,
+    title: p.title,
+    categoryName: p.categoryName,
+  }));
+}
+
+/** Resolves stored slugs back to titles so a saved picker shows real names. */
+export async function resolveProductTitlesAction(slugs: string[]): Promise<ProductPickerHit[]> {
+  try {
+    await requireAdmin();
+  } catch {
+    return [];
+  }
+  if (slugs.length === 0) return [];
+  const { products } = await listProducts({ perPage: 100 });
+  const bySlug = new Map(products.map((p) => [p.slug, p]));
+  // Preserve the caller's order — it's the display order the owner chose.
+  return slugs.flatMap((slug) => {
+    const p = bySlug.get(slug);
+    return p ? [{ slug: p.slug, title: p.title, categoryName: p.categoryName }] : [];
+  });
+}
 
 function mapError(err: unknown): string {
   if (err instanceof CatalogError) {

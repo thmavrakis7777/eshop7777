@@ -3,6 +3,40 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Product picker, positionable trust/newsletter, and a `fetch_types` regression fixed (2026-08-17)
+
+**Serious self-inflicted bug found and fixed.** During the Phase 16
+connection-pooler investigation, `fetch_types: false` was left in
+`lib/db/client.ts` on the stated assumption that it was "harmless either
+way" on the session-mode pooler. It is not. Without pg_catalog type
+introspection, postgres.js cannot infer an array parameter's type and
+serialises a JS array as a comma-joined **string**, which Postgres rejects
+with 22P02 "malformed array literal". That silently broke every
+`= ANY(${array})` query — manual homepage rails, cart cross-sell,
+recently-viewed, and the admin bulk actions — while every scalar query kept
+working, so nothing looked wrong until a manual product rail rendered
+empty. Removed, with the reasoning recorded at the call site so it isn't
+re-added. Found only because `resolveRailProducts` swallowed the error
+silently; it now logs before degrading.
+
+**Product picker.** Manual product rails took a "one slug per line"
+textarea, which required knowing what a slug is and copying it out of a
+URL. Replaced with a real searchable picker: type a product name, pick from
+live results, reorder with arrows, remove. Submits the same newline-joined
+slug format, so the Server Action contract is unchanged.
+
+**Trust strip and newsletter are now positionable.** They were pinned to
+the bottom of the homepage in JSX. They are now ordinary sections that can
+be moved and hidden. Their *copy* stays curated in code deliberately — the
+trust claims must match what checkout can actually deliver (its own comment
+records an earlier version promising two payment methods checkout couldn't
+offer), and the newsletter form has no working submit handler yet.
+
+**Regression caught during that change**: making them sections meant a store
+that already had sections rendered neither, silently losing its footer
+content. Migration 0006 seeds one of each, idempotently, at the end of the
+order.
+
 ## Store branding + homepage become fully owner-managed (2026-08-17)
 
 Two things the owner could not change without a developer, both now

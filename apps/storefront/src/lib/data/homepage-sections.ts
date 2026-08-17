@@ -73,7 +73,11 @@ export async function resolveRailProducts(source: ProductRailSource | undefined)
           ? await getProductsByHandles(source.productSlugs.slice(0, MAX_LIMIT))
           : [];
     }
-  } catch {
+  } catch (err) {
+    // A rail that can't resolve must not break the homepage, but swallowing
+    // the reason silently makes a misconfigured section indistinguishable
+    // from an empty one — log it so it's diagnosable.
+    console.error(`[homepage] rail source "${source.type}" failed to resolve:`, err);
     return [];
   }
 }

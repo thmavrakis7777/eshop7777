@@ -77,6 +77,8 @@ const SECTION_KINDS: HomepageSectionKind[] = [
   "category_grid",
   "product_rail",
   "content",
+  "trust",
+  "newsletter",
 ];
 
 const RAIL_SOURCE_TYPES = [

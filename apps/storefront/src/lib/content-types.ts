@@ -73,7 +73,16 @@ export type HomepageBlock = {
  * migration, which is why per-kind settings live in a `config` jsonb rather
  * than in their own columns (see migration 0004).
  */
-export type HomepageSectionKind = "hero" | "promo" | "category_grid" | "product_rail" | "content";
+export type HomepageSectionKind =
+  | "hero"
+  | "promo"
+  | "category_grid"
+  | "product_rail"
+  | "content"
+  // Fixed-content sections: positionable and hideable from the admin, but
+  // their copy stays curated in code — see migration 0005 for why.
+  | "trust"
+  | "newsletter";
 
 /** Where a product rail gets its products. */
 export type ProductRailSource =

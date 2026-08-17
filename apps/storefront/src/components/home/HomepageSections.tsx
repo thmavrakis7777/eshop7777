@@ -5,6 +5,8 @@ import { ProductRail } from "@/components/home/ProductRail";
 import { ProductRailSkeleton } from "@/components/home/ProductRailSkeleton";
 import { EditorialBanner } from "@/components/home/EditorialBanner";
 import { ContentSection } from "@/components/home/ContentSection";
+import { TrustStrip } from "@/components/home/TrustStrip";
+import { Newsletter } from "@/components/home/Newsletter";
 import { resolveRailProducts } from "@/lib/data/homepage-sections";
 import type { HomepageSection } from "@/lib/content-types";
 import type { NavCategory } from "@/lib/types";
@@ -82,5 +84,13 @@ export function HomepageSectionGroup({
 
     case "content":
       return <ContentSection section={first} />;
+
+    // Fixed-content sections — the owner controls where they sit and
+    // whether they show, not what they say (migration 0005).
+    case "trust":
+      return <TrustStrip />;
+
+    case "newsletter":
+      return <Newsletter />;
   }
 }

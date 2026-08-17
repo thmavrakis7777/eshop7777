@@ -9,6 +9,7 @@ import {
   saveHomepageBlockAction,
   setHomepageBlockPublishedAction,
 } from "@/lib/admin/cms-actions";
+import { ProductPicker } from "@/components/admin/ProductPicker";
 import type { AdminHomepageBlock } from "@/lib/admin/cms";
 import type { HomepageSectionKind } from "@/lib/content-types";
 
@@ -35,6 +36,8 @@ const KIND_LABELS: Record<HomepageSectionKind, string> = {
   category_grid: "Πλέγμα κατηγοριών",
   product_rail: "Λωρίδα προϊόντων",
   content: "Κείμενο & εικόνα",
+  trust: "Εγγυήσεις καταστήματος",
+  newsletter: "Newsletter",
 };
 
 const KIND_HINTS: Record<HomepageSectionKind, string> = {
@@ -43,7 +46,15 @@ const KIND_HINTS: Record<HomepageSectionKind, string> = {
   category_grid: "Πλακίδια κατηγοριών. Άφησε τη λίστα κενή για όλες τις κύριες κατηγορίες.",
   product_rail: "Οριζόντια λωρίδα προϊόντων — αυτόματη επιλογή ή χειροκίνητη.",
   content: "Ελεύθερη ενότητα: εικόνα, τίτλος, κείμενο και προαιρετικό κουμπί.",
+  trust:
+    "Οι τέσσερις εγγυήσεις (παράδοση, επιστροφές, πληρωμή, εξυπηρέτηση). Το κείμενο είναι σταθερό — ελέγχεις μόνο θέση και ορατότητα, γιατί οι υποσχέσεις πρέπει να ταιριάζουν με το τι κάνει πραγματικά το checkout.",
+  newsletter:
+    "Η φόρμα εγγραφής στο newsletter. Σταθερό κείμενο — ελέγχεις θέση και ορατότητα.",
 };
+
+// Kinds whose copy is curated in code: the form shows only placement
+// controls, since every content field would be ignored.
+const FIXED_CONTENT_KINDS: HomepageSectionKind[] = ["trust", "newsletter"];
 
 const SOURCE_LABELS: Record<string, string> = {
   newest: "Νεότερα προϊόντα",
@@ -365,8 +376,9 @@ function SectionForm({
 }) {
   const [sourceType, setSourceType] = useState(section?.config.source?.type ?? "newest");
   const src = section?.config.source;
-  const hasButton = kind === "hero" || kind === "promo" || kind === "content";
-  const hasImage = kind === "hero" || kind === "promo" || kind === "content";
+  const isFixed = FIXED_CONTENT_KINDS.includes(kind);
+  const hasButton = !isFixed && (kind === "hero" || kind === "promo" || kind === "content");
+  const hasImage = !isFixed && (kind === "hero" || kind === "promo" || kind === "content");
 
   return (
     <form
@@ -379,21 +391,24 @@ function SectionForm({
     >
       <p className="text-xs text-ink-muted">{KIND_HINTS[kind]}</p>
 
-      {/* Copy — every kind uses heading; the rest depend on the kind. */}
-      <div className="grid gap-3 md:grid-cols-2">
-        {kind !== "category_grid" && (
+      {/* Copy — every kind uses heading; the rest depend on the kind.
+          Fixed-content kinds skip all of it: their text lives in code. */}
+      {!isFixed && (
+        <div className="grid gap-3 md:grid-cols-2">
+          {kind !== "category_grid" && (
+            <div>
+              <label className={label} htmlFor="eyebrow">Μικρός τίτλος (eyebrow)</label>
+              <input id="eyebrow" name="eyebrow" defaultValue={section?.eyebrow ?? ""} className={field} />
+            </div>
+          )}
           <div>
-            <label className={label} htmlFor="eyebrow">Μικρός τίτλος (eyebrow)</label>
-            <input id="eyebrow" name="eyebrow" defaultValue={section?.eyebrow ?? ""} className={field} />
+            <label className={label} htmlFor="heading">Τίτλος</label>
+            <input id="heading" name="heading" defaultValue={section?.heading ?? ""} className={field} />
           </div>
-        )}
-        <div>
-          <label className={label} htmlFor="heading">Τίτλος</label>
-          <input id="heading" name="heading" defaultValue={section?.heading ?? ""} className={field} />
         </div>
-      </div>
+      )}
 
-      {kind !== "category_grid" && kind !== "product_rail" && (
+      {!isFixed && kind !== "category_grid" && kind !== "product_rail" && (
         <div>
           <label className={label} htmlFor="body">Κείμενο</label>
           <textarea id="body" name="body" rows={3} defaultValue={section?.body ?? ""} className={field} />
@@ -557,18 +572,11 @@ function SectionForm({
 
           {sourceType === "manual" && (
             <div className="mt-3">
-              <label className={label} htmlFor="productSlugs">Προϊόντα</label>
-              <textarea
-                id="productSlugs"
+              <p className={label}>Προϊόντα</p>
+              <ProductPicker
                 name="productSlugs"
-                rows={4}
-                defaultValue={src?.type === "manual" ? (src.productSlugs ?? []).join("\n") : ""}
-                placeholder="Ένα slug προϊόντος ανά γραμμή, με τη σειρά που θέλεις να εμφανίζονται."
-                className={field}
+                defaultSlugs={src?.type === "manual" ? (src.productSlugs ?? []) : []}
               />
-              <p className="mt-1 text-xs text-ink-muted">
-                Το slug είναι το τμήμα μετά το /proionta/ στη διεύθυνση του προϊόντος.
-              </p>
             </div>
           )}
 

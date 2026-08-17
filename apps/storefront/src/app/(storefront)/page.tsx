@@ -77,10 +77,10 @@ export default async function HomePage() {
         <>
           <Hero slides={[]} storeName={branding.storeName} />
           <CategoryGrid categories={categories} />
+          <TrustStrip />
+          <Newsletter />
         </>
       )}
-      <TrustStrip />
-      <Newsletter />
     </>
   );
 }

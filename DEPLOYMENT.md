@@ -57,14 +57,21 @@ connection-exhaustion risk once concurrent production traffic exists.
 **Transaction mode (port 6543)** is the normal answer for many short-lived
 serverless connections — but a real attempt to switch to it that session
 broke every single query with Postgres error 57014 ("canceling statement
-due to statement timeout") for a reason not diagnosable without Supabase
-dashboard access, and was reverted back to session mode. `lib/db/client.ts`
-already has `prepare: false` set (required for transaction mode, harmless
-on session mode) so the code side is ready — but do not flip
-`DATABASE_URL` to port 6543 for production without first reproducing and
-resolving that error with real dashboard access to this project's Supavisor
-configuration. See `MIGRATION_PLAN.md`'s Phase 16 section for the full
-investigation.
+due to statement timeout"), and was reverted. A second attempt with
+`fetch_types: false` added cleared that error and passed an isolated test,
+but made real page requests take 15-20s, and was also reverted.
+
+`lib/db/client.ts` has `prepare: false` (required for transaction mode,
+genuinely harmless on session mode). It deliberately does **not** set
+`fetch_types: false`: that flag is not harmless — without pg_catalog type
+introspection, postgres.js serialises array parameters as comma-joined
+strings and Postgres rejects them with 22P02, silently breaking every
+`= ANY(${array})` query while scalar queries keep working. A third attempt
+at transaction mode must cast array parameters explicitly instead.
+
+Do not flip `DATABASE_URL` to port 6543 for production without first
+reproducing and resolving both failures against this project's real
+Supavisor configuration. See `MIGRATION_PLAN.md`'s Phase 16 section.
 
 ## 2. Supabase (database)
 

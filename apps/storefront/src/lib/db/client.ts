@@ -46,26 +46,22 @@ function createClient() {
     max: isBuildPhase ? 1 : process.env.NODE_ENV === "production" ? 5 : 2,
     idle_timeout: 20,
     connect_timeout: 10,
-    // Both required for Supabase's transaction-mode pooler (port 6543 —
-    // the correct mode for many short-lived connections, and what
-    // DATABASE_URL is on): a pooled transaction can land on a different
-    // physical backend connection each time.
-    // - prepare: false — a prepared statement is tied to one specific
-    //   connection, which transaction-mode pooling doesn't guarantee.
-    // - fetch_types: false — postgres.js defaults to fetch_types: true,
-    //   which runs a pg_catalog introspection query on every new
-    //   connection to build its type parser. This is the fix that took
-    //   two attempts to find (2026-08-17, MIGRATION_PLAN.md Phase 16): the
-    //   first attempt at transaction mode had prepare:false but not this,
-    //   and broke every query with Postgres error 57014 "canceling
-    //   statement due to statement timeout" — the introspection query and
-    //   the app's actual query landing on different physical connections
-    //   under Supavisor's transaction-mode pooling is a documented
-    //   postgres.js/pgbouncer-family failure mode. Verified via an
-    //   isolated script (concurrent queries, a real transaction, and a
-    //   post-idle-gap query) before touching this file.
+    // Safe on the session-mode pooler this connects to, and required if it
+    // ever moves to transaction mode: a prepared statement is tied to one
+    // specific physical connection, which transaction-mode pooling doesn't
+    // guarantee.
     prepare: false,
-    fetch_types: false,
+    // DELIBERATELY NOT `fetch_types: false`. It was set here briefly during
+    // the 2026-08-17 transaction-pooler investigation on the assumption it
+    // was harmless on session mode — it is not. Skipping pg_catalog type
+    // introspection leaves postgres.js unable to infer an array parameter's
+    // type, so it serialises a JS array as a comma-joined STRING and
+    // Postgres rejects it with 22P02 "malformed array literal". That
+    // silently broke every `= ANY(${array})` query — manual homepage rails,
+    // cart cross-sell, recently-viewed, and the admin bulk actions — while
+    // leaving scalar queries working, so nothing looked wrong until a
+    // manual product rail rendered empty. If transaction mode is retried,
+    // the array call sites need an explicit cast, not this flag.
     // Postgres returns NUMERIC as a string to preserve precision. Money is
     // always integer cents here, so the only numerics are VAT rates, where a
     // JS number is exact and far easier to work with.
