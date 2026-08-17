@@ -1,5 +1,14 @@
 # Next Steps
 
+> **⚠ Superseded (2026-08-17).** Everything below predates the
+> `custom-dashboard-migration` branch and describes the old Medusa v2
+> backend, which no longer exists — the storefront and admin now run
+> entirely on direct SQL against Supabase Postgres. **Read `MIGRATION_PLAN.md`
+> first** — it's the actively-maintained source of truth for current
+> architecture and status (all 17 phases complete as of 2026-08-17). Treat
+> everything below as historical: real product/UX decisions worth mining,
+> but any mention of Medusa, `apps/backend`, or `localhost:9000` is dead.
+
 ## START HERE NEXT SESSION
 
 Read `PROJECT_MEMORY.md`, `CURRENT_STATE.md`, `TASKS.md`, and `ADMIN_GUIDE.md`

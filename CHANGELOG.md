@@ -3,6 +3,81 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Medusa → direct SQL migration complete, full audit pass (2026-08-14 to 2026-08-17)
+
+The `custom-dashboard-migration` branch: replaced the Medusa v2 backend
+entirely with direct SQL (`postgres.js`) against Supabase Postgres, and
+built a full custom admin dashboard at `/admin` to replace the Medusa
+Admin. Full phase-by-phase detail lives in `MIGRATION_PLAN.md` (kept
+current throughout, not retrofitted) and `MIGRATION_AUDIT.md` (the
+original analysis and locked decisions) — this entry is the changelog's
+summary, not a duplicate of either.
+
+**Scope**: 17 phases. 0–11 built the SQL data layer and admin dashboard
+feature-by-feature (catalog, cart, checkout, customer auth, orders,
+discounts, storefront CMS, settings/admin users) while Medusa kept running
+underneath, unused, as a safety net. 6b filled the one real storefront gap
+that surfaced after (price ranges + a `/syllogi/[slug]` collections route —
+deliberately did *not* build a speculative option-grouped variant selector,
+since no real multi-variant product exists anywhere in the data, including
+in Medusa's own original source). 12 verified every real value in Medusa's
+`public` schema has a correct counterpart in `shop` (byte-for-byte identical
+product/category slugs — confirmed 2026-08-16 while investigating an
+unrelated SEO question, so no redirect rules were needed either). 13
+deleted Medusa entirely — code (132 tracked files) and, after a fresh
+backup, all 152 tables in `public`. 14–16 were full audits (security, SEO,
+performance) with real fixes, not just review — see below. 17 is this
+entry plus the "⚠ Superseded" banners now at the top of `PROJECT_MEMORY.md`,
+`CURRENT_STATE.md`, `TASKS.md`, `NEXT_STEPS.md`, and `ADMIN_GUIDE.md`,
+pointing a fresh session at `MIGRATION_PLAN.md` instead of ~500KB of
+pre-migration Medusa-era detail.
+
+**Real bugs found by the Phase 14 security audit, fixed and live-verified**:
+- **Stored XSS via analytics settings** (medium-high) — GA4/GTM/Meta
+  Pixel/Clarity IDs were saved with zero validation and interpolated raw
+  into executing, CSP-nonce'd inline `<script>` tags. Any `staff`-role
+  admin could store a value breaking out of the string literal to run
+  arbitrary JS on every consenting storefront visitor. Fixed with format
+  validation on save plus `JSON.stringify` escaping at render.
+- **Order detail accessible by uuid alone even for logged-in customers'
+  orders** (medium) — the guest-checkout "uuid is the access token" model
+  was also, incorrectly, covering customer-owned orders, which persist
+  indefinitely with more complete PII. Now requires the viewer's own
+  session to match.
+- No rate limiting on billable third-party calls (Google Places, ΓΕΜΗ
+  lookup) or promo-code apply; one high-severity transitive dependency
+  (`nanoid`); site-wide settings (VAT, shipping prices, analytics) moved
+  from any-admin to owner-only, per the owner's explicit decision.
+
+**Real gaps found by the Phase 15 SEO audit, fixed and live-verified**:
+- The PDP hardcoded a placeholder image instead of the same
+  real-image-aware component `ProductCard`/`SearchResultRow` already used
+  — would have silently stayed image-less forever even after real product
+  photos exist.
+- The homepage could render zero or multiple `<h1>`s (`HeroCarousel`
+  mounts every slide simultaneously; a second published slide would have
+  added a second real `<h1>`).
+- 11 content pages shared one generic meta description — fixed with a real
+  per-page description derived from each page's own body text, not
+  fabricated copy (all 11 are still unpublished drafts, so this is
+  code-verified, not yet exercised against real content).
+
+**Real findings from the Phase 16 performance audit, fixed and
+live-verified**: root-caused the `EMAXCONNSESSION` warning that had
+printed in *every single build* this migration — Supabase's session-mode
+connection pooler (15-connection hard cap, no multiplexing) combined with
+`next build`'s 11 parallel workers. Also a real production
+connection-exhaustion risk under concurrent traffic, not just build noise.
+A real attempt to switch to the theoretically-correct transaction-mode
+pooler broke every query with an unexplained Postgres timeout and was
+reverted (needs Supabase dashboard access to diagnose properly — flagged
+in `MIGRATION_PLAN.md`, not guessed at again blind). Fixed the actual
+observed problem instead: capped the connection pool specifically during
+the build phase. Also: the full-catalog search query ran uncached on every
+keystroke, nav categories were uncached and double-fetched per homepage
+request, the PDP had a genuine two-level sequential waterfall for its
+breadcrumb, and no `<Suspense>` boundary existed anywhere in the codebase.
+
 ## Pre-context-clear audit: real production CSP bug found and fixed (2026-08-12)
 
 Requested as part of a documentation consolidation before clearing the Claude Code

@@ -31,12 +31,18 @@ is committed locally only, per the project's standing instruction.
 | 14 — Security audit | ✅ | — |
 | 15 — SEO audit | ✅ | — |
 | 16 — Performance audit | ✅ | — |
-| 17 — Final cleanup & docs | ⬜ | — |
+| 17 — Final cleanup & docs | ✅ | — |
 
-**The storefront and the admin are both fully functional on Postgres, and
-Medusa is completely gone** — code deleted from the repo, tables dropped from
-the database (both 2026-08-16). Everything the app needs lives in the `shop`
-schema.
+**All 17 phases are complete (2026-08-17).** The storefront and admin are
+both fully functional on Postgres, Medusa is completely gone — code deleted
+from the repo, tables dropped from the database (both 2026-08-16) —
+everything the app needs lives in the `shop` schema, and security/SEO/
+performance audits have all run with real fixes applied and live-verified.
+Two things remain genuinely open, not part of this migration's own scope:
+image upload (blocked on Supabase Storage credentials — see below) and the
+DB pooler-mode question flagged in Phase 16 (needs Supabase dashboard
+access). Nothing has been pushed to `origin/main` yet — see the top of this
+file.
 
 ---
 
@@ -456,8 +462,23 @@ live with real traffic — flagged here so it isn't lost.
 
 `tsc`/`eslint`/`next build` all clean throughout.
 
-### 7. Phase 17
-Final doc consolidation.
+### 7. Phase 17 — final cleanup & docs — DONE (2026-08-17)
+The whole 17-phase migration is now complete. Scoped down from a full
+rewrite of every project doc (unrealistic in one pass — `PROJECT_MEMORY.md`
+alone is 182KB) to what actually matters for a fresh session: added a short
+"⚠ Superseded" banner to the top of `PROJECT_MEMORY.md`, `CURRENT_STATE.md`,
+`TASKS.md`, `NEXT_STEPS.md`, and `ADMIN_GUIDE.md` (all still describe the
+Medusa v2 architecture as current, dated 2026-08-11/12, before this branch
+existed), each pointing at this file as the actively-maintained source of
+truth instead. `ADMIN_GUIDE.md` in particular was genuinely misleading for
+the store owner, not just an AI session — it documents the old Medusa
+Admin at `localhost:9000/app`, which no longer exists; a real rewrite for
+the new `/admin` dashboard is a known, flagged gap, not attempted here.
+Appended one `CHANGELOG.md` entry summarizing the whole migration plus the
+Phase 14–16 audits' real findings, matching that file's own "newest
+first, focus on why" convention rather than duplicating this file's detail.
+The historical body content of all five files is untouched — real
+product/UX decisions worth mining, just not current architecture.
 
 ---
 

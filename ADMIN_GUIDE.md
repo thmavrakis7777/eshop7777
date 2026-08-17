@@ -1,5 +1,14 @@
 # Admin Guide
 
+> **⚠ Superseded (2026-08-17).** This describes the old Medusa Admin
+> (`localhost:9000/app`), which no longer exists. The real admin is now a
+> custom dashboard at `/admin` on the storefront itself — see
+> `MIGRATION_PLAN.md` for the architecture. The `/admin/*` routes have
+> broadly equivalent capability (product/category/SEO/settings management)
+> under a different UI; a rewritten version of this guide for the new
+> dashboard doesn't exist yet — a real, known gap, not addressed in this
+> pass.
+
 A running reference for everything you can manage yourself from the Medusa
 Admin (`http://localhost:9000/app` in dev), without touching code. This file
 grows one section per phase of the "Admin-first platform" initiative — see
