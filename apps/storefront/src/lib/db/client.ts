@@ -31,16 +31,38 @@ function connectionString(): string {
   return url;
 }
 
+// `next build` renders every route once per build worker (11 on this
+// machine) to classify it as static/dynamic, each importing this module
+// fresh — i.e. its own pool. At the production `max` that's up to 55
+// simultaneous connections against Supabase's session-mode pooler, which
+// caps at 15 (see MIGRATION_PLAN.md's Phase 16 note — the
+// EMAXCONNSESSION warning every build printed until this fix). A real
+// attempt to move to the transaction-mode pooler (port 6543, normally the
+// right answer for many short-lived connections) broke every query with
+// Postgres error 57014 "canceling statement due to statement timeout" for
+// an unexplained reason and was reverted — needs Supabase dashboard access
+// to diagnose properly, not attempted blind again. Capping build-time
+// concurrency here is the safe fix available without that.
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+
 function createClient() {
   return postgres(connectionString(), {
     ssl: "require",
     // Serverless functions each hold their own pool, so this is per-instance,
-    // not global. Small on purpose: Supabase's pooler multiplexes for us, and
-    // a large per-instance pool is how connection limits get exhausted under
-    // traffic (MIGRATION_AUDIT.md §6.6).
-    max: process.env.NODE_ENV === "production" ? 5 : 2,
+    // not global. Small on purpose: a large per-instance pool is how
+    // connection limits get exhausted under traffic (MIGRATION_AUDIT.md
+    // §6.6) — doubly true on the session-mode pooler currently configured,
+    // which doesn't multiplex the way transaction mode would.
+    max: isBuildPhase ? 1 : process.env.NODE_ENV === "production" ? 5 : 2,
     idle_timeout: 20,
     connect_timeout: 10,
+    // Harmless on the current session-mode pooler; required if this ever
+    // moves to transaction mode (see the build-phase comment above) — a
+    // pooled transaction can land on a different physical backend
+    // connection each time, and a prepared statement is tied to one
+    // specific connection. Left on unconditionally so it's not forgotten
+    // if/when that switch happens.
+    prepare: false,
     // Postgres returns NUMERIC as a string to preserve precision. Money is
     // always integer cents here, so the only numerics are VAT rates, where a
     // JS number is exact and far easier to work with.

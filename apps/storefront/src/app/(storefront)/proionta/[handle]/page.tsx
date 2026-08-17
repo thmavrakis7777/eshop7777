@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { Breadcrumbs } from "@/components/category/Breadcrumbs";
@@ -9,16 +10,25 @@ import { StockStatus } from "@/components/product/StockStatus";
 import { ProductCharacteristics } from "@/components/product/ProductCharacteristics";
 import { ProductWarranty } from "@/components/product/ProductWarranty";
 import { ProductRail } from "@/components/home/ProductRail";
+import { ProductRailSkeleton } from "@/components/home/ProductRailSkeleton";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { Stars } from "@/components/ui/Stars";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
-import { getCategoryByHandle } from "@/lib/data/categories";
+import { getCategoryWithParentByHandle } from "@/lib/data/categories";
 import { getProductByHandle, getRelatedProducts } from "@/lib/data/products";
+import type { Product } from "@/lib/types";
 import { getProductExtra } from "@/lib/data/product-extras";
 import { getSeoOverride } from "@/lib/data/seo";
 import { formatPrice, formatPriceFrom } from "@/lib/format";
 import { siteUrl } from "@/lib/site-config";
 import { safeJsonLd } from "@/lib/json-ld";
+
+// Below the fold and independent of everything else on the page — its own
+// Suspense boundary so a slow related-products query doesn't gate the PDP.
+async function RelatedProducts({ product }: { product: Product }) {
+  const relatedProducts = await getRelatedProducts(product);
+  return <ProductRail title="Σχετικά προϊόντα" products={relatedProducts} />;
+}
 
 type Props = { params: Promise<{ handle: string }> };
 
@@ -60,17 +70,20 @@ export default async function ProductPage({ params }: Props) {
   const product = await getProductByHandle(handle);
   if (!product) notFound();
 
-  // Related products don't depend on the category lookups, so they're
-  // fetched alongside rather than after them — this was a three-deep
-  // request waterfall before.
-  const [category, relatedProducts, seo, extra, nonce] = await Promise.all([
-    product.categoryHandle ? getCategoryByHandle(product.categoryHandle) : undefined,
-    getRelatedProducts(product),
+  // getCategoryWithParentByHandle gets the category and its parent's name
+  // in one query — the old code needed a second, sequential
+  // getCategoryByHandle call once parentHandle was known, a real (not just
+  // reorderable) request waterfall. Related products moved to its own
+  // Suspense boundary below (see RelatedProducts) — it's below the fold
+  // and independent, no reason for it to gate the rest of the page.
+  const [categoryResult, seo, extra, nonce] = await Promise.all([
+    product.categoryHandle ? getCategoryWithParentByHandle(product.categoryHandle) : undefined,
     getSeoOverride("product", product.id),
     getProductExtra(product.id),
     headers().then((h) => h.get("x-nonce") ?? undefined),
   ]);
-  const parentCategory = category?.parentHandle ? await getCategoryByHandle(category.parentHandle) : undefined;
+  const category = categoryResult?.category;
+  const parentCategory = categoryResult?.parent;
 
   const productJsonLd = {
     "@context": "https://schema.org",
@@ -233,7 +246,9 @@ export default async function ProductPage({ params }: Props) {
       <ProductCharacteristics characteristics={product.characteristics} />
       <ProductWarranty extra={extra} />
 
-      <ProductRail title="Σχετικά προϊόντα" products={relatedProducts} />
+      <Suspense fallback={<ProductRailSkeleton title="Σχετικά προϊόντα" />}>
+        <RelatedProducts product={product} />
+      </Suspense>
       <RecentlyViewed excludeHandle={product.handle} />
     </>
   );

@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { auditLog, getCurrentAdminTokenHash, requireAdmin, requireOwner } from "@/lib/admin/auth";
 import { CACHE_TAGS } from "@/lib/db/content";
+import { SEARCH_CACHE_TAG } from "@/lib/db/catalog";
 import {
   SettingsError,
   changeOwnPassword,
@@ -193,6 +194,7 @@ export async function saveSynonymAction(formData: FormData): Promise<ActionResul
   }
   revalidatePath("/admin/settings/search");
   revalidatePath("/", "layout");
+  updateTag(SEARCH_CACHE_TAG);
   return { ok: true, message: "Η ομάδα συνωνύμων αποθηκεύτηκε." };
 }
 
@@ -211,6 +213,7 @@ export async function deleteSynonymAction(id: string): Promise<ActionResult> {
   }
   revalidatePath("/admin/settings/search");
   revalidatePath("/", "layout");
+  updateTag(SEARCH_CACHE_TAG);
   return { ok: true, message: "Η ομάδα διαγράφηκε." };
 }
 

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Hero } from "@/components/home/Hero";
 import { CategoryGrid } from "@/components/home/CategoryGrid";
 import { ProductRail } from "@/components/home/ProductRail";
+import { ProductRailSkeleton } from "@/components/home/ProductRailSkeleton";
 import { EditorialBanner } from "@/components/home/EditorialBanner";
 import { TrustStrip } from "@/components/home/TrustStrip";
 import { Newsletter } from "@/components/home/Newsletter";
@@ -40,22 +42,40 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// Below-the-fold and mutually independent — each streams in on its own
+// once its own query resolves, instead of the whole page (including the
+// above-the-fold Hero/CategoryGrid) blocking on the slowest of the three.
+async function FeaturedRail() {
+  const featured = await getFeaturedProducts(12);
+  return <ProductRail title="Προτεινόμενα" viewAllHref="/protainomena" products={featured} />;
+}
+
+async function NewArrivalsRail() {
+  const newArrivals = await getNewArrivals(12);
+  return <ProductRail title="Νέες αφίξεις" viewAllHref="/nea-afiksi" products={newArrivals} />;
+}
+
+async function PromoBanner() {
+  const promoBlocks = await getHomepageBlocks("promo");
+  return <EditorialBanner blocks={promoBlocks} />;
+}
+
 export default async function HomePage() {
-  const [categories, featured, newArrivals, heroSlides, promoBlocks] = await Promise.all([
-    getNavCategories(),
-    getFeaturedProducts(12),
-    getNewArrivals(12),
-    getHomepageBlocks("hero"),
-    getHomepageBlocks("promo"),
-  ]);
+  const [categories, heroSlides] = await Promise.all([getNavCategories(), getHomepageBlocks("hero")]);
 
   return (
     <>
       <Hero slides={heroSlides} />
       <CategoryGrid categories={categories} />
-      <ProductRail title="Προτεινόμενα" viewAllHref="/protainomena" products={featured} />
-      <EditorialBanner blocks={promoBlocks} />
-      <ProductRail title="Νέες αφίξεις" viewAllHref="/nea-afiksi" products={newArrivals} />
+      <Suspense fallback={<ProductRailSkeleton title="Προτεινόμενα" />}>
+        <FeaturedRail />
+      </Suspense>
+      <Suspense fallback={null}>
+        <PromoBanner />
+      </Suspense>
+      <Suspense fallback={<ProductRailSkeleton title="Νέες αφίξεις" />}>
+        <NewArrivalsRail />
+      </Suspense>
       <TrustStrip />
       <Newsletter />
     </>

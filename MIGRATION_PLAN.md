@@ -30,7 +30,7 @@ is committed locally only, per the project's standing instruction.
 | 13 — Remove Medusa | ✅ | — |
 | 14 — Security audit | ✅ | — |
 | 15 — SEO audit | ✅ | — |
-| 16 — Performance audit | ⬜ | — |
+| 16 — Performance audit | ✅ | — |
 | 17 — Final cleanup & docs | ⬜ | — |
 
 **The storefront and the admin are both fully functional on Postgres, and
@@ -351,8 +351,113 @@ name="description">`.
 
 `tsc`/`eslint`/`next build` all clean after every fix.
 
-### 6. Phases 16–17
-Performance audit, final doc consolidation.
+### 6. Phase 16 — performance audit — DONE (2026-08-16)
+Full audit of database connection handling, caching, query efficiency,
+bundle size, images, fonts, streaming, and middleware overhead. Checked
+clean, no action needed: query shapes (no N+1 anywhere — one aggregated
+query per listing, recursive CTEs for category subtrees, `COUNT(*) OVER()`
+for pagination), index coverage (every `WHERE`/`JOIN`/`ORDER BY` column in
+the hot paths is indexed), bundle composition (zero heavy third-party
+libraries, `zod` never reaches the browser, admin/storefront properly
+route-split), font loading (`next/font/google`, self-hosted, no external
+request), and `proxy.ts` (cheap cookie/header work only, correct matcher).
+
+**The real find — root-caused the EMAXCONNSESSION warning every build
+printed all session:** `DATABASE_URL` is on Supabase's **session-mode**
+pooler (port 5432, hard 15-connection cap, no multiplexing). `next build`
+spawns 11 worker processes, each importing `lib/db/client.ts` fresh (its
+own pool, `max: 5` in production), so up to 55 simultaneous connections hit
+a 15-connection cap — arithmetic, not a fluke. The same session-mode
+configuration is also a **real production connection-exhaustion risk**
+once real concurrent Vercel traffic exists (`~3` warm lambda instances at
+`max: 5` would saturate the cap), not just a build-time annoyance.
+
+**A real attempt was made to switch to transaction-mode pooling (port
+6543, normally the correct choice for many short-lived serverless
+connections) and was reverted** — it broke every single query with
+Postgres error 57014 "canceling statement due to statement timeout," for a
+reason not diagnosable from code alone (needs Supabase dashboard access:
+checking Supavisor's actual pool assignment/statement_timeout for this
+project). `DATABASE_URL` is back on session mode (port 5432), confirmed
+working. **`prepare: false` was kept in `client.ts`** — harmless on session
+mode, required if transaction mode is ever retried, so left on
+unconditionally rather than re-discovering the requirement blind next
+time.
+
+**Fixed instead — a safe, achievable mitigation for the actual observed
+problem, not a guess at the unresolved one:** `lib/db/client.ts` now
+detects `next build`'s phase (`NEXT_PHASE === "phase-production-build"`)
+and caps the pool at `max: 1` during it — 11 workers × 1 = 11, under the
+15-connection cap. **Live-verified: two consecutive full builds, zero
+EMAXCONNSESSION warnings, zero "sitemap: database unreachable" fallback
+messages** (previously present in every build this session). Does not
+touch the separate production-runtime risk above, which still needs the
+pooler-mode question resolved with real dashboard access before this goes
+live with real traffic — flagged here so it isn't lost.
+
+**Also fixed (all live-verified, not just read):**
+- `getSearchCatalog` (`db/catalog.ts`) ran the full active-catalog query —
+  every product, `json_agg`'d variants and all — **uncached, on every
+  debounced keystroke** in the header search box. Now `unstable_cache`'d
+  (60s, tagged), invalidated precisely by product/variant saves and bulk
+  actions. (`unstable_cache` requires a JSON-serializable return; the
+  function's `Map`/`Set` result is now built from a cached plain-array
+  payload rather than cached directly, since a `Map`/`Set` would silently
+  come back empty through JSON serialization otherwise.) Verified live:
+  searching "τηγανι" still correctly returns both Greek-accent-insensitive
+  matches.
+- `getNavCategories` — uncached, runs on every single page (root layout's
+  header/mega-menu) and was fetched **twice per homepage request**
+  (layout.tsx and page.tsx both called it independently; no `React.cache()`
+  existed anywhere in the codebase). Now `React.cache()`-deduped per
+  request and `unstable_cache`'d (60s, tagged) cross-request, invalidated
+  by category/collection admin saves. Verified live end-to-end: renamed
+  "Κουζίνα" → "Κουζίνα QA" via the admin, confirmed the new name appeared
+  on the homepage immediately (not after a 60s wait), reverted.
+- PDP called `getProductByHandle` twice per request (`generateMetadata`
+  and the page body, same handle) — wrapped in `React.cache()`.
+- PDP's `parentCategory` was a genuine sequential waterfall (product →
+  category → parent category, not just a reorderable one) —
+  `getCategoryWithParentByHandle` now gets both in one query via a second
+  join, eliminating the round trip entirely rather than just reordering
+  it. Verified live: breadcrumbs still resolve correctly
+  ("Αρχική / Κουζίνα / Μαχαίρια & Κοπή / …").
+- No `<Suspense>` boundary existed anywhere in the codebase (grep: zero
+  hits), so every page blocked on its slowest query before returning
+  anything. Added boundaries around the below-the-fold, independent
+  sections that don't need to gate the rest of the page: homepage's two
+  `ProductRail`s and promo banner, PDP's related-products rail (PDP's
+  `RecentlyViewed` is already a Client Component fetching client-side
+  after hydration — never blocked SSR, needed no change). Added a
+  `loading.tsx` for the `(storefront)` route group for instant feedback on
+  client-side navigations (the shared layout doesn't re-fetch on
+  navigation within itself, so this specifically helps page-content
+  transitions). Verified live: homepage and PDP both render full real data
+  correctly with the boundaries in place, zero console errors.
+
+**Deliberately deferred, not built in this pass:**
+- The session-vs-transaction pooler mode question itself — needs Supabase
+  dashboard access to diagnose the transaction-mode failure properly, not
+  a blind second attempt.
+- `EditorialBanner.tsx`'s raw `<img>` (bypasses `next/image`) — dormant
+  until real banner images exist, same category as every other
+  image-dependent gap in this project.
+- Un-indexable `title`/`min_price` in-memory sorts — irrelevant below a
+  few thousand SKUs.
+- `admin/products.ts`'s two small multi-query loops (`bulkSetStock`, the
+  collection-assignment loop) — admin-only, small N, real but low
+  priority.
+- Enabling Next 16's `cacheComponents`/`use cache` directive — an
+  app-wide toggle that changes the caching model for every route at
+  once; `db/content.ts`'s own comment already flagged this as "a
+  decision for the performance phase, made on its own merits and
+  verified" — correctly not something to fold into an audit-fix pass
+  alongside everything else here.
+
+`tsc`/`eslint`/`next build` all clean throughout.
+
+### 7. Phase 17
+Final doc consolidation.
 
 ---
 

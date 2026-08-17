@@ -44,12 +44,27 @@ the full list with explanations:
 | `GOOGLE_PLACES_API_KEY` | optional | address autocomplete degrades to manual entry if unset |
 | `GEMI_API_KEY` | optional | ΓΕΜΗ company lookup degrades to manual entry if unset |
 
-Since Vercel now runs every read and write directly against Postgres
-(instead of a persistent Node server holding its own connections), use
-Supabase's **Session pooler** connection string, not the direct connection —
-Vercel's serverless functions are short-lived and can exhaust the database's
-direct connection limit under concurrent traffic the way a long-lived
-process wouldn't.
+**Pooler mode is an open question — read this before deploying with real
+traffic.** Vercel runs every read and write directly against Postgres
+(instead of a persistent Node server holding its own connections), so a
+raw direct connection is wrong here regardless — some Supabase pooler is
+required. Local dev currently runs on the **session-mode** pooler (port
+5432), which is proven working but has a hard 15-connection cap and
+doesn't multiplex: a Phase 16 performance audit (2026-08-16) found this is
+exactly what caused every local build's `EMAXCONNSESSION` warning (11
+build workers × `max: 5` each), and the same cap is a real
+connection-exhaustion risk once concurrent production traffic exists.
+**Transaction mode (port 6543)** is the normal answer for many short-lived
+serverless connections — but a real attempt to switch to it that session
+broke every single query with Postgres error 57014 ("canceling statement
+due to statement timeout") for a reason not diagnosable without Supabase
+dashboard access, and was reverted back to session mode. `lib/db/client.ts`
+already has `prepare: false` set (required for transaction mode, harmless
+on session mode) so the code side is ready — but do not flip
+`DATABASE_URL` to port 6543 for production without first reproducing and
+resolving that error with real dashboard access to this project's Supavisor
+configuration. See `MIGRATION_PLAN.md`'s Phase 16 section for the full
+investigation.
 
 ## 2. Supabase (database)
 

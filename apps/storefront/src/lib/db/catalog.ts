@@ -1,7 +1,12 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { sql } from "@/lib/db/client";
 import { publicImageUrl } from "@/lib/storage/urls";
 import type { Product, ProductCharacteristics, Tone } from "@/lib/types";
+
+// Invalidated by product saves/deletes (catalog-actions.ts) and search
+// synonym saves/deletes (settings-actions.ts).
+export const SEARCH_CACHE_TAG = "search-catalog";
 
 /**
  * Every catalog read, as SQL. Replaces the HTTP round trips to Medusa's
@@ -397,34 +402,62 @@ export async function getCartCrossSell(cartProductSlugs: string[], limit = 4): P
  * The difference from the Medusa version is the feed: one indexed query
  * instead of a 1000-product HTTP fetch with every field expanded.
  */
+// Was fetched fresh — full catalog, `json_agg`'d variants and all — on
+// every debounced keystroke in the header search box (searchProducts() in
+// lib/data/products.ts calls this directly, no cache in between). Now
+// cached: `unstable_cache` requires a JSON-serializable return, so the Map/
+// Set that callers actually want are built (cheaply, in memory) from a
+// plain-array cache payload rather than cached directly — a Map/Set would
+// silently come back empty through JSON serialization.
+const getCachedSearchCatalog = unstable_cache(
+  async (): Promise<{
+    products: Product[];
+    categoryNames: Array<[string, string]>;
+    boostedIds: string[];
+  }> => {
+    const rows = (await sql`
+      SELECT ${productFields}, p.is_search_boosted, c.name AS category_name
+        FROM shop.product p
+        LEFT JOIN shop.category c ON c.id = p.category_id
+       WHERE p.is_active AND NOT p.hide_from_search
+    `) as unknown as Array<ProductRow & { is_search_boosted: boolean; category_name: string | null }>;
+
+    const categoryNames: Array<[string, string]> = [];
+    const boostedIds: string[] = [];
+    for (const r of rows) {
+      if (r.category_slug && r.category_name) categoryNames.push([r.category_slug, r.category_name]);
+      if (r.is_search_boosted) boostedIds.push(r.id);
+    }
+
+    return { products: rows.map(toDomainProduct), categoryNames, boostedIds };
+  },
+  ["search-catalog"],
+  { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
+);
+
 export async function getSearchCatalog(): Promise<{
   products: Product[];
   categoryNamesBySlug: Map<string, string>;
   boosted: Set<string>;
 }> {
-  const rows = (await sql`
-    SELECT ${productFields}, p.is_search_boosted, c.name AS category_name
-      FROM shop.product p
-      LEFT JOIN shop.category c ON c.id = p.category_id
-     WHERE p.is_active AND NOT p.hide_from_search
-  `) as unknown as Array<ProductRow & { is_search_boosted: boolean; category_name: string | null }>;
-
-  const categoryNamesBySlug = new Map<string, string>();
-  const boosted = new Set<string>();
-  for (const r of rows) {
-    if (r.category_slug && r.category_name) categoryNamesBySlug.set(r.category_slug, r.category_name);
-    if (r.is_search_boosted) boosted.add(r.id);
-  }
-
-  return { products: rows.map(toDomainProduct), categoryNamesBySlug, boosted };
+  const cached = await getCachedSearchCatalog();
+  return {
+    products: cached.products,
+    categoryNamesBySlug: new Map(cached.categoryNames),
+    boosted: new Set(cached.boostedIds),
+  };
 }
 
-export async function getSearchSynonymGroups(): Promise<string[][]> {
-  const rows = await sql<{ terms: string }[]>`SELECT terms FROM shop.search_synonym`;
-  return rows.map((r) =>
-    r.terms.split(",").map((t) => t.trim()).filter(Boolean)
-  ).filter((g) => g.length > 1);
-}
+export const getSearchSynonymGroups = unstable_cache(
+  async (): Promise<string[][]> => {
+    const rows = await sql<{ terms: string }[]>`SELECT terms FROM shop.search_synonym`;
+    return rows.map((r) =>
+      r.terms.split(",").map((t) => t.trim()).filter(Boolean)
+    ).filter((g) => g.length > 1);
+  },
+  ["search-synonyms"],
+  { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
+);
 
 export async function getAllProductSlugs(): Promise<{ handle: string; updatedAt: string }[]> {
   const rows = await sql<{ slug: string; updated_at: Date }[]>`

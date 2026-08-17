@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { requireAdmin, auditLog } from "@/lib/admin/auth";
 import {
@@ -12,6 +12,7 @@ import {
   saveCollection,
 } from "@/lib/admin/taxonomy";
 import { adjustStock } from "@/lib/admin/products";
+import { CATEGORY_CACHE_TAG } from "@/lib/data/categories";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
 
 function mapError(err: unknown): string {
@@ -85,6 +86,7 @@ export async function saveCategoryAction(formData: FormData): Promise<ActionResu
 
   revalidatePath("/admin/categories");
   revalidateStorefront();
+  updateTag(CATEGORY_CACHE_TAG);
   return { ok: true, message: id ? "Η κατηγορία ενημερώθηκε." : "Η κατηγορία δημιουργήθηκε." };
 }
 
@@ -103,6 +105,7 @@ export async function deleteCategoryAction(id: string): Promise<ActionResult> {
   }
   revalidatePath("/admin/categories");
   revalidateStorefront();
+  updateTag(CATEGORY_CACHE_TAG);
   return { ok: true, message: "Η κατηγορία διαγράφηκε." };
 }
 
@@ -119,6 +122,7 @@ export async function moveCategoryAction(id: string, direction: "up" | "down"): 
   }
   revalidatePath("/admin/categories");
   revalidateStorefront();
+  updateTag(CATEGORY_CACHE_TAG);
   return { ok: true };
 }
 

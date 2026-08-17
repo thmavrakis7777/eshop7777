@@ -1,3 +1,4 @@
+import { cache } from "react";
 import {
   getAllCollectionSlugs,
   getAllProductSlugs,
@@ -46,9 +47,15 @@ export async function getProductsByCollectionHandle(
   return getProductsByCollectionSlug(collectionHandle, opts);
 }
 
-export async function getProductByHandle(handle: string): Promise<Product | undefined> {
+// PDP calls this once in generateMetadata and again in the page body for
+// the same handle, in the same request — React.cache() dedupes that into
+// one query instead of two (this is per-request memoization, not the
+// cross-request kind unstable_cache does; the two compose fine, but this
+// function doesn't need cross-request caching the way nav/search do since
+// a product page isn't hit at nearly the same frequency).
+export const getProductByHandle = cache(async (handle: string): Promise<Product | undefined> => {
   return getProductBySlug(handle);
-}
+});
 
 export async function getNewArrivalsPaged(
   opts: { sort?: ProductSort; limit?: number; offset?: number } = {}

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin, auditLog } from "@/lib/admin/auth";
@@ -19,6 +19,7 @@ import {
   slugify,
   updateProduct,
 } from "@/lib/admin/products";
+import { SEARCH_CACHE_TAG } from "@/lib/db/catalog";
 
 /**
  * Every action here calls requireAdmin() FIRST, before reading its arguments.
@@ -133,6 +134,8 @@ export async function saveProductAction(productId: string, formData: FormData): 
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath(`/proionta/${parsed.data.slug}`, "page");
   revalidatePath("/", "layout");
+  // title/slug/hideFromSearch/isSearchBoosted all feed the search index.
+  updateTag(SEARCH_CACHE_TAG);
   return { ok: true, message: "Οι αλλαγές αποθηκεύτηκαν." };
 }
 
@@ -172,6 +175,7 @@ export async function createProductAction(formData: FormData): Promise<ActionRes
   }
 
   revalidatePath("/admin/products");
+  updateTag(SEARCH_CACHE_TAG);
   // New products start inactive, so the operator lands in the editor to
   // finish them rather than back on a list where nothing looks different.
   redirect(`/admin/products/${id}`);
@@ -218,6 +222,8 @@ export async function saveVariantAction(productId: string, formData: FormData): 
 
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/", "layout");
+  // sku feeds the search index (buildSearchIndexEntry indexes variant SKUs).
+  updateTag(SEARCH_CACHE_TAG);
   return { ok: true, message: "Η παραλλαγή αποθηκεύτηκε." };
 }
 
@@ -235,6 +241,7 @@ export async function deleteVariantAction(productId: string, variantId: string):
     return { ok: false, error: mapError(err) };
   }
   revalidatePath(`/admin/products/${productId}`);
+  updateTag(SEARCH_CACHE_TAG);
   return { ok: true, message: "Η παραλλαγή διαγράφηκε." };
 }
 
@@ -326,6 +333,10 @@ export async function bulkProductAction(ids: string[], op: BulkOperation): Promi
     await auditLog(admin.id, `product.bulk.${op.kind}`, "product", ids.join(","), { count: ids.length });
     revalidatePath("/admin/products");
     revalidatePath("/", "layout");
+    // activate/deactivate/archive all change search-index membership; the
+    // others are harmless no-ops for search, but a bulk op runs rarely
+    // enough that invalidating unconditionally isn't worth branching on.
+    updateTag(SEARCH_CACHE_TAG);
     return { ok: true, message };
   } catch (err) {
     return { ok: false, error: mapError(err) };
