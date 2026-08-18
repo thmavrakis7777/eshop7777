@@ -6,7 +6,10 @@ import type { Metadata } from "next";
 // lives in (protected)/layout.tsx instead, which covers every real admin page
 // while leaving /admin/login reachable.
 export const metadata: Metadata = {
-  title: { default: "Διαχείριση", template: "%s · STIA Admin" },
+  // Generic on purpose: this is a browser-tab string on noindex pages, and
+  // making it dynamic would force a database read into the admin root layout,
+  // which is deliberately data-free. The visible shell shows the real name.
+  title: { default: "Διαχείριση", template: "%s · Διαχείριση" },
   // noindex travels with the response itself, alongside the robots.ts rule.
   robots: { index: false, follow: false },
 };

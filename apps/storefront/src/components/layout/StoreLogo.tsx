@@ -15,12 +15,16 @@ import Link from "next/link";
 export function StoreLogo({
   storeName,
   logoUrl,
-  // `min-w-0 truncate` instead of `shrink-0`: with `shrink-0` a long store
-  // name refused to give up width and pushed the header's search/cart
-  // buttons off-screen below ~360px (real overflow, measured at 320px).
-  // The smaller mobile size buys most of the room back; truncation is the
-  // safety net for names longer than any breakpoint anticipates.
-  className = "font-display text-xl sm:text-2xl tracking-tight text-ink min-w-0 truncate",
+  // Fluid type instead of truncation. `shrink-0` used to push the header's
+  // search/cart buttons off-screen at 320px; truncating fixed the overflow
+  // but clipped the brand name, which is worse — a half-rendered shop name
+  // is a branding bug, not a layout compromise.
+  //
+  // clamp() scales the name down just far enough to fit the narrowest
+  // phone and back up to the full 1.5rem on desktop, with no breakpoint
+  // cliffs. `whitespace-nowrap` keeps it on one line; there is deliberately
+  // no overflow-hidden, so the name can never be silently cut.
+  className = "font-display text-[clamp(1rem,4.2vw,1.5rem)] tracking-tight text-ink whitespace-nowrap",
   href = "/",
 }: {
   storeName: string;

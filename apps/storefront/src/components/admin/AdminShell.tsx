@@ -100,11 +100,13 @@ export function AdminShell({
   children,
   adminName,
   adminRole,
+  storeName,
   logout,
 }: {
   children: ReactNode;
   adminName: string;
   adminRole: string;
+  storeName: string;
   logout: () => Promise<void>;
 }) {
   const pathname = usePathname() ?? "/admin";
@@ -116,7 +118,7 @@ export function AdminShell({
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-bg lg:flex">
         <div className="flex h-14 items-center border-b border-border px-5">
           <Link href="/admin" className="font-display text-lg tracking-tight">
-            STIA
+            {storeName}
             <span className="ml-1.5 align-middle text-[10px] font-medium tracking-wider text-ink-muted uppercase">
               Admin
             </span>
@@ -162,7 +164,7 @@ export function AdminShell({
           </svg>
         </button>
         <Link href="/admin" className="font-display text-base">
-          STIA <span className="text-xs text-ink-muted uppercase">Admin</span>
+          {storeName} <span className="text-xs text-ink-muted uppercase">Admin</span>
         </Link>
       </header>
 

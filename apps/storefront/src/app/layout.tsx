@@ -21,7 +21,11 @@ const literata = Literata({ variable: "--font-literata", subsets: ["latin", "gre
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: siteDefaultTitle, template: "%s | STIA" },
+  // The literal used to be "%s | STIA", a second hardcoded copy of the shop
+  // name that a rename could not reach. This is only the build-time/fallback
+  // template — the storefront layout overrides it with the admin-set name —
+  // so it reads from the same constant as everything else here.
+  title: { default: siteDefaultTitle, template: `%s | ${siteName}` },
   description: siteDefaultDescription,
   openGraph: {
     type: "website",

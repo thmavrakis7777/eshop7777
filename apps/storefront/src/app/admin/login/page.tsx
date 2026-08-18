@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAdminUser } from "@/lib/admin/auth";
 import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
+import { siteName } from "@/lib/site-config";
 
 export default async function AdminLoginPage() {
   // Already signed in — nothing to do here.
@@ -11,7 +12,7 @@ export default async function AdminLoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <div className="font-display text-2xl tracking-tight">
-            STIA
+            {siteName}
             <span className="ml-1.5 align-middle text-[10px] font-medium tracking-wider text-ink-muted uppercase">
               Admin
             </span>

@@ -48,7 +48,7 @@ export function Header({
       }}
     >
       <div className="container-shell relative" onMouseLeave={() => setOpenMenu(null)}>
-        <div className="flex h-(--header-height) items-center justify-between gap-4">
+        <div className="flex h-(--header-height) items-center justify-between gap-2 sm:gap-4">
           <button
             ref={mobileTriggerRef}
             type="button"
