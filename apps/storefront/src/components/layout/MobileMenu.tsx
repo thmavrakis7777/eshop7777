@@ -6,7 +6,6 @@ import Link from "next/link";
 import type { NavCategory } from "@/lib/types";
 import { ChevronDownIcon, CloseIcon, HeartIcon, UserIcon } from "@/components/ui/Icons";
 import { StoreLogo } from "./StoreLogo";
-import { PhoneOrdersLink, type PhoneOrders } from "./PhoneOrders";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 
 const FOCUSABLE_SELECTOR =
@@ -18,14 +17,12 @@ export function MobileMenu({
   categories: navCategories,
   storeName,
   logoUrl,
-  phoneOrders,
 }: {
   open: boolean;
   onClose: () => void;
   categories: NavCategory[];
   storeName: string;
   logoUrl: string | null;
-  phoneOrders: PhoneOrders | null;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -115,12 +112,6 @@ export function MobileMenu({
             Λογαριασμός
           </Link>
         </div>
-
-        {phoneOrders && (
-          <div className="border-b border-border px-4 py-3">
-            <PhoneOrdersLink phoneOrders={phoneOrders} variant="block" />
-          </div>
-        )}
 
         <nav className="flex flex-col p-2">
           {navCategories.map((cat) => (

@@ -153,7 +153,10 @@ export default async function StorefrontLayout({ children }: { children: React.R
       </a>
       <WishlistProvider>
         <CartUIProvider>
-          <AnnouncementBar text={settings?.announcementText ?? null} />
+          <AnnouncementBar
+            text={settings?.announcementText ?? null}
+            phoneOrders={resolvePhoneOrders(settings)}
+          />
           {promoBanner && <PromoBannerBar banner={promoBanner} />}
           <Header
             categories={categories}
@@ -161,7 +164,6 @@ export default async function StorefrontLayout({ children }: { children: React.R
             cartTotal={cart?.total ?? { amount: 0, currencyCode: "EUR" }}
             storeName={branding.storeName}
             logoUrl={branding.logoUrl}
-            phoneOrders={resolvePhoneOrders(settings)}
           />
           <main id="main-content" className="flex-1">
             {children}

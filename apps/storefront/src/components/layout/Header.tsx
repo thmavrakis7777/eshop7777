@@ -14,7 +14,6 @@ import {
   UserIcon,
 } from "@/components/ui/Icons";
 import { MobileMenu } from "./MobileMenu";
-import { PhoneOrdersLink, type PhoneOrders } from "./PhoneOrders";
 import { SearchBox } from "./SearchBox";
 import { StoreLogo } from "./StoreLogo";
 import { useCartUI } from "@/components/cart/CartUIProvider";
@@ -26,14 +25,12 @@ export function Header({
   cartTotal,
   storeName,
   logoUrl,
-  phoneOrders,
 }: {
   categories: NavCategory[];
   cartItemCount: number;
   cartTotal: Money;
   storeName: string;
   logoUrl: string | null;
-  phoneOrders: PhoneOrders | null;
 }) {
   const { openDrawer } = useCartUI();
   const { count: wishlistCount } = useWishlist();
@@ -87,14 +84,6 @@ export function Header({
           </nav>
 
           <div className="flex items-center gap-1 sm:gap-2">
-            {/* Desktop: full line. Mobile: icon only — the header has no room
-                for it, but the tap target and accessible name are identical. */}
-            {phoneOrders && (
-              <>
-                <PhoneOrdersLink phoneOrders={phoneOrders} className="mr-1 hidden xl:flex" />
-                <PhoneOrdersLink phoneOrders={phoneOrders} variant="icon" className="xl:hidden" />
-              </>
-            )}
             <button
               type="button"
               className="p-2 hover:text-accent transition-colors"
@@ -203,7 +192,6 @@ export function Header({
         categories={navCategories}
         storeName={storeName}
         logoUrl={logoUrl}
-        phoneOrders={phoneOrders}
         onClose={() => {
           setMobileOpen(false);
           mobileTriggerRef.current?.focus();

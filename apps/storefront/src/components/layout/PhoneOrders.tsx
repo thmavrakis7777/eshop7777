@@ -3,9 +3,9 @@ import { PhoneIcon } from "@/components/ui/Icons";
 export type PhoneOrders = { phone: string; label: string };
 
 /**
- * Resolves the header's phone-orders line from site settings, or null when it
- * shouldn't render. Kept next to the component so the "is it on?" rule lives
- * in one place rather than being re-derived at each call site.
+ * Resolves the announcement bar's phone-orders line from site settings, or
+ * null when it shouldn't render. Kept next to the component so the "is it on?"
+ * rule lives in one place rather than being re-derived at each call site.
  *
  * Requires BOTH the toggle and a number: switching it on without entering a
  * phone number must not render an empty link.
@@ -21,71 +21,35 @@ export function resolvePhoneOrders(settings: {
 }
 
 /**
- * `tel:` strips spaces and punctuation — a dialler wants digits and an
- * optional leading +, while the visible text keeps whatever formatting the
- * owner typed.
+ * `tel:` wants digits and an optional leading +, while the visible text keeps
+ * whatever formatting the owner typed.
  */
 function telHref(phone: string): string {
-  const cleaned = phone.replace(/[^\d+]/g, "");
-  return `tel:${cleaned}`;
+  return `tel:${phone.replace(/[^\d+]/g, "")}`;
 }
 
 /**
- * The link is a real <a href="tel:">, never a script-initiated call: tapping
- * it hands off to the device's own dialler, which asks before connecting.
+ * The phone-orders line, sized for the announcement bar it lives in.
  *
- * `variant` controls only how much text is visible. The accessible name is
- * the full "label: number" in every variant, so an icon-only rendering is
- * never an unlabelled link.
+ * A real <a href="tel:">, never a script-initiated call: tapping hands off to
+ * the device's own dialler, which asks before connecting. No JavaScript at
+ * all — this is a Server Component rendering one anchor.
+ *
+ * Colours are inherited from the bar rather than set here, so the bar stays
+ * the single owner of its own theme. On narrow screens the label is dropped
+ * to keep the bar one line, but it remains in the accessible name, so the
+ * link is never announced as a bare number.
  */
-export function PhoneOrdersLink({
-  phoneOrders,
-  variant = "full",
-  className = "",
-}: {
-  phoneOrders: PhoneOrders;
-  variant?: "full" | "icon" | "block";
-  className?: string;
-}) {
+export function PhoneOrdersLink({ phoneOrders }: { phoneOrders: PhoneOrders }) {
   const { phone, label } = phoneOrders;
-  const accessibleName = `${label}: ${phone}`;
-
-  if (variant === "icon") {
-    return (
-      <a
-        href={telHref(phone)}
-        aria-label={accessibleName}
-        className={`p-2 hover:text-accent transition-colors ${className}`}
-      >
-        <PhoneIcon />
-      </a>
-    );
-  }
-
-  if (variant === "block") {
-    return (
-      <a
-        href={telHref(phone)}
-        aria-label={accessibleName}
-        className={`flex items-center gap-2 text-sm text-ink hover:text-accent transition-colors ${className}`}
-      >
-        <PhoneIcon className="h-5 w-5 shrink-0 text-accent" />
-        <span className="flex flex-col leading-tight">
-          <span className="text-xs text-ink-muted">{label}</span>
-          <span className="font-medium tabular-nums">{phone}</span>
-        </span>
-      </a>
-    );
-  }
-
   return (
     <a
       href={telHref(phone)}
-      aria-label={accessibleName}
-      className={`flex items-center gap-1.5 text-sm text-ink hover:text-accent transition-colors ${className}`}
+      aria-label={`${label}: ${phone}`}
+      className="flex shrink-0 items-center gap-1.5 transition-opacity hover:opacity-80"
     >
-      <PhoneIcon className="h-4 w-4 shrink-0 text-accent" />
-      <span className="text-ink-muted">{label}:</span>
+      <PhoneIcon className="h-3.5 w-3.5 shrink-0" />
+      <span className="hidden sm:inline">{label}:</span>
       <span className="font-medium tabular-nums">{phone}</span>
     </a>
   );
