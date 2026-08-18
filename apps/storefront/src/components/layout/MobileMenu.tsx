@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { NavCategory } from "@/lib/types";
+import type { NavItem } from "@/lib/data/navigation";
 import { ChevronDownIcon, CloseIcon, HeartIcon, UserIcon } from "@/components/ui/Icons";
 import { StoreLogo } from "./StoreLogo";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
@@ -15,12 +16,14 @@ export function MobileMenu({
   open,
   onClose,
   categories: navCategories,
+  navItems,
   storeName,
   logoUrl,
 }: {
   open: boolean;
   onClose: () => void;
   categories: NavCategory[];
+  navItems: NavItem[];
   storeName: string;
   logoUrl: string | null;
 }) {
@@ -113,43 +116,77 @@ export function MobileMenu({
           </Link>
         </div>
 
-        <nav className="flex flex-col p-2">
-          {navCategories.map((cat) => (
-            <div key={cat.handle} className="border-b border-border last:border-0">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between px-3 py-3 text-left text-sm font-medium text-ink"
-                aria-expanded={expanded === cat.handle}
-                onClick={() => setExpanded((v) => (v === cat.handle ? null : cat.handle))}
-              >
-                {cat.name}
-                <ChevronDownIcon
-                  className={`h-4 w-4 transition-transform ${expanded === cat.handle ? "rotate-180" : ""}`}
-                />
-              </button>
-              {expanded === cat.handle && (
-                <div className="flex flex-col pb-2 pl-3">
-                  {cat.children.map((child) => (
+        {/* Exactly the navigation configured in the admin, in the same order
+            as the desktop bar — the two read the same list, so they cannot
+            drift apart. Only category items expand; a SALES chip or custom
+            URL has nothing to expand into. */}
+        {/* Distinct from the desktop bar's landmark: two <nav> elements
+            sharing one accessible name makes a screen reader's landmark
+            list ambiguous. Same items, same order, different label. */}
+        <nav className="flex flex-col p-2" aria-label="Πλοήγηση καταστήματος">
+          {navItems.map((item) => {
+            const category = item.categorySlug
+              ? navCategories.find((c) => c.handle === item.categorySlug)
+              : undefined;
+            const children = category?.children ?? [];
+
+            if (children.length === 0) {
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className="border-b border-border px-3 py-3.5 text-sm font-medium text-ink last:border-0"
+                  style={{
+                    color: item.textColor ?? undefined,
+                    backgroundColor: item.backgroundColor ?? undefined,
+                  }}
+                  onClick={onClose}
+                >
+                  {item.label}
+                </Link>
+              );
+            }
+
+            const isOpen = expanded === item.id;
+            return (
+              <div key={item.id} className="border-b border-border last:border-0">
+                <button
+                  type="button"
+                  // py-3.5 keeps the row at 48px — a comfortable touch target
+                  // rather than the 24px WCAG floor.
+                  className="flex w-full items-center justify-between px-3 py-3.5 text-left text-sm font-medium text-ink"
+                  aria-expanded={isOpen}
+                  onClick={() => setExpanded((v) => (v === item.id ? null : item.id))}
+                >
+                  {item.label}
+                  <ChevronDownIcon
+                    className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {isOpen && (
+                  <div className="flex flex-col pb-2 pl-3">
                     <Link
-                      key={child.handle}
-                      href={`/${cat.handle}/${child.handle}`}
-                      className="rounded-sm px-3 py-2 text-sm text-ink-muted"
+                      href={item.href}
+                      className="rounded-sm px-3 py-2.5 text-sm font-medium text-accent"
                       onClick={onClose}
                     >
-                      {child.name}
+                      Όλα: {item.label}
                     </Link>
-                  ))}
-                  <Link
-                    href={`/${cat.handle}`}
-                    className="rounded-sm px-3 py-2 text-sm font-medium text-accent"
-                    onClick={onClose}
-                  >
-                    Όλα τα προϊόντα →
-                  </Link>
-                </div>
-              )}
-            </div>
-          ))}
+                    {children.map((child) => (
+                      <Link
+                        key={child.handle}
+                        href={`/${category?.handle}/${child.handle}`}
+                        className="rounded-sm px-3 py-2.5 text-sm text-ink-muted"
+                        onClick={onClose}
+                      >
+                        {child.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
       </div>
     </div>,

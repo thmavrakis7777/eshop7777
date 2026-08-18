@@ -65,61 +65,6 @@ export function Header({
 
           <StoreLogo storeName={storeName} logoUrl={logoUrl} />
 
-          <nav className="hidden lg:flex items-center gap-1" aria-label="Κύρια πλοήγηση">
-            {navItems.map((item) => {
-              // Only a category item can open a mega menu, and only if that
-              // category actually has children — a SALES chip or a custom URL
-              // has nothing to expand.
-              const children = item.categorySlug
-                ? (navCategories.find((c) => c.handle === item.categorySlug)?.children ?? [])
-                : [];
-              const hasMenu = children.length > 0;
-
-              // Only ever colour and padding, never arbitrary CSS: the values
-              // are #rrggbb strings validated in the admin action and by a
-              // column CHECK, so an owner cannot inject layout-breaking
-              // styling through the colour fields.
-              const style = {
-                ...(item.textColor ? { color: item.textColor } : {}),
-                ...(item.backgroundColor ? { backgroundColor: item.backgroundColor } : {}),
-              };
-              const chip = item.backgroundColor ? "rounded-sm" : "";
-              const base = `flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors ${chip} ${
-                item.textColor || item.backgroundColor ? "" : "text-ink hover:text-accent"
-              }`;
-
-              return hasMenu ? (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={base}
-                  style={style}
-                  aria-expanded={openMenu === item.categorySlug}
-                  onMouseEnter={() => setOpenMenu(item.categorySlug)}
-                  onFocus={() => setOpenMenu(item.categorySlug)}
-                  // Opens only, never toggles closed: a mouse click arrives
-                  // *after* mouseenter/focus have already opened the panel, so
-                  // a toggle would slam it shut under the cursor. Activation
-                  // still does something real (matching aria-expanded) for
-                  // anyone who reaches this without hover; Escape closes.
-                  onClick={() => setOpenMenu(item.categorySlug)}
-                >
-                  {item.label}
-                  <ChevronDownIcon />
-                </button>
-              ) : (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  className={base}
-                  style={style}
-                  onMouseEnter={() => setOpenMenu(null)}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
 
           <div className="flex items-center gap-1 sm:gap-2">
             <button
@@ -170,6 +115,75 @@ export function Header({
             </button>
           </div>
         </div>
+
+        {/* Its own full-width row, not squeezed between the logo and the
+            action icons. A shop with nine main categories and long Greek
+            names cannot fit them beside a wordmark without shrinking the
+            type past readable — giving the nav its own line buys the whole
+            container width, and `flex-wrap` means a very long list becomes a
+            second line rather than an overflow. */}
+        <nav
+          className="hidden border-t border-border/60 lg:block"
+          aria-label="Κύρια πλοήγηση"
+        >
+          <ul className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 py-1.5">
+            {navItems.map((item) => {
+              // Only a category item can open a mega menu, and only if that
+              // category actually has children — a SALES chip or a custom URL
+              // has nothing to expand.
+              const children = item.categorySlug
+                ? (navCategories.find((c) => c.handle === item.categorySlug)?.children ?? [])
+                : [];
+              const hasMenu = children.length > 0;
+
+              // Only ever colour and padding, never arbitrary CSS: the values
+              // are #rrggbb strings validated in the admin action and by a
+              // column CHECK, so an owner cannot inject layout-breaking
+              // styling through the colour fields.
+              const style = {
+                ...(item.textColor ? { color: item.textColor } : {}),
+                ...(item.backgroundColor ? { backgroundColor: item.backgroundColor } : {}),
+              };
+              const chip = item.backgroundColor ? "rounded-sm" : "";
+              const base = `flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors ${chip} ${
+                item.textColor || item.backgroundColor ? "" : "text-ink hover:text-accent"
+              }`;
+
+              return (
+                <li key={item.id}>
+                  {hasMenu ? (
+                    <button
+                      type="button"
+                  className={base}
+                  style={style}
+                  aria-expanded={openMenu === item.categorySlug}
+                  onMouseEnter={() => setOpenMenu(item.categorySlug)}
+                  onFocus={() => setOpenMenu(item.categorySlug)}
+                  // Opens only, never toggles closed: a mouse click arrives
+                  // *after* mouseenter/focus have already opened the panel, so
+                  // a toggle would slam it shut under the cursor. Activation
+                  // still does something real (matching aria-expanded) for
+                  // anyone who reaches this without hover; Escape closes.
+                  onClick={() => setOpenMenu(item.categorySlug)}
+                >
+                  {item.label}
+                      <ChevronDownIcon />
+                    </button>
+                  ) : (
+                    <Link
+                      href={item.href}
+                  className={base}
+                  style={style}
+                  onMouseEnter={() => setOpenMenu(null)}
+                >
+                      {item.label}
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
         {activeMegaMenu && (
           <div
@@ -228,6 +242,7 @@ export function Header({
       <MobileMenu
         open={mobileOpen}
         categories={navCategories}
+        navItems={navItems}
         storeName={storeName}
         logoUrl={logoUrl}
         onClose={() => {
