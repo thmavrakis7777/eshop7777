@@ -52,21 +52,39 @@ export function Header({
       }}
     >
       <div className="container-shell relative" onMouseLeave={() => setOpenMenu(null)}>
-        <div className="flex h-(--header-height) items-center justify-between gap-2 sm:gap-4">
+        {/* Three columns with FORCED-equal outer widths, so the brand sits at
+            the true centre of the header rather than centred in whatever
+            space the icons happen to leave. minmax(0,1fr) is what makes the
+            sides equal: a plain 1fr refuses to shrink below its content, so
+            a wider action cluster on the right would push the brand left.
+            Grid over margins/padding for the same reason — no magic number
+            to re-tune when an icon is added or removed. */}
+        <div className="grid h-(--header-height) grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 sm:gap-4">
           <button
             ref={mobileTriggerRef}
             type="button"
-            className="p-2 -ml-2 lg:hidden"
+            // col-start-1 is load-bearing: this button is lg:hidden, so on
+            // desktop it leaves the grid flow entirely and the action
+            // cluster would slide into the centre column, shoving the brand
+            // aside. Explicit placement pins each child to its own column
+            // whatever else is displayed.
+            className="col-start-1 justify-self-start p-2 -ml-2 lg:hidden"
             aria-label="Άνοιγμα μενού"
             onClick={() => setMobileOpen(true)}
           >
             <MenuIcon />
           </button>
 
-          <StoreLogo storeName={storeName} logoUrl={logoUrl} />
+          {/* Column 2. `justify-self-center` keeps it centred within a column
+              that is already centred in the header. */}
+          <StoreLogo
+            storeName={storeName}
+            logoUrl={logoUrl}
+            className="font-display text-[clamp(0.8125rem,3.6vw,1.5rem)] tracking-tight text-ink whitespace-nowrap col-start-2 justify-self-center"
+          />
 
 
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="col-start-3 flex items-center justify-self-end gap-1 sm:gap-2">
             <button
               type="button"
               className="p-2 hover:text-accent transition-colors"
