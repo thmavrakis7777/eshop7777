@@ -5,6 +5,7 @@ import {
   getCartCrossSell as dbGetCartCrossSell,
   getFeaturedProductsPaged as dbGetFeaturedProductsPaged,
   getNewArrivalsPaged as dbGetNewArrivalsPaged,
+  getSaleProductsPaged as dbGetSaleProductsPaged,
   getProductBySlug,
   getProductsByCategorySlug,
   getProductsByCollectionSlug,
@@ -66,6 +67,12 @@ export async function getNewArrivalsPaged(
 export async function getNewArrivals(limit = 4): Promise<Product[]> {
   const { products } = await dbGetNewArrivalsPaged({ limit });
   return products;
+}
+
+export async function getSaleProductsPaged(
+  opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
+): Promise<{ products: Product[]; count: number }> {
+  return dbGetSaleProductsPaged(opts);
 }
 
 export async function getFeaturedProductsPaged(

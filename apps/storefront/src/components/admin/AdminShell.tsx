@@ -46,6 +46,7 @@ export const NAV: NavGroup[] = [
     title: "Κατάστημα",
     items: [
       { label: "Αρχική σελίδα", href: "/admin/content/homepage" },
+      { label: "Πλοήγηση", href: "/admin/content/navigation" },
       { label: "Header & Footer", href: "/admin/content/layout" },
       { label: "Σελίδες", href: "/admin/content/pages" },
       { label: "Πολυμέσα", href: "/admin/content/media" },

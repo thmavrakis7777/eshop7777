@@ -25,6 +25,10 @@ const CONTENT_PAGE_SLUGS = [
 const baseRoutes: MetadataRoute.Sitemap = [
   { url: siteUrl, changeFrequency: "daily", priority: 1 },
   { url: `${siteUrl}/nea-afiksi`, changeFrequency: "daily", priority: 0.8 },
+  // Listed even though it can be empty: it is a permanent, linked
+  // destination whose emptiness is temporary, and dropping it from the
+  // sitemap on stock levels teaches crawlers the URL is unreliable.
+  { url: `${siteUrl}/prosfores`, changeFrequency: "daily", priority: 0.8 },
   { url: `${siteUrl}/protainomena`, changeFrequency: "weekly", priority: 0.7 },
 ];
 

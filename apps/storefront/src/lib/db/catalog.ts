@@ -464,3 +464,43 @@ export async function getAllProductSlugs(): Promise<{ handle: string; updatedAt:
     SELECT slug, updated_at FROM shop.product WHERE is_active ORDER BY slug`;
   return rows.map((r) => ({ handle: r.slug, updatedAt: new Date(r.updated_at).toISOString() }));
 }
+
+/**
+ * Products currently on sale: any active product with at least one variant
+ * whose compare-at price is above its selling price.
+ *
+ * Filtered in SQL rather than by fetching everything and checking
+ * compareAtPrice in JS — the sale page must paginate correctly, and a
+ * post-filter would make `count` a lie and leave short pages.
+ *
+ * Nothing is stored to mark a product "on sale": the discount IS the price
+ * relationship, so the page updates itself the moment a compare-at price is
+ * set, cleared, or the product is deactivated. There is deliberately no
+ * separate "sale" flag or collection to keep in sync.
+ */
+export async function getSaleProductsPaged(
+  opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
+): Promise<{ products: Product[]; count: number }> {
+  const { sort = "newest", limit = 24, offset = 0 } = opts;
+
+  const rows = (await sql`
+    SELECT ${productFields}, COUNT(*) OVER () AS total_count
+      FROM shop.product p
+      LEFT JOIN shop.category c ON c.id = p.category_id
+     WHERE p.is_active
+       AND EXISTS (
+         SELECT 1 FROM shop.product_variant v
+          WHERE v.product_id = p.id
+            AND v.is_active
+            AND v.compare_at_price_cents IS NOT NULL
+            AND v.compare_at_price_cents > v.price_cents
+       )
+     ${orderBy(sort)}
+     LIMIT ${limit} OFFSET ${offset}
+  `) as unknown as Array<ProductRow & { total_count: string }>;
+
+  return {
+    products: rows.map(toDomainProduct),
+    count: rows.length > 0 ? Number(rows[0].total_count) : 0,
+  };
+}

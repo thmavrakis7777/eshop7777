@@ -3,6 +3,7 @@
 import {
   getFeaturedProductsPaged,
   getNewArrivalsPaged,
+  getSaleProductsPaged,
   getProductsByCategoryHandle,
   getProductsByCollectionHandle,
   searchProducts,
@@ -51,6 +52,14 @@ export async function loadMoreNewArrivalsAction(
   limit: number
 ): Promise<{ products: Product[]; count: number }> {
   return getNewArrivalsPaged({ sort, limit: clampLimit(limit), offset: clampOffset(offset) });
+}
+
+export async function loadMoreSaleProductsAction(
+  sort: ProductSort,
+  offset: number,
+  limit: number
+): Promise<{ products: Product[]; count: number }> {
+  return getSaleProductsPaged({ sort, limit: clampLimit(limit), offset: clampOffset(offset) });
 }
 
 export async function loadMoreFeaturedProductsAction(

@@ -10,6 +10,7 @@ import {
   loadMoreCollectionProductsAction,
   loadMoreFeaturedProductsAction,
   loadMoreNewArrivalsAction,
+  loadMoreSaleProductsAction,
   loadMoreSearchProductsAction,
 } from "@/lib/actions/products";
 
@@ -17,6 +18,7 @@ export type ProductSource =
   | { type: "category"; categoryHandle: string }
   | { type: "collection"; collectionHandle: string }
   | { type: "new-arrivals" }
+  | { type: "sale" }
   | { type: "featured" }
   | { type: "search"; query: string };
 
@@ -38,6 +40,7 @@ function fetchNextPage(
     return loadMoreCollectionProductsAction(source.collectionHandle, sort, offset, limit);
   if (source.type === "search") return loadMoreSearchProductsAction(source.query, offset, limit);
   if (source.type === "featured") return loadMoreFeaturedProductsAction(sort, offset, limit);
+  if (source.type === "sale") return loadMoreSaleProductsAction(sort, offset, limit);
   return loadMoreNewArrivalsAction(sort, offset, limit);
 }
 

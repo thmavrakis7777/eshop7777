@@ -6,6 +6,7 @@ import { ConsentBanner } from "@/components/layout/ConsentBanner";
 import { AnalyticsScripts } from "@/components/layout/AnalyticsScripts";
 import { Header } from "@/components/layout/Header";
 import { resolvePhoneOrders } from "@/components/layout/PhoneOrders";
+import { getNavItems, type NavItem } from "@/lib/data/navigation";
 import { Footer } from "@/components/layout/Footer";
 import { CartUIProvider } from "@/components/cart/CartUIProvider";
 import { CartDrawer } from "@/components/cart/CartDrawer";
@@ -118,16 +119,34 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
-  const [categories, cart, settings, branding, promoBanner, analyticsSettings, nonce] =
+  const [categories, cart, settings, configuredNav, branding, promoBanner, analyticsSettings, nonce] =
     await Promise.all([
       getNavCategories(),
       getCart(),
       getSiteSettings(),
+      getNavItems(),
       getBranding(),
       getPromoBanner(),
       getAnalyticsSettings(),
       headers().then((h) => h.get("x-nonce") ?? undefined),
     ]);
+
+  // Permanent fallback, not a migration step: a shop that has never opened
+  // the navigation screen still gets a working menu of its top-level
+  // categories, exactly as before this feature existed.
+  const navItems: NavItem[] =
+    configuredNav.length > 0
+      ? configuredNav
+      : categories.map((c) => ({
+          id: c.handle,
+          label: c.name,
+          href: `/`,
+          destinationType: "category" as const,
+          categorySlug: c.handle,
+          textColor: null,
+          backgroundColor: null,
+          hoverColor: null,
+        }));
 
   return (
     <>
@@ -160,6 +179,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
           {promoBanner && <PromoBannerBar banner={promoBanner} />}
           <Header
             categories={categories}
+            navItems={navItems}
             cartItemCount={cart?.itemCount ?? 0}
             cartTotal={cart?.total ?? { amount: 0, currencyCode: "EUR" }}
             storeName={branding.storeName}
