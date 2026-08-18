@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import { saveProductAction, saveVariantAction, deleteVariantAction } from "@/lib/admin/catalog-actions";
 import type { AdminProductDetail, CategoryOption } from "@/lib/admin/products";
 import { CategorySelect } from "@/components/admin/CategorySelect";
+import { ShippingFields } from "@/components/admin/ShippingFields";
 
 /**
  * The product editor — the screen the store owner spends most of their time in.
@@ -166,6 +167,13 @@ export function ProductEditor({
                 />
               </Field>
             </div>
+          </Panel>
+
+          <Panel title="Μεταφορικά">
+            <ShippingFields
+              defaultClass={product.shippingClass}
+              defaultCostCents={product.shippingCostCents}
+            />
           </Panel>
 
           <Panel title="Εμπορική προβολή">

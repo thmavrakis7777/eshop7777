@@ -64,6 +64,9 @@ type ItemRow = {
   product_slug: string;
   unit_price_cents: number;
   compare_at_price_cents: number | null;
+  // Joined live from the product, not frozen onto the line like price is:
+  // if the owner corrects a shipping cost, open carts should reflect it.
+  shipping_cost_cents: number | null;
 };
 
 export type AddressJson = {
@@ -94,7 +97,12 @@ export function toAddressSummary(a: AddressJson) {
  * cart showed, so there is exactly one implementation of this arithmetic.
  */
 export function computeTotals(input: {
-  items: Array<{ unit_price_cents: number; quantity: number }>;
+  items: Array<{
+    unit_price_cents: number;
+    quantity: number;
+    /** Per-product override. NULL/0 = ships under the standard method. */
+    shipping_cost_cents?: number | null;
+  }>;
   discount: { type: "percentage" | "fixed"; value: number; min_subtotal_cents: number } | null;
   shipping: { price_cents: number; free_over_cents: number | null; is_pickup: boolean } | null;
   vatRate?: number;
@@ -113,11 +121,35 @@ export function computeTotals(input: {
 
   const afterDiscount = subtotalCents - discountCents;
 
+  // Shipping. Two regimes, never mixed:
+  //
+  //   * All-standard cart  → the chosen method's price, once, waived above
+  //     the free-shipping threshold.
+  //   * Any oversized item → each oversized LINE pays its own cost × its
+  //     quantity (two bathtubs are two parcels), and standard items in the
+  //     same cart ride along free rather than adding the method price on top.
+  //
+  // So 1 normal = 3.50, 1 heavy + 1 normal = 8.00, 2 heavy + 1 normal = 16.00.
+  // The last case is why this is not "the single highest cost wins".
+  //
+  // The free-shipping threshold deliberately does NOT waive oversized costs:
+  // those exist because the parcel genuinely costs more to send, and a large
+  // order does not make a bathtub cheaper to ship. Store pickup skips all of
+  // it, oversized included — nothing is being sent.
   let shippingCents = 0;
   if (input.shipping && !input.shipping.is_pickup) {
-    const qualifiesFree =
-      input.shipping.free_over_cents != null && afterDiscount >= input.shipping.free_over_cents;
-    shippingCents = qualifiesFree ? 0 : input.shipping.price_cents;
+    const oversizedCents = input.items.reduce(
+      (sum, i) => sum + Math.max(0, i.shipping_cost_cents ?? 0) * i.quantity,
+      0
+    );
+
+    if (oversizedCents > 0) {
+      shippingCents = oversizedCents;
+    } else {
+      const qualifiesFree =
+        input.shipping.free_over_cents != null && afterDiscount >= input.shipping.free_over_cents;
+      shippingCents = qualifiesFree ? 0 : input.shipping.price_cents;
+    }
   }
 
   const totalCents = afterDiscount + shippingCents;
@@ -147,9 +179,13 @@ const cartQuery = (id: string) => sql<CartRow[]>`
              'id', i.id, 'variant_id', i.variant_id, 'quantity', i.quantity,
              'title', i.title, 'sku', i.sku, 'product_slug', i.product_slug,
              'unit_price_cents', i.unit_price_cents,
-             'compare_at_price_cents', i.compare_at_price_cents
+             'compare_at_price_cents', i.compare_at_price_cents,
+             'shipping_cost_cents', p.shipping_cost_cents
            ) ORDER BY i.created_at)
-           FROM shop.cart_item i WHERE i.cart_id = c.id
+           FROM shop.cart_item i
+           LEFT JOIN shop.product_variant v ON v.id = i.variant_id
+           LEFT JOIN shop.product p ON p.id = v.product_id
+          WHERE i.cart_id = c.id
          ), '[]'::json) AS items
     FROM shop.cart c
     LEFT JOIN shop.shipping_method sm ON sm.id = c.shipping_method_id

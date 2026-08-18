@@ -176,6 +176,8 @@ export type AdminProductDetail = {
   widthCm: number | null;
   heightCm: number | null;
   originCountry: string | null;
+  shippingClass: "standard" | "heavy" | "large" | "custom";
+  shippingCostCents: number | null;
   badgeLabel: string | null;
   badgeTone: "accent" | "success" | "neutral";
   warrantyText: string | null;
@@ -248,6 +250,8 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
     widthCm: r.width_cm != null ? Number(r.width_cm) : null,
     heightCm: r.height_cm != null ? Number(r.height_cm) : null,
     originCountry: (r.origin_country as string) ?? null,
+    shippingClass: ((r.shipping_class as string) ?? "standard") as AdminProductDetail["shippingClass"],
+    shippingCostCents: (r.shipping_cost_cents as number) ?? null,
     badgeLabel: (r.badge_label as string) ?? null,
     badgeTone: (r.badge_tone as AdminProductDetail["badgeTone"]) ?? "neutral",
     warrantyText: (r.warranty_text as string) ?? null,
@@ -303,6 +307,8 @@ export type ProductInput = {
   widthCm: number | null;
   heightCm: number | null;
   originCountry: string | null;
+  shippingClass: "standard" | "heavy" | "large" | "custom";
+  shippingCostCents: number | null;
   badgeLabel: string | null;
   badgeTone: "accent" | "success" | "neutral";
   warrantyText: string | null;
@@ -336,7 +342,9 @@ export async function updateProduct(id: string, input: ProductInput): Promise<vo
         origin_country = ${input.originCountry}, badge_label = ${input.badgeLabel},
         badge_tone = ${input.badgeTone}, warranty_text = ${input.warrantyText},
         downloads_url = ${input.downloadsUrl}, hide_from_search = ${input.hideFromSearch},
-        is_search_boosted = ${input.isSearchBoosted}
+        is_search_boosted = ${input.isSearchBoosted},
+        shipping_class = ${input.shippingClass},
+        shipping_cost_cents = ${input.shippingCostCents}
       WHERE id = ${id}`;
     if (updated.count === 0) throw new CatalogError("Product not found", "not_found");
 

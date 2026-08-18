@@ -109,6 +109,18 @@ const optionalNumber = (value: FormDataEntryValue | null): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+const SHIPPING_CLASSES = ["standard", "heavy", "large", "custom"] as const;
+type ShippingClass = (typeof SHIPPING_CLASSES)[number];
+
+/** Anything not in the allowed set falls back to standard, never to a surcharge. */
+const parseShippingClass = (value: FormDataEntryValue | null): ShippingClass => {
+  const s = String(value ?? "standard");
+  return (SHIPPING_CLASSES as readonly string[]).includes(s) ? (s as ShippingClass) : "standard";
+};
+
+/** Euros ("12", "12,50") to cents, or null when blank/unparseable. */
+const optionalCents = optionalPriceToCents;
+
 // ---------------------------------------------------------------------------
 // Product
 // ---------------------------------------------------------------------------
@@ -147,6 +159,17 @@ export async function saveProductAction(productId: string, formData: FormData): 
       widthCm: optionalNumber(formData.get("widthCm")),
       heightCm: optionalNumber(formData.get("heightCm")),
       originCountry: optionalText(formData.get("originCountry")),
+      // Shipping is money the customer gets charged, so neither field is
+      // trusted: the class is checked against the allowed set, and the cost is
+      // clamped non-negative. A class other than "standard" with no cost
+      // entered stays NULL and simply ships at the standard rate — the label
+      // never silently invents a surcharge.
+      shippingClass: parseShippingClass(formData.get("shippingClass")),
+      shippingCostCents: (() => {
+        if (parseShippingClass(formData.get("shippingClass")) === "standard") return null;
+        const cents = optionalCents(formData.get("shippingCost"));
+        return cents == null ? null : Math.max(0, cents);
+      })(),
       badgeLabel: optionalText(formData.get("badgeLabel")),
       badgeTone: (formData.get("badgeTone") as "accent" | "success" | "neutral") ?? "neutral",
       warrantyText: optionalText(formData.get("warrantyText")),
