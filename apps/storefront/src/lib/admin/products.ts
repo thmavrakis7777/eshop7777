@@ -1,6 +1,7 @@
 import "server-only";
 import { sql, transaction } from "@/lib/db/client";
 import { normalizeSearchText } from "@/lib/search";
+import { NEW_ARRIVAL_PREDICATE, SALE_PREDICATE } from "@/lib/db/catalog";
 
 /**
  * Admin catalog queries and mutations.
@@ -33,6 +34,8 @@ export type ProductListFilters = {
   stock?: "all" | "low" | "out";
   categoryId?: string;
   collectionId?: string;
+  /** Dynamic collections. Same rules as the storefront — see lib/db/catalog.ts. */
+  dynamic?: "sale" | "new";
   sort?: "newest" | "title" | "price-asc" | "price-desc" | "stock-asc";
   page?: number;
   perPage?: number;
@@ -86,6 +89,8 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
        ${filters.status === "active" ? sql`AND p.is_active` : sql``}
        ${filters.status === "inactive" ? sql`AND NOT p.is_active` : sql``}
        ${filters.categoryId ? sql`AND p.category_id = ${filters.categoryId}` : sql``}
+       ${filters.dynamic === "sale" ? sql`AND ${SALE_PREDICATE}` : sql``}
+       ${filters.dynamic === "new" ? sql`AND ${NEW_ARRIVAL_PREDICATE}` : sql``}
        ${filters.collectionId
          ? sql`AND EXISTS (SELECT 1 FROM shop.product_collection pc
                             WHERE pc.product_id = p.id AND pc.collection_id = ${filters.collectionId})`
@@ -185,6 +190,10 @@ export type AdminProductDetail = {
   hideFromSearch: boolean;
   isSearchBoosted: boolean;
   createdAt: string;
+  /** Days since creation, computed server-side: doing this at client render
+   *  time is impure and would hydrate inconsistently (caught by
+   *  react-hooks/purity). Feeds the NEW ARRIVALS explanation only. */
+  ageDays: number;
   updatedAt: string;
   variants: AdminVariant[];
   images: AdminProductImage[];
@@ -259,6 +268,7 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
     hideFromSearch: r.hide_from_search as boolean,
     isSearchBoosted: r.is_search_boosted as boolean,
     createdAt: new Date(r.created_at as string).toISOString(),
+    ageDays: Math.floor((Date.now() - new Date(r.created_at as string).getTime()) / 86_400_000),
     updatedAt: new Date(r.updated_at as string).toISOString(),
     variants: r.variants,
     images: r.images,
@@ -603,4 +613,22 @@ export async function listCategoryOptions(): Promise<CategoryOption[]> {
 export async function listCollectionOptions(): Promise<Array<{ id: string; title: string }>> {
   return sql<{ id: string; title: string }[]>`
     SELECT id, title FROM shop.collection ORDER BY title COLLATE "el-GR-x-icu"`;
+}
+
+/**
+ * Live membership counts for the dynamic collections, for the categories
+ * screen. Two cheap COUNT(*) queries in one round trip rather than fetching
+ * products and counting them in JS — the dashboard never needs the rows.
+ *
+ * Uses the same predicates as the storefront listings, so the number shown
+ * beside SALES is exactly what /prosfores will render.
+ */
+export async function countDynamicCollections(): Promise<{ sale: number; newArrivals: number }> {
+  const [row] = await sql<{ sale: number; new_arrivals: number }[]>`
+    SELECT
+      COUNT(*) FILTER (WHERE ${SALE_PREDICATE})::int        AS sale,
+      COUNT(*) FILTER (WHERE ${NEW_ARRIVAL_PREDICATE})::int AS new_arrivals
+    FROM shop.product p
+   WHERE p.is_active`;
+  return { sale: row?.sale ?? 0, newArrivals: row?.new_arrivals ?? 0 };
 }

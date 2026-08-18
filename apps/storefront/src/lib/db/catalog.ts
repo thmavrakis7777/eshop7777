@@ -22,6 +22,41 @@ export const SEARCH_CACHE_TAG = "search-catalog";
 const TONES: Tone[] = ["clay", "sage", "stone", "linen"];
 const NEW_ARRIVAL_WINDOW_DAYS = 30;
 
+/**
+ * The two dynamic-collection membership rules, defined ONCE.
+ *
+ * Both the storefront listings (/prosfores, /nea-afiksi) and the admin's
+ * dynamic views import these, so "what counts as on sale" cannot mean one
+ * thing in the shop and another in the dashboard. Both assume the product
+ * table is aliased `p`.
+ *
+ * SALE: at least one ACTIVE variant whose compare-at price is strictly above
+ * its selling price. Strictly above matters — an equal compare-at price is a
+ * price that was never reduced, not a 0% discount, and must not qualify.
+ * Derived entirely from stored pricing; there is no "on sale" flag to fall
+ * out of sync with the numbers customers actually see.
+ */
+export const SALE_PREDICATE = sql`
+  EXISTS (
+    SELECT 1 FROM shop.product_variant v
+     WHERE v.product_id = p.id
+       AND v.is_active
+       AND v.compare_at_price_cents IS NOT NULL
+       AND v.compare_at_price_cents > v.price_cents
+  )`;
+
+/**
+ * NEW ARRIVAL: created inside the window, OR flagged with the pre-existing
+ * `is_new_override` column. The override is not a duplicate system — it was
+ * already in the schema and is how an operator keeps a product badged "Νέο"
+ * past the automatic window (a slow-moving line, a delayed launch). It can
+ * only ever ADD a product, never remove one that genuinely is new, so it
+ * cannot contradict the date logic.
+ */
+export const NEW_ARRIVAL_PREDICATE = sql`
+  (p.is_new_override
+   OR p.created_at >= now() - ${`${NEW_ARRIVAL_WINDOW_DAYS} days`}::interval)`;
+
 function hash(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i);
@@ -292,8 +327,7 @@ export async function getNewArrivalsPaged(
       FROM shop.product p
       LEFT JOIN shop.category c ON c.id = p.category_id
      WHERE p.is_active
-       AND (p.is_new_override
-            OR p.created_at >= now() - ${`${NEW_ARRIVAL_WINDOW_DAYS} days`}::interval)
+       AND ${NEW_ARRIVAL_PREDICATE}
      ${orderBy(sort)}
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;
@@ -488,13 +522,7 @@ export async function getSaleProductsPaged(
       FROM shop.product p
       LEFT JOIN shop.category c ON c.id = p.category_id
      WHERE p.is_active
-       AND EXISTS (
-         SELECT 1 FROM shop.product_variant v
-          WHERE v.product_id = p.id
-            AND v.is_active
-            AND v.compare_at_price_cents IS NOT NULL
-            AND v.compare_at_price_cents > v.price_cents
-       )
+       AND ${SALE_PREDICATE}
      ${orderBy(sort)}
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;

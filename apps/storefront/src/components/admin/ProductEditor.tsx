@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import { saveProductAction, saveVariantAction, deleteVariantAction } from "@/lib/admin/catalog-actions";
 import type { AdminProductDetail, CategoryOption } from "@/lib/admin/products";
 import { CategorySelect } from "@/components/admin/CategorySelect";
+import { DynamicMembership } from "@/components/admin/DynamicMembership";
 import { ShippingFields } from "@/components/admin/ShippingFields";
 
 /**
@@ -251,6 +252,14 @@ export function ProductEditor({
               defaultChecked={product.isNewOverride}
               label="Σήμανση ως «Νέο»"
               hint="Τα προϊόντα εμφανίζονται αυτόματα ως νέα για 30 ημέρες."
+            />
+          </Panel>
+
+          <Panel title="Αυτόματες κατηγορίες">
+            <DynamicMembership
+              variants={product.variants}
+              ageDays={product.ageDays}
+              isNewOverride={product.isNewOverride}
             />
           </Panel>
 

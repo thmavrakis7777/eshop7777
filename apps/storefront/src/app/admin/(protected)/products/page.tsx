@@ -22,16 +22,20 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
   const stock = (one(sp.stock) ?? "all") as "all" | "low" | "out";
   const sort = (one(sp.sort) ?? "newest") as "newest" | "title" | "price-asc" | "price-desc" | "stock-asc";
   const categoryId = one(sp.category) || undefined;
+  // Dynamic collections: the same membership rules the storefront uses, so
+  // this list is exactly what /prosfores and /nea-afiksi will show.
+  const rawDynamic = one(sp.dynamic);
+  const dynamic = rawDynamic === "sale" || rawDynamic === "new" ? rawDynamic : undefined;
   const page = Math.max(1, Number(one(sp.page) ?? 1) || 1);
 
   const [{ products, total, perPage }, categories, collections] = await Promise.all([
-    listProducts({ q, status, stock, categoryId, sort, page }),
+    listProducts({ q, status, stock, categoryId, dynamic, sort, page }),
     listCategoryOptions(),
     listCollectionOptions(),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
-  const hasFilters = Boolean(q || status !== "all" || stock !== "all" || categoryId);
+  const hasFilters = Boolean(q || status !== "all" || stock !== "all" || categoryId || dynamic);
 
   // Preserves every other filter when one changes — otherwise switching sort
   // would silently drop the search the operator just typed.
@@ -41,6 +45,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
     if (status !== "all") next.set("status", status);
     if (stock !== "all") next.set("stock", stock);
     if (categoryId) next.set("category", categoryId);
+    if (dynamic) next.set("dynamic", dynamic);
     if (sort !== "newest") next.set("sort", sort);
     if (value) next.set(key, value);
     else next.delete(key);
@@ -59,6 +64,25 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
           </ButtonLink>
         }
       />
+
+      {dynamic && (
+        <div className="mb-5 rounded-lg border border-accent/30 bg-accent/5 p-4">
+          <p className="text-sm font-medium text-ink">
+            {dynamic === "sale" ? "ΠΡΟΣΦΟΡΕΣ" : "ΝΕΕΣ ΑΦΙΞΕΙΣ"} — αυτόματη κατηγορία
+          </p>
+          <p className="mt-1 text-xs text-ink-muted">
+            {dynamic === "sale"
+              ? "Δείχνει τα προϊόντα με τιμή προσφοράς χαμηλότερη από την κανονική. Άλλαξε την τιμή ενός προϊόντος και μπαίνει ή βγαίνει αυτόματα — δεν προστίθενται χειροκίνητα."
+              : "Δείχνει τα προϊόντα των τελευταίων 30 ημερών, με τα νεότερα πρώτα, μαζί με όσα έχεις σημάνει ως «Νέο»."}
+          </p>
+          <Link
+            href="/admin/products"
+            className="mt-2 inline-block text-xs text-ink underline underline-offset-2"
+          >
+            Καθαρισμός φίλτρου
+          </Link>
+        </div>
+      )}
 
       <form method="get" className="mb-5 flex flex-wrap items-center gap-2">
         <input
