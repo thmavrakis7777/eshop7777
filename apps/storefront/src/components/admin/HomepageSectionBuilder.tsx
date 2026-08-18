@@ -10,6 +10,8 @@ import {
   setHomepageBlockPublishedAction,
 } from "@/lib/admin/cms-actions";
 import { ProductPicker } from "@/components/admin/ProductPicker";
+import { TrustItemsEditor } from "@/components/admin/TrustItemsEditor";
+import { DEFAULT_TRUST_ITEMS } from "@/components/home/TrustStrip";
 import type { AdminHomepageBlock } from "@/lib/admin/cms";
 import type { HomepageSectionKind } from "@/lib/content-types";
 
@@ -47,14 +49,10 @@ const KIND_HINTS: Record<HomepageSectionKind, string> = {
   product_rail: "Οριζόντια λωρίδα προϊόντων — αυτόματη επιλογή ή χειροκίνητη.",
   content: "Ελεύθερη ενότητα: εικόνα, τίτλος, κείμενο και προαιρετικό κουμπί.",
   trust:
-    "Οι τέσσερις εγγυήσεις (παράδοση, επιστροφές, πληρωμή, εξυπηρέτηση). Το κείμενο είναι σταθερό — ελέγχεις μόνο θέση και ορατότητα, γιατί οι υποσχέσεις πρέπει να ταιριάζουν με το τι κάνει πραγματικά το checkout.",
+    "Τα πλακίδια εγγυήσεων. Διάλεξε εικονίδιο και γράψε το δικό σου κείμενο σε καθένα.",
   newsletter:
-    "Η φόρμα εγγραφής στο newsletter. Σταθερό κείμενο — ελέγχεις θέση και ορατότητα.",
+    "Η φόρμα εγγραφής. Τίτλος, κείμενο, κουμπί και προαιρετική εικόνα φόντου είναι δικά σου — η αποστολή email δεν είναι ακόμα συνδεδεμένη.",
 };
-
-// Kinds whose copy is curated in code: the form shows only placement
-// controls, since every content field would be ignored.
-const FIXED_CONTENT_KINDS: HomepageSectionKind[] = ["trust", "newsletter"];
 
 const SOURCE_LABELS: Record<string, string> = {
   newest: "Νεότερα προϊόντα",
@@ -376,9 +374,15 @@ function SectionForm({
 }) {
   const [sourceType, setSourceType] = useState(section?.config.source?.type ?? "newest");
   const src = section?.config.source;
-  const isFixed = FIXED_CONTENT_KINDS.includes(kind);
-  const hasButton = !isFixed && (kind === "hero" || kind === "promo" || kind === "content");
-  const hasImage = !isFixed && (kind === "hero" || kind === "promo" || kind === "content");
+  // `trust` has no free-text copy of its own (its content is the item list);
+  // `newsletter` reuses the standard copy columns and an optional background
+  // image, so it is NOT treated as fieldless.
+  const isTrust = kind === "trust";
+  const isNewsletter = kind === "newsletter";
+  const hasCopy = !isTrust;
+  const hasBody = kind === "hero" || kind === "promo" || kind === "content" || isNewsletter;
+  const hasButton = kind === "hero" || kind === "promo" || kind === "content";
+  const hasImage = kind === "hero" || kind === "promo" || kind === "content" || isNewsletter;
 
   return (
     <form
@@ -391,9 +395,12 @@ function SectionForm({
     >
       <p className="text-xs text-ink-muted">{KIND_HINTS[kind]}</p>
 
+      {isTrust && <TrustItemsEditor defaultItems={section?.config.items ?? DEFAULT_TRUST_ITEMS} />}
+
+
       {/* Copy — every kind uses heading; the rest depend on the kind.
           Fixed-content kinds skip all of it: their text lives in code. */}
-      {!isFixed && (
+      {hasCopy && (
         <div className="grid gap-3 md:grid-cols-2">
           {kind !== "category_grid" && (
             <div>
@@ -408,7 +415,7 @@ function SectionForm({
         </div>
       )}
 
-      {!isFixed && kind !== "category_grid" && kind !== "product_rail" && (
+      {hasBody && (
         <div>
           <label className={label} htmlFor="body">Κείμενο</label>
           <textarea id="body" name="body" rows={3} defaultValue={section?.body ?? ""} className={field} />

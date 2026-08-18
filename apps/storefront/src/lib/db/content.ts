@@ -83,12 +83,15 @@ export const getSiteSettings = unstable_cache(
           og_image_path: string | null;
           default_seo_title: string | null;
           default_seo_description: string | null;
+          phone_orders_enabled: boolean | null;
+          phone_orders_label: string | null;
         }[]
       >`SELECT footer_tagline, contact_phone, contact_email, contact_address,
                business_hours, facebook_url, instagram_url, tiktok_url,
                announcement_text, cart_message,
                store_name, logo_path, favicon_path, og_image_path,
-               default_seo_title, default_seo_description
+               default_seo_title, default_seo_description,
+               phone_orders_enabled, phone_orders_label
           FROM shop.site_setting LIMIT 1`;
       const s = rows[0];
       if (!s) return null;
@@ -109,6 +112,8 @@ export const getSiteSettings = unstable_cache(
         tiktokUrl: s.tiktok_url,
         announcementText: s.announcement_text,
         cartMessage: s.cart_message,
+        phoneOrdersEnabled: s.phone_orders_enabled ?? false,
+        phoneOrdersLabel: s.phone_orders_label,
       };
     } catch {
       return null;

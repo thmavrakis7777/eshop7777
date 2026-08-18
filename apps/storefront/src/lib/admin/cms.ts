@@ -201,6 +201,8 @@ export type AdminSiteSettings = {
   tiktokUrl: string | null;
   announcementText: string | null;
   cartMessage: string | null;
+  phoneOrdersEnabled: boolean;
+  phoneOrdersLabel: string | null;
   freeShippingThresholdCents: number | null;
   defaultVatRate: number;
 };
@@ -214,13 +216,15 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
       contact_phone: string | null; contact_email: string | null; contact_address: string | null;
       business_hours: string | null; facebook_url: string | null; instagram_url: string | null;
       tiktok_url: string | null; announcement_text: string | null; cart_message: string | null;
+      phone_orders_enabled: boolean | null; phone_orders_label: string | null;
       free_shipping_threshold_cents: number | null; default_vat_rate: number;
     }[]
   >`SELECT store_name, logo_path, favicon_path, og_image_path,
            default_seo_title, default_seo_description,
            footer_tagline, contact_phone, contact_email,
            contact_address, business_hours, facebook_url, instagram_url, tiktok_url,
-           announcement_text, cart_message, free_shipping_threshold_cents, default_vat_rate
+           announcement_text, cart_message, phone_orders_enabled, phone_orders_label,
+           free_shipping_threshold_cents, default_vat_rate
       FROM shop.site_setting LIMIT 1`;
 
   const s = rows[0];
@@ -233,6 +237,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
       footerTagline: null, contactPhone: null,
       contactEmail: null, contactAddress: null, businessHours: null, facebookUrl: null,
       instagramUrl: null, tiktokUrl: null, announcementText: null, cartMessage: null,
+      phoneOrdersEnabled: false, phoneOrdersLabel: null,
       freeShippingThresholdCents: null, defaultVatRate: 24,
     };
   }
@@ -246,6 +251,8 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
     contactAddress: s.contact_address, businessHours: s.business_hours,
     facebookUrl: s.facebook_url, instagramUrl: s.instagram_url, tiktokUrl: s.tiktok_url,
     announcementText: s.announcement_text, cartMessage: s.cart_message,
+    phoneOrdersEnabled: s.phone_orders_enabled ?? false,
+    phoneOrdersLabel: s.phone_orders_label,
     freeShippingThresholdCents: s.free_shipping_threshold_cents,
     defaultVatRate: Number(s.default_vat_rate),
   };
@@ -258,15 +265,17 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       default_seo_title, default_seo_description,
       footer_tagline, contact_phone, contact_email,
       contact_address, business_hours, facebook_url, instagram_url, tiktok_url,
-      announcement_text, cart_message, free_shipping_threshold_cents, default_vat_rate, updated_at)
+      announcement_text, cart_message, phone_orders_enabled, phone_orders_label,
+      free_shipping_threshold_cents, default_vat_rate, updated_at)
     VALUES (
       true, ${input.storeName}, ${input.logoPath}, ${input.faviconPath},
       ${input.ogImagePath}, ${input.defaultSeoTitle}, ${input.defaultSeoDescription},
       ${input.footerTagline},
       ${input.contactPhone}, ${input.contactEmail}, ${input.contactAddress},
       ${input.businessHours}, ${input.facebookUrl}, ${input.instagramUrl},
-      ${input.tiktokUrl}, ${input.announcementText}, ${input.cartMessage},
-      ${input.freeShippingThresholdCents}, ${input.defaultVatRate}, now())
+      , , ,
+      , ,
+      , , now())
     ON CONFLICT (id) DO UPDATE SET
       store_name = EXCLUDED.store_name, logo_path = EXCLUDED.logo_path,
       favicon_path = EXCLUDED.favicon_path, og_image_path = EXCLUDED.og_image_path,
@@ -277,6 +286,8 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       business_hours = EXCLUDED.business_hours, facebook_url = EXCLUDED.facebook_url,
       instagram_url = EXCLUDED.instagram_url, tiktok_url = EXCLUDED.tiktok_url,
       announcement_text = EXCLUDED.announcement_text, cart_message = EXCLUDED.cart_message,
+      phone_orders_enabled = EXCLUDED.phone_orders_enabled,
+      phone_orders_label = EXCLUDED.phone_orders_label,
       free_shipping_threshold_cents = EXCLUDED.free_shipping_threshold_cents,
       default_vat_rate = EXCLUDED.default_vat_rate, updated_at = now()`;
 }

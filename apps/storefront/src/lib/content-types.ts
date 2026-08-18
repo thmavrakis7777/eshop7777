@@ -38,6 +38,10 @@ export type SiteSettings = {
   tiktokUrl: string | null;
   announcementText: string | null;
   cartMessage: string | null;
+  // Header "Phone Orders" line. The number itself is contactPhone — one
+  // number for the whole site, shown in two places.
+  phoneOrdersEnabled: boolean;
+  phoneOrdersLabel: string | null;
 };
 
 export type PromoBanner = {
@@ -84,7 +88,30 @@ export type HomepageSectionKind =
   | "trust"
   | "newsletter";
 
+/**
+ * Icons available to a guarantee tile. A fixed set rather than free input:
+ * these render as inline SVG, so accepting arbitrary markup would be an XSS
+ * hole, and arbitrary image URLs would break the strip's visual rhythm.
+ */
+export type TrustIconName =
+  | "truck"
+  | "returns"
+  | "payment"
+  | "support"
+  | "shield"
+  | "phone"
+  | "gift"
+  | "leaf";
+
+export type TrustItem = {
+  icon: TrustIconName;
+  title: string;
+  description: string;
+  visible: boolean;
+};
+
 /** Where a product rail gets its products. */
+
 export type ProductRailSource =
   | { type: "newest"; limit: number }
   | { type: "featured"; limit: number }
@@ -104,6 +131,8 @@ export type HomepageSectionConfig = {
   viewAllHref?: string | null;
   /** hero/promo/content: hide the CTA without losing its configured label/href. */
   showButton?: boolean;
+  /** trust: the guarantee tiles, in order. Absent = the built-in defaults. */
+  items?: TrustItem[];
 };
 
 export type HomepageSection = HomepageBlock & {

@@ -5,6 +5,7 @@ import { PromoBannerBar } from "@/components/layout/PromoBannerBar";
 import { ConsentBanner } from "@/components/layout/ConsentBanner";
 import { AnalyticsScripts } from "@/components/layout/AnalyticsScripts";
 import { Header } from "@/components/layout/Header";
+import { resolvePhoneOrders } from "@/components/layout/PhoneOrders";
 import { Footer } from "@/components/layout/Footer";
 import { CartUIProvider } from "@/components/cart/CartUIProvider";
 import { CartDrawer } from "@/components/cart/CartDrawer";
@@ -160,6 +161,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
             cartTotal={cart?.total ?? { amount: 0, currencyCode: "EUR" }}
             storeName={branding.storeName}
             logoUrl={branding.logoUrl}
+            phoneOrders={resolvePhoneOrders(settings)}
           />
           <main id="main-content" className="flex-1">
             {children}

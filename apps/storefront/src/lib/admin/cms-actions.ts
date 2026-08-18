@@ -15,7 +15,12 @@ import {
   saveSiteSettings,
   setHomepageBlockPublished,
 } from "@/lib/admin/cms";
-import type { HomepageSectionConfig, HomepageSectionKind } from "@/lib/content-types";
+import type {
+  HomepageSectionConfig,
+  HomepageSectionKind,
+  TrustIconName,
+  TrustItem,
+} from "@/lib/content-types";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
 
 /**
@@ -81,6 +86,24 @@ const SECTION_KINDS: HomepageSectionKind[] = [
   "newsletter",
 ];
 
+// Mirrors TrustIconName. Duplicated as a runtime value because a TS union
+// cannot be checked at runtime, and form input must be validated against the
+// real set rather than trusted.
+const TRUST_ICONS = [
+  "truck",
+  "returns",
+  "payment",
+  "support",
+  "shield",
+  "phone",
+  "gift",
+  "leaf",
+] as const;
+
+// A guarantee strip longer than this stops being a strip. Also bounds the
+// parse loop against a crafted form post.
+const MAX_TRUST_ITEMS = 8;
+
 const RAIL_SOURCE_TYPES = [
   "newest",
   "featured",
@@ -114,6 +137,26 @@ function parseConfig(kind: HomepageSectionKind, formData: FormData): HomepageSec
       .split(/[\n,]/)
       .map((s) => s.trim())
       .filter(Boolean);
+  }
+
+  if (kind === "trust") {
+    // Rows arrive as parallel indexed fields (item-0-title, item-0-icon, ...).
+    // Anything without a title is dropped rather than saved as a blank tile.
+    const items: TrustItem[] = [];
+    for (let i = 0; i < MAX_TRUST_ITEMS; i++) {
+      const title = String(formData.get(`item-${i}-title`) ?? "").trim();
+      if (!title) continue;
+      const rawIcon = String(formData.get(`item-${i}-icon`) ?? "truck");
+      items.push({
+        icon: (TRUST_ICONS as readonly string[]).includes(rawIcon)
+          ? (rawIcon as TrustIconName)
+          : "truck",
+        title,
+        description: String(formData.get(`item-${i}-description`) ?? "").trim(),
+        visible: formData.get(`item-${i}-visible`) === "on",
+      });
+    }
+    config.items = items;
   }
 
   if (kind === "product_rail") {
@@ -286,6 +329,8 @@ export async function saveSiteSettingsAction(formData: FormData): Promise<Action
       tiktokUrl: text(formData.get("tiktokUrl")),
       announcementText: text(formData.get("announcementText")),
       cartMessage: text(formData.get("cartMessage")),
+      phoneOrdersEnabled: formData.get("phoneOrdersEnabled") === "on",
+      phoneOrdersLabel: text(formData.get("phoneOrdersLabel")),
       freeShippingThresholdCents: toCents(formData.get("freeShippingThreshold")),
       defaultVatRate: vat,
     });

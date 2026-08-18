@@ -85,12 +85,13 @@ export function HomepageSectionGroup({
     case "content":
       return <ContentSection section={first} />;
 
-    // Fixed-content sections — the owner controls where they sit and
-    // whether they show, not what they say (migration 0005).
+    // Content for these two is CMS-editable, with no migration needed: the
+    // guarantee tiles live in the section's existing `config` jsonb and the
+    // newsletter reuses its own eyebrow/heading/body/cta columns.
     case "trust":
-      return <TrustStrip />;
+      return <TrustStrip section={first} />;
 
     case "newsletter":
-      return <Newsletter />;
+      return <Newsletter section={first} />;
   }
 }
