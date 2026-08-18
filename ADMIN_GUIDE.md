@@ -24,7 +24,12 @@ screens say so plainly instead of failing when you press save.
 | Change a hero image or its button | Αρχική σελίδα → Επεξεργασία on that hero |
 | Add or edit a product | Προϊόντα |
 | Fix a Google title/description | SEO (homepage, categories) or the product's own page |
-| Change VAT or shipping cost | Ρυθμίσεις (owner only) |
+| Change VAT or standard shipping | Ρυθμίσεις (owner only) |
+| Change the top menu, or its order | Πλοήγηση |
+| Make SALES red, or move it | Πλοήγηση → edit that item |
+| Charge more to ship one heavy product | that product → Μεταφορικά |
+| Show a phone number in the top bar | Header & Footer → phone orders |
+| See what is currently on sale | Κατηγορίες → ΠΡΟΣΦΟΡΕΣ |
 
 ---
 
@@ -77,12 +82,20 @@ arrows to arrange them. This is how you build something like "Καλοκαιρι
 **Κείμενο & εικόνα** — a free-form block: image (desktop + mobile), title,
 text, optional button. Use it for anything the other types don't cover.
 
-**Εγγυήσεις καταστήματος** and **Newsletter** — the four guarantee tiles and
-the signup band. You control **where they sit and whether they show**, but
-not their wording. That's deliberate: the guarantees state real delivery,
-returns and payment promises that have to match what checkout actually
-does, and the newsletter form isn't wired to anything yet, so editable copy
-would advertise something that doesn't work.
+**Εγγυήσεις καταστήματος** — the guarantee tiles. Each has an icon (chosen
+from a fixed set), a title, a description, an order and a show/hide toggle.
+The icon list is closed on purpose: these render as inline graphics, so
+free-form input would be a security hole.
+
+Write only what the shop actually does. These are promises about delivery,
+returns and payment, and nothing checks them against what checkout can
+really offer — an earlier version of this strip advertised two payment
+methods the shop did not have.
+
+**Newsletter** — title, text, button label and an optional background image
+are all yours. **The form does not collect anything yet**: there is no
+mailing-list integration in this project, so a shopper who submits it gets
+nothing. Wiring that up is a separate job.
 
 ### Button destinations
 
@@ -134,9 +147,14 @@ dimensions, origin), a badge, warranty text, and per-product SEO. Prices
 and stock live on the product's variants. Bulk-select rows to activate,
 deactivate, recategorise, adjust prices, set stock or archive in one go.
 
-**Κατηγορίες** — the shop menu. Order here is the order customers see.
-A category with subcategories or products can't be deleted until you move
-them, so nothing is orphaned silently.
+**Κατηγορίες** — your product categories and their subcategories. Order here
+controls where they appear on category pages and in pickers; the **top menu
+is separate** and is managed under Πλοήγηση, so adding a category no longer
+puts it in the menu automatically. A category with subcategories or products
+cannot be deleted until you move them, so nothing is orphaned silently.
+
+This screen also shows ΠΡΟΣΦΟΡΕΣ and ΝΕΕΣ ΑΦΙΞΕΙΣ — see «Αυτόματες
+κατηγορίες» below.
 
 **Συλλογές** — cross-category groupings ("Δώρα για το σπίτι"). Each gets
 its own page at `/syllogi/<slug>`. Add products to a collection from the
@@ -145,6 +163,89 @@ shop menu on their own — link to them from a homepage section.
 
 **Απόθεμα** — stock levels across all variants, with low-stock and
 out-of-stock filters. Every change is recorded with who made it.
+
+---
+
+## Πλοήγηση — the top menu
+
+**Πλοήγηση** is the bar of links across the top of the shop. It is a list you
+compose: add, edit, hide, reorder and delete, and the list order is the order
+shoppers see, left to right. The mobile menu shows exactly the same items in
+exactly the same order.
+
+Each item points at one of:
+
+| Destination | Goes to |
+|---|---|
+| Κατηγορία | that category — and opens a dropdown of its subcategories |
+| Συλλογή | that collection's page |
+| Προϊόν | a single product |
+| Προσφορές | the sale page, which fills itself |
+| Νέες αφίξεις | the new-arrivals page, which fills itself |
+| Άλλη διεύθυνση | any page of yours, or an external link |
+
+**Nothing is forced to a position.** SALES can be first, fifth or hidden.
+
+Each item can have its own text and background colour — that is how you get a
+red SALES chip. Leave them empty for normal styling. The editor previews the
+result and warns you if the two colours are too close to read; it will not
+stop you saving, and it only accepts colours, so you cannot break the layout.
+
+**If you delete every item**, the menu falls back to showing your main
+categories automatically. You never end up with an empty bar.
+
+Creating a category does **not** add it to the menu. That is deliberate — you
+decide what belongs up there. Add it here when you want it.
+
+---
+
+## Αυτόματες κατηγορίες — ΠΡΟΣΦΟΡΕΣ and ΝΕΕΣ ΑΦΙΞΕΙΣ
+
+These two sit on the **Κατηγορίες** screen beside your real categories, but
+they work differently: **you never add or remove products from them.**
+
+**ΠΡΟΣΦΟΡΕΣ** contains every product whose sale price is below its regular
+price. Put a product on sale and it appears; remove the sale price and it
+disappears. If the two prices are equal, that is not a discount and it does
+not count.
+
+**ΝΕΕΣ ΑΦΙΞΕΙΣ** contains everything created in the last 30 days, newest
+first. To keep something there for longer, tick **Σήμανση ως «Νέο»** on the
+product. That can only keep a product in — it can never push out a genuinely
+new one.
+
+Click **Δες τα προϊόντα** on either card to see what is currently in it, in
+the normal product list. Each card shows a live count.
+
+They have no Edit or Delete button, and you cannot assign products to them by
+hand. That is not an omission — any such control would contradict the prices
+and dates that actually decide membership.
+
+On a product's own page, the **Αυτόματες κατηγορίες** panel tells you whether
+that product is in each one and why, e.g. "50,00 € → 39,90 € (−20%)". It is
+information only.
+
+---
+
+## Μεταφορικά για βαριά και ογκώδη προϊόντα
+
+Most products ship at your standard rate and need nothing here. For the ones
+that genuinely cost more to send, open the product and use the **Μεταφορικά**
+panel: pick Βαρύ, Ογκώδες or Ειδικό and enter a cost.
+
+How a basket is charged:
+
+- **Only normal products** → your standard shipping, once, and free above
+  your free-shipping threshold.
+- **Any special product** → each special product is charged its own cost,
+  multiplied by quantity, and the normal products travel along for free.
+
+So 2 heavy items at €8 plus a normal item costs **€16**, not €19.50.
+
+Two things worth knowing: the free-shipping threshold does **not** cancel
+these costs — a big order does not make a bathtub cheaper to send — and store
+pickup skips all of it. Choosing a type without entering a cost leaves the
+product on standard shipping, so the label alone never charges anyone.
 
 ---
 
@@ -207,10 +308,11 @@ Being straight about the current limits:
 
 - **Uploading image files** — needs Supabase Storage credentials configured
   once. After that it's self-service.
-- **The wording of the guarantee tiles and the newsletter block**, and the
-  newsletter form actually collecting addresses.
+- **The newsletter form actually collecting addresses** — the copy is yours,
+  but submissions currently go nowhere.
+- **SEO for the ΠΡΟΣΦΟΡΕΣ and ΝΕΕΣ ΑΦΙΞΕΙΣ pages.** They have proper titles,
+  descriptions, canonical URLs and breadcrumbs, but those are not yet
+  editable from the SEO screen the way category pages are.
 - **Adding a new *type* of homepage section** beyond the seven above.
-- **The shop menu structure** — it follows your categories; there's no
-  separate menu builder.
-- **Payment methods** — cash on delivery is the only one configured. A card
-  processor is a real integration.
+- **Payment methods** beyond cash on delivery — a card processor is a real
+  integration.

@@ -83,8 +83,99 @@ Code map:
 - `components/admin/HomepageSectionBuilder.tsx` → the builder UI
 - `lib/admin/cms.ts` / `cms-actions.ts` → queries and Server Actions
 
-Still fixed (not yet CMS-driven): the trust strip and newsletter band at
-the bottom of the page.
+The trust strip and newsletter are ordinary sections too. The guarantee
+tiles are editable (icon from a fixed set of eight, title, description,
+order, visibility) and live in the section's `config` jsonb. The newsletter
+uses the section's own copy columns plus an optional background image. Its
+form still has no submit handler — there is no mailing-list integration, and
+inventing one would collect addresses nowhere.
+
+### Navigation — how to control the main menu
+
+The header menu is an ordered list in `shop.nav_item` (`location='header'`),
+composed at **`/admin/content/navigation`**. Six destination kinds:
+
+| Kind | Resolves to |
+|---|---|
+| `category` | `/<slug>` — opens a mega menu if the category has children |
+| `collection` | `/syllogi/<slug>` |
+| `product` | `/proionta/<slug>` |
+| `new_arrivals` | `/nea-afiksi` (fixed) |
+| `sale` | `/prosfores` (fixed) |
+| `custom` | any same-site path or `http(s)` URL |
+
+Fixed routes are resolved in `resolveNavHref` (`lib/data/navigation.ts`), not
+stored, so renaming `/prosfores` is a code change rather than an UPDATE
+across every row.
+
+**The category fallback is permanent.** With zero items configured the
+header renders every top-level category, exactly as before this table was
+used. A shop that never opens the screen still has a working menu — this is
+not a migration step to be removed later.
+
+Desktop renders it as its own full-width row below the logo (`flex-wrap`, so
+a long list becomes a second line rather than an overflow). The mobile menu
+renders **the same list, in the same order** — both read `navItems`, so they
+cannot drift.
+
+Per-item colours are optional, stored as `#rrggbb`, and validated in three
+places: a column CHECK, the Server Action, and the form. They are emitted
+only as inline `color`/`backgroundColor`, never as arbitrary CSS. The admin
+shows a live WCAG contrast ratio and warns below 4.5:1 without blocking.
+
+Code: `lib/data/navigation.ts` (storefront read + href resolution),
+`lib/admin/navigation.ts` + `nav-actions.ts` (CRUD),
+`components/admin/NavigationManager.tsx` (UI).
+
+### Dynamic categories — SALES and NEW ARRIVALS
+
+Neither is a row in `shop.category`. Membership is **derived**, so there is
+no list to maintain and no way for the dashboard to disagree with the shop.
+
+Both rules are defined **once**, as exported SQL fragments in
+`lib/db/catalog.ts`, and imported by the storefront listings *and* the admin
+views:
+
+- `SALE_PREDICATE` — at least one active variant whose
+  `compare_at_price_cents` is **strictly above** its `price_cents`. Strictly:
+  an equal compare-at price is a price that was never reduced, not a 0%
+  discount.
+- `NEW_ARRIVAL_PREDICATE` — created within 30 days, **or** flagged with the
+  pre-existing `is_new_override` column. The override can only ever ADD a
+  product, never remove a genuinely new one, so it cannot contradict the date
+  logic.
+
+Do not duplicate these predicates. A second copy will eventually disagree.
+
+In the admin they appear on the categories screen with live counts (two
+`COUNT(*) FILTER` clauses in one query) and deliberately no
+Edit/Delete/add-product controls. `/admin/products?dynamic=sale|new` filters
+the normal product list. The product editor shows a read-only panel
+explaining *why* a product is in each.
+
+### Shipping — standard vs oversized
+
+`shop.shipping_method` remains the standard cost chosen at checkout.
+`shop.product` carries an optional `shipping_class`
+(standard/heavy/large/custom) and `shipping_cost_cents`.
+
+Two regimes in `computeTotals` (`lib/db/cart.ts`), never mixed:
+
+- **all-standard cart** → the method's price once, waived above
+  `free_over_cents`
+- **any oversized item** → each oversized line pays its own cost × quantity,
+  and standard items ride along free
+
+So 1 normal = 3.50, 1 heavy + 1 normal = 8.00, 2 heavy + 1 normal = **16.00**.
+The free-shipping threshold deliberately does not waive oversized costs.
+Store pickup skips everything.
+
+The class is descriptive only; the cost is what is charged. A class set
+without a cost degrades to standard shipping rather than to a guess. The cost
+is joined live from the product, not frozen onto the cart line like price is.
+
+All of it is server-side; the Server Action re-validates the class against
+its own allowlist and clamps the cost non-negative.
 
 ### Images
 
@@ -106,6 +197,14 @@ dead button.
 - `sitemap.ts` enumerates categories, collections and products;
   `robots.ts` disallows admin/cart/checkout/account/wishlist.
 - Paginated listings self-canonicalize on page 2+.
+- `/prosfores` and `/nea-afiksi` have unique URLs, canonicals, titles,
+  descriptions and breadcrumbs, and both are in the sitemap. **Known gap**:
+  neither reads `shop.seo_meta`, so their SEO is not yet dashboard-editable.
+  Closing it needs `SeoResourceType` widened plus a migration to relax the
+  `resource_type` CHECK.
+- `/prosfores` stays indexable even when empty: it is a permanent linked
+  destination whose emptiness is temporary, and flipping robots on stock
+  levels teaches crawlers the URL is unreliable.
 
 ### Performance architecture
 

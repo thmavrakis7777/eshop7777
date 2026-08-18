@@ -3,6 +3,166 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Storefront becomes owner-managed: navigation, shipping, phone, dynamic categories (2026-08-18)
+
+Ten commits covering the second half of the "manage it myself" work. The
+theme throughout: things that used to be code are now data the owner edits,
+and anything derived stays derived rather than becoming a list to maintain.
+
+### Navigation is composed, not generated
+
+The main nav could only ever be "every top-level category, in category
+order", so SALES and NEW ARRIVALS were impossible without inventing fake
+categories. It is now an ordered list with six destination kinds — category,
+collection, product, new arrivals, sale, and any path or external URL —
+managed at `/admin/content/navigation`.
+
+**Extended `shop.nav_item` rather than adding a table.** `0001_init` created
+it with the comment "Makes header/footer navigation editable, which it is not
+today" — an aspirational stub, always empty, never read by any code. Its
+id/parent_id/location/label/sort_order/is_active columns were already right.
+What it lacked was a *typed* destination: a bare `href` could not tell a
+category link from a hand-typed one, so no picker was possible, and storing
+`/prosfores` would have made renaming that route a data migration. `href` was
+dropped rather than kept alongside — two sources of truth for one link, with
+no rule for which wins, is worse than a column change on an empty table.
+
+The category fallback is **permanent, not a transition step**: with no items
+configured the header renders top-level categories exactly as before. A shop
+that never opens this screen still has a working menu.
+
+Per-item colours are validated `#rrggbb` in three places — column CHECK,
+Server Action, and form — because they are emitted into inline
+`color`/`backgroundColor`. Custom destinations reject `javascript:` outright
+rather than relying on React's escaping. The admin previews the chip and
+shows its WCAG contrast ratio, warning below 4.5:1 without blocking a save.
+
+The nav moved to its own full-width row below the logo. Nine categories with
+names like ΕΡΓΑΛΕΙΑ - ΗΛΕΚΤΡΟΛΟΓΙΚΑ cannot sit beside a wordmark and five
+icons without shrinking type past readable; `flex-wrap` means a longer list
+becomes a second line rather than an overflow.
+
+The mobile menu was the real gap — it still mapped raw categories, so it
+ignored the admin configuration entirely. It now renders the same list as
+the desktop bar, so the two cannot drift.
+
+### SALES and NEW ARRIVALS are dynamic, and now visible as such
+
+Both rules already existed: sale is `compare_at_price_cents > price_cents`
+on a variant, and NEW ARRIVALS already had an `is_new_override` column plus a
+30-day window. Neither was rebuilt.
+
+The structural change is that **both rules are now exported SQL fragments
+defined once** (`SALE_PREDICATE`, `NEW_ARRIVAL_PREDICATE` in
+`lib/db/catalog.ts`) and imported by the storefront listings *and* the admin
+views. The storefront previously had them inline; a second copy in the admin
+would eventually have disagreed about what counts as on sale.
+
+`/prosfores` is entirely derived — no flag, collection or category to keep in
+sync, so it cannot disagree with the prices customers see. Filtered in SQL,
+not by post-filtering a fetch-everything query, so paging and counts stay
+honest. In the sitemap and indexable even when empty: it is a permanent
+linked destination whose emptiness is temporary, and flipping robots on stock
+levels teaches crawlers the URL is unreliable.
+
+In the admin they appear beside the real categories with live counts (two
+`COUNT(*) FILTER` clauses in one query, not products fetched and counted in
+JS), and deliberately **without** Edit/Delete/add-product controls — every
+one would be a lie about how membership works. The product editor gains a
+read-only panel explaining *why* a product is in each: "50,00 € → 39,90 €
+(−20%)", or its age against the window. No checkbox, because a control that
+appeared to toggle a derived value could only do nothing or contradict the
+prices on the same screen.
+
+### Per-product shipping for heavy and oversized items
+
+`shipping_method` stays the standard cost; this adds an optional per-product
+override. Two regimes, never mixed:
+
+* all-standard cart → the method's price once, waived above the free-shipping
+  threshold (unchanged behaviour)
+* any oversized item → each oversized line pays its own cost × quantity, and
+  standard items ride along free instead of adding the method price on top
+
+So 1 normal = 3.50, 1 heavy + 1 normal = 8.00, **2 heavy + 1 normal = 16.00**.
+That last case is why this is not "highest item wins".
+
+The free-shipping threshold deliberately does **not** waive oversized costs —
+a large order does not make a bathtub cheaper to send. Store pickup skips
+everything, since nothing is shipped.
+
+`shipping_class` and `shipping_cost_cents` are separate columns on purpose:
+the class is descriptive so products can be grouped without a label silently
+becoming money, and a class set without a cost degrades to standard shipping
+rather than to a guess. Cost is joined live from the product rather than
+frozen onto the cart line like price is — correcting a shipping cost should
+apply to open carts, whereas a captured price deliberately should not.
+
+### Phone orders, guarantees, newsletter
+
+**Phone orders** live in the existing announcement bar, far left.
+`contact_phone` already existed and the footer already used it, so only a
+visibility toggle and an editable label were added — one number, one place to
+change it. A real `<a href="tel:">`, never a script-initiated call.
+
+**Store guarantees** were four hardcoded tiles; each now has an icon, title,
+description, order and show/hide. Icons are a fixed set of eight rather than
+free input — they render as inline SVG, so owner-supplied markup would be an
+injection hole. No migration: they live in the section's existing `config`
+jsonb.
+
+**Newsletter** reads the section's own eyebrow/heading/body/cta_label columns
+plus an optional background image with a fixed scrim. The form still has no
+submit handler — there is no mailing-list integration in this project, and
+inventing one would collect addresses nowhere. The admin hint says so.
+
+### Product form
+
+The category picker is now Category → Subcategory instead of one flat
+`<select>` with leading dashes for depth. Still submits a single `categoryId`
+— the subcategory when chosen, otherwise the parent — because a product
+belongs to exactly one category and the parent link is already in the
+database. Trees deeper than two levels still work; the UI stays two controls.
+
+### Bugs found and fixed
+
+* **`truncate` clipped the brand** to "MAVRAKIS HO…". Introduced while fixing
+  a 320px header overflow — one bug traded for a worse one. Root cause,
+  measured: the logo box got 144px while the name needed 173px. Replaced with
+  fluid `clamp()` type and no `overflow-hidden`, so it can never be silently
+  cut again.
+* **Header overflowed horizontally at 320px and 360px.** Pre-existing: the
+  logo carried `shrink-0`, so a long store name pushed the search and cart
+  buttons off-screen.
+* **Announcement text was centred in the leftover space**, not the bar.
+  Fixed with a three-column grid whose outer columns are forced equal; the
+  same technique then centred the brand on the true header centre, verified
+  stable under asymmetric icon widths.
+* **Phone link tap target was 16px**, below the WCAG 2.2 minimum. Now 24px
+  via padding absorbed back out of the layout, so the bar's height is
+  unchanged.
+* **Two `<nav>` landmarks shared one accessible name**, making a screen
+  reader's landmark list ambiguous.
+* **`Date.now()` during client render** in the new product-editor panel —
+  impure and hydrates inconsistently. Caught by `react-hooks/purity`, not by
+  review; age is now computed server-side.
+* **A `${siteUrl}` interpolation was stripped** from the `/nea-afiksi`
+  sitemap entry by a careless edit, leaving it relative. Caught by reading
+  the generated `sitemap.xml` rather than trusting the diff.
+
+### Still not done
+
+* Image upload — blocked on `NEXT_PUBLIC_SUPABASE_URL` and
+  `SUPABASE_SERVICE_ROLE_KEY`. Image fields accept full URLs today.
+* SEO overrides for `/prosfores` and `/nea-afiksi`. Both have unique URLs,
+  canonicals, titles, descriptions and breadcrumbs, but neither reads
+  `seo_meta`, so their SEO is not yet dashboard-editable. Needs a
+  `SeoResourceType` widen and a migration.
+* Newsletter submissions go nowhere.
+* Several admin forms from this stretch are typechecked and linted but were
+  never clicked through — the admin password changed mid-session and
+  resetting it was blocked.
+
 ## Pooler question settled by measurement; admin guide rewritten (2026-08-17)
 
 **The transaction-pooler question is closed, with data.** Two earlier
