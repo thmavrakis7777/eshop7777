@@ -567,8 +567,20 @@ export async function bulkArchive(ids: string[]): Promise<{ deleted: number; dea
 // Pickers
 // ---------------------------------------------------------------------------
 
-export async function listCategoryOptions(): Promise<Array<{ id: string; name: string; depth: number }>> {
-  const rows = await sql<{ id: string; name: string; depth: number }[]>`
+export type CategoryOption = {
+  id: string;
+  name: string;
+  depth: number;
+  parentId: string | null;
+};
+
+// `parentId` is what lets the product form present Category then Subcategory
+// as two dropdowns instead of one indented list â the picker needs to know
+// which options belong under which parent, not just how deep they sit.
+export async function listCategoryOptions(): Promise<CategoryOption[]> {
+  const rows = await sql<
+    { id: string; name: string; depth: number; parent_id: string | null }[]
+  >`
     WITH RECURSIVE tree AS (
       SELECT id, name, parent_id, 0 AS depth, name AS path
         FROM shop.category WHERE parent_id IS NULL
@@ -576,8 +588,8 @@ export async function listCategoryOptions(): Promise<Array<{ id: string; name: s
       SELECT c.id, c.name, c.parent_id, t.depth + 1, t.path || ' / ' || c.name
         FROM shop.category c JOIN tree t ON c.parent_id = t.id
     )
-    SELECT id, name, depth FROM tree ORDER BY path COLLATE "el-GR-x-icu"`;
-  return rows;
+    SELECT id, name, depth, parent_id FROM tree ORDER BY path COLLATE "el-GR-x-icu"`;
+  return rows.map((r) => ({ id: r.id, name: r.name, depth: r.depth, parentId: r.parent_id }));
 }
 
 export async function listCollectionOptions(): Promise<Array<{ id: string; title: string }>> {

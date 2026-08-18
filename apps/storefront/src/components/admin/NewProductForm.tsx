@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { createProductAction } from "@/lib/admin/catalog-actions";
+import { CategorySelect } from "@/components/admin/CategorySelect";
+import type { CategoryOption } from "@/lib/admin/products";
 
 const field =
   "w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-ink";
@@ -29,7 +31,7 @@ function slugFromTitle(title: string): string {
     .slice(0, 80);
 }
 
-export function NewProductForm({ categories }: { categories: Array<{ id: string; name: string; depth: number }> }) {
+export function NewProductForm({ categories }: { categories: CategoryOption[] }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -120,20 +122,7 @@ export function NewProductForm({ categories }: { categories: Array<{ id: string;
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="np-category" className="text-sm font-medium text-ink">
-          Κατηγορία
-        </label>
-        <select id="np-category" name="categoryId" className={field} defaultValue="">
-          <option value="">— Καμία —</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {"— ".repeat(c.depth)}
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <CategorySelect categories={categories} />
 
       {error && (
         <p role="alert" className="text-sm text-danger">

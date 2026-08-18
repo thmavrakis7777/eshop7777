@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { saveProductAction, saveVariantAction, deleteVariantAction } from "@/lib/admin/catalog-actions";
-import type { AdminProductDetail } from "@/lib/admin/products";
+import type { AdminProductDetail, CategoryOption } from "@/lib/admin/products";
+import { CategorySelect } from "@/components/admin/CategorySelect";
 
 /**
  * The product editor — the screen the store owner spends most of their time in.
@@ -31,7 +32,7 @@ export function ProductEditor({
   collections,
 }: {
   product: AdminProductDetail;
-  categories: Array<{ id: string; name: string; depth: number }>;
+  categories: CategoryOption[];
   collections: Array<{ id: string; title: string }>;
 }) {
   const router = useRouter();
@@ -246,17 +247,7 @@ export function ProductEditor({
           </Panel>
 
           <Panel title="Οργάνωση">
-            <Field label="Κατηγορία" htmlFor="categoryId">
-              <select id="categoryId" name="categoryId" defaultValue={product.categoryId ?? ""} className={field}>
-                <option value="">— Καμία —</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {"— ".repeat(c.depth)}
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <CategorySelect categories={categories} defaultValue={product.categoryId} />
 
             <fieldset>
               <legend className={labelCls}>Συλλογές</legend>
