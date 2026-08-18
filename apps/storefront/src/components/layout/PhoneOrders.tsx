@@ -46,7 +46,10 @@ export function PhoneOrdersLink({ phoneOrders }: { phoneOrders: PhoneOrders }) {
     <a
       href={telHref(phone)}
       aria-label={`${label}: ${phone}`}
-      className="flex shrink-0 items-center gap-1.5 transition-opacity hover:opacity-80"
+      // -my-1 py-1 grows the tap target to 24px (WCAG 2.2 target-size
+      // minimum) without making the bar any taller: the padding is real,
+      // the negative margin absorbs it back out of the layout.
+      className="-my-1 flex shrink-0 items-center gap-1.5 py-1 transition-opacity hover:opacity-80"
     >
       <PhoneIcon className="h-3.5 w-3.5 shrink-0" />
       <span className="hidden sm:inline">{label}:</span>

@@ -15,7 +15,12 @@ import Link from "next/link";
 export function StoreLogo({
   storeName,
   logoUrl,
-  className = "font-display text-2xl tracking-tight text-ink shrink-0",
+  // `min-w-0 truncate` instead of `shrink-0`: with `shrink-0` a long store
+  // name refused to give up width and pushed the header's search/cart
+  // buttons off-screen below ~360px (real overflow, measured at 320px).
+  // The smaller mobile size buys most of the room back; truncation is the
+  // safety net for names longer than any breakpoint anticipates.
+  className = "font-display text-xl sm:text-2xl tracking-tight text-ink min-w-0 truncate",
   href = "/",
 }: {
   storeName: string;
