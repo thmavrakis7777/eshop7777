@@ -56,13 +56,22 @@ export function HeroSlide({
   const showButton = content.config?.showButton !== false && Boolean(ctaLabel && ctaHref);
 
   return (
-    <div
-      className="relative flex min-h-[26rem] flex-col justify-end overflow-hidden rounded-lg bg-surface-strong bg-cover bg-center p-8 md:min-h-[32rem] md:p-14"
-      style={imageUrl && !mobileImageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}
-    >
-      {/* A separate mobile crop can't be done with one background-image, so
-          when the owner supplies one the art-directed pair is rendered as a
-          real <picture> behind the copy instead. */}
+    <div className="relative flex min-h-[26rem] flex-col justify-end overflow-hidden rounded-lg bg-surface-strong p-8 md:min-h-[32rem] md:p-14">
+      {/* A real <img> rather than a CSS background-image: the latter is an
+          inline `style="background-image:url(...)"` attribute, which a
+          strict CSP without 'unsafe-inline' on style-src-elem blocks —
+          confirmed live the moment a real image was first set here (never
+          triggered before, since imageUrl was null on every production
+          deploy until now). <picture>/<source> covers the art-directed
+          two-image case; a plain <img> covers one image the same way. */}
+      {imageUrl && !mobileImageUrl && (
+        <img
+          src={imageUrl}
+          alt={imageAlt ?? ""}
+          className="absolute inset-0 h-full w-full object-cover"
+          fetchPriority="high"
+        />
+      )}
       {imageUrl && mobileImageUrl && (
         <picture>
           <source media="(min-width: 768px)" srcSet={imageUrl} />
