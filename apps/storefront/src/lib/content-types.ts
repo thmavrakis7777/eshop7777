@@ -142,7 +142,17 @@ export type HomepageSection = HomepageBlock & {
 
 export type ContentPage = { id: string; title: string; body: string | null };
 
-export type SeoResourceType = "product" | "category" | "collection" | "page" | "homepage";
+// Mirrors the CHECK constraint on shop.seo_meta.resource_type — widened by
+// migration 0011 so Journal articles store their SEO in the one polymorphic
+// table every other resource already uses, rather than growing a second set
+// of SEO columns on shop.journal_article.
+export type SeoResourceType =
+  | "product"
+  | "category"
+  | "collection"
+  | "page"
+  | "homepage"
+  | "journal_article";
 
 export type SeoOverride = {
   seoTitle: string | null;

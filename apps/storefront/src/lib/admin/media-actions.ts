@@ -8,7 +8,7 @@ import type { ActionResult } from "@/lib/admin/catalog-actions";
 // Purely organisational (which folder inside the bucket) — not a security
 // boundary, but validated anyway so a direct call to this action can't be
 // used to write to an arbitrary path prefix.
-const ALLOWED_FOLDERS = new Set(["categories", "homepage", "branding"]);
+const ALLOWED_FOLDERS = new Set(["categories", "homepage", "branding", "journal"]);
 
 /**
  * Generic single-image upload for a form field that holds one path/URL

@@ -90,6 +90,87 @@ uses the section's own copy columns plus an optional background image. Its
 form still has no submit handler — there is no mailing-list integration, and
 inventing one would collect addresses nowhere.
 
+### Journal — the editorial content system (2026-08-19)
+
+The shop's content-marketing section: buying guides, home-organisation
+ideas, kitchen and garden advice. Public name is **Journal**, never "Blog"
+— that is a branding rule about user-facing copy only, which is why the
+structured data still uses schema.org's `BlogPosting`.
+
+Managed entirely from **`/admin/journal`** (list) → **`/admin/journal/new`**
+→ **`/admin/journal/[id]`** (editor), with categories at
+**`/admin/journal/categories`**. Publishing an article never requires a code
+change.
+
+Storefront URLs:
+
+| URL | What |
+|---|---|
+| `/journal` | Landing: lead article + paginated card grid (12/page) |
+| `/journal/[slug]` | One article |
+| `/journal/kategoria/[slug]` | One category's articles |
+
+Two tables, `shop.journal_category` and `shop.journal_article` (migration
+`0011_journal.sql`). It is deliberately **not** built on
+`shop.content_page`: that is a closed set of eleven slugs, each needing its
+own literal route file, with no slug creation, dates, categories or images.
+What *is* reused rather than duplicated is `shop.seo_meta` — per-article SEO
+lives there under `resource_type = 'journal_article'`, the same polymorphic
+table products and categories use, so there is one SEO storage shape in the
+database rather than two. Migration 0011 only had to widen that table's
+`resource_type` CHECK.
+
+**The publishing gate is defined once**, in `lib/data/journal.ts`:
+`status = 'published' AND published_at IS NOT NULL AND published_at <= now()`.
+It lives in the WHERE clause of every storefront read, so a draft's body
+never reaches the render layer and cannot leak through a component that
+forgot to check. Drafts 404 on the storefront (same rule as an unpublished
+content page) and are absent from the sitemap.
+
+**Scheduling** is that gate plus a future `published_at` — no cron, no job
+runner: the storefront renders per request and the article simply starts
+being visible when its time passes (within the 60s cache window). Granularity
+is one **day**: `<input type="date">` in the editor, converted to 08:00
+Europe/Athens by Postgres's `AT TIME ZONE` (`lib/admin/journal.ts`). A
+wall-clock time would have been ambiguous between a UTC server and a Greek
+shop for no real gain.
+
+**Content format** — `components/journal/ArticleBody.tsx`. No WYSIWYG, on
+purpose: production runs a strict nonce'd CSP with no `unsafe-inline` on
+`script-src` and no external script origins, and every mainstream editor
+needs one or the other. It extends the plain-text convention
+`ContentPageView.renderBody` already used (blank line = paragraph) with
+`## `/`### ` headings, `- `/`1. ` lists, `> ` quotes, `**bold**`,
+`[label](/href)` links and `[εικόνα: path | alt]` images. The parser emits
+**React elements**, so there is no HTML string anywhere and nothing to
+sanitise; link `href`s are still allow-listed against `javascript:`. Images
+are real `<img>` elements — never a CSS `background-image`, which the CSP
+blocks (see commit 5095f74).
+
+**Related products** are optional and owner-chosen: a `text[]` of product
+slugs on the article, filled by the existing `ProductPicker` (the same
+newline-separated wire format the homepage's manual rail uses) and resolved
+by the existing `getProductsByHandles`, which preserves the chosen order.
+Zero cost when empty — the query is skipped entirely.
+
+**Related articles** are automatic, not a join table: one query orders by
+"same category first, then newest" and takes three. A brand-new category
+with a single article therefore still gets a useful footer instead of an
+empty section, and there is no second relationship for the owner to
+maintain.
+
+Journal is linked from the **footer only** (`components/layout/Footer.tsx`,
+"Εταιρεία" column). The header stays focused on shopping.
+
+Code map:
+- `db/migrations/0011_journal.sql` → schema + the widened `seo_meta` CHECK
+- `lib/data/journal.ts` → storefront reads, cache tag `journal`
+- `lib/admin/journal.ts` / `journal-actions.ts` → admin queries + Server Actions
+- `components/journal/ArticleBody.tsx` → the content parser/renderer
+- `components/journal/JournalCard.tsx` → hero, cards, grid, category chips
+- `components/admin/JournalArticleEditor.tsx` → the editor
+- `components/admin/JournalCategoryManager.tsx` → categories
+
 ### Navigation — how to control the main menu
 
 The header menu is an ordered list in `shop.nav_item` (`location='header'`),
@@ -267,21 +348,35 @@ its own allowlist and clamps the cost non-negative.
 
 `lib/storage/urls.ts` derives a public URL from a stored **path**, and
 passes an absolute `http(s)` URL straight through. So every image field
-accepts either today. File **upload** does not exist yet — it is gated on
-`NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`, which are not in
-`.env.local`; `/admin/content/media` explains this rather than showing a
-dead button.
+accepts either. File **upload** now works (`lib/storage/upload.ts`, one
+`fetch` to Supabase Storage's REST API — no `@supabase/supabase-js`) and is
+gated on `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`;
+`/admin/content/media` explains the gap rather than showing a dead button
+when they are absent.
+
+One bucket (`product-images`), folder-namespaced. The folder allow-list is
+`ALLOWED_FOLDERS` in `lib/admin/media-actions.ts` — currently
+`categories`, `homepage`, `branding`, `journal` — and must stay in step with
+the `folder` prop union on `components/admin/ImageUploadField.tsx`, or an
+upload is silently rewritten to `uploads/`.
 
 ### SEO architecture
 
 - Per-resource overrides in `shop.seo_meta`, keyed
   `(resource_type, resource_id)` where `resource_type` ∈ product, category,
-  collection, page, homepage. Read via `getSeoOverride()`.
+  collection, page, homepage, journal_article. Read via `getSeoOverride()`.
+  Widening that set means a migration (the column has a CHECK) *and*
+  `SeoResourceType` in `lib/content-types.ts` — 0011 did both for the
+  Journal.
 - Site-wide defaults from branding (above).
 - JSON-LD: Organization + WebSite (storefront layout), BreadcrumbList,
-  Product with Offer/AggregateOffer. All escaped via `lib/json-ld.ts`.
-- `sitemap.ts` enumerates categories, collections and products;
-  `robots.ts` disallows admin/cart/checkout/account/wishlist.
+  Product with Offer/AggregateOffer, LocalBusiness/FAQPage (category landing
+  pages), BlogPosting (Journal articles). All escaped via `lib/json-ld.ts`.
+- `sitemap.ts` enumerates categories, collections, products, published
+  Journal articles and non-empty Journal categories; `robots.ts` disallows
+  admin/cart/checkout/account/wishlist. Journal drafts and not-yet-due
+  scheduled articles are excluded by the same publishing gate the storefront
+  serves, so the sitemap can never offer a URL that 404s.
 - Paginated listings self-canonicalize on page 2+.
 - `/prosfores` and `/nea-afiksi` have unique URLs, canonicals, titles,
   descriptions and breadcrumbs, and both are in the sitemap. **Known gap**:
@@ -332,7 +427,7 @@ failed, and bots crawling junk URLs should cost nothing.
 
 ### Security posture
 
-RLS enabled with zero policies on all 37 `shop` tables (access is
+RLS enabled with zero policies on all 39 `shop` tables (access is
 server-side via the connection string, which bypasses RLS by design — the
 lockdown closes the PostgREST/Data API surface). Admin Server Actions all
 call `requireAdmin()`/`requireOwner()` before reading arguments. Store-wide

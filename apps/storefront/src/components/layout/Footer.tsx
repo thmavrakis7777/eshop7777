@@ -15,8 +15,13 @@ const helpLinks = [
   { label: "Επικοινωνία", href: "/epikoinonia" },
 ];
 
+// Journal lives here and ONLY here in the site chrome. The header's job is
+// shopping (categories, offers, new arrivals) and adding an editorial section
+// to it would dilute that; the footer is a real, crawlable internal link on
+// every page, which is what the section needs to be discovered and indexed.
 const companyLinks = [
   { label: "Σχετικά με εμάς", href: "/sxetika" },
+  { label: "Journal", href: "/journal" },
   { label: "Οδηγοί Αγορών", href: "/odigoi-agoron" },
   { label: "Καριέρα", href: "/karieres" },
 ];

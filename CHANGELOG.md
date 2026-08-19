@@ -3,6 +3,168 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## MAVRAKIS HOME Journal — editorial CMS and SEO content system (2026-08-19)
+
+A premium content section the owner runs entirely from the dashboard: buying
+guides, home-organisation ideas, kitchen and garden advice. Public name is
+**Journal**, never "Blog". Two goals, weighted equally — brand positioning and
+organic search traffic — which is why the SEO surface is as complete as the
+editorial one.
+
+### What was reused, and what deliberately was not
+
+The first question was whether the existing "Content Pages" system could carry
+it. It could not, and the reason is structural rather than aesthetic:
+`shop.content_page` is a **closed set of eleven slugs**, each of which needs
+its own literal route folder (`CONTENT_PAGE_SLUGS` in `lib/admin/cms.ts` says
+so explicitly, and that friction is the point). It has no slug creation, no
+publication dates, no categories, no images and no ordering. Forcing a
+growing, dated, categorised article system through it would have meant
+breaking the one invariant that makes it safe.
+
+So the Journal is its own pair of tables — but it borrows that system's
+*patterns* wholesale: publish-defaults-to-off, an unpublished item 404s rather
+than going live empty, publish state leading the admin list, plain-text bodies
+rather than HTML.
+
+What genuinely **was** reused rather than duplicated:
+
+- **`shop.seo_meta`.** Per-article SEO title, meta description, canonical, OG
+  title/description/image, keywords and robots all live in the existing
+  polymorphic table under `resource_type = 'journal_article'`, read through the
+  existing `getSeoOverride()` and written with the same
+  `ON CONFLICT … DO UPDATE` / "all fields empty ⇒ DELETE the row" behaviour
+  `updateProduct` established. Migration 0011's only change to it was widening
+  the `resource_type` CHECK. The alternative — nine SEO columns on
+  `journal_article` — would have been a second SEO storage shape to keep in
+  step forever. (This also closes half of the "known gap" PROJECT_MEMORY
+  recorded under SEO architecture: the mechanism for widening
+  `SeoResourceType` now exists and is exercised.)
+- **`ProductPicker`** for related products, unchanged, over the same
+  newline-separated-slugs wire format the homepage's manual rail already uses.
+- **`ImageUploadField`** + `uploadMediaAction` for images — one new entry in
+  `ALLOWED_FOLDERS` (`journal`), no new bucket, no new config.
+- **`Breadcrumbs`**, `Pagination`, `ProductCard`, `safeJsonLd`,
+  `deriveMetaDescription`, `requireAdmin`/`auditLog`, the `ActionResult`
+  contract, and the admin `primitives` vocabulary.
+
+Also de-duplicated in passing: the Greek slugify function that
+`NewProductForm` kept inline was about to become a third copy, so it moved to
+`lib/slug.ts` and both product and Journal forms now import it. Behaviour
+unchanged.
+
+### Schema (`0011_journal.sql`)
+
+`shop.journal_category` (owner-created, never hardcoded — Κουζίνα, Οργάνωση
+Σπιτιού, Κήπος et al. are seed examples, not an enum) and
+`shop.journal_article`. `category_id` is `ON DELETE SET NULL`: deleting a
+category must never delete the owner's writing.
+
+Related products are a `text[]` of slugs, not a join table. It matches the
+picker's existing output, `getProductsBySlugs` already preserves the requested
+order (which *is* the display order the owner chose), and a join table would
+have bought referential integrity we would then hand-maintain for a list of at
+most a handful of purely presentational items.
+
+### The publishing gate is defined exactly once
+
+```
+status = 'published' AND published_at IS NOT NULL AND published_at <= now()
+```
+
+It lives in the WHERE clause of every storefront read in `lib/data/journal.ts`
+— listings, single article, related, and the sitemap feed. A draft's body
+never reaches the render layer, so there is no component that could forget to
+check, and there is no second definition of "published" that could drift out
+of step with what is actually served. Drafts 404; they are not merely
+unlinked.
+
+**Scheduling falls out of that gate for free**: a future `published_at` means
+the article starts being visible when its time passes. No cron, no job runner
+— the storefront renders per request. Granularity is one day, on purpose: the
+editor uses `<input type="date">` and Postgres converts it to 08:00
+Europe/Athens with `AT TIME ZONE`. A wall-clock *time* would have been
+ambiguous between a UTC server (Vercel) and a Greek shop, and "publish on
+Monday" is what an owner actually wants.
+
+### No rich-text editor, and that is the design
+
+Production runs a strict nonce'd CSP with no `unsafe-inline` on `script-src`
+and no external script origins (`src/proxy.ts`). Every mainstream WYSIWYG
+needs one or the other, so adopting one would have meant loosening the policy
+that is currently this app's main XSS control — and it would have produced
+HTML, which then needs `dangerouslySetInnerHTML` plus a sanitiser.
+
+Instead `components/journal/ArticleBody.tsx` extends the plain-text convention
+`ContentPageView.renderBody` already uses (blank line = paragraph) with the
+marks an editorial article actually needs: `## `/`### ` headings, `- `/`1. `
+lists, `> ` pull quotes, `**bold**`, `[label](/href)` links and
+`[εικόνα: path | alt]` images. It emits **React elements** — there is no HTML
+string anywhere in the pipeline, so there is nothing to sanitise and nothing
+to escape. Link `href`s are still allow-listed (`/`, `#`, `http(s):`,
+`mailto:`, `tel:`) so a pasted `javascript:` URL can never become stored XSS.
+Zero new dependencies; `package.json` is unchanged.
+
+Images in the body are real `<img>` elements with an aspect-ratio box, never a
+CSS `background-image` — that is the exact failure mode commit 5095f74 fixed
+three commits ago, and it fails silently in production.
+
+### SEO surface
+
+Unique title and meta description per article (falling back to the article's
+own title and excerpt, then to derived body text — never fabricated), clean
+`/journal/[slug]` URLs, canonical, `BlogPosting` + `BreadcrumbList` JSON-LD,
+Open Graph `type=article` with `publishedTime`/`modifiedTime` and image alt,
+Twitter card, one `<h1>` with a real `##`/`###` hierarchy under it, per-image
+alt text, and a `noindex` switch per article.
+
+Category pages are **real routes** (`/journal/kategoria/[slug]`), not a query
+param — consistent with how three-level product categories and collections are
+routed here, and because "Οδηγοί Αγοράς" is a topic page worth ranking on its
+own. A category with no live articles 404s rather than serving a thin page.
+`kategoria` is a reserved article slug, rejected in `lib/admin/journal.ts`,
+because the literal segment would otherwise shadow an article that existed in
+the database but 404'd on the site.
+
+Internal linking is the point of the `[label](/href)` mark: the seeded guides
+link out to `/kouzina/mageirika-skeyi/tigania`, `/spiti-organosi/…` and each
+other, which is what ties the section into the catalogue's topical structure
+for readers and crawlers alike.
+
+Sitemap: the landing page is permanent (listed even when empty, same reasoning
+as `/prosfores`), plus every live article and every non-empty category — all
+inside the existing try/catch that degrades to static routes when the database
+is unreachable, so the 2026-08 build-time outage regression stays fixed.
+
+### Where it appears
+
+Footer only (`Εταιρεία` column), as a real crawlable `<Link>`. The header and
+main category navigation are untouched — shopping stays shopping.
+
+### Dashboard
+
+`/admin/journal` (list, publish/unpublish inline) → `/admin/journal/new`
+(title + slug, creates a draft, redirects straight into the editor) →
+`/admin/journal/[id]` (one long form: content, image, publishing, related
+products, SEO — deliberately not tabs, because hiding the SEO fields behind
+one is how they never get filled in). Categories at
+`/admin/journal/categories`.
+
+### Verified
+
+`tsc --noEmit`, `eslint` and `next build` all clean. Against a real running
+build: `/journal`, an article and a category page render; a draft article and
+an empty category both return **404**; the sitemap contains the two published
+articles and two non-empty categories and **not** the draft; images upload to
+and load from the new `journal/` storage folder through the production CSP;
+BlogPosting + BreadcrumbList JSON-LD parse; no horizontal scroll at 320px or
+375px with a 30px H1 and 18px body text.
+
+Two Greek sample articles were seeded (a frying-pan buying guide and a
+wardrobe-organisation piece) with real internal links to real categories and
+real related products — genuine content proving the pipeline end to end, not
+lorem ipsum.
+
 ## Final project audit — soft 404s fixed, branded 404 page (2026-08-19)
 
 A full verification pass over the whole project (frontend, dashboard, category

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { createProductAction } from "@/lib/admin/catalog-actions";
 import { CategorySelect } from "@/components/admin/CategorySelect";
+import { slugFromGreek as slugFromTitle } from "@/lib/slug";
 import type { CategoryOption } from "@/lib/admin/products";
 
 const field =
@@ -12,24 +13,10 @@ const field =
  * Slug and SKU are derived from the title as you type, but stay editable —
  * and stop auto-deriving the moment they are edited by hand, so a deliberate
  * value is never overwritten by a later title tweak.
+ *
+ * The transliteration itself moved to lib/slug.ts when the Journal's two new
+ * forms needed the identical function; behaviour is unchanged.
  */
-function slugFromTitle(title: string): string {
-  const map: Record<string, string> = {
-    α: "a", β: "v", γ: "g", δ: "d", ε: "e", ζ: "z", η: "i", θ: "th", ι: "i",
-    κ: "k", λ: "l", μ: "m", ν: "n", ξ: "x", ο: "o", π: "p", ρ: "r", σ: "s",
-    ς: "s", τ: "t", υ: "y", φ: "f", χ: "ch", ψ: "ps", ω: "o",
-  };
-  return title
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .split("")
-    .map((c) => map[c] ?? c)
-    .join("")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-}
 
 export function NewProductForm({ categories }: { categories: CategoryOption[] }) {
   const [pending, startTransition] = useTransition();

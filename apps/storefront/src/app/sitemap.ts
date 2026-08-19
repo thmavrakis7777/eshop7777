@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getNavCategories } from "@/lib/data/categories";
 import { getContentPage } from "@/lib/data/content-pages";
+import { getJournalSitemapEntries } from "@/lib/data/journal";
 import { getAllCollectionHandles, getAllProductHandles } from "@/lib/data/products";
 import { siteUrl } from "@/lib/site-config";
 import type { CategoryNode } from "@/lib/types";
@@ -31,6 +32,11 @@ const baseRoutes: MetadataRoute.Sitemap = [
   // sitemap on stock levels teaches crawlers the URL is unreliable.
   { url: `${siteUrl}/prosfores`, changeFrequency: "daily", priority: 0.8 },
   { url: `${siteUrl}/protainomena`, changeFrequency: "weekly", priority: 0.7 },
+  // The Journal landing page is a permanent, footer-linked destination and
+  // stays listed even before the first article exists, for the same reason
+  // /prosfores does — dropping a real URL from the sitemap on content levels
+  // teaches crawlers the URL is unreliable.
+  { url: `${siteUrl}/journal`, changeFrequency: "weekly", priority: 0.7 },
 ];
 
 // Enumerates the full catalog directly (fine at today's scale). Once the
@@ -46,12 +52,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let productHandles: Awaited<ReturnType<typeof getAllProductHandles>>;
   let collectionHandles: Awaited<ReturnType<typeof getAllCollectionHandles>>;
   let contentPages: { slug: (typeof CONTENT_PAGE_SLUGS)[number]; page: unknown }[];
+  let journal: Awaited<ReturnType<typeof getJournalSitemapEntries>>;
   try {
-    [navCategories, productHandles, collectionHandles, contentPages] = await Promise.all([
+    [navCategories, productHandles, collectionHandles, contentPages, journal] = await Promise.all([
       getNavCategories(),
       getAllProductHandles(),
       getAllCollectionHandles(),
       Promise.all(CONTENT_PAGE_SLUGS.map(async (slug) => ({ slug, page: await getContentPage(slug) }))),
+      // Published (and already-due) articles only — the query applies the
+      // same publishing gate the storefront serves, so a draft or a scheduled
+      // article can never be offered to a crawler before it exists.
+      getJournalSitemapEntries(),
     ]);
   } catch (error) {
     console.warn("sitemap: database unreachable, generating static-only sitemap.", error);
@@ -97,5 +108,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  return [...staticRoutes, ...categoryRoutes, ...collectionRoutes, ...productRoutes];
+  // Articles rank above product pages here because an editorial guide is the
+  // entry point a search visitor lands on first; category pages sit just
+  // below the landing page, in line with the other content routes.
+  const journalRoutes: MetadataRoute.Sitemap = [
+    ...journal.categories.map((c) => ({
+      url: `${siteUrl}/journal/kategoria/${c.slug}`,
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    })),
+    ...journal.articles.map((a) => ({
+      url: `${siteUrl}/journal/${a.slug}`,
+      lastModified: a.updatedAt,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+  ];
+
+  return [...staticRoutes, ...categoryRoutes, ...collectionRoutes, ...productRoutes, ...journalRoutes];
 }

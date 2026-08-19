@@ -49,6 +49,10 @@ export const NAV: NavGroup[] = [
       { label: "Πλοήγηση", href: "/admin/content/navigation" },
       { label: "Header & Footer", href: "/admin/content/layout" },
       { label: "Σελίδες", href: "/admin/content/pages" },
+      // Its own entry rather than a child of "Σελίδες": that screen edits a
+      // fixed set of eleven static pages, while this is a growing article
+      // system with its own categories, dates and images.
+      { label: "Journal", href: "/admin/journal" },
       { label: "Πολυμέσα", href: "/admin/content/media" },
       { label: "SEO", href: "/admin/content/seo" },
     ],

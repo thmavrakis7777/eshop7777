@@ -29,7 +29,9 @@ export function ImageUploadField({
   id?: string;
   name: string;
   defaultValue?: string | null;
-  folder: "categories" | "homepage" | "branding";
+  // Must stay in step with ALLOWED_FOLDERS in lib/admin/media-actions.ts —
+  // anything else is silently rewritten to "uploads" server-side.
+  folder: "categories" | "homepage" | "branding" | "journal";
   placeholder?: string;
 }) {
   const [path, setPath] = useState(defaultValue ?? "");
