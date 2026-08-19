@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireAdmin, auditLog } from "@/lib/admin/auth";
 import {
   CatalogError,
+  addProductImage,
   adjustStock,
   bulkAddToCollection,
   bulkAdjustPrice,
@@ -14,12 +15,15 @@ import {
   bulkSetCategory,
   bulkSetStock,
   createProduct,
+  deleteProductImage,
   deleteVariant,
   listProducts,
   saveVariant,
   slugify,
   updateProduct,
 } from "@/lib/admin/products";
+import { createMediaAsset } from "@/lib/admin/cms";
+import { uploadImage, UploadError } from "@/lib/storage/upload";
 import { SEARCH_CACHE_TAG } from "@/lib/db/catalog";
 
 /**
@@ -305,6 +309,54 @@ export async function deleteVariantAction(productId: string, variantId: string):
   revalidatePath(`/admin/products/${productId}`);
   updateTag(SEARCH_CACHE_TAG);
   return { ok: true, message: "Η παραλλαγή διαγράφηκε." };
+}
+
+/**
+ * Unlike the single-path image fields on categories/homepage blocks, a
+ * product has a list (shop.product_image) — so uploading immediately
+ * inserts the row rather than filling in a field the surrounding form
+ * saves later. There is no separate "save" step for an added image.
+ */
+export async function addProductImageAction(productId: string, formData: FormData): Promise<ActionResult> {
+  let admin;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Δεν επιλέχθηκε αρχείο." };
+  }
+
+  try {
+    const { path, bytes } = await uploadImage(file, "products");
+    await createMediaAsset({ storagePath: path, label: file.name, bytes });
+    await addProductImage(productId, path);
+    await auditLog(admin.id, "product.image_add", "product", productId, { path });
+  } catch (err) {
+    if (err instanceof UploadError) return { ok: false, error: err.message };
+    return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
+  }
+
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Η εικόνα προστέθηκε." };
+}
+
+export async function deleteProductImageAction(productId: string, imageId: string): Promise<ActionResult> {
+  let admin;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+  await deleteProductImage(imageId);
+  await auditLog(admin.id, "product.image_delete", "product", productId, { imageId });
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Η εικόνα διαγράφηκε." };
 }
 
 export async function adjustStockAction(variantId: string, quantity: number): Promise<ActionResult> {

@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin/taxonomy-actions";
 import type { AdminCategory } from "@/lib/admin/taxonomy";
 import { MAX_CATEGORY_DEPTH } from "@/lib/category-depth";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 /**
  * The category tree, edited in place.
@@ -353,9 +354,9 @@ function CategoryForm({
           needs it on an ordinary product category above all. */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-ink">Εικόνα (προαιρετικό)</label>
-        <input name="imagePath" defaultValue={category?.imagePath ?? ""} className={field} />
+        <ImageUploadField name="imagePath" defaultValue={category?.imagePath} folder="categories" />
         <p className="text-xs text-ink-muted">
-          Διαδρομή αρχείου ή πλήρες URL. Χρησιμοποιείται στις κάρτες επιλογής κατηγορίας. Κενό = εμφανίζεται
+          Ανέβασε αρχείο ή επικόλλησε URL. Χρησιμοποιείται στις κάρτες επιλογής κατηγορίας. Κενό = εμφανίζεται
           το αρχικό γράμμα της κατηγορίας.
         </p>
       </div>

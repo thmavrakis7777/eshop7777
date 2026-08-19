@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin/cms-actions";
 import { ProductPicker } from "@/components/admin/ProductPicker";
 import { TrustItemsEditor } from "@/components/admin/TrustItemsEditor";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { DEFAULT_TRUST_ITEMS } from "@/components/home/TrustStrip";
 import type { AdminHomepageBlock } from "@/lib/admin/cms";
 import type { HomepageSectionKind } from "@/lib/content-types";
@@ -426,22 +427,16 @@ function SectionForm({
         <div className="grid gap-3 md:grid-cols-2">
           <div>
             <label className={label} htmlFor="imagePath">Εικόνα (desktop)</label>
-            <input
-              id="imagePath"
-              name="imagePath"
-              defaultValue={section?.imagePath ?? ""}
-              placeholder="https://… ή διαδρομή αρχείου"
-              className={field}
-            />
+            <ImageUploadField id="imagePath" name="imagePath" defaultValue={section?.imagePath} folder="homepage" />
           </div>
           <div>
             <label className={label} htmlFor="mobileImagePath">Εικόνα (mobile)</label>
-            <input
+            <ImageUploadField
               id="mobileImagePath"
               name="mobileImagePath"
-              defaultValue={section?.mobileImagePath ?? ""}
+              defaultValue={section?.mobileImagePath}
+              folder="homepage"
               placeholder="Προαιρετικό — αλλιώς χρησιμοποιείται η desktop"
-              className={field}
             />
           </div>
           <div className="md:col-span-2">

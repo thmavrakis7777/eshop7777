@@ -8,6 +8,7 @@ import type { AdminProductDetail, CategoryOption } from "@/lib/admin/products";
 import { CategorySelect } from "@/components/admin/CategorySelect";
 import { DynamicMembership } from "@/components/admin/DynamicMembership";
 import { ShippingFields } from "@/components/admin/ShippingFields";
+import { ProductImageManager } from "@/components/admin/ProductImageManager";
 
 /**
  * The product editor — the screen the store owner spends most of their time in.
@@ -306,23 +307,7 @@ export function ProductEditor({
           </Panel>
 
           <Panel title="Εικόνες">
-            {/* Deliberately honest: uploads need Supabase Storage credentials
-                that are not configured yet. Showing a dead upload button
-                would be worse than saying so. */}
-            {product.images.length === 0 ? (
-              <p className={hint}>
-                Δεν υπάρχουν εικόνες. Η μεταφόρτωση ενεργοποιείται μόλις ρυθμιστεί το Supabase Storage
-                (δες PROJECT_MEMORY.md).
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {product.images.map((img) => (
-                  <li key={img.id} className="truncate text-sm text-ink-muted">
-                    {img.storagePath}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <ProductImageManager productId={product.id} images={product.images} />
           </Panel>
         </div>
       </div>

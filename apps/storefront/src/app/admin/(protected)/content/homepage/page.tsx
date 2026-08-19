@@ -62,12 +62,12 @@ export default async function AdminHomepagePage() {
                 από εδώ ακόμα.
               </li>
               <li>
-                Οι εικόνες δέχονται πλήρες URL. Η μεταφόρτωση αρχείων ενεργοποιείται μόλις ρυθμιστεί το
-                Supabase Storage (δες{" "}
+                Οι εικόνες δέχονται πλήρες URL ή ανεβαίνουν απευθείας με το κουμπί «Ανέβασμα» δίπλα σε κάθε
+                πεδίο εικόνας — δες όλα τα ανεβασμένα αρχεία στα{" "}
                 <Link href="/admin/content/media" className="text-ink underline underline-offset-2">
                   Πολυμέσα
                 </Link>
-                ).
+                .
               </li>
             </ul>
           </Card>

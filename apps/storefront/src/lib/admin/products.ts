@@ -278,6 +278,31 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
 }
 
 // ---------------------------------------------------------------------------
+// Product images
+// ---------------------------------------------------------------------------
+
+/**
+ * Appends after the current last image. Position 0 is the primary image
+ * (shown on cards/search — see 0001_init.sql), so a product's first upload
+ * becomes primary automatically without any explicit "set as primary" step.
+ */
+export async function addProductImage(
+  productId: string,
+  storagePath: string,
+  altText: string | null = null
+): Promise<void> {
+  const [{ next }] = await sql<{ next: number }[]>`
+    SELECT COALESCE(MAX(position) + 1, 0)::int AS next FROM shop.product_image WHERE product_id = ${productId}`;
+  await sql`
+    INSERT INTO shop.product_image (product_id, storage_path, alt_text, position)
+    VALUES (${productId}, ${storagePath}, ${altText}, ${next})`;
+}
+
+export async function deleteProductImage(imageId: string): Promise<void> {
+  await sql`DELETE FROM shop.product_image WHERE id = ${imageId}`;
+}
+
+// ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
 

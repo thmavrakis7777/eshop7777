@@ -42,6 +42,20 @@ import type { NextRequest } from "next/server";
 // against the real constant by a test in lib/admin/auth.ts's own module.
 const ADMIN_COOKIE = "stia_admin";
 
+// Product/category/hero photos live in Supabase Storage (lib/storage/urls.ts,
+// same env var next.config.ts already reads for next/image's remotePatterns)
+// — img-src needs that exact origin too, or every uploaded image loads fine
+// through next/image's allow-list but is then blocked by the browser's own
+// CSP enforcement. Conditional because a fresh checkout with no Storage
+// credentials yet must not add `undefined` to the header.
+const supabaseImageOrigin = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : null;
+  } catch {
+    return null;
+  }
+})();
+
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
@@ -63,7 +77,7 @@ export function proxy(request: NextRequest) {
     script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
     style-src 'self' 'unsafe-inline';
     style-src-elem 'self'${isDev ? " 'unsafe-inline'" : ` 'nonce-${nonce}'`};
-    img-src 'self' blob: data: https://www.google-analytics.com https://www.facebook.com;
+    img-src 'self' blob: data: https://www.google-analytics.com https://www.facebook.com${supabaseImageOrigin ? ` ${supabaseImageOrigin}` : ""};
     connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://connect.facebook.net https://www.clarity.ms https://c.clarity.ms;
     font-src 'self';
     object-src 'none';

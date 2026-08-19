@@ -526,3 +526,22 @@ export async function listMediaAssets(): Promise<AdminMediaAsset[]> {
 export function isStorageConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
+
+/**
+ * Records an uploaded file in the media library. ON CONFLICT covers a
+ * re-upload racing a previous row for the same path — storage_path is
+ * generated as a random UUID (lib/storage/upload.ts), so this is a defensive
+ * backstop rather than an expected case.
+ */
+export async function createMediaAsset(input: {
+  storagePath: string;
+  label: string | null;
+  bytes: number | null;
+}): Promise<string> {
+  const [row] = await sql<{ id: string }[]>`
+    INSERT INTO shop.media_asset (storage_path, label, bytes)
+    VALUES (${input.storagePath}, ${input.label}, ${input.bytes})
+    ON CONFLICT (storage_path) DO UPDATE SET label = EXCLUDED.label, bytes = EXCLUDED.bytes
+    RETURNING id`;
+  return row.id;
+}
