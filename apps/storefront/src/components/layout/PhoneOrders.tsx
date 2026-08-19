@@ -24,7 +24,7 @@ export function resolvePhoneOrders(settings: {
  * `tel:` wants digits and an optional leading +, while the visible text keeps
  * whatever formatting the owner typed.
  */
-function telHref(phone: string): string {
+export function telHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, "")}`;
 }
 

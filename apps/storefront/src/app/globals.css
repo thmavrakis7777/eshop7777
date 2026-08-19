@@ -101,6 +101,27 @@
     display: none;
   }
 
+  /* The mobile menu's drill-down: each level replaces the last in place, so
+     a short slide from the edge it came from is the only thing telling the
+     shopper a level changed rather than a page. --menu-level-from is set per
+     level (forward vs back) by MobileMenu. */
+  @keyframes menu-level-in {
+    from {
+      opacity: 0;
+      transform: translateX(var(--menu-level-from, 1rem));
+    }
+  }
+
+  .menu-level {
+    animation: menu-level-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu-level {
+      animation: none;
+    }
+  }
+
   .sr-only-focusable:not(:focus) {
     position: absolute;
     width: 1px;

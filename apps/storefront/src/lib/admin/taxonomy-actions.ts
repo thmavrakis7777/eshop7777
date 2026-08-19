@@ -14,6 +14,7 @@ import {
 import { adjustStock } from "@/lib/admin/products";
 import { CATEGORY_CACHE_TAG } from "@/lib/data/categories";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
+import type { FaqItem } from "@/lib/types";
 
 function mapError(err: unknown): string {
   if (err instanceof TaxonomyError) {
@@ -22,6 +23,8 @@ function mapError(err: unknown): string {
       case "has_children": return "Η κατηγορία έχει υποκατηγορίες. Διάγραψε ή μετακίνησέ τις πρώτα.";
       case "has_products": return "Η κατηγορία έχει προϊόντα. Μετακίνησέ τα σε άλλη κατηγορία πρώτα.";
       case "cycle": return "Μια κατηγορία δεν μπορεί να μπει μέσα στον εαυτό της.";
+      case "too_deep":
+        return "Οι κατηγορίες φτάνουν μέχρι τρία επίπεδα (κύρια → υποκατηγορία → υπο-υποκατηγορία).";
       case "not_found": return "Δεν βρέθηκε.";
     }
   }
@@ -55,6 +58,21 @@ const categorySchema = z.object({
   slug: slugField,
 });
 
+// Fixed number of Q/A slots rather than a dynamic list editor — five is
+// comfortably more than any category has needed so far, and a flat set of
+// fields matches how every other admin form on this site is built (see
+// CmsForm). Blank pairs are dropped rather than stored as empty strings, so
+// the storefront's "only render what's actually there" checks stay simple.
+function parseFaq(formData: FormData): FaqItem[] | null {
+  const items: FaqItem[] = [];
+  for (let i = 1; i <= 5; i++) {
+    const question = text(formData.get(`faqQuestion${i}`));
+    const answer = text(formData.get(`faqAnswer${i}`));
+    if (question && answer) items.push({ question, answer });
+  }
+  return items.length > 0 ? items : null;
+}
+
 export async function saveCategoryAction(formData: FormData): Promise<ActionResult> {
   let admin;
   try {
@@ -66,6 +84,9 @@ export async function saveCategoryAction(formData: FormData): Promise<ActionResu
   const parsed = categorySchema.safeParse({ name: formData.get("name"), slug: formData.get("slug") });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
+  const pageTypeRaw = formData.get("pageType");
+  const pageType = pageTypeRaw === "landing" ? "landing" : "products";
+
   const id = text(formData.get("id")) ?? undefined;
   try {
     const savedId = await saveCategory({
@@ -76,6 +97,9 @@ export async function saveCategoryAction(formData: FormData): Promise<ActionResu
       parentId: text(formData.get("parentId")),
       sortOrder: Number(formData.get("sortOrder") ?? 0) || 0,
       isActive: formData.get("isActive") === "on",
+      pageType,
+      imagePath: text(formData.get("imagePath")),
+      faq: parseFaq(formData),
     });
     await auditLog(admin.id, id ? "category.update" : "category.create", "category", savedId, {
       name: parsed.data.name,

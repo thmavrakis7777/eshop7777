@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
+import { CategoryChildNav, type ChildCategoryLink } from "@/components/category/CategoryChildNav";
 import { SortControl } from "@/components/category/SortControl";
+import { renderBody } from "@/components/content/ContentPageView";
 import { InfiniteProductGrid, type ProductSource } from "@/components/category/InfiniteProductGrid";
 import type { Product } from "@/lib/types";
 import type { ProductSort } from "@/lib/data/products";
@@ -17,7 +19,10 @@ export function CategoryPLPView({
   title,
   description,
   breadcrumbs,
-  subcategories,
+  childCategories,
+  childNavTitle,
+  parentLink,
+  longDescription,
   products,
   count,
   sort,
@@ -31,7 +36,23 @@ export function CategoryPLPView({
   title: string;
   description?: string;
   breadcrumbs: Crumb[];
-  subcategories?: Crumb[];
+  /** Direct children of the category being viewed — never the whole subtree. */
+  childCategories?: ChildCategoryLink[];
+  childNavTitle?: string;
+  /**
+   * Where "up one level" goes. Offered again beside the empty state because
+   * a shopper who lands on a category with nothing in it is looking at the
+   * middle of the page, not at the breadcrumb they scrolled past.
+   */
+  parentLink?: Crumb;
+  /**
+   * Owner-written category copy, rendered *after* the grid rather than
+   * between the H1 and the products. It runs to several paragraphs where
+   * it exists at all, and putting that above the fold would push the child
+   * picker and the products themselves off a phone screen — the shopper
+   * came to shop, and the crawler reads the page either way.
+   */
+  longDescription?: string;
   products: Product[];
   count: number;
   sort: ProductSort;
@@ -62,18 +83,8 @@ export function CategoryPLPView({
         <h1 className="text-3xl text-ink md:text-4xl">{title}</h1>
         {description && <p className="mt-3 max-w-2xl text-sm text-ink-muted md:text-base">{description}</p>}
 
-        {subcategories && subcategories.length > 0 && (
-          <div className="mt-6 flex flex-wrap gap-2">
-            {subcategories.map((sub) => (
-              <Link
-                key={sub.href}
-                href={sub.href}
-                className="rounded-full border border-border px-4 py-2 text-sm text-ink hover:border-accent hover:text-accent transition-colors"
-              >
-                {sub.label}
-              </Link>
-            ))}
-          </div>
+        {childCategories && childCategories.length > 0 && (
+          <CategoryChildNav title={childNavTitle ?? "Διάλεξε κατηγορία"} items={childCategories} />
         )}
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
@@ -82,9 +93,19 @@ export function CategoryPLPView({
         </div>
 
         {products.length === 0 ? (
-          <p className="py-16 text-center text-sm text-ink-muted">
-            {emptyMessage ?? "Δεν βρέθηκαν προϊόντα σε αυτή την κατηγορία αυτή τη στιγμή."}
-          </p>
+          <div className="py-16 text-center">
+            <p className="text-sm text-ink-muted">
+              {emptyMessage ?? "Δεν βρέθηκαν προϊόντα σε αυτή την κατηγορία αυτή τη στιγμή."}
+            </p>
+            {parentLink && (
+              <Link
+                href={parentLink.href}
+                className="mt-4 inline-block py-1.5 text-sm font-medium text-accent hover:underline"
+              >
+                <span aria-hidden="true">←</span> Επιστροφή σε {parentLink.label}
+              </Link>
+            )}
+          </div>
         ) : (
           <InfiniteProductGrid
             source={source}
@@ -96,6 +117,14 @@ export function CategoryPLPView({
             basePath={basePath}
             extraParams={extraParams}
           />
+        )}
+
+        {longDescription && (
+          <section className="mt-14 max-w-3xl border-t border-border pt-8">
+            <div className="flex flex-col gap-4 text-sm leading-relaxed md:text-base">
+              {renderBody(longDescription)}
+            </div>
+          </section>
         )}
       </div>
     </>

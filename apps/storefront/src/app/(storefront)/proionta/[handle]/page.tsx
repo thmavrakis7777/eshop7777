@@ -14,7 +14,7 @@ import { ProductRailSkeleton } from "@/components/home/ProductRailSkeleton";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { Stars } from "@/components/ui/Stars";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
-import { getCategoryWithParentByHandle } from "@/lib/data/categories";
+import { categoryPathHref, getCategoryTrail } from "@/lib/data/categories";
 import { getProductByHandle, getRelatedProducts } from "@/lib/data/products";
 import type { Product } from "@/lib/types";
 import { getProductExtra } from "@/lib/data/product-extras";
@@ -70,20 +70,21 @@ export default async function ProductPage({ params }: Props) {
   const product = await getProductByHandle(handle);
   if (!product) notFound();
 
-  // getCategoryWithParentByHandle gets the category and its parent's name
-  // in one query — the old code needed a second, sequential
-  // getCategoryByHandle call once parentHandle was known, a real (not just
-  // reorderable) request waterfall. Related products moved to its own
-  // Suspense boundary below (see RelatedProducts) — it's below the fold
-  // and independent, no reason for it to gate the rest of the page.
-  const [categoryResult, seo, extra, nonce] = await Promise.all([
-    product.categoryHandle ? getCategoryWithParentByHandle(product.categoryHandle) : undefined,
+  // getCategoryTrail returns the whole chain of ancestors, not just the
+  // immediate parent, and reads the category tree the layout's nav has
+  // already loaded on this request — so it costs no query at all, where the
+  // parent lookup it replaces cost one. The chain is what makes the
+  // breadcrumb links work: a third-level category's URL contains its
+  // grandparent, so a product in Τηγάνια used to link to /mageirika-skeyi
+  // and /mageirika-skeyi/tigania, both of which 404. Related products moved
+  // to their own Suspense boundary below (see RelatedProducts) — below the
+  // fold and independent, no reason for it to gate the rest of the page.
+  const [categoryTrail, seo, extra, nonce] = await Promise.all([
+    product.categoryHandle ? getCategoryTrail(product.categoryHandle) : undefined,
     getSeoOverride("product", product.id),
     getProductExtra(product.id),
     headers().then((h) => h.get("x-nonce") ?? undefined),
   ]);
-  const category = categoryResult?.category;
-  const parentCategory = categoryResult?.parent;
 
   const productJsonLd = {
     "@context": "https://schema.org",
@@ -134,16 +135,13 @@ export default async function ProductPage({ params }: Props) {
     ...(seo?.structuredDataOverride ?? {}),
   };
 
-  const breadcrumbItems = category
-    ? [
-        ...(parentCategory ? [{ label: parentCategory.name, href: `/${parentCategory.handle}` }] : []),
-        {
-          label: category.name,
-          href: parentCategory ? `/${parentCategory.handle}/${category.handle}` : `/${category.handle}`,
-        },
-        { label: product.title, href: `/proionta/${product.handle}` },
-      ]
-    : [{ label: product.title, href: `/proionta/${product.handle}` }];
+  const breadcrumbItems = [
+    ...(categoryTrail ?? []).map((c, i) => ({
+      label: c.name,
+      href: categoryPathHref(categoryTrail!.slice(0, i), c),
+    })),
+    { label: product.title, href: `/proionta/${product.handle}` },
+  ];
 
   return (
     <>

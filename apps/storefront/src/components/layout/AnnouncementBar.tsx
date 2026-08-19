@@ -11,15 +11,28 @@ import { PhoneOrdersLink, type PhoneOrders } from "./PhoneOrders";
  *
  * LAYOUT — two regimes, because one cannot serve both well:
  *
- * Narrow (< sm): stacked. Phone on its own line at the left, announcement
- * centred beneath it. Below roughly 400px the two simply do not fit on one
- * line, and stacking is what keeps the announcement readable instead of
- * squeezing it to two words per line or letting it collide with the number.
+ * Below xl: stacked, both lines centred. Below roughly 400px the two simply
+ * do not fit on one line, and stacking is what keeps the announcement
+ * readable instead of squeezing it to two words per line or letting it
+ * collide with the number. Centring both (rather than pinning the phone to
+ * the left) reads as one deliberate block instead of two mismatched halves.
  *
- * sm and up: a three-column grid, `minmax(0,1fr) auto minmax(0,1fr)`. The
+ * This regime also covers the entire tablet range on purpose: the phone
+ * label ("Τηλεφωνικές παραγγελίες:") is long enough that the three-column
+ * grid below has it wrapping to a second line — and colliding with the
+ * centred announcement — anywhere from ~640px up to just past 1024px. That
+ * wrap point shifts with whatever an admin types into either field, so
+ * rather than chase it with a breakpoint tuned to today's copy, the stacked
+ * layout (each half gets its own full-width row, so nothing competes for
+ * column space) simply runs all the way through tablet widths, where it has
+ * plenty of room to look intentional rather than squeezed. The phone label is
+ * shown here (unlike true mobile) since a tablet-width bar has room for it.
+ *
+ * xl and up: a three-column grid, `minmax(0,1fr) auto minmax(0,1fr)`. The
  * two outer columns are forced to exactly equal widths, so the middle column
  * sits at the TRUE centre of the bar — not centred in the space left over
  * after the phone, which is what a plain `flex-1 text-center` gives you.
+ * Safe from 1280px on: comfortably past where the phone content could wrap.
  *
  * Deliberately a grid rather than an absolutely-positioned centre: an
  * absolute element is out of flow, so a bar with an announcement and no
@@ -38,16 +51,16 @@ export function AnnouncementBar({
   return (
     <div className="bg-ink text-xs text-white/90">
       <div
-        className="container-shell flex flex-col items-center gap-1 py-2
-                   sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-3"
+        className="container-shell flex flex-col items-center gap-2 py-2
+                   xl:grid xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:items-center xl:gap-3"
       >
         {phoneOrders && (
-          <div className="self-start sm:col-start-1 sm:justify-self-start">
+          <div className="xl:col-start-1 xl:justify-self-start xl:self-start">
             <PhoneOrdersLink phoneOrders={phoneOrders} />
           </div>
         )}
         {text && (
-          <p className="text-balance text-center sm:col-start-2 sm:justify-self-center">{text}</p>
+          <p className="text-balance text-center xl:col-start-2 xl:justify-self-center">{text}</p>
         )}
       </div>
     </div>

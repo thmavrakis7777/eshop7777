@@ -50,7 +50,9 @@ export function Footer({
       <div className="container-shell grid grid-cols-2 gap-8 py-12 md:grid-cols-4 lg:grid-cols-6">
         <div className="col-span-2">
           <StoreLogo storeName={storeName} logoUrl={logoUrl} href={null} className="font-display text-xl text-ink" />
-          <p className="mt-3 max-w-xs text-sm text-ink-muted">{settings?.footerTagline || DEFAULT_TAGLINE}</p>
+          <p className="mt-3 max-w-xs whitespace-pre-line text-sm text-ink-muted">
+            {settings?.footerTagline || DEFAULT_TAGLINE}
+          </p>
 
           {hasContact && (
             <ul className="mt-4 flex flex-col gap-1 text-sm text-ink-muted">

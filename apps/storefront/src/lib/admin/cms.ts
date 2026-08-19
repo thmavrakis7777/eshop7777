@@ -272,10 +272,9 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       ${input.ogImagePath}, ${input.defaultSeoTitle}, ${input.defaultSeoDescription},
       ${input.footerTagline},
       ${input.contactPhone}, ${input.contactEmail}, ${input.contactAddress},
-      ${input.businessHours}, ${input.facebookUrl}, ${input.instagramUrl},
-      , , ,
-      , ,
-      , , now())
+      ${input.businessHours}, ${input.facebookUrl}, ${input.instagramUrl}, ${input.tiktokUrl},
+      ${input.announcementText}, ${input.cartMessage}, ${input.phoneOrdersEnabled}, ${input.phoneOrdersLabel},
+      ${input.freeShippingThresholdCents}, ${input.defaultVatRate}, now())
     ON CONFLICT (id) DO UPDATE SET
       store_name = EXCLUDED.store_name, logo_path = EXCLUDED.logo_path,
       favicon_path = EXCLUDED.favicon_path, og_image_path = EXCLUDED.og_image_path,

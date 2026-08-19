@@ -153,6 +153,36 @@ is separate** and is managed under Πλοήγηση, so adding a category no lon
 puts it in the menu automatically. A category with subcategories or products
 cannot be deleted until you move them, so nothing is orphaned silently.
 
+**Three levels.** You can nest categories three deep — main → subcategory →
+sub-subcategory (e.g. ΚΟΥΖΙΝΑ → Μαγειρικά Σκεύη → Τηγάνια). Set the level with
+the **Γονική κατηγορία** dropdown; it only offers parents that would still fit
+inside three levels, so you cannot accidentally create a category the shop
+can't show. Moving a category takes its subcategories with it. Three is the
+limit because the shop's web addresses have three parts — a fourth level would
+be creatable here and broken in the shop.
+
+**Each category can have:**
+
+| Field | What it does |
+| --- | --- |
+| Όνομα | The name shoppers see |
+| Slug (URL) | The web address. Filled in automatically from the name — **changing it on a live category breaks any existing link to it**, so only change it if you mean to |
+| Γονική κατηγορία | Which category it sits under (blank = main category) |
+| Σειρά | Position among its siblings |
+| Περιγραφή | Text shown below the product grid |
+| Εικόνα | Picture used on the parent's "shop by category" cards. Leave blank and it falls back to the category's first letter |
+| Τύπος σελίδας | **Προϊόντα** (normal product listing) or **Landing** — see below |
+| Συχνές ερωτήσεις | Up to five question/answer pairs, shown at the bottom of the page. Leave blank to show none |
+| Ενεργή | Uncheck to hide it — this hides its whole branch, subcategories included |
+
+**Landing pages.** Setting Τύπος σελίδας to *Landing* turns a category into a
+service page instead of a product list — used for
+Αντιγραφή Κλειδιών Σπιτιού, a service performed in the shop rather than
+something with stock. It shows your description, image, FAQ and shop contact
+details instead of an empty product grid, and it appears to shoppers as
+«Υπηρεσία καταστήματος» rather than "0 προϊόντα". Any FAQ you add here is also
+sent to Google as structured data, so it can appear directly in search results.
+
 This screen also shows ΠΡΟΣΦΟΡΕΣ and ΝΕΕΣ ΑΦΙΞΕΙΣ — see «Αυτόματες
 κατηγορίες» below.
 
@@ -316,3 +346,13 @@ Being straight about the current limits:
 - **Adding a new *type* of homepage section** beyond the seven above.
 - **Payment methods** beyond cash on delivery — a card processor is a real
   integration.
+- **Redirects for changed addresses.** There is no redirect system. If you
+  change a category's slug, or move a category to a different parent, its old
+  web address stops working immediately — anyone following an old link, and any
+  search result still pointing there, gets the "page not found" page. Nothing
+  is lost and the shop is fine, but the old address is simply gone. If you need
+  to reorganise categories that already have traffic, ask for redirects first.
+- **The two fixed sections on the key-copying landing page** («Τι Κλειδιά
+  Αντιγράφουμε» and «Γιατί να Επιλέξετε…») are written into the code. The
+  description, image and FAQ on that page *are* yours to edit; those two
+  sections are not.

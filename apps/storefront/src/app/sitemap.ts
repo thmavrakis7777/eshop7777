@@ -3,6 +3,7 @@ import { getNavCategories } from "@/lib/data/categories";
 import { getContentPage } from "@/lib/data/content-pages";
 import { getAllCollectionHandles, getAllProductHandles } from "@/lib/data/products";
 import { siteUrl } from "@/lib/site-config";
+import type { CategoryNode } from "@/lib/types";
 
 // Same fixed slug set as the storefront's literal route folders (Admin-
 // first platform, Phase D) — each only makes it into the sitemap if it's
@@ -64,14 +65,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .map(({ slug }) => ({ url: `${siteUrl}/${slug}`, changeFrequency: "monthly" as const, priority: 0.3 })),
   ];
 
-  const categoryRoutes: MetadataRoute.Sitemap = navCategories.flatMap((top) => [
-    { url: `${siteUrl}/${top.handle}`, changeFrequency: "weekly", priority: 0.9 },
-    ...top.children.map((child) => ({
-      url: `${siteUrl}/${top.handle}/${child.handle}`,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    })),
-  ]);
+  // Walks the tree to whatever depth it actually has rather than to a fixed
+  // two levels, which silently left every sub-subcategory out of the
+  // sitemap. Priority tapers with depth: a main category is a more important
+  // entry point than a leaf, but a leaf is still a real, indexable page.
+  const categoryRoutes: MetadataRoute.Sitemap = [];
+  const walk = (nodes: CategoryNode[], prefix: string, depth: number) => {
+    for (const node of nodes) {
+      const url = `${prefix}/${node.handle}`;
+      categoryRoutes.push({
+        url: `${siteUrl}${url}`,
+        changeFrequency: "weekly",
+        priority: Math.max(0.9 - depth * 0.2, 0.5),
+      });
+      walk(node.children, url, depth + 1);
+    }
+  };
+  walk(navCategories, "", 0);
 
   const collectionRoutes: MetadataRoute.Sitemap = collectionHandles.map((c) => ({
     url: `${siteUrl}/syllogi/${c.handle}`,

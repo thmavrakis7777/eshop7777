@@ -3,48 +3,90 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import type { NavCategory } from "@/lib/types";
+import type { CategoryNode, NavCategory } from "@/lib/types";
 import type { NavItem } from "@/lib/data/navigation";
-import { ChevronDownIcon, CloseIcon, HeartIcon, UserIcon } from "@/components/ui/Icons";
+import { ChevronRightIcon, CloseIcon, HeartIcon, UserIcon } from "@/components/ui/Icons";
 import { StoreLogo } from "./StoreLogo";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function MobileMenu({
-  open,
-  onClose,
-  categories: navCategories,
-  navItems,
-  storeName,
-  logoUrl,
-}: {
-  open: boolean;
+// One shape for every tappable line in the drawer. py-4 puts a text-sm row at
+// 52px and the smaller text-xs back row at 48px — both comfortably past the
+// 44px one-handed target, on the narrowest phone the shop supports.
+const ROW = "flex w-full items-center gap-3 px-4 py-4 text-left";
+
+type DrawerProps = {
   onClose: () => void;
   categories: NavCategory[];
   navItems: NavItem[];
   storeName: string;
   logoUrl: string | null;
-}) {
-  const [expanded, setExpanded] = useState<string | null>(null);
+};
+
+/**
+ * The drawer exists only while it is open, which is what resets the
+ * drill-down: closing unmounts the level state, so the menu always reopens at
+ * the top rather than three taps deep into wherever the shopper last was. It
+ * also means `open` only ever flips to true from a client click after
+ * hydration, so document.body is guaranteed to exist by the time we portal.
+ */
+export function MobileMenu({ open, ...props }: DrawerProps & { open: boolean }) {
+  if (!open) return null;
+  return createPortal(<MenuDrawer {...props} />, document.body);
+}
+
+function MenuDrawer({
+  onClose,
+  categories: navCategories,
+  navItems,
+  storeName,
+  logoUrl,
+}: DrawerProps) {
+  /**
+   * The categories drilled into, outermost first — empty means the top level.
+   *
+   * This is presentational state, deliberately not in the URL: a level of the
+   * menu is not a place the shopper can link to or return to, and pushing
+   * history entries for it would make the back button undo menu taps instead
+   * of page visits — exactly when they most expect it to leave the page they
+   * just opened. The path doubles as the URL builder, since a category's
+   * canonical href is its whole handle chain.
+   */
+  const [path, setPath] = useState<CategoryNode[]>([]);
+  // Which edge the incoming level slides in from. Forward reads as "deeper",
+  // back as "out" — the cue that this is still one menu, not a page change.
+  const [goingBack, setGoingBack] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const backButtonRef = useRef<HTMLButtonElement>(null);
   const { count: wishlistCount } = useWishlist();
 
+  const depth = path.length;
+  const current = path.at(-1);
+
   useEffect(() => {
-    if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus();
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [open]);
+  }, []);
 
   useEffect(() => {
-    if (!open) return;
+    // A level swap unmounts the control that was just tapped, and focus left
+    // on a removed node falls to <body> — outside the dialog, where the Tab
+    // trap below can no longer reach it. Hand it to the new level's first
+    // control instead. The new level also starts at its own top: inheriting
+    // the previous level's scroll offset hides the heading that says where
+    // the shopper now is.
+    (backButtonRef.current ?? closeButtonRef.current)?.focus();
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [depth]);
 
+  useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         onClose();
@@ -68,13 +110,22 @@ export function MobileMenu({
 
     document.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => document.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [open, onClose]);
+  }, [onClose]);
 
-  // `open` only ever flips to true from a client click after hydration,
-  // so document.body is guaranteed to exist here — no mount-guard effect needed.
-  if (!open) return null;
+  function drillInto(node: CategoryNode) {
+    setPath((p) => [...p, node]);
+    setGoingBack(false);
+  }
 
-  return createPortal(
+  function drillOut() {
+    setPath((p) => p.slice(0, -1));
+    setGoingBack(true);
+  }
+
+  const currentHref = `/${path.map((c) => c.handle).join("/")}`;
+  const parentName = depth > 1 ? path[depth - 2].name : null;
+
+  return (
     <div
       ref={dialogRef}
       className="fixed inset-0 z-50 lg:hidden"
@@ -83,113 +134,199 @@ export function MobileMenu({
       aria-label="Μενού πλοήγησης"
     >
       <div className="absolute inset-0 bg-ink/40" aria-hidden="true" onClick={onClose} />
-      <div className="absolute inset-y-0 left-0 flex w-[85%] max-w-sm flex-col overflow-y-auto bg-bg shadow-xl">
-        <div className="flex items-center justify-between border-b border-border p-4">
+      <div className="absolute inset-y-0 left-0 flex w-[85%] max-w-sm flex-col bg-bg shadow-xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-border p-4">
           <StoreLogo storeName={storeName} logoUrl={logoUrl} href={null} className="font-display text-xl" />
           <button ref={closeButtonRef} type="button" className="p-2" aria-label="Κλείσιμο μενού" onClick={onClose}>
             <CloseIcon />
           </button>
         </div>
-        <div className="flex border-b border-border">
-          <Link
-            href="/lista-epithymion"
-            className="flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium text-ink hover:text-accent transition-colors"
-            onClick={onClose}
+
+        {/* Only the level in view scrolls, so the logo and the close button
+            stay reachable however long a category's child list gets. */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain">
+          {/* Keyed on the path so each level is a fresh mount and replays the
+              entry animation — the movement is what tells the shopper a level
+              changed, since the drawer itself never moves. */}
+          <div
+            key={currentHref}
+            className="menu-level"
+            style={{ "--menu-level-from": goingBack ? "-1rem" : "1rem" } as React.CSSProperties}
           >
-            <span className="relative flex">
-              <HeartIcon filled={wishlistCount > 0} className="h-5 w-5" />
-              {wishlistCount > 0 && (
-                <span className="absolute -right-2 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-white tabular-nums">
-                  {wishlistCount}
-                </span>
-              )}
-            </span>
-            Λίστα επιθυμιών
-          </Link>
-          <Link
-            href="/logariasmos"
-            className="flex flex-1 items-center justify-center gap-2 border-l border-border py-3 text-sm font-medium text-ink hover:text-accent transition-colors"
-            onClick={onClose}
-          >
-            <UserIcon className="h-5 w-5" />
-            Λογαριασμός
-          </Link>
-        </div>
+            {current ? (
+              <>
+                <div className="sticky top-0 z-10 border-b border-border bg-bg">
+                  <button
+                    ref={backButtonRef}
+                    type="button"
+                    className={`${ROW} text-xs font-medium uppercase tracking-[0.12em] text-ink-muted`}
+                    aria-label={`Πίσω σε ${parentName ?? "κύριο μενού"}`}
+                    onClick={drillOut}
+                  >
+                    <ChevronRightIcon className="h-4 w-4 shrink-0 rotate-180" />
+                    <span className="min-w-0 flex-1 truncate">{parentName ?? "Μενού"}</span>
+                  </button>
+                  {/* Where you are. Wraps rather than truncates — a clipped
+                      Greek category name is unreadable, and the heading is
+                      the only thing naming the level. */}
+                  <h2 className="-mt-1 px-4 pb-4 font-display text-lg break-words text-ink">{current.name}</h2>
+                </div>
 
-        {/* Exactly the navigation configured in the admin, in the same order
-            as the desktop bar — the two read the same list, so they cannot
-            drift apart. Only category items expand; a SALES chip or custom
-            URL has nothing to expand into. */}
-        {/* Distinct from the desktop bar's landmark: two <nav> elements
-            sharing one accessible name makes a screen reader's landmark
-            list ambiguous. Same items, same order, different label. */}
-        <nav className="flex flex-col p-2" aria-label="Πλοήγηση καταστήματος">
-          {navItems.map((item) => {
-            const category = item.categorySlug
-              ? navCategories.find((c) => c.handle === item.categorySlug)
-              : undefined;
-            const children = category?.children ?? [];
+                <nav className="flex flex-col" aria-label={current.name}>
+                  {/* The level's own page is a destination like any other, and
+                      without this row a category with children could only be
+                      passed through, never opened. */}
+                  <Link
+                    href={currentHref}
+                    className={`${ROW} border-b border-border text-sm font-medium text-accent`}
+                    onClick={onClose}
+                  >
+                    Δες τα όλα σε {current.name}
+                  </Link>
+                  {current.children.map((child) => (
+                    <CategoryRow
+                      key={child.handle}
+                      node={child}
+                      href={`${currentHref}/${child.handle}`}
+                      onDrill={drillInto}
+                      onClose={onClose}
+                    />
+                  ))}
+                </nav>
+              </>
+            ) : (
+              <>
+                <div className="flex border-b border-border">
+                  <Link
+                    href="/lista-epithymion"
+                    className="flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium text-ink transition-colors hover:text-accent"
+                    onClick={onClose}
+                  >
+                    <span className="relative flex">
+                      <HeartIcon filled={wishlistCount > 0} className="h-5 w-5" />
+                      {wishlistCount > 0 && (
+                        <span className="absolute -right-2 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-white tabular-nums">
+                          {wishlistCount}
+                        </span>
+                      )}
+                    </span>
+                    Λίστα επιθυμιών
+                  </Link>
+                  <Link
+                    href="/logariasmos"
+                    className="flex flex-1 items-center justify-center gap-2 border-l border-border py-3 text-sm font-medium text-ink transition-colors hover:text-accent"
+                    onClick={onClose}
+                  >
+                    <UserIcon className="h-5 w-5" />
+                    Λογαριασμός
+                  </Link>
+                </div>
 
-            if (children.length === 0) {
-              return (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  className="border-b border-border px-3 py-3.5 text-sm font-medium text-ink last:border-0"
-                  style={{
-                    color: item.textColor ?? undefined,
-                    backgroundColor: item.backgroundColor ?? undefined,
-                  }}
-                  onClick={onClose}
-                >
-                  {item.label}
-                </Link>
-              );
-            }
+                {/* Exactly the navigation configured in the admin, in the same
+                    order as the desktop bar — the two read the same list, so
+                    they cannot drift apart. */}
+                {/* Distinct from the desktop bar's landmark: two <nav> elements
+                    sharing one accessible name makes a screen reader's landmark
+                    list ambiguous. Same items, same order, different label. */}
+                <nav className="flex flex-col" aria-label="Πλοήγηση καταστήματος">
+                  {navItems.map((item) => {
+                    const category = item.categorySlug
+                      ? navCategories.find((c) => c.handle === item.categorySlug)
+                      : undefined;
+                    const style = {
+                      color: item.textColor ?? undefined,
+                      backgroundColor: item.backgroundColor ?? undefined,
+                    };
 
-            const isOpen = expanded === item.id;
-            return (
-              <div key={item.id} className="border-b border-border last:border-0">
-                <button
-                  type="button"
-                  // py-3.5 keeps the row at 48px — a comfortable touch target
-                  // rather than the 24px WCAG floor.
-                  className="flex w-full items-center justify-between px-3 py-3.5 text-left text-sm font-medium text-ink"
-                  aria-expanded={isOpen}
-                  onClick={() => setExpanded((v) => (v === item.id ? null : item.id))}
-                >
-                  {item.label}
-                  <ChevronDownIcon
-                    className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {isOpen && (
-                  <div className="flex flex-col pb-2 pl-3">
-                    <Link
-                      href={item.href}
-                      className="rounded-sm px-3 py-2.5 text-sm font-medium text-accent"
-                      onClick={onClose}
-                    >
-                      Όλα: {item.label}
-                    </Link>
-                    {children.map((child) => (
-                      <Link
-                        key={child.handle}
-                        href={`/${category?.handle}/${child.handle}`}
-                        className="rounded-sm px-3 py-2.5 text-sm text-ink-muted"
-                        onClick={onClose}
+                    // A SALES chip, a custom URL or a childless category has
+                    // nothing to drill into, so it stays a plain link. The
+                    // chevron is a promise, and one that opens an empty level
+                    // is worse than no chevron at all.
+                    if (!category || category.children.length === 0) {
+                      return (
+                        <Link
+                          key={item.id}
+                          href={item.href}
+                          className={`${ROW} border-b border-border text-sm font-medium text-ink last:border-0`}
+                          style={style}
+                          onClick={onClose}
+                        >
+                          <span className="min-w-0 flex-1 break-words">{item.label}</span>
+                        </Link>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`${ROW} border-b border-border text-sm font-medium text-ink last:border-0`}
+                        style={style}
+                        onClick={() => drillInto(category)}
                       >
-                        {child.name}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
+                        <span className="min-w-0 flex-1 break-words">
+                          {item.label}
+                          {/* The chevron alone does not say what the button
+                              does; the label stays first so voice control can
+                              still match what is on screen. */}
+                          <span className="sr-only">: εμφάνιση υποκατηγοριών</span>
+                        </span>
+                        <ChevronRightIcon className="h-5 w-5 shrink-0" />
+                      </button>
+                    );
+                  })}
+                </nav>
+              </>
+            )}
+          </div>
+        </div>
       </div>
-    </div>,
-    document.body
+    </div>
+  );
+}
+
+/**
+ * One child row: a button that opens the next level when the category has
+ * one, a link straight to its page when it does not.
+ *
+ * The depth limit lives in the data, not here — this renders whatever level
+ * it is handed, which is what lets main → sub → sub-sub work (and any deeper
+ * level the owner ever creates) without a per-level variant.
+ */
+function CategoryRow({
+  node,
+  href,
+  onDrill,
+  onClose,
+}: {
+  node: CategoryNode;
+  href: string;
+  onDrill: (node: CategoryNode) => void;
+  onClose: () => void;
+}) {
+  if (node.children.length === 0) {
+    return (
+      <Link
+        href={href}
+        className={`${ROW} border-b border-border text-sm text-ink last:border-0`}
+        onClick={onClose}
+      >
+        <span className="min-w-0 flex-1 break-words">{node.name}</span>
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={`${ROW} border-b border-border text-sm text-ink last:border-0`}
+      onClick={() => onDrill(node)}
+    >
+      <span className="min-w-0 flex-1 break-words">
+        {node.name}
+        <span className="sr-only">: εμφάνιση υποκατηγοριών</span>
+      </span>
+      <ChevronRightIcon className="h-5 w-5 shrink-0 text-ink-muted" />
+    </button>
   );
 }

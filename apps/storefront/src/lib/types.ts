@@ -8,12 +8,21 @@ export type Money = {
   currencyCode: "EUR";
 };
 
+export type FaqItem = { question: string; answer: string };
+
 export type Category = {
   id: string;
   name: string;
   handle: string;
   parentHandle?: string;
   description?: string;
+  // 'landing' categories render curated service-page content (hero copy,
+  // FAQ, CTA) instead of a product grid — see migration 0010. Optional and
+  // omitted wherever a category is fetched for nav/listing purposes only,
+  // where it's never read.
+  pageType?: "products" | "landing";
+  imagePath?: string | null;
+  faq?: FaqItem[] | null;
 };
 
 export type ProductVariant = {
@@ -79,8 +88,21 @@ export type Product = {
   characteristics: ProductCharacteristics | null;
 };
 
-export type NavCategory = Category & {
-  children: Category[];
+/**
+ * A category with its subtree attached. Recursive on purpose: the shop's
+ * taxonomy is three levels deep today (main → sub → sub-sub) and the schema
+ * allows more, so modelling "children" as a fixed one-level array would put
+ * the depth limit in the types rather than in the data.
+ *
+ * `productCount` counts the category *and every active descendant*, matching
+ * what its listing page actually shows — see getProductsByCategorySlug.
+ */
+export type CategoryNode = Category & {
+  children: CategoryNode[];
+  productCount: number;
+};
+
+export type NavCategory = CategoryNode & {
   featured?: { title: string; ctaLabel: string; href: string };
 };
 
@@ -93,7 +115,9 @@ export type CartLineItem = {
   compareAtUnitPrice?: Money;
   lineTotal: Money;
   placeholderTone: Tone;
-  // Snapshotted variant SKU — see MedusaLineItem.variant_sku in lib/medusa.ts.
+  // Snapshotted variant SKU, copied onto the line at order time so it stays
+  // correct if the variant is later edited. (Pre-migration this pointed at
+  // MedusaLineItem.variant_sku in lib/medusa.ts; that file no longer exists.)
   code: string | null;
 };
 

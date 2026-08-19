@@ -3,6 +3,186 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Final project audit — soft 404s fixed, branded 404 page (2026-08-19)
+
+A full verification pass over the whole project (frontend, dashboard, category
+system, navigation, SEO, security, performance, database, deployment config)
+before clearing the context window. Most of it confirmed things already work;
+two genuine defects came out of it, both in the same place.
+
+### Every invalid URL returned HTTP 200 (soft 404)
+
+**This was the significant find, and it was invisible from the browser.**
+`/kouzina/tigania`, `/proionta/anything-fake`, `/definitely-not-a-category` all
+*rendered* a 404 page but *responded* `200 OK`. Verified against a real
+production build (`next build` + `next start`), not just dev — so this was
+shipping behaviour, not a dev-server artifact.
+
+Cause: `(storefront)/loading.tsx` (added in the Phase 16 streaming work) put a
+Suspense boundary above every storefront page. Next flushes the shell — and
+commits the HTTP status — the moment the page's first `await` suspends, which
+is *before* `notFound()` is ever reached. The status was already sent as 200 by
+the time the page knew it had nothing to render.
+
+Why it matters here specifically: Google treats a 200-with-404-content as a
+soft 404, will index junk URLs, and spends crawl budget on them. Excellent SEO
+is this project's stated first priority, and every retired category URL (of
+which the three-level restructure created several) hit exactly this path.
+
+Fix: **removed `(storefront)/loading.tsx`.** Confirmed `notFound()` then
+returns a real 404 while valid pages still return 200. The cost is the instant
+spinner on client-side navigation — Next now keeps the current page visible
+until the next one is ready. That is the correct trade for a small, fast,
+DB-backed catalogue, and it is a one-file revert if the spinner is ever wanted
+back (but the soft 404s come back with it — do not revert it casually).
+
+### The 404 page was Next's bare default
+
+Because nothing defined one, `notFound()` fell through to the global
+`/_not-found`: an unbranded white page outside `(storefront)/layout.tsx`, with
+no header, no footer and no way back into the shop. Added
+`(storefront)/not-found.tsx` — renders inside the shop shell with links to
+home, search, new arrivals, offers and contact. Deliberately static (no
+database call): it has to be the one page that still renders after a lookup has
+already failed, and bots crawling junk URLs should cost nothing to serve.
+
+### Also corrected
+
+- Two code comments named the cookware slug `mageirika-skevi`; the real slug is
+  `mageirika-skeyi` (`slugFromName` maps υ→y). Comments only, no behaviour
+  change — but the wrong one was being copied forward into new docs.
+
+### Verified clean, no change needed
+
+TypeScript, ESLint and `next build` all pass. No leftover Medusa code or
+dependencies. Security: all admin server actions individually auth-gated,
+scrypt password hashing, hashed opaque sessions, nonce-based CSP with no
+`unsafe-inline`/`unsafe-eval` on `script-src`, no `unsafe(` SQL, all six
+`dangerouslySetInnerHTML` sites are nonce'd JSON-LD through `safeJsonLd`, and
+no secrets tracked in git (checked across all history, not just HEAD).
+
+## Mobile menu drills the whole category tree (2026-08-19)
+
+The three-level hierarchy existed everywhere except the one place phone
+shoppers actually browse from. The mobile menu was a one-level accordion:
+tapping ΚΟΥΖΙΝΑ expanded its subcategories in place, but Μαγειρικά Σκεύη was
+a plain link — so Τηγάνια and Κατσαρόλες could only be discovered by leaving
+the menu and loading the Μαγειρικά Σκεύη page first.
+
+It is now a progressive drill-down. Tapping a category replaces the list with
+that category's own level (back row, heading, "Δες τα όλα σε X", then its
+children), to any depth, without leaving the overlay. Only the final tap
+navigates.
+
+Deliberately *not* a big expanded accordion — one level is on screen at a
+time. Showing Kitchen, Kitchenware, Pans, Pots, Storage and everything else
+simultaneously is the failure mode this replaces, not a simpler version of it.
+
+- **State**: one `path: CategoryNode[]`, held in the component. Not in the
+  URL — see PROJECT_MEMORY "Mobile menu drill-down" for why history would
+  fight real page navigation. Reset on close comes from unmounting the
+  drawer, not from an effect.
+- **Data**: none added. It reads the same cached category tree the header
+  already receives as props; no new query, no client fetch, no new dependency.
+- **Chevrons are earned**: only a category with children gets one. SALES,
+  NEW ARRIVALS, custom links and childless categories stay plain links.
+- The drawer header no longer scrolls away — only the level list scrolls, so
+  the close button stays reachable in a long list.
+
+Desktop was not touched: `Header.tsx` and its mega menu are unchanged.
+
+## Three-level category navigation (2026-08-18)
+
+MAIN CATEGORY → SUBCATEGORY → SUB-SUBCATEGORY, generic across every category.
+
+### What was actually missing
+
+The schema was already fine — `parent_id` has always allowed unlimited
+nesting, and product listing already walked the subtree with a recursive CTE.
+Three things were not:
+
+1. **No third route segment.** `[category]/[subcategory]` was the deepest
+   route that existed.
+2. **A subcategory never showed its own children.** Only the top-level route
+   passed `subcategories` into the listing view, so a child of a subcategory
+   was invisible in the shop no matter what the dashboard said. This was the
+   single biggest concrete bug.
+3. **`NavCategory.children` modelled exactly one level**, so breadcrumbs, the
+   sitemap and the mega menu all stopped at two.
+
+### One tree, one query, one route implementation
+
+`lib/data/categories.ts` now caches the *flat* category rows and links them
+into a forest once per request. Every consumer derives from that: nav,
+breadcrumbs, the child picker, product counts, the sitemap. A subcategory
+page went from **4 category queries to 1**, and the third level cost nothing
+extra — which is the whole reason it is affordable.
+
+The three route files are four-line adapters onto one `CategoryRoute`
+component. Next needs a file per segment count; there is no reason for three
+copies of the logic, and a third copy is exactly how the levels would have
+drifted apart.
+
+`getCategoryPath` validates that each URL segment is a **direct child** of the
+one before it, so a category has exactly one address. Moving Τηγάνια under
+Μαγειρικά Σκεύη retired `/kouzina/tigania` immediately — it 404s rather than
+becoming a duplicate of the new URL.
+
+The tree is assembled by walking down from the roots rather than attaching
+rows to whatever parent slug they name. Deactivating a category therefore
+hides its **whole branch**; the alternative would have quietly promoted an
+orphaned child to a top-level category the owner never created.
+
+### Bugs found and fixed along the way
+
+- **Product breadcrumbs broke at depth 2.** The PDP knew only a category's
+  immediate parent, so a product in Τηγάνια linked to `/mageirika-skeyi` and
+  `/mageirika-skeyi/tigania` — both 404. It now reads the ancestor chain from
+  the already-loaded tree, which also removed a query rather than adding one.
+- **Reordering broke on any parent with children.** The admin enabled its
+  ↑/↓ arrows by looking at the neighbouring *row*, but a subcategory's subtree
+  sits between it and its next sibling, so both arrows greyed out. Now it
+  looks for a sibling anywhere before/after — which is also what the new
+  `├──`/`└──` tree glyphs need.
+- **CRLF paragraphs never split.** `renderBody` split on `\n{2,}`, which never
+  matches the `\r\n\r\n` a Windows browser posts from a textarea, so
+  owner-typed paragraphs ran together. Normalised first.
+- **A service landing page advertised "0 προϊόντα / δες τα προϊόντα".** Not
+  merely unhelpful — false, and permanently so. Landing children now read
+  "Υπηρεσία καταστήματος / Μάθε περισσότερα".
+
+### Deliberate choices
+
+**Counts are shown**, because they were free: one recursive CTE in the
+existing query gives every category its subtree total, and it is the same set
+the listing page renders, so a count can never promise more than the link
+delivers.
+
+**Owner copy moved below the grid.** The auto-generated "Ανακάλυψε τη συλλογή
+X" subtitle was thin duplicate content on 33 categories and would have been
+worse on a third level; it is gone. The real descriptions the owner wrote for
+the ΚΛΕΙΔΙΑ & ΑΣΦΑΛΕΙΑ branch were never rendered at all, and now are — after
+the products, where long-form category copy belongs.
+
+**The mobile menu still shows one level.** Progressive drill-down happens on
+the category pages, which show the current level only. A hamburger accordion
+containing the entire taxonomy is the failure mode the design avoids.
+
+**Depth is capped at three in the dashboard**, checked against the moved
+subtree's height rather than the clicked node, because the storefront routes
+three segments. A creatable-but-unroutable fourth level would have been a
+dead link the owner could build by accident.
+
+### Verified
+
+Typecheck, ESLint and production build clean. All 15 required breakpoints
+(320–1920) on category levels 1–3: no horizontal overflow, no clipped names,
+64px mobile tap targets, 1/2/3/4 cards per row. Four-crumb breadcrumbs wrap to
+two rows at 320px rather than overflowing, every crumb still a link.
+Deactivating a parent, reordering at level 3, and moving a category to another
+parent were all exercised through the real dashboard against the real
+database.
+
 ## Storefront becomes owner-managed: navigation, shipping, phone, dynamic categories (2026-08-18)
 
 Ten commits covering the second half of the "manage it myself" work. The

@@ -7,8 +7,13 @@ import type { ContentPage } from "@/lib/data/content-pages";
 // there is still no reason to parse or render HTML for what is, in every
 // case built so far (About/Shipping/Returns/Privacy/Terms/FAQ), plain
 // informational text.
-function renderBody(body: string) {
+export function renderBody(body: string) {
   return body
+    // Textarea input arrives CRLF-terminated from Windows browsers, which
+    // splits a blank line into "\r\n\r\n" — no two consecutive \n, so the
+    // paragraph split below silently matched nothing and ran the whole text
+    // together. Normalising first is what makes owner-typed paragraphs hold.
+    .replace(/\r\n?/g, "\n")
     .split(/\n{2,}/)
     .map((s) => s.trim())
     .filter(Boolean)

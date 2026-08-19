@@ -127,6 +127,92 @@ Code: `lib/data/navigation.ts` (storefront read + href resolution),
 `lib/admin/navigation.ts` + `nav-actions.ts` (CRUD),
 `components/admin/NavigationManager.tsx` (UI).
 
+### Category hierarchy — three levels, one implementation
+
+The shop's taxonomy is **main category → subcategory → sub-subcategory**, and
+every part of it is generic: nothing anywhere names a specific category.
+
+**Schema.** `shop.category.parent_id` is self-referencing and has always
+allowed unlimited depth — no migration was needed for the third level. The
+limit is a *routing* one: the storefront has three URL segments, so
+`MAX_CATEGORY_DEPTH = 2` (zero-indexed) lives in `lib/category-depth.ts` and
+is enforced by `saveCategory`'s `assertDepthFits`, which checks the new
+parent's depth **plus the height of the subtree being moved** — re-parenting a
+branch drags its children down with it. The admin form reads the same
+constant so it never offers a parent the server will reject. Without this, a
+fourth level would be creatable in the dashboard and 404 in the shop.
+
+**One query, whole tree.** `lib/data/categories.ts` fetches every active
+category in a single query (`fetchAllCategories`), including each one's
+subtree product count computed in the same round trip. `unstable_cache` caches
+the *flat rows* (tag `categories`, invalidated by admin saves);
+`getCategoryTree` links them into a forest once per request via `cache()`.
+Everything else derives from that one source:
+
+- `getNavCategories()` — roots + featured copy, for header/footer/homepage.
+- `getCategoryPath(segments)` — resolves a URL to `{category, ancestors,
+  children}`, validating each segment is a *direct child* of the previous.
+- `getCategoryTrail(handle)` — the full ancestor chain, for linking to a
+  category from outside the category routes (the PDP breadcrumb).
+
+Net effect: a subcategory page went from 4 category queries to 1, and adding
+the third level cost zero extra queries. **Do not add a per-level query.**
+
+The tree is built by walking *down from the roots*, not by attaching each row
+to whatever parent slug it names. That is what makes deactivating a category
+hide its whole branch instead of promoting its children to top level.
+
+**Routing.** `[category]`, `[category]/[subcategory]` and
+`[category]/[subcategory]/[subsubcategory]` are three four-line adapters onto
+one `CategoryRoute` component — Next needs a file per segment count, but there
+is only one implementation. Because `getCategoryPath` validates parentage,
+each category is reachable at **exactly one URL**; `/banio/tigania` and a
+stale `/kouzina/tigania` both 404 rather than duplicating a page.
+
+**UI.** `CategoryChildNav` renders the current category's *direct children
+only* — a full-width tappable row with a chevron on phones, an image card from
+`sm:` up, same markup, no client JavaScript. The desktop mega menu shows two
+levels (children + their children). The mobile menu drills to *any* depth but
+still renders exactly one level at a time — never the whole tree flattened
+out; see "Mobile menu drill-down" below.
+
+Category images are admin-editable on **every** category (not just landing
+pages) and fall back to the category's initial when unset — no shop category
+has an image yet.
+
+Owner-written category descriptions render **below** the product grid, not as
+a subtitle. There is no auto-generated category copy: a templated
+"Ανακάλυψε τη συλλογή X" line on every one of 33 categories was thin
+duplicate content, and the real descriptions the owner had written were not
+being shown at all.
+
+### Mobile menu drill-down
+
+`MobileMenu.tsx` is a progressive drill-down, not an accordion: main → sub →
+sub-sub, one level on screen at a time, without leaving the overlay until the
+shopper taps a real destination.
+
+The state is a single `path: CategoryNode[]` — the categories drilled into,
+outermost first. It is deliberately **not** in the URL. A menu level is not
+somewhere the shopper can link to, and pushing history entries for it would
+make the browser back button undo menu taps instead of page visits, exactly
+when they most expect it to leave the page they just opened. The path doubles
+as the href builder, since a category's canonical URL *is* its handle chain —
+which is also why nav items are matched against **root** categories only: a
+path that does not start at a root would not produce a valid URL.
+
+Reset-on-close is structural, not an effect. `MobileMenu` renders the drawer
+only while open, so closing unmounts the level state. (An effect that called
+`setPath([])` on close is what the `react-hooks/set-state-in-effect` lint rule
+exists to catch.)
+
+Only a category with children gets a chevron and a `<button>`; everything else
+— a childless category, SALES, NEW ARRIVALS, a custom link — stays a plain
+`<Link>`. A chevron is a promise, and one that opens an empty level is worse
+than no chevron. Nothing about the hierarchy is hardcoded: the menu reads the
+same cached tree the header already loaded, so a category added or reordered
+in the dashboard appears with no code change.
+
 ### Dynamic categories — SALES and NEW ARRIVALS
 
 Neither is a row in `shop.category`. Membership is **derived**, so there is
@@ -206,6 +292,28 @@ dead button.
   destination whose emptiness is temporary, and flipping robots on stock
   levels teaches crawlers the URL is unreliable.
 
+#### 404s must return a real 404 — do not add a root `loading.tsx`
+
+Invalid URLs return HTTP **404**, and there is a deliberate constraint keeping
+it that way: **`(storefront)` must not contain a `loading.tsx`.**
+
+A `loading.tsx` there puts a Suspense boundary above every storefront page.
+Next then flushes the shell — committing the HTTP status as 200 — as soon as
+the page's first `await` suspends, which happens *before* `notFound()` is
+reached. The page renders 404 content under a `200 OK`, i.e. a soft 404: Google
+indexes junk URLs and burns crawl budget on them. This was real, shipped
+behaviour until the 2026-08-19 audit found it (see CHANGELOG); it is invisible
+in a browser and only shows up in the response status.
+
+If a loading state is ever wanted again, put the `<Suspense>` *below* the
+`notFound()` decision — inside the page, around the slow part only, the way the
+PDP already wraps `RelatedProducts` — never at the route-group root.
+
+`(storefront)/not-found.tsx` renders the 404 inside the shop shell (header,
+nav, footer) with links back into the catalogue. It is intentionally static —
+no database call — because it is what renders after a lookup has already
+failed, and bots crawling junk URLs should cost nothing.
+
 ### Performance architecture
 
 - `unstable_cache` + precise `updateTag` invalidation on settings, promo
@@ -213,8 +321,11 @@ dead button.
   and the search catalogue.
 - `React.cache()` for per-request dedup (`getNavCategories`,
   `getProductByHandle`, `getBranding`).
-- `<Suspense>` around below-the-fold rails; `loading.tsx` for the
-  storefront route group.
+- `<Suspense>` around below-the-fold rails (e.g. the PDP's related-products
+  block). **No route-group `loading.tsx`** — it was removed in the 2026-08-19
+  audit because it turned every `notFound()` into a soft 404; see "404s must
+  return a real 404" under SEO architecture before reinstating anything like
+  it.
 - One pool per instance (`lib/db/client.ts`), capped to 1 during
   `next build` — see MIGRATION_PLAN.md Phase 16 for the pooler-mode issue
   that is still open.

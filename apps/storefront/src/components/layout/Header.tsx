@@ -213,20 +213,42 @@ export function Header({
             className="absolute inset-x-0 top-full z-50 hidden rounded-b-md border border-t-0 border-border bg-bg p-6 shadow-lg lg:block"
           >
             <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-2 grid grid-cols-2 gap-x-6 gap-y-2">
+              {/* Two levels deep, and deliberately no further: a column per
+                  subcategory with its own types listed underneath is what a
+                  desktop shopper can scan at a glance, whereas a third
+                  nested tier turns the panel into the whole taxonomy. Anyone
+                  who wants to go deeper does it on the category page, where
+                  there is room to do it one level at a time. */}
+              <div className="col-span-2 grid grid-cols-3 gap-x-6 gap-y-5">
                 {activeMegaMenu.children.map((child) => (
-                  <Link
-                    key={child.handle}
-                    href={`/${activeMegaMenu.handle}/${child.handle}`}
-                    className="rounded-sm px-2 py-1.5 text-sm text-ink-muted hover:bg-surface hover:text-ink transition-colors"
-                    onClick={() => setOpenMenu(null)}
-                  >
-                    {child.name}
-                  </Link>
+                  <div key={child.handle} className="min-w-0">
+                    <Link
+                      href={`/${activeMegaMenu.handle}/${child.handle}`}
+                      className="block rounded-sm px-2 py-1 text-sm font-medium text-ink hover:text-accent transition-colors"
+                      onClick={() => setOpenMenu(null)}
+                    >
+                      {child.name}
+                    </Link>
+                    {child.children.length > 0 && (
+                      <ul className="mt-1 flex flex-col">
+                        {child.children.map((grandchild) => (
+                          <li key={grandchild.handle}>
+                            <Link
+                              href={`/${activeMegaMenu.handle}/${child.handle}/${grandchild.handle}`}
+                              className="block rounded-sm px-2 py-1 text-xs text-ink-muted hover:text-ink transition-colors"
+                              onClick={() => setOpenMenu(null)}
+                            >
+                              {grandchild.name}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 ))}
                 <Link
                   href={`/${activeMegaMenu.handle}`}
-                  className="rounded-sm px-2 py-1.5 text-sm font-medium text-accent hover:underline"
+                  className="self-start rounded-sm px-2 py-1 text-sm font-medium text-accent hover:underline"
                   onClick={() => setOpenMenu(null)}
                 >
                   Όλα τα προϊόντα →

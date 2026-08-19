@@ -52,6 +52,14 @@ export function ChevronDownIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
+export function ChevronRightIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
+      <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function MenuIcon({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden="true">
