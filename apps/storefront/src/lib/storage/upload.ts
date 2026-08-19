@@ -23,8 +23,12 @@ const CONTENT_TYPES: Record<string, string> = {
 export class UploadError extends Error {}
 
 export async function uploadImage(file: File, folder: string): Promise<{ path: string; bytes: number }> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // .trim(): confirmed live that a pasted dashboard value can carry a
+  // trailing newline — see the matching note in lib/storage/urls.ts. Here it
+  // would land in a URL and an Authorization header, so it's worth guarding
+  // even though this env var isn't NEXT_PUBLIC_-inlined.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!supabaseUrl || !serviceKey) {
     throw new UploadError("Το Supabase Storage δεν έχει ρυθμιστεί.");
   }

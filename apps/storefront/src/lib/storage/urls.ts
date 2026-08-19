@@ -26,7 +26,12 @@ export function publicImageUrl(
   // Already a full URL (a legacy or externally-hosted image) — pass through.
   if (/^https?:\/\//i.test(path)) return path;
 
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  // .trim(): a pasted env var with a trailing newline is a real failure mode
+  // (confirmed live — Vercel's dashboard doesn't strip one), and NEXT_PUBLIC_
+  // vars are inlined at build time, so a bad paste breaks every image on
+  // every deploy until someone notices and redeploys. Trimming here means a
+  // stray newline in the dashboard value can never break rendering again.
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   if (!base) return null;
 
   return `${base.replace(/\/$/, "")}/storage/v1/object/public/${bucket}/${path.replace(/^\//, "")}`;

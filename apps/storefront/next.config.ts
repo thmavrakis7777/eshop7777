@@ -20,7 +20,10 @@ const securityHeaders = [
 // be in place before the first real upload, not discovered as a broken-image
 // bug after.
 const remotePatterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [];
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+// .trim(): a pasted dashboard env var can carry a trailing newline (confirmed
+// live) — new URL() already tolerates that here, but trimming keeps this
+// consistent with the same guard in lib/storage/urls.ts and upload.ts.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 if (supabaseUrl) {
   const parsed = new URL(supabaseUrl);
   remotePatterns.push({
