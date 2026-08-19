@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { saveContentPageAction } from "@/lib/admin/cms-actions";
 import type { AdminContentPage } from "@/lib/admin/cms";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 /**
- * The eleven static pages, edited from one screen.
+ * The static content pages (About, legal/compliance, help), edited from one
+ * screen.
  *
  * Publishing is explicit and defaults to off: an unpublished page 404s on the
  * storefront rather than going live empty. That is why the list leads with
@@ -118,8 +120,24 @@ export function ContentPageEditor({ pages }: { pages: AdminContentPage[] }) {
                       επικεφαλίδες, <code className="text-ink">- </code> ή <code className="text-ink">1. </code> για
                       λίστα, <code className="text-ink">{"**έντονα**"}</code> για έντονα,{" "}
                       <code className="text-ink">{"[κείμενο](/apostoles)"}</code> για σύνδεσμο,{" "}
-                      <code className="text-ink">{"> "}</code> για παράθεμα. Κενή γραμμή ξεκινά νέα παράγραφο.
+                      <code className="text-ink">{"> "}</code> για παράθεμα. Κενή γραμμή ξεκινά νέα παράγραφο. Μην
+                      συνδυάζεις έντονα με σύνδεσμο στο ίδιο σημείο (π.χ.{" "}
+                      <code className="text-ink">{"**[κείμενο](/apostoles)**"}</code>) — δεν λειτουργεί, γράψε τον
+                      σύνδεσμο χωρίς τα **.
                     </p>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-ink">Εικόνα (προαιρετικό)</label>
+                    <ImageUploadField name="imagePath" defaultValue={p.imagePath} folder="pages" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-ink">Εναλλακτικό κείμενο εικόνας (alt)</label>
+                    <input
+                      name="imageAlt"
+                      defaultValue={p.imageAlt ?? ""}
+                      placeholder="Περιέγραψε τι δείχνει η εικόνα — το διαβάζουν οι μηχανές αναζήτησης και οι αναγνώστες οθόνης."
+                      className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-ink"
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-sm font-medium text-ink">Τίτλος SEO (προαιρετικό)</label>

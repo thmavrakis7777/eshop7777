@@ -163,6 +163,10 @@ export function JournalArticleEditor({
               <li><code className="text-ink">[εικόνα: journal/abc.jpg | περιγραφή]</code> — εικόνα μέσα στο κείμενο</li>
             </ul>
             <p className="mt-3 text-xs text-ink-muted">
+              Μην συνδυάζεις έντονα με σύνδεσμο μαζί (π.χ. <code>**[κείμενο](/kouzina)**</code>) — δεν λειτουργεί,
+              γράψε τον σύνδεσμο χωρίς τα **.
+            </p>
+            <p className="mt-3 text-xs text-ink-muted">
               Οι εσωτερικοί σύνδεσμοι είναι ο πιο εύκολος τρόπος να βοηθήσεις και τον αναγνώστη και το
               Google: σύνδεσε φυσικά προς κατηγορίες (<code>/kouzina</code>), προϊόντα
               (<code>/proionta/…</code>) και άλλα άρθρα (<code>/journal/…</code>).

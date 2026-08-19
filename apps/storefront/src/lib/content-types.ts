@@ -140,7 +140,13 @@ export type HomepageSection = HomepageBlock & {
   config: HomepageSectionConfig;
 };
 
-export type ContentPage = { id: string; title: string; body: string | null };
+export type ContentPage = {
+  id: string;
+  title: string;
+  body: string | null;
+  imageUrl: string | null;
+  imageAlt: string | null;
+};
 
 // Mirrors the CHECK constraint on shop.seo_meta.resource_type — widened by
 // migration 0011 so Journal articles store their SEO in the one polymorphic

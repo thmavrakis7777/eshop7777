@@ -394,6 +394,8 @@ export async function saveContentPageAction(formData: FormData): Promise<ActionR
       isPublished: formData.get("isPublished") === "on",
       seoTitle: text(formData.get("seoTitle")),
       metaDescription: text(formData.get("metaDescription")),
+      imagePath: text(formData.get("imagePath")),
+      imageAlt: text(formData.get("imageAlt")),
     });
     await auditLog(admin.id, "content_page.update", "content_page", slug);
   } catch {

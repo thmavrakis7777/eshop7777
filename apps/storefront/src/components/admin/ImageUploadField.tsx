@@ -31,7 +31,7 @@ export function ImageUploadField({
   defaultValue?: string | null;
   // Must stay in step with ALLOWED_FOLDERS in lib/admin/media-actions.ts —
   // anything else is silently rewritten to "uploads" server-side.
-  folder: "categories" | "homepage" | "branding" | "journal";
+  folder: "categories" | "homepage" | "branding" | "journal" | "pages";
   placeholder?: string;
 }) {
   const [path, setPath] = useState(defaultValue ?? "");

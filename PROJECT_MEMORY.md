@@ -91,6 +91,30 @@ processor list if a new third-party service (email sending, a payment
 gateway beyond Cash-on-Delivery) is ever added — that list must be updated
 to match, never left describing an architecture the site no longer has.
 
+### About page + content-page images/breadcrumbs (2026-08-19)
+
+`sxetika` (Σχετικά με εμάς) went from an empty, unpublished row to real
+Greek content — see the CHANGELOG entry "About page" for the content
+strategy and the two real bugs found while building it (a nested-mark
+parser limitation in `RichBody.tsx`, and three pre-existing category
+slug/name mismatches — `katharismos`→"ΚΗΠΟΣ", `kipos`→"ΥΓΡΑΕΡΙΟ",
+`eidi-spitiou`→"ΕΡΓΑΛΕΙΑ - ΗΛΕΚΤΡΟΛΟΓΙΚΑ" — confirmed in `shop.category`
+directly, not fixed, needs its own redirect-aware pass later).
+
+Content pages can now optionally carry an image (`image_path`/`image_alt`
+on `shop.content_page`, migration `0013`) — edit from
+`/admin/content/pages`, same `ImageUploadField` every other image field in
+this admin uses, folder `"pages"`. All 13 content-page routes also render
+real breadcrumbs (and `BreadcrumbList` JSON-LD) via the shared
+`Breadcrumbs` component `ContentPageView` now takes a `path` prop for —
+same component Journal and category pages already used, not a new one.
+
+**Editor gotcha worth remembering**: don't write `**[label](url)**` in any
+content-page or Journal body — the single-pass inline parser doesn't
+support nested marks, and the whole thing renders as literal bracket text
+inside a `<strong>` instead of a link. Write the link plain (`[label](url)`)
+without wrapping it in `**...**`.
+
 ### Homepage CMS — how to control the homepage
 
 The homepage is an **ordered list of sections** stored in

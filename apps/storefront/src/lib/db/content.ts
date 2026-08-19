@@ -267,10 +267,15 @@ export const getHomepageSections = unstable_cache(
 export const getContentPage = unstable_cache(
   async (slug: string): Promise<ContentPage | null> => {
     try {
-      const rows = await sql<{ id: string; title: string; body: string | null }[]>`
-        SELECT id, title, body FROM shop.content_page
+      const rows = await sql<
+        { id: string; title: string; body: string | null; image_path: string | null; image_alt: string | null }[]
+      >`
+        SELECT id, title, body, image_path, image_alt FROM shop.content_page
          WHERE slug = ${slug} AND is_published LIMIT 1`;
-      return rows[0] ? { id: rows[0].id, title: rows[0].title, body: rows[0].body } : null;
+      const r = rows[0];
+      return r
+        ? { id: r.id, title: r.title, body: r.body, imageUrl: publicImageUrl(r.image_path), imageAlt: r.image_alt }
+        : null;
     } catch {
       return null;
     }

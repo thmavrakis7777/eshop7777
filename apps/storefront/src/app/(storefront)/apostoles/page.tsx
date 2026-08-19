@@ -18,6 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const title = seo?.seoTitle || page.title;
   const description = seo?.metaDescription || deriveMetaDescription(richBodyToPlainText(page.body));
   const path = seo?.canonicalUrl || PATH;
+  const ogImage = seo?.socialImageUrl || page.imageUrl;
 
   return {
     title: seo?.seoTitle ? { absolute: seo.seoTitle } : title,
@@ -28,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: seo?.ogTitle || title,
       description: seo?.ogDescription || description,
       url: `${siteUrl}${path}`,
-      ...(seo?.socialImageUrl ? { images: [{ url: seo.socialImageUrl }] } : {}),
+      ...(ogImage ? { images: [{ url: ogImage, alt: page.imageAlt ?? title }] } : {}),
     },
     ...(seo?.keywords ? { keywords: seo.keywords } : {}),
   };
@@ -38,5 +39,5 @@ export default async function ShippingPage() {
   const page = await getContentPage(SLUG);
   if (!page) notFound();
 
-  return <ContentPageView page={page} />;
+  return <ContentPageView page={page} path={PATH} />;
 }

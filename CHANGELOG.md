@@ -3,6 +3,83 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## About page (Σχετικά με εμάς) + breadcrumbs on every content page (2026-08-19)
+
+The About page (`sxetika`) existed as a row but was empty and unpublished —
+genuinely a blank 404. Wrote real Greek content grounded only in facts
+already in this codebase (store name, address, phone, email, categories,
+Cash-on-Delivery, 30-day returns, 2-3 day shipping, the free-shipping
+threshold) — no invented history, no fabricated years/awards/customer
+counts, per explicit instruction. ~750 words, one H1, five H2s (philosophy,
+product areas, Heraklion presence, physical+online positioning, why choose
+us), naturally linking to five real categories, Journal, and Contact.
+Seeded via `db/seed-about-page.mjs`, same one-time-seed pattern as the
+legal pages — fully editable afterward from `/admin/content/pages`, no
+different from any other content page.
+
+**No new CMS work was needed for the text itself** — the Content Pages
+system, extended in the legal/compliance session two commits ago (rich
+body format, SEO fields), already covered everything the About page
+needed. What genuinely *was* new:
+
+- **An image field**, added to `shop.content_page` for the first time
+  (`0013_content_page_image.sql`: `image_path`, `image_alt`) — the CMS had
+  title/body/publish state but no image column at all. `ContentPageEditor`
+  gained the same `ImageUploadField` + alt-text pair every other image
+  field in this admin uses (`folder="pages"`, added to
+  `media-actions.ts`'s `ALLOWED_FOLDERS`); `ContentPageView` renders it as
+  a real `<img>` (never CSS background-image — commit 5095f74) when
+  present, and every content-page route's `generateMetadata()` now falls
+  back to it for the Open Graph image when there's no per-page SEO
+  override. No image is set yet — About renders correctly without one,
+  same "nothing forced" pattern as every other optional field here.
+- **Breadcrumbs on all 13 content pages**, not just About — `ContentPageView`
+  now takes a `path` prop and renders the existing `Breadcrumbs` component
+  (`components/category/Breadcrumbs.tsx`, already used by Journal and
+  category pages) above the H1. This is also where the `BreadcrumbList`
+  JSON-LD comes from — reused, not duplicated; Organization/WebSite schema
+  (root layout) untouched, no LocalBusiness schema added since no
+  structured local-business data (verified opening hours, precise
+  geo-coordinates) exists to back one honestly.
+
+### A real bug in my own draft, caught by testing before it shipped
+
+The inline-mark parser (`RichBody.tsx`) does a single regex pass, so a
+link nested inside bold — `**[label](url)**` — doesn't parse as a link; the
+whole `[label](url)` becomes literal text inside a `<strong>`, because the
+bold branch of the alternation matches first and swallows it. My first
+draft did this in four places (category links, the Journal mention, the
+CTA). Live testing (reading the actual rendered accessibility tree, not
+just the source markdown) caught all four before the content was
+considered done — fixed by not nesting the marks, not by changing the
+parser. Documented here because the same trap is available to the owner
+the moment they type `**[κάτι](/κάπου)**` into any content page's body —
+worth a line in the editor's cheat-sheet hint if it comes up again.
+
+### A pre-existing bug found along the way, not fixed (out of scope)
+
+Three of the seven top-level category slugs don't match their own
+displayed name: `slug=katharismos` shows **ΚΗΠΟΣ** (Garden), `slug=kipos`
+shows **ΥΓΡΑΕΡΙΟ** (Gas/LPG), `slug=eidi-spitiou` shows **ΕΡΓΑΛΕΙΑ -
+ΗΛΕΚΤΡΟΛΟΓΙΚΑ** (Tools/Electrical) — literally the opposite of what each
+URL's own name means in Greek. Confirmed directly against `shop.category`,
+not a rendering artifact. The About page links to whatever each slug
+*currently* shows (so its own links are correct today), but this is a real
+SEO/UX defect worth its own dedicated fix — renaming a live, indexed
+category slug safely needs redirects, which is a bigger job than this
+session and not something to do as a drive-by.
+
+### Known limitations
+
+- No hero image set for About — the field exists and works, but there is
+  no real photo of the physical store in this project to use. Upload one
+  from `/admin/content/pages` → Σχετικά με εμάς whenever available.
+- Local dev's `NEXT_PUBLIC_SITE_URL` still resolves to the old
+  `stia.gr` placeholder in `.env.local` (visible in local JSON-LD `url`
+  fields during testing) — production already has the correct
+  `mavrakishome.gr` value (fixed and verified live in an earlier session);
+  this is a dev-only environment file gap, not a production defect.
+
 ## Editable legal/compliance system (2026-08-19)
 
 Terms, Privacy, Cookies, Returns & Withdrawal, Shipping, Payments and

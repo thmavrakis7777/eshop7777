@@ -373,6 +373,8 @@ export type AdminContentPage = {
   exists: boolean;
   seoTitle: string | null;
   metaDescription: string | null;
+  imagePath: string | null;
+  imageAlt: string | null;
 };
 
 /**
@@ -387,10 +389,11 @@ export async function listContentPages(): Promise<AdminContentPage[]> {
   const rows = await sql<
     {
       slug: string; title: string; body: string | null; is_published: boolean;
+      image_path: string | null; image_alt: string | null;
       seo_title: string | null; meta_description: string | null;
     }[]
   >`
-    SELECT p.slug, p.title, p.body, p.is_published,
+    SELECT p.slug, p.title, p.body, p.is_published, p.image_path, p.image_alt,
            s.seo_title, s.meta_description
       FROM shop.content_page p
       LEFT JOIN shop.seo_meta s ON s.resource_type = 'page' AND s.resource_id = p.id::text`;
@@ -412,6 +415,8 @@ export async function listContentPages(): Promise<AdminContentPage[]> {
       exists: Boolean(row),
       seoTitle: row?.seo_title || null,
       metaDescription: row?.meta_description || null,
+      imagePath: row?.image_path || null,
+      imageAlt: row?.image_alt || null,
     };
   });
 }
@@ -423,6 +428,8 @@ export async function saveContentPage(input: {
   isPublished: boolean;
   seoTitle: string | null;
   metaDescription: string | null;
+  imagePath: string | null;
+  imageAlt: string | null;
 }): Promise<void> {
   // Guards against a crafted request writing a slug with no storefront route.
   if (!CONTENT_PAGE_SLUGS.some((p) => p.slug === input.slug)) {
@@ -430,11 +437,12 @@ export async function saveContentPage(input: {
   }
   await transaction(async (tx) => {
     const [page] = await tx<{ id: string }[]>`
-      INSERT INTO shop.content_page (slug, title, body, is_published)
-      VALUES (${input.slug}, ${input.title}, ${input.body}, ${input.isPublished})
+      INSERT INTO shop.content_page (slug, title, body, is_published, image_path, image_alt)
+      VALUES (${input.slug}, ${input.title}, ${input.body}, ${input.isPublished}, ${input.imagePath}, ${input.imageAlt})
       ON CONFLICT (slug) DO UPDATE SET
         title = EXCLUDED.title, body = EXCLUDED.body,
-        is_published = EXCLUDED.is_published, updated_at = now()
+        is_published = EXCLUDED.is_published,
+        image_path = EXCLUDED.image_path, image_alt = EXCLUDED.image_alt, updated_at = now()
       RETURNING id`;
 
     // Same "empty override deletes the row" rule as product/category SEO
