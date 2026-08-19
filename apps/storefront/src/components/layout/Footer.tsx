@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FacebookIcon, InstagramIcon, TikTokIcon } from "@/components/ui/Icons";
 import { StoreLogo } from "./StoreLogo";
+import { CookieSettingsLink } from "./CookieSettingsLink";
 import type { SiteSettings } from "@/lib/data/site-settings";
 import type { NavCategory } from "@/lib/types";
 
@@ -9,8 +10,6 @@ const DEFAULT_TAGLINE =
 
 const helpLinks = [
   { label: "Παρακολούθηση Παραγγελίας", href: "/paraggelia" },
-  { label: "Αποστολές & Παράδοση", href: "/apostoles" },
-  { label: "Επιστροφές & Αλλαγές", href: "/epistrofes" },
   { label: "Συχνές Ερωτήσεις", href: "/faq" },
   { label: "Επικοινωνία", href: "/epikoinonia" },
 ];
@@ -26,10 +25,19 @@ const companyLinks = [
   { label: "Καριέρα", href: "/karieres" },
 ];
 
-const legalLinks = [
-  { label: "Όροι Χρήσης", href: "/oroi-xrisis" },
-  { label: "Πολιτική Απορρήτου", href: "/aporrito" },
-  { label: "Πολιτική Cookies", href: "/cookies" },
+// Display order for the ΝΟΜΙΚΑ column — filtered against `legalPages`
+// (actually-published slugs) below, so an unpublished page never appears as
+// a dead link. Αποστολές and Επιστροφές live here rather than in "Βοήθεια":
+// they're compliance-relevant pages (shipping cost transparency, statutory
+// withdrawal rights), not just help articles.
+const LEGAL_LINK_ORDER = [
+  { slug: "oroi-xrisis", label: "Όροι Χρήσης" },
+  { slug: "aporrito", label: "Πολιτική Απορρήτου" },
+  { slug: "cookies", label: "Πολιτική Cookies" },
+  { slug: "epistrofes", label: "Επιστροφές & Υπαναχώρηση" },
+  { slug: "apostoles", label: "Αποστολές" },
+  { slug: "pliromes", label: "Πληρωμές" },
+  { slug: "eggyisi", label: "Εγγυήσεις" },
 ];
 
 export function Footer({
@@ -37,12 +45,20 @@ export function Footer({
   settings,
   storeName,
   logoUrl,
+  legalPages,
 }: {
   categories: NavCategory[];
   settings: SiteSettings | null;
   storeName: string;
   logoUrl: string | null;
+  // Only slugs actually is_published=true — see getPublishedLegalPages().
+  legalPages: { slug: string; title: string }[];
 }) {
+  const publishedSlugs = new Set(legalPages.map((p) => p.slug));
+  const legalLinks = LEGAL_LINK_ORDER.filter((l) => publishedSlugs.has(l.slug)).map((l) => ({
+    label: l.label,
+    href: `/${l.slug}`,
+  }));
   const hasContact = settings?.contactPhone || settings?.contactEmail || settings?.contactAddress;
   const socialLinks = [
     { href: settings?.facebookUrl, label: "Facebook", Icon: FacebookIcon },
@@ -109,7 +125,10 @@ export function Footer({
 
       <div className="border-t border-border">
         <div className="container-shell flex flex-col gap-4 py-6 text-xs text-ink-muted md:flex-row md:items-center md:justify-between">
-          <span>© {new Date().getFullYear()} {storeName}. Με επιφύλαξη παντός δικαιώματος.</span>
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>© {new Date().getFullYear()} {storeName}. Με επιφύλαξη παντός δικαιώματος.</span>
+            <CookieSettingsLink />
+          </span>
           {/* Only methods checkout can actually process — the one configured
               Medusa provider is pp_system_default ("Αντικαταβολή"). Listing
               Visa/Mastercard/Viva Wallet here advertised card payments the

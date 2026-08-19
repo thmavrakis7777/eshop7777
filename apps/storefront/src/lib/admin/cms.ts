@@ -18,7 +18,9 @@ import type { HomepageSectionConfig, HomepageSectionKind } from "@/lib/content-t
 export const CONTENT_PAGE_SLUGS: Array<{ slug: string; label: string }> = [
   { slug: "sxetika", label: "Σχετικά με εμάς" },
   { slug: "apostoles", label: "Αποστολές & Παράδοση" },
-  { slug: "epistrofes", label: "Επιστροφές & Αλλαγές" },
+  { slug: "epistrofes", label: "Επιστροφές & Υπαναχώρηση" },
+  { slug: "pliromes", label: "Τρόποι Πληρωμής" },
+  { slug: "eggyisi", label: "Εγγυήσεις" },
   { slug: "aporrito", label: "Πολιτική Απορρήτου" },
   { slug: "oroi-xrisis", label: "Όροι Χρήσης" },
   { slug: "cookies", label: "Πολιτική Cookies" },
@@ -28,6 +30,21 @@ export const CONTENT_PAGE_SLUGS: Array<{ slug: string; label: string }> = [
   { slug: "odigoi-agoron", label: "Οδηγοί Αγορών" },
   { slug: "karieres", label: "Καριέρα" },
 ];
+
+// The subset that are genuinely legal/compliance pages, not general content
+// (Σχετικά, FAQ, Καριέρα, order tracking, buying guides are informational,
+// not legal) — used to build the footer's ΝΟΜΙΚΑ section and to decide which
+// pages get the fuller legal-template treatment. Order here is the footer's
+// display order.
+export const LEGAL_PAGE_SLUGS = [
+  "oroi-xrisis",
+  "aporrito",
+  "cookies",
+  "epistrofes",
+  "apostoles",
+  "pliromes",
+  "eggyisi",
+] as const;
 
 // ---------------------------------------------------------------------------
 // Homepage blocks
@@ -205,6 +222,9 @@ export type AdminSiteSettings = {
   phoneOrdersLabel: string | null;
   freeShippingThresholdCents: number | null;
   defaultVatRate: number;
+  legalCompanyName: string | null;
+  vatNumber: string | null;
+  gemiNumber: string | null;
 };
 
 export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
@@ -218,13 +238,15 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
       tiktok_url: string | null; announcement_text: string | null; cart_message: string | null;
       phone_orders_enabled: boolean | null; phone_orders_label: string | null;
       free_shipping_threshold_cents: number | null; default_vat_rate: number;
+      legal_company_name: string | null; vat_number: string | null; gemi_number: string | null;
     }[]
   >`SELECT store_name, logo_path, favicon_path, og_image_path,
            default_seo_title, default_seo_description,
            footer_tagline, contact_phone, contact_email,
            contact_address, business_hours, facebook_url, instagram_url, tiktok_url,
            announcement_text, cart_message, phone_orders_enabled, phone_orders_label,
-           free_shipping_threshold_cents, default_vat_rate
+           free_shipping_threshold_cents, default_vat_rate,
+           legal_company_name, vat_number, gemi_number
       FROM shop.site_setting LIMIT 1`;
 
   const s = rows[0];
@@ -239,6 +261,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
       instagramUrl: null, tiktokUrl: null, announcementText: null, cartMessage: null,
       phoneOrdersEnabled: false, phoneOrdersLabel: null,
       freeShippingThresholdCents: null, defaultVatRate: 24,
+      legalCompanyName: null, vatNumber: null, gemiNumber: null,
     };
   }
 
@@ -255,6 +278,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
     phoneOrdersLabel: s.phone_orders_label,
     freeShippingThresholdCents: s.free_shipping_threshold_cents,
     defaultVatRate: Number(s.default_vat_rate),
+    legalCompanyName: s.legal_company_name, vatNumber: s.vat_number, gemiNumber: s.gemi_number,
   };
 }
 
@@ -266,7 +290,8 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       footer_tagline, contact_phone, contact_email,
       contact_address, business_hours, facebook_url, instagram_url, tiktok_url,
       announcement_text, cart_message, phone_orders_enabled, phone_orders_label,
-      free_shipping_threshold_cents, default_vat_rate, updated_at)
+      free_shipping_threshold_cents, default_vat_rate,
+      legal_company_name, vat_number, gemi_number, updated_at)
     VALUES (
       true, ${input.storeName}, ${input.logoPath}, ${input.faviconPath},
       ${input.ogImagePath}, ${input.defaultSeoTitle}, ${input.defaultSeoDescription},
@@ -274,7 +299,8 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       ${input.contactPhone}, ${input.contactEmail}, ${input.contactAddress},
       ${input.businessHours}, ${input.facebookUrl}, ${input.instagramUrl}, ${input.tiktokUrl},
       ${input.announcementText}, ${input.cartMessage}, ${input.phoneOrdersEnabled}, ${input.phoneOrdersLabel},
-      ${input.freeShippingThresholdCents}, ${input.defaultVatRate}, now())
+      ${input.freeShippingThresholdCents}, ${input.defaultVatRate},
+      ${input.legalCompanyName}, ${input.vatNumber}, ${input.gemiNumber}, now())
     ON CONFLICT (id) DO UPDATE SET
       store_name = EXCLUDED.store_name, logo_path = EXCLUDED.logo_path,
       favicon_path = EXCLUDED.favicon_path, og_image_path = EXCLUDED.og_image_path,
@@ -288,7 +314,9 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       phone_orders_enabled = EXCLUDED.phone_orders_enabled,
       phone_orders_label = EXCLUDED.phone_orders_label,
       free_shipping_threshold_cents = EXCLUDED.free_shipping_threshold_cents,
-      default_vat_rate = EXCLUDED.default_vat_rate, updated_at = now()`;
+      default_vat_rate = EXCLUDED.default_vat_rate,
+      legal_company_name = EXCLUDED.legal_company_name, vat_number = EXCLUDED.vat_number,
+      gemi_number = EXCLUDED.gemi_number, updated_at = now()`;
 }
 
 // ---------------------------------------------------------------------------
@@ -343,16 +371,29 @@ export type AdminContentPage = {
   body: string | null;
   isPublished: boolean;
   exists: boolean;
+  seoTitle: string | null;
+  metaDescription: string | null;
 };
 
 /**
  * Returns one entry per known slug, whether or not a row exists yet — so the
  * editor always shows the full set of pages the storefront can render, and an
  * unwritten page reads as "empty" rather than being missing from the list.
+ * LEFT JOINs shop.seo_meta the same way products/categories do (resource_type
+ * = 'page', resource_id = the page's own uuid) rather than adding seo_title/
+ * meta_description columns to content_page — one SEO storage shape, not two.
  */
 export async function listContentPages(): Promise<AdminContentPage[]> {
-  const rows = await sql<{ slug: string; title: string; body: string | null; is_published: boolean }[]>`
-    SELECT slug, title, body, is_published FROM shop.content_page`;
+  const rows = await sql<
+    {
+      slug: string; title: string; body: string | null; is_published: boolean;
+      seo_title: string | null; meta_description: string | null;
+    }[]
+  >`
+    SELECT p.slug, p.title, p.body, p.is_published,
+           s.seo_title, s.meta_description
+      FROM shop.content_page p
+      LEFT JOIN shop.seo_meta s ON s.resource_type = 'page' AND s.resource_id = p.id::text`;
   const bySlug = new Map(rows.map((r) => [r.slug, r]));
 
   return CONTENT_PAGE_SLUGS.map(({ slug, label }) => {
@@ -369,6 +410,8 @@ export async function listContentPages(): Promise<AdminContentPage[]> {
       body: row?.body || null,
       isPublished: row?.is_published ?? false,
       exists: Boolean(row),
+      seoTitle: row?.seo_title || null,
+      metaDescription: row?.meta_description || null,
     };
   });
 }
@@ -378,17 +421,37 @@ export async function saveContentPage(input: {
   title: string;
   body: string | null;
   isPublished: boolean;
+  seoTitle: string | null;
+  metaDescription: string | null;
 }): Promise<void> {
   // Guards against a crafted request writing a slug with no storefront route.
   if (!CONTENT_PAGE_SLUGS.some((p) => p.slug === input.slug)) {
     throw new Error(`Unknown content page slug: ${input.slug}`);
   }
-  await sql`
-    INSERT INTO shop.content_page (slug, title, body, is_published)
-    VALUES (${input.slug}, ${input.title}, ${input.body}, ${input.isPublished})
-    ON CONFLICT (slug) DO UPDATE SET
-      title = EXCLUDED.title, body = EXCLUDED.body,
-      is_published = EXCLUDED.is_published, updated_at = now()`;
+  await transaction(async (tx) => {
+    const [page] = await tx<{ id: string }[]>`
+      INSERT INTO shop.content_page (slug, title, body, is_published)
+      VALUES (${input.slug}, ${input.title}, ${input.body}, ${input.isPublished})
+      ON CONFLICT (slug) DO UPDATE SET
+        title = EXCLUDED.title, body = EXCLUDED.body,
+        is_published = EXCLUDED.is_published, updated_at = now()
+      RETURNING id`;
+
+    // Same "empty override deletes the row" rule as product/category SEO
+    // (products.ts updateProduct): a page with no SEO fields set should fall
+    // through to its own title/derived description, not leave a blank
+    // override shadowing them forever.
+    if (input.seoTitle || input.metaDescription) {
+      await tx`
+        INSERT INTO shop.seo_meta (resource_type, resource_id, seo_title, meta_description)
+        VALUES ('page', ${page.id}, ${input.seoTitle}, ${input.metaDescription})
+        ON CONFLICT (resource_type, resource_id) DO UPDATE SET
+          seo_title = EXCLUDED.seo_title, meta_description = EXCLUDED.meta_description,
+          updated_at = now()`;
+    } else {
+      await tx`DELETE FROM shop.seo_meta WHERE resource_type = 'page' AND resource_id = ${page.id}`;
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------

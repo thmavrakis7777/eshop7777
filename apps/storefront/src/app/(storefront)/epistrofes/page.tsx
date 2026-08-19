@@ -4,6 +4,7 @@ import { ContentPageView } from "@/components/content/ContentPageView";
 import { getContentPage } from "@/lib/data/content-pages";
 import { getSeoOverride } from "@/lib/data/seo";
 import { deriveMetaDescription } from "@/lib/seo-text";
+import { richBodyToPlainText } from "@/components/content/RichBody";
 import { siteUrl } from "@/lib/site-config";
 
 const SLUG = "epistrofes";
@@ -15,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const seo = await getSeoOverride("page", page.id);
   const title = seo?.seoTitle || page.title;
-  const description = seo?.metaDescription || deriveMetaDescription(page.body);
+  const description = seo?.metaDescription || deriveMetaDescription(richBodyToPlainText(page.body));
   const path = seo?.canonicalUrl || PATH;
 
   return {

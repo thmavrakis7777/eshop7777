@@ -279,6 +279,24 @@ export const getContentPage = unstable_cache(
   { revalidate: 60, tags: [CACHE_TAGS.contentPages] }
 );
 
+// The footer's ΝΟΜΙΚΑ column needs to know which legal pages are actually
+// published — a hardcoded link list can't know that an owner unpublished
+// one, and would 404 for a visitor who clicks it. One cheap query for
+// slug+title, not the full listContentPages() admin query (which also joins
+// seo_meta for every one of the 11 pages — unneeded here).
+export const getPublishedLegalPages = unstable_cache(
+  async (): Promise<{ slug: string; title: string }[]> => {
+    try {
+      return await sql<{ slug: string; title: string }[]>`
+        SELECT slug, title FROM shop.content_page WHERE is_published`;
+    } catch {
+      return [];
+    }
+  },
+  ["published-legal-pages"],
+  { revalidate: 60, tags: [CACHE_TAGS.contentPages] }
+);
+
 // ---------------------------------------------------------------------------
 // SEO overrides
 // ---------------------------------------------------------------------------

@@ -415,6 +415,23 @@ function SubmitButton({
 }) {
   return (
     <div className="flex flex-col gap-2">
+      {/* Distance-selling law (ν. 2251/1994 art. 3ια, transposing Directive
+          2011/83/EU art. 8§2) requires the final order button/step to make
+          the payment obligation explicit — a bare "Συνέχεια"/"Continue"
+          does not satisfy that. The button already carries the exact total;
+          this line makes the obligation itself unambiguous, always visible
+          (not just on error/disabled), regardless of the total shown. */}
+      <p className="text-center text-xs text-ink-muted">
+        Πατώντας «Ολοκλήρωση Παραγγελίας» αναλαμβάνεις την υποχρέωση πληρωμής του συνολικού ποσού. Ισχύουν οι{" "}
+        <a href="/oroi-xrisis" className="underline underline-offset-2 hover:text-ink" target="_blank" rel="noopener noreferrer">
+          Όροι Χρήσης
+        </a>{" "}
+        και το δικαίωμα{" "}
+        <a href="/epistrofes" className="underline underline-offset-2 hover:text-ink" target="_blank" rel="noopener noreferrer">
+          Υπαναχώρησης
+        </a>
+        .
+      </p>
       <button
         type="button"
         onClick={onSubmit}

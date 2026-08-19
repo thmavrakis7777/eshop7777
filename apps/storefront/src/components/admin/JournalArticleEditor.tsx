@@ -21,7 +21,7 @@ import type { AdminJournalArticle, AdminJournalCategory } from "@/lib/admin/jour
  * being filled in. The order is the order the work happens in — write, then
  * illustrate, then decide when it goes live, then attach products, then SEO.
  *
- * No rich-text editor: see the long note in components/journal/ArticleBody.tsx
+ * No rich-text editor: see the long note in components/content/RichBody.tsx
  * for why (strict CSP, no dependency, no HTML to sanitise). The formatting
  * cheat-sheet under the body field is the whole learning curve.
  */

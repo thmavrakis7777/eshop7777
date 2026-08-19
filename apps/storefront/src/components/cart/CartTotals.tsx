@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Cart } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 
@@ -10,6 +11,12 @@ import { formatPrice } from "@/lib/format";
 // real shipping method to the cart (`cart.hasShippingMethod`), this shows
 // the real amount and total instead — same component, no fork needed.
 export function CartTotals({ cart }: { cart: Cart }) {
+  // The total is always correct either way (lib/db/cart.ts computes it
+  // whether or not the UI explains it) — this only decides whether to show
+  // *why* it's higher, per the compliance requirement that an oversized-item
+  // surcharge must be understandable, not just a bigger number.
+  const hasOversizedItem = cart.items.some((i) => i.hasExtraShipping);
+
   return (
     <div className="flex flex-col gap-2 text-sm">
       <div className="flex justify-between">
@@ -30,6 +37,15 @@ export function CartTotals({ cart }: { cart: Cart }) {
           <span className="text-ink-muted">Υπολογίζεται στο checkout</span>
         )}
       </div>
+      {cart.hasShippingMethod && hasOversizedItem && (
+        <p className="text-xs text-ink-muted">
+          Περιλαμβάνει πρόσθετη χρέωση μεταφορικών για ογκώδες/βαρύ προϊόν στο καλάθι σου — δείτε τη{" "}
+          <Link href="/apostoles" className="underline underline-offset-2 hover:text-ink">
+            σελίδα Αποστολών
+          </Link>
+          .
+        </p>
+      )}
       <div className="flex items-baseline justify-between border-t border-border pt-2.5">
         <span className="text-base font-semibold text-ink">Σύνολο</span>
         <span className="text-lg font-semibold text-ink tabular-nums">{formatPrice(cart.total)}</span>

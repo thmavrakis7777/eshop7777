@@ -7,8 +7,8 @@ import { deriveMetaDescription } from "@/lib/seo-text";
 import { richBodyToPlainText } from "@/components/content/RichBody";
 import { siteUrl } from "@/lib/site-config";
 
-const SLUG = "paraggelia";
-const PATH = "/paraggelia";
+const SLUG = "eggyisi";
+const PATH = "/eggyisi";
 
 export async function generateMetadata(): Promise<Metadata> {
   const page = await getContentPage(SLUG);
@@ -34,7 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function OrderTrackingPage() {
+export default async function WarrantyPage() {
   const page = await getContentPage(SLUG);
   if (!page) notFound();
 

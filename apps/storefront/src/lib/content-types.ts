@@ -184,3 +184,19 @@ export function hasAnyAnalyticsService(settings: AnalyticsSettings | null): bool
     settings.ga4MeasurementId || settings.gtmContainerId || settings.metaPixelId || settings.clarityProjectId
   );
 }
+
+// The two real consent categories this store's cookie banner offers — see
+// consent-storage.ts's long comment on why there's no third "Preferences"
+// category. GA4/GTM/Clarity are analytics; Meta Pixel is marketing (it
+// exists to measure/target ads). If a future service belongs to neither
+// bucket cleanly, that's the trigger to reconsider the category split, not
+// to force it into one of these two.
+export function hasAnalyticsService(settings: AnalyticsSettings | null): boolean {
+  if (!settings) return false;
+  return Boolean(settings.ga4MeasurementId || settings.gtmContainerId || settings.clarityProjectId);
+}
+
+export function hasMarketingService(settings: AnalyticsSettings | null): boolean {
+  if (!settings) return false;
+  return Boolean(settings.metaPixelId);
+}

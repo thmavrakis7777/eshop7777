@@ -14,6 +14,8 @@ const CONTENT_PAGE_SLUGS = [
   "sxetika",
   "apostoles",
   "epistrofes",
+  "pliromes",
+  "eggyisi",
   "aporrito",
   "oroi-xrisis",
   "faq",

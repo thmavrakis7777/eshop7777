@@ -9,8 +9,8 @@ const MAX_LENGTH = 160;
 
 export function deriveMetaDescription(body: string | null): string | undefined {
   if (!body) return undefined;
-  // Body is plain text (see ContentPageView.tsx) with blank lines separating
-  // paragraphs — collapse to a single line before truncating.
+  // Callers pass richBodyToPlainText(body) here, not the raw markup body —
+  // collapse to a single line before truncating.
   const flat = body.replace(/\s+/g, " ").trim();
   if (!flat) return undefined;
   if (flat.length <= MAX_LENGTH) return flat;

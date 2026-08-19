@@ -16,7 +16,7 @@ export type PickupLocation = {
 };
 
 export const PICKUP_LOCATION: PickupLocation = {
-  name: "STIA — Κατάστημα Ηρακλείου",
+  name: "MAVRAKIS HOME — Κατάστημα Ηρακλείου",
   addressLine: "Σφακιανάκη 4",
   city: "Ηράκλειο",
   postalCode: "71201",

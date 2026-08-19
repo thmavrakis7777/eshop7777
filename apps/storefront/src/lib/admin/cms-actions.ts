@@ -333,6 +333,9 @@ export async function saveSiteSettingsAction(formData: FormData): Promise<Action
       phoneOrdersLabel: text(formData.get("phoneOrdersLabel")),
       freeShippingThresholdCents: toCents(formData.get("freeShippingThreshold")),
       defaultVatRate: vat,
+      legalCompanyName: text(formData.get("legalCompanyName")),
+      vatNumber: text(formData.get("vatNumber")),
+      gemiNumber: text(formData.get("gemiNumber")),
     });
     await auditLog(admin.id, "site_settings.update", "site_setting", "singleton");
   } catch {
@@ -389,6 +392,8 @@ export async function saveContentPageAction(formData: FormData): Promise<ActionR
       title,
       body: text(formData.get("body")),
       isPublished: formData.get("isPublished") === "on",
+      seoTitle: text(formData.get("seoTitle")),
+      metaDescription: text(formData.get("metaDescription")),
     });
     await auditLog(admin.id, "content_page.update", "content_page", slug);
   } catch {

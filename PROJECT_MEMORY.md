@@ -47,6 +47,50 @@ database is unreachable — it is not the source of truth.
 Changing "Store name" in the admin renames the whole storefront. Nothing
 about the brand is hardcoded in a component any more.
 
+### Legal identity — the shop's registered-entity fields (2026-08-19)
+
+`shop.site_setting` also has `legal_company_name`, `vat_number` (ΑΦΜ),
+`gemi_number` (ΓΕΜΗ) — added specifically because the legal pages need them
+and nothing in the schema held them before. Edit at the same
+`/admin/content/layout` form, owner-only, right below the VAT-rate field.
+**All three are still empty as of this writing** — the legal pages
+(Terms, Privacy) show a literal `[ΑΦΜ]` / `[ΓΕΜΗ]` placeholder in their
+seeded text until the owner fills these in. There is no live template-
+variable interpolation: filling in the Settings fields does **not**
+automatically rewrite the bracketed placeholder already sitting in a legal
+page's body — the owner has to also go edit that page's text once and swap
+the placeholder for the real value. This was a deliberate simplicity choice
+(a merge-tag system would be real added complexity for a one-time edit),
+not an oversight — document it if it comes up as confusing.
+
+### Legal & compliance pages — dashboard-editable, not hardcoded (2026-08-19)
+
+Terms, Privacy, Cookies, Returns & Withdrawal, Shipping, Payments, Warranty
+are **Content Pages** (see below), not a separate system — see the
+CHANGELOG entry "Editable legal/compliance system" for the full reasoning,
+what was reused vs. genuinely new, and the real CSP bug (GA4's regional
+collect endpoint, `region1.google-analytics.com`, was silently blocked by
+`connect-src` even after a visitor granted consent) found only by watching
+the network tab after actually granting consent, not by reading the
+snippet. Do not re-litigate whether to build a "proper CMS" for these —
+that question was asked and answered this session, with the Content Pages
+system deliberately extended (richer body format, SEO fields) rather than
+duplicated.
+
+Cookie consent is granular (Analytics / Marketing, no fake third
+"Preferences" category — nothing in this codebase sets a preference
+cookie) and reopenable from the footer's "Ρυθμίσεις Cookies" — see
+`lib/consent-storage.ts`'s doc comments for the exact mechanism.
+
+**Anything in the seeded legal text should be treated as a professionally-
+structured starting template, not verified legal advice** — a Greek
+lawyer/DPO should review it before real-world reliance, particularly: the
+courier partner name (currently a bracketed placeholder — none exists
+anywhere in the codebase to pull a real one from), and the Privacy Policy's
+processor list if a new third-party service (email sending, a payment
+gateway beyond Cash-on-Delivery) is ever added — that list must be updated
+to match, never left describing an architecture the site no longer has.
+
 ### Homepage CMS — how to control the homepage
 
 The homepage is an **ordered list of sections** stored in

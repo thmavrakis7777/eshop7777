@@ -5,11 +5,15 @@ import { useSyncExternalStore } from "react";
 import { getConsentServerSnapshot, getConsentSnapshot, subscribeConsent } from "@/lib/consent-storage";
 import type { AnalyticsSettings } from "@/lib/content-types";
 
-// Admin-first platform, Phase K. Renders nothing until the visitor has
-// actively accepted (see ConsentBanner) — no script tag for any service
-// exists in the DOM before that, not just "disabled" or blocked by CSP.
-// One `next/script` block per configured service, each independent of the
-// others (an admin can fill in only the ones they actually use).
+// Admin-first platform, Phase K; granular per-category consent added for
+// the legal/compliance system. Each script only renders once its own
+// category has been actively granted (see ConsentBanner) — no script tag
+// for any service exists in the DOM before that, not just "disabled" or
+// blocked by CSP. GA4/GTM/Clarity read `consent.analytics`; Meta Pixel
+// reads `consent.marketing` — accepting one category never loads the
+// other's scripts. One `next/script` block per configured service, each
+// independent of the others (an admin can fill in only the ones they
+// actually use).
 //
 // GTM's own base snippet also ships a <noscript><iframe> fallback for
 // visitors with JavaScript disabled — deliberately omitted here: a visitor
@@ -35,11 +39,13 @@ export function AnalyticsScripts({
 }) {
   const consent = useSyncExternalStore(subscribeConsent, getConsentSnapshot, getConsentServerSnapshot);
 
-  if (!settings || consent !== "accepted") return null;
+  if (!settings || !consent) return null;
+  const analyticsOn = consent.analytics;
+  const marketingOn = consent.marketing;
 
   return (
     <>
-      {settings.ga4MeasurementId && (
+      {analyticsOn && settings.ga4MeasurementId && (
         <>
           <Script
             id="ga4-lib"
@@ -56,7 +62,7 @@ gtag('config', ${js(settings.ga4MeasurementId)});`}
         </>
       )}
 
-      {settings.gtmContainerId && (
+      {analyticsOn && settings.gtmContainerId && (
         <Script id="gtm-init" strategy="afterInteractive" nonce={nonce}>
           {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});
 var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
@@ -66,7 +72,7 @@ f.parentNode.insertBefore(j,f);
         </Script>
       )}
 
-      {settings.metaPixelId && (
+      {marketingOn && settings.metaPixelId && (
         <Script id="meta-pixel-init" strategy="afterInteractive" nonce={nonce}>
           {`!function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -81,7 +87,7 @@ fbq('track', 'PageView');`}
         </Script>
       )}
 
-      {settings.clarityProjectId && (
+      {analyticsOn && settings.clarityProjectId && (
         <Script id="clarity-init" strategy="afterInteractive" nonce={nonce}>
           {`(function(c,l,a,r,i,t,y){
 c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};

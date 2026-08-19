@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
-import { ArticleBody, articleBodyToPlainText } from "@/components/journal/ArticleBody";
+import { RichBody, richBodyToPlainText } from "@/components/content/RichBody";
 import { ArticleDate, JournalCardItem } from "@/components/journal/JournalCard";
 import { ProductCard } from "@/components/product/ProductCard";
 import { getBranding } from "@/lib/data/branding";
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const description =
     seo?.metaDescription ||
     article.excerpt ||
-    deriveMetaDescription(articleBodyToPlainText(article.body)) ||
+    deriveMetaDescription(richBodyToPlainText(article.body)) ||
     undefined;
   const path = seo?.canonicalUrl || `/journal/${article.slug}`;
   const image = seo?.socialImageUrl || article.heroImageUrl;
@@ -94,7 +94,7 @@ export default async function JournalArticlePage({ params }: { params: Params })
   ]);
 
   const pageUrl = `${siteUrl}/journal/${article.slug}`;
-  const plainBody = articleBodyToPlainText(article.body);
+  const plainBody = richBodyToPlainText(article.body);
 
   const breadcrumbs: Crumb[] = [
     { label: "Journal", href: "/journal" },
@@ -186,7 +186,7 @@ export default async function JournalArticlePage({ params }: { params: Params })
 
         {article.body && (
           <div className="mt-8">
-            <ArticleBody body={article.body} />
+            <RichBody body={article.body} />
           </div>
         )}
       </article>

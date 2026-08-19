@@ -3,6 +3,168 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Editable legal/compliance system (2026-08-19)
+
+Terms, Privacy, Cookies, Returns & Withdrawal, Shipping, Payments and
+Warranty are all real, dashboard-editable pages now, plus a granular cookie
+consent system and a checkout compliance pass. **No new CMS was built** —
+the existing "Content Pages" system (`shop.content_page`, `/admin/content/pages`)
+already modelled exactly what a legal page is (flat, dateless, one body) and
+was extended rather than duplicated, unlike Journal which needed its own
+schema for the opposite reason (dated, categorised, growing).
+
+### What changed in Content Pages, for everyone's benefit not just legal text
+
+- **Rich body format.** `ContentPageView` (the component every one of the 11
+  static pages renders through) now uses `RichBody`
+  (`components/content/RichBody.tsx`) instead of the old blank-line-only
+  paragraph splitter. `RichBody` is `ArticleBody` from the Journal work,
+  moved to a shared location and renamed — one parser for both, not two.
+  Legal pages can now have real `##`/`###` headings, lists, blockquotes,
+  bold and links; the old plain splitter (`renderBody`, still exported from
+  `ContentPageView.tsx`) survives only because `CategoryPLPView`/
+  `CategoryLandingView` also call it for category long-descriptions, which
+  don't need the extra marks.
+- **SEO fields.** Content pages now round-trip through `shop.seo_meta` under
+  `resource_type = 'page'` (the CHECK constraint already allowed this value
+  from migration 0001 — it was declared but never written to from the
+  admin). `ContentPageEditor` gained "Τίτλος SEO" / "Περιγραφή SEO" fields;
+  `saveContentPage` upserts-or-deletes the override in the same transaction
+  as the page row, mirroring `updateProduct`'s SEO pattern exactly.
+  `deriveMetaDescription` callers across all 11 page routes now pass
+  `richBodyToPlainText(page.body)` instead of the raw markup body — before
+  this fix, an owner using the new heading/list syntax would have leaked
+  literal `## ` and `**`  characters into their Google search snippet.
+- **Two new pages**: Πληρωμές (`/pliromes`) and Εγγυήσεις (`/eggyisi`),
+  added the same way as the other 11 — a slug in `CONTENT_PAGE_SLUGS`
+  (`lib/admin/cms.ts`), a literal route folder (routing here is 11, now 13,
+  literal folders, not a dynamic `[slug]`), an entry in `sitemap.ts`'s own
+  duplicated slug list.
+- **`LEGAL_PAGE_SLUGS`** (`lib/admin/cms.ts`) marks which of the 13 content
+  pages are legal/compliance pages, in footer display order, as opposed to
+  general content (Σχετικά, FAQ, Καριέρα, buying guides).
+
+### Initial content (`db/seed-legal-pages.mjs`)
+
+Wrote real Greek template text for all 7 legal pages, grounded in GDPR, ν.
+4624/2019, ν. 3471/2006, the EU Consumer Rights Directive 2011/83/EU and ν.
+2251/1994 — not paraphrased from a competitor or a blog. Known-real values
+(store name, phone, email, address, 24% VAT, Cash-on-Delivery-only payment,
+30-day free returns as a commercial policy layered on top of the 14-day
+statutory withdrawal right) are written in directly; unknown business
+identity (ΑΦΜ, ΓΕΜΗ, legal company name if different from the trading name)
+is left as a bracketed placeholder (`[ΑΦΜ]`, `[ΓΕΜΗ]`) for the owner to
+replace from the dashboard once they have it. **This text is a starting
+template, not legal advice — a Greek lawyer/DPO should review it before
+relying on it commercially**, especially the courier name placeholder in
+Αποστολές and the processor list in Πολιτική Απορρήτου if any new
+third-party service (email provider, a payment gateway beyond COD) is added
+later.
+
+### Business identity fields (`0012_legal_identity.sql`)
+
+`shop.site_setting` gained `legal_company_name`, `vat_number`, `gemi_number`
+— nothing existed for these at all before (the shop's *trading* name,
+`store_name`, was already there, but a registered legal entity name/ΑΦΜ/ΓΕΜΗ
+never had a home). Editable from `/admin/content/layout`, same form as
+branding/contact — round-trips through `AdminSiteSettings` like every other
+field on that singleton.
+
+### Cookie consent — granular categories, not a rebuild
+
+The existing consent system (`ConsentBanner`, `consent-storage.ts`,
+`AnalyticsScripts`) was already sound: binary accept/reject, localStorage-
+backed via `useSyncExternalStore`, and — confirmed by direct code read
+before touching anything — genuinely zero tracking script tags in the DOM
+before consent, not just hidden. What it didn't have: separate categories,
+and any way to reopen it after the first visit.
+
+- **Two real categories**, not four: Analytics (GA4, GTM, Clarity) and
+  Marketing (Meta Pixel). No "Preferences" toggle — nothing in this
+  codebase sets a preference cookie, and a toggle with nothing behind it
+  would be exactly the "invented cookie" the Cookie Policy explicitly
+  promises not to have. `consent-storage.ts`'s stored shape changed from a
+  string to `{ analytics: boolean; marketing: boolean }`; the old
+  `"stia:analytics-consent"` key is abandoned (not migrated) rather than
+  guessed at — a stored `"accepted"` string carries no information about
+  which of two categories the visitor meant, so first visit under the new
+  system correctly asks again rather than assuming.
+- **`AnalyticsScripts`** now checks `consent.analytics` for GA4/GTM/Clarity
+  and `consent.marketing` for Meta Pixel independently — accepting one
+  category never loads the other's scripts. Verified live: granted
+  Analytics only → GA4 script tag present, Meta Pixel absent; then also
+  granted Marketing → Meta Pixel appeared.
+- **Reopenable.** A tiny ephemeral (non-persisted) signal,
+  `requestSettingsOpen()`/`getSettingsOpenSnapshot()` in `consent-storage.ts`,
+  separate from the stored choice itself. The footer's new
+  `CookieSettingsLink` ("Ρυθμίσεις Cookies", a `<button>`, not a link — it
+  doesn't navigate) sets it; `ConsentBanner` shows itself whenever that flag
+  is true OR no choice is stored yet, pre-filled with the visitor's current
+  choice rather than starting blank. Tested live: reopening after choosing
+  Analytics-only correctly showed Analytics checked, Marketing unchecked.
+
+### A real CSP bug, found only by watching the network tab after granting consent
+
+Script tags rendering is not the same as their requests succeeding. Granting
+Analytics consent locally, GA4's script loaded but its actual hit
+(`region1.google-analytics.com/g/collect`) was silently blocked by
+`connect-src` — only `www.google-analytics.com` was allow-listed, not the
+regional subdomain GA4 actually posts to. Fixed in `proxy.ts` by adding
+`https://*.google-analytics.com`; also added `https://www.facebook.com`
+(the Meta Pixel SDK's real beacon target — `connect.facebook.net` is only
+where the *script* loads from) on the same reasoning, though that one
+wasn't separately reproduced with a live network error the way the GA4 one
+was. Re-verified clean (zero CSP console errors) after the fix.
+
+### Checkout compliance
+
+- **Final button.** Ν. 2251/1994 art. 3ια (transposing Directive
+  2011/83/EU art. 8§2) requires the payment obligation to be explicit — a
+  bare "Continue" doesn't satisfy it. The button already showed the exact
+  total; added a permanent (not just on error) line above it stating the
+  obligation plainly, with links to Terms and the Withdrawal page.
+- **Oversized-shipping transparency.** The surcharge for heavy/oversized
+  product lines (`shop.product.shipping_cost_cents`) was already correctly
+  *included* in the checkout total (`lib/db/cart.ts`'s `computeTotals`) —
+  but nothing on the storefront ever told the shopper *why* shipping cost
+  more. `CartLineItem` gained `hasExtraShipping: boolean`; `CartTotals`
+  shows an explanatory line (linking to Αποστολές) whenever any cart line
+  carries the flag.
+- **Footer**: a new "ΝΟΜΙΚΑ" column lists only *published* legal pages
+  (`getPublishedLegalPages()`, a small cached query separate from the
+  admin's fuller `listContentPages()`) — an owner unpublishing a legal page
+  can no longer leave a dead link in the footer. Αποστολές/Επιστροφές moved
+  here from "Βοήθεια", since they're compliance pages, not just help
+  articles.
+
+### A drive-by fix: stale "STIA" in the admin `<title>`
+
+Found while testing, unrelated to the ask but the same brand-leak bug class
+the storefront side already had fixed once (`getBranding()`). The admin
+root layout's `title: { default: "Διαχείριση", ... }` was still being
+wrapped by the *root* layout's (shared with the storefront) `"%s | STIA"`
+template, because a plain `default` string participates in an ancestor's
+template — only `absolute` opts out. Every `/admin/*` browser tab read
+"… · Διαχείριση | STIA" until this. Also renamed the stale
+`PICKUP_LOCATION.name` in `lib/pickup-config.ts` from
+`"STIA — Κατάστημα Ηρακλείου"` to `"MAVRAKIS HOME — Κατάστημα Ηρακλείου"`.
+
+### Known limitations / open items
+
+- **Draft preview.** Content Pages still has no secure preview-before-publish
+  route — the existing "Προβολή" link only appears once a page is already
+  published. Small, deliberate scope cut; flagged, not silently skipped.
+- **Business identity fields are empty** until the owner fills in ΑΦΜ, ΓΕΜΗ
+  and (if different from the trading name) the legal company name from
+  `/admin/content/layout`. The legal pages show `[ΑΦΜ]`/`[ΓΕΜΗ]` literally
+  until then.
+- **Courier name** in the seeded Αποστολές text is a bracketed placeholder —
+  no courier partner name exists anywhere in the codebase to pull a real one
+  from.
+- Full end-to-end checkout was verified visually (price/VAT/shipping-note/
+  button copy all confirmed live) but a complete test order was not placed
+  through to confirmation in this pass.
+
 ## MAVRAKIS HOME Journal — editorial CMS and SEO content system (2026-08-19)
 
 A premium content section the owner runs entirely from the dashboard: buying

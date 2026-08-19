@@ -3,7 +3,13 @@ import type { ReactNode } from "react";
 import { publicImageUrl } from "@/lib/storage/urls";
 
 /**
- * The Journal's content format.
+ * The shared owner-authored content format — used by Journal articles and by
+ * every legal/static Content Page (Terms, Privacy, Cookies, Returns,
+ * Shipping, Payments, Warranty, About, FAQ, …). One parser, one editor
+ * cheat-sheet, one set of rendering rules, instead of Journal and Content
+ * Pages each maintaining their own (Content Pages' original renderBody was a
+ * blank-line-only paragraph splitter with no headings/lists/links — this
+ * absorbs it as a subset).
  *
  * A deliberate NON-decision to add a rich-text editor. Three reasons, in
  * order of weight:
@@ -17,11 +23,12 @@ import { publicImageUrl } from "@/lib/storage/urls";
  *      dangerouslySetInnerHTML and therefore sanitised — a second dependency
  *      and a permanent class of bug.
  *   3. This parser emits React elements. There is no HTML string anywhere in
- *      the pipeline, so there is nothing to sanitise and nothing to escape.
+ *      the pipeline, so there is nothing to sanitise and nothing to escape —
+ *      true even for a legal page, whose text is trusted-owner content but
+ *      still benefits from never having an HTML-injection code path to
+ *      reason about.
  *
- * It extends the plain-text convention ContentPageView.renderBody already
- * established (blank line = paragraph) with exactly the marks an editorial
- * article needs, and nothing else:
+ * Marks:
  *
  *     ## Επικεφαλίδα            → <h2>
  *     ### Υπο-επικεφαλίδα       → <h3>
@@ -80,8 +87,8 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
         out.push(linkLabel);
       } else if (href.startsWith("/")) {
         // Internal links are the point of the whole format — they are what
-        // ties an article to the categories and products it discusses, for
-        // readers and for crawlers alike.
+        // ties an article or legal page to the categories, products, or
+        // other pages it references, for readers and for crawlers alike.
         out.push(
           <Link
             key={`${keyPrefix}-l-${match.index}`}
@@ -119,10 +126,10 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
 // remember which language the token is in.
 const IMAGE_TOKEN = /^\[(?:εικόνα|εικονα|image|img)\s*:\s*([^\]|]+?)(?:\s*\|\s*([^\]]*))?\]$/i;
 
-export function ArticleBody({ body }: { body: string }) {
+export function RichBody({ body, className }: { body: string; className?: string }) {
   // Windows browsers submit CRLF from a textarea, which turns a blank line
   // into "\r\n\r\n" — no two consecutive \n, so an unnormalised split runs
-  // every paragraph together. Same fix as ContentPageView.renderBody.
+  // every paragraph together.
   const lines = body.replace(/\r\n?/g, "\n").split("\n");
 
   const blocks: ReactNode[] = [];
@@ -265,16 +272,16 @@ export function ArticleBody({ body }: { body: string }) {
 
   flushAll();
 
-  return <div className="flex flex-col gap-5">{blocks}</div>;
+  return <div className={className ?? "flex flex-col gap-5"}>{blocks}</div>;
 }
 
 /**
- * Plain text of an article body, for meta descriptions and JSON-LD — every
- * mark stripped, so a description never leaks "## " or a link's URL into a
- * search result. Shared by the article route's metadata and its structured
- * data so the two can never describe the page differently.
+ * Plain text of a body, for meta descriptions and JSON-LD — every mark
+ * stripped, so a description never leaks "## " or a link's URL into a search
+ * result. Shared by Journal and Content Page routes so a description can
+ * never diverge from what actually renders.
  */
-export function articleBodyToPlainText(body: string | null): string {
+export function richBodyToPlainText(body: string | null): string {
   if (!body) return "";
   return body
     .replace(/\r\n?/g, "\n")

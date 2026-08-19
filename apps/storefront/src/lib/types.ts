@@ -119,6 +119,12 @@ export type CartLineItem = {
   // correct if the variant is later edited. (Pre-migration this pointed at
   // MedusaLineItem.variant_sku in lib/medusa.ts; that file no longer exists.)
   code: string | null;
+  // true when this line carries its own oversized/heavy shipping surcharge
+  // (shop.product.shipping_cost_cents), i.e. it is contributing to
+  // `Cart.shippingTotal` on its own rather than via the flat shipping-method
+  // price. Exists so the UI can explain *why* shipping costs more, not just
+  // show the number — see CartTotals.tsx.
+  hasExtraShipping: boolean;
 };
 
 export type AppliedPromotion = {

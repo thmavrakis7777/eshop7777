@@ -1,12 +1,12 @@
 import type { ContentPage } from "@/lib/data/content-pages";
+import { RichBody } from "@/components/content/RichBody";
 
 // Plain-text body, never raw HTML — a blank line starts a new paragraph,
-// a single newline within a paragraph becomes a line break. No markdown,
-// no dangerouslySetInnerHTML: the admin-editable field is trusted-owner
-// content (same trust level as the seo module's plain-text fields), but
-// there is still no reason to parse or render HTML for what is, in every
-// case built so far (About/Shipping/Returns/Privacy/Terms/FAQ), plain
-// informational text.
+// a single newline within a paragraph becomes a line break. Still used by
+// category long-descriptions (CategoryPLPView/CategoryLandingView), which
+// don't need headings/lists/links. ContentPageView itself (below) now uses
+// the richer, shared RichBody parser instead — legal pages need real
+// headings and lists, this simpler one is kept only for its other callers.
 export function renderBody(body: string) {
   return body
     // Textarea input arrives CRLF-terminated from Windows browsers, which
@@ -34,7 +34,7 @@ export function ContentPageView({ page }: { page: ContentPage }) {
     <div className="container-shell max-w-3xl py-8 md:py-12">
       <h1 className="mb-6 font-display text-2xl md:text-3xl">{page.title}</h1>
       {page.body ? (
-        <div className="flex flex-col gap-4 text-base leading-relaxed">{renderBody(page.body)}</div>
+        <RichBody body={page.body} />
       ) : (
         <p className="text-ink-muted">Το περιεχόμενο αυτής της σελίδας δεν έχει προστεθεί ακόμα.</p>
       )}

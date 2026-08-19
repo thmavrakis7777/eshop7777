@@ -108,9 +108,35 @@ export function ContentPageEditor({ pages }: { pages: AdminContentPage[] }) {
                     <label className="text-sm font-medium text-ink">Κείμενο</label>
                     <textarea
                       name="body"
-                      rows={12}
+                      rows={16}
                       defaultValue={p.body ?? ""}
                       placeholder="Γράψε εδώ το περιεχόμενο της σελίδας. Οι κενές γραμμές δημιουργούν παραγράφους."
+                      className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm leading-relaxed outline-none focus:border-ink"
+                    />
+                    <p className="text-xs text-ink-muted">
+                      <code className="text-ink">## Τίτλος</code> / <code className="text-ink">### Υπότιτλος</code> για
+                      επικεφαλίδες, <code className="text-ink">- </code> ή <code className="text-ink">1. </code> για
+                      λίστα, <code className="text-ink">{"**έντονα**"}</code> για έντονα,{" "}
+                      <code className="text-ink">{"[κείμενο](/apostoles)"}</code> για σύνδεσμο,{" "}
+                      <code className="text-ink">{"> "}</code> για παράθεμα. Κενή γραμμή ξεκινά νέα παράγραφο.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-ink">Τίτλος SEO (προαιρετικό)</label>
+                    <input
+                      name="seoTitle"
+                      defaultValue={p.seoTitle ?? ""}
+                      placeholder={p.title}
+                      className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-ink"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-ink">Περιγραφή SEO (προαιρετικό)</label>
+                    <textarea
+                      name="metaDescription"
+                      rows={2}
+                      defaultValue={p.metaDescription ?? ""}
+                      placeholder="Αν μείνει κενό, χρησιμοποιείται αυτόματα το ίδιο το κείμενο της σελίδας."
                       className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm leading-relaxed outline-none focus:border-ink"
                     />
                   </div>

@@ -207,6 +207,7 @@ function toDomainCart(r: CartRow): Cart {
         : undefined,
     lineTotal: eur(i.unit_price_cents * i.quantity),
     placeholderTone: toneFor(i.product_slug),
+    hasExtraShipping: (i.shipping_cost_cents ?? 0) > 0,
   }));
 
   const totals = computeTotals({

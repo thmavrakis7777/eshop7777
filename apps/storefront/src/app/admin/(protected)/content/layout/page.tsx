@@ -125,6 +125,14 @@ export default async function AdminLayoutContentPage() {
                     type: "number",
                     hint: "Ο κανονικός ελληνικός συντελεστής είναι 24%. Οι τιμές περιλαμβάνουν ΦΠΑ.",
                   },
+                  {
+                    name: "legalCompanyName",
+                    label: "Επωνυμία επιχείρησης (νομική)",
+                    type: "text",
+                    hint: "Η επίσημη εταιρική επωνυμία, όπως αναγράφεται στο ΓΕΜΗ — μπορεί να διαφέρει από το «Όνομα καταστήματος». Εμφανίζεται στους Όρους Χρήσης, την Πολιτική Απορρήτου και παρόμοιες σελίδες.",
+                  },
+                  { name: "vatNumber", label: "ΑΦΜ", type: "text" },
+                  { name: "gemiNumber", label: "Αριθμός ΓΕΜΗ", type: "text" },
                 ]}
               />
             </Card>

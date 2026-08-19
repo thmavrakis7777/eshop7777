@@ -22,6 +22,15 @@ import type { NextRequest } from "next/server";
 // (see analytics-settings), so these stay in the policy whether or not a
 // given store has any of them turned on.
 //
+// Two entries found only by actually granting consent and watching the
+// network tab, not by reading the snippets: GA4's real hit/collect traffic
+// goes to a regional subdomain (region1.google-analytics.com, etc, not just
+// www.google-analytics.com), and the Meta Pixel JS SDK posts to
+// www.facebook.com/tr — connect.facebook.net is only where its script
+// loads *from*. Both were silently CSP-blocked (script ran, network request
+// 403'd) until added; this is why "the script tag rendered" is not the same
+// as "verify with the network tab" for a CSP this strict.
+//
 // style-src is split deliberately. A nonce can only ever whitelist an
 // *element* (<style>/<link>), never a `style="..."` **attribute** — so the
 // Next.js docs' single `style-src 'self' 'nonce-…'` line silently blocks
@@ -78,7 +87,7 @@ export function proxy(request: NextRequest) {
     style-src 'self' 'unsafe-inline';
     style-src-elem 'self'${isDev ? " 'unsafe-inline'" : ` 'nonce-${nonce}'`};
     img-src 'self' blob: data: https://www.google-analytics.com https://www.facebook.com${supabaseImageOrigin ? ` ${supabaseImageOrigin}` : ""};
-    connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://connect.facebook.net https://www.clarity.ms https://c.clarity.ms;
+    connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://connect.facebook.net https://www.facebook.com https://www.clarity.ms https://c.clarity.ms;
     font-src 'self';
     object-src 'none';
     base-uri 'self';
