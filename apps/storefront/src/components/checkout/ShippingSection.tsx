@@ -38,22 +38,29 @@ function PickupLocationInfo() {
   );
 }
 
-// Options are fetched live from Medusa once the address is complete enough
-// to resolve them (CHECKOUT_UX_SPEC.md §8) — never hardcoded. Real prices,
-// real names (translated to Greek presentation copy, not renamed in
-// Medusa). Selecting one saves it to the cart immediately so the order
-// summary updates in place, not just on final submit.
+// Options are fetched live once the address is complete enough to resolve
+// them (CHECKOUT_UX_SPEC.md §8) — never hardcoded. Real prices, real names.
+// Selecting one saves it to the cart immediately so the order summary
+// updates in place, not just on final submit.
 export function ShippingSection({
   status,
   options,
   selectedId,
   onSelect,
+  onRetry,
   saving,
 }: {
-  status: "pending-address" | "loading" | "ready" | "empty";
+  // "error" is distinct from "pending-address" on purpose: the address was
+  // complete and valid, the save to the server just failed (a transient
+  // issue, e.g. a database connection blip) — telling the customer to "fill
+  // in your address" when they already did is actively misleading and was
+  // the actual root cause of a real go-live bug report. See CheckoutForm's
+  // attemptDetailsSave.
+  status: "pending-address" | "loading" | "ready" | "empty" | "error";
   options: ShippingOption[];
   selectedId: string | null;
   onSelect: (option: ShippingOption) => void;
+  onRetry?: () => void;
   saving?: boolean;
 }) {
   return (
@@ -76,6 +83,23 @@ export function ShippingSection({
         <p role="alert" className="text-sm text-danger">
           Δεν είναι διαθέσιμη αποστολή για αυτή τη διεύθυνση. Επικοινώνησε μαζί μας.
         </p>
+      )}
+
+      {status === "error" && (
+        <div className="flex flex-col items-start gap-2">
+          <p role="alert" className="text-sm text-danger">
+            Δεν μπορέσαμε να υπολογίσουμε τα μεταφορικά αυτή τη στιγμή. Δοκίμασε ξανά.
+          </p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-sm border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-ink"
+            >
+              Δοκίμασε ξανά
+            </button>
+          )}
+        </div>
       )}
 
       {status === "ready" && (

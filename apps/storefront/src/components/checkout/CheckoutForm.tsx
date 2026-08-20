@@ -84,7 +84,7 @@ export function CheckoutForm({
   const [billingTouched, setBillingTouched] = useState<Set<keyof BillingAddressFields>>(new Set());
 
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
-  const [shippingStatus, setShippingStatus] = useState<"pending-address" | "loading" | "ready" | "empty">(
+  const [shippingStatus, setShippingStatus] = useState<"pending-address" | "loading" | "ready" | "empty" | "error">(
     "pending-address"
   );
   const [selectedShippingId, setSelectedShippingId] = useState<string | null>(null);
@@ -185,8 +185,14 @@ export function CheckoutForm({
       // silently; the customer picks again from the refreshed list.
       setSelectedShippingId(null);
     } else {
+      // Distinct from "pending-address": the address itself was complete
+      // and valid (it passed validateDetails above) — the save to the
+      // server failed for some other reason (e.g. a transient database
+      // connection issue). Telling the customer to "fill in your address"
+      // when they already did is what a real go-live bug report traced
+      // back to here.
       setDetailsServerError(result.error);
-      setShippingStatus("pending-address");
+      setShippingStatus("error");
     }
     setDetailsSaving(false);
   }
@@ -367,6 +373,7 @@ export function CheckoutForm({
             options={shippingOptions}
             selectedId={selectedShippingId}
             onSelect={handleSelectShipping}
+            onRetry={() => void attemptDetailsSave()}
             saving={shippingSaving}
           />
           <TaxDocumentSection

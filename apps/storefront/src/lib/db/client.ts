@@ -33,8 +33,7 @@ function connectionString(): string {
 
 // `next build` renders every route once per build worker (11 on this
 // machine) to classify it as static/dynamic, each importing this module
-// fresh — i.e. its own pool. Kept deliberately small during the build phase
-// even now that DATABASE_URL is on the transaction-mode pooler (see below):
+// fresh — i.e. its own pool. Kept deliberately small during the build phase:
 // build-time concurrency has no reason to be as high as request-time.
 const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 
@@ -42,8 +41,19 @@ function createClient() {
   return postgres(connectionString(), {
     ssl: "require",
     // Serverless functions each hold their own pool, so this is per-instance,
-    // not global (MIGRATION_AUDIT.md §6.6).
-    max: isBuildPhase ? 1 : process.env.NODE_ENV === "production" ? 5 : 2,
+    // not global (MIGRATION_AUDIT.md §6.6). Supabase's session-mode pooler
+    // this connects to has a hard, fixed 15-connection ceiling (see
+    // DEPLOYMENT.md) — at the previous max:5, just 3 concurrent Vercel
+    // function instances exhausted it outright, and that's exactly what
+    // production logs showed: real, frequent `EMAXCONNSESSION` errors on
+    // ordinary traffic, including real checkout writes failing (not just
+    // background cache revalidation). 2 per instance supports ~7 concurrent
+    // instances before hitting the same ceiling — real headroom, not a
+    // guess, but still only a mitigation: the durable fix is raising the
+    // pooler's own connection limit in the Supabase dashboard (Database →
+    // Connection pooling → Pool Size), which needs Supabase project access
+    // this codebase can't grant itself.
+    max: isBuildPhase ? 1 : 2,
     idle_timeout: 20,
     connect_timeout: 10,
     // Safe on the session-mode pooler this connects to, and required if it
