@@ -44,6 +44,7 @@ type CartRow = {
   invoice_afm: string | null;
   invoice_doy: string | null;
   invoice_activity: string | null;
+  shipping_method_id: string | null;
   shipping_name: string | null;
   shipping_price_cents: number | null;
   shipping_free_over_cents: number | null;
@@ -170,6 +171,7 @@ const cartQuery = (id: string) => sql<CartRow[]>`
          c.shipping_address, c.billing_address,
          c.tax_document_type, c.invoice_company_name, c.invoice_afm,
          c.invoice_doy, c.invoice_activity,
+         c.shipping_method_id,
          sm.name AS shipping_name, sm.price_cents AS shipping_price_cents,
          sm.free_over_cents AS shipping_free_over_cents, sm.is_pickup AS shipping_is_pickup,
          d.code AS discount_code, d.type AS discount_type, d.value AS discount_value,
@@ -241,6 +243,7 @@ function toDomainCart(r: CartRow): Cart {
     vatTotal: eur(totals.vatCents),
     vatRate: totals.vatRate,
     hasShippingMethod: r.shipping_price_cents != null,
+    shippingMethodId: r.shipping_method_id ?? undefined,
     total: eur(totals.totalCents),
     // One discount per cart. Medusa allowed a list; a second code now replaces
     // the first rather than stacking, which is what a single-discount store

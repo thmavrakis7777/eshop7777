@@ -166,6 +166,11 @@ export type Cart = {
   vatTotal: Money;
   vatRate: number;
   hasShippingMethod: boolean;
+  // Which of getShippingOptionsForCart's rows is saved — lets the checkout
+  // page pre-select the right radio on first render (e.g. after a refresh)
+  // instead of only knowing a method is set once the user re-triggers a
+  // save. Undefined exactly when hasShippingMethod is false.
+  shippingMethodId?: string;
   total: Money;
   promotions: AppliedPromotion[];
   shippingAddress?: AddressSummary;

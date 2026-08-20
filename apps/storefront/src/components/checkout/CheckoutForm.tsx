@@ -59,9 +59,14 @@ function validateInvoiceFields(f: InvoiceFormFields): InvoiceFormErrors {
 export function CheckoutForm({
   initialCart,
   paymentProviders,
+  initialShippingOptions,
 }: {
   initialCart: Cart;
   paymentProviders: PaymentProvider[];
+  // Resolved server-side (checkout/page.tsx) when the cart already has a
+  // saved address — a refresh or a return visit to checkout should not make
+  // the shipping section forget an address that's already on the cart.
+  initialShippingOptions: ShippingOption[];
 }) {
   const router = useRouter();
   const [cart, setCart] = useState(initialCart);
@@ -83,11 +88,11 @@ export function CheckoutForm({
   const [billingFields, setBillingFields] = useState<BillingAddressFields>(EMPTY_BILLING_ADDRESS);
   const [billingTouched, setBillingTouched] = useState<Set<keyof BillingAddressFields>>(new Set());
 
-  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>(initialShippingOptions);
   const [shippingStatus, setShippingStatus] = useState<"pending-address" | "loading" | "ready" | "empty" | "error">(
-    "pending-address"
+    !initialCart.shippingAddress ? "pending-address" : initialShippingOptions.length > 0 ? "ready" : "empty"
   );
-  const [selectedShippingId, setSelectedShippingId] = useState<string | null>(null);
+  const [selectedShippingId, setSelectedShippingId] = useState<string | null>(initialCart.shippingMethodId ?? null);
   const [shippingSaving, setShippingSaving] = useState(false);
 
   // Tax document metadata round-trips cleanly through cart.metadata (unlike
