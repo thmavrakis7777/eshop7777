@@ -42,18 +42,19 @@ function createClient() {
     ssl: "require",
     // Serverless functions each hold their own pool, so this is per-instance,
     // not global (MIGRATION_AUDIT.md §6.6). Supabase's session-mode pooler
-    // this connects to has a hard, fixed 15-connection ceiling (see
-    // DEPLOYMENT.md) — at the previous max:5, just 3 concurrent Vercel
-    // function instances exhausted it outright, and that's exactly what
-    // production logs showed: real, frequent `EMAXCONNSESSION` errors on
-    // ordinary traffic, including real checkout writes failing (not just
-    // background cache revalidation). 2 per instance supports ~7 concurrent
-    // instances before hitting the same ceiling — real headroom, not a
-    // guess, but still only a mitigation: the durable fix is raising the
-    // pooler's own connection limit in the Supabase dashboard (Database →
-    // Connection pooling → Pool Size), which needs Supabase project access
-    // this codebase can't grant itself.
-    max: isBuildPhase ? 1 : 2,
+    // this connects to was capped at pool_size 15 against a compute instance
+    // whose own Postgres max_connections is 60 — at the original max:5, just
+    // 3 concurrent Vercel function instances exhausted the pooler outright,
+    // and that's exactly what production logs showed: real, frequent
+    // `EMAXCONNSESSION` errors on ordinary traffic, including checkout
+    // writes failing. Fixed at the actual source (2026-08-20): pool_size
+    // raised to 40 in the Supabase dashboard (Database → Connection pooling
+    // → Pool Size), verified live. 5 per instance now supports 8 concurrent
+    // Vercel instances before hitting that ceiling, comfortably more
+    // than this store's real traffic and back to the value this project's
+    // own commit history had already deliberately tuned to before the
+    // pooler was found to be undersized for it.
+    max: isBuildPhase ? 1 : 5,
     idle_timeout: 20,
     connect_timeout: 10,
     // Safe on the session-mode pooler this connects to, and required if it
