@@ -16,6 +16,7 @@ import { getCustomerId } from "@/lib/data/customer";
 import { getShippingOptionsForCart } from "@/lib/data/checkout";
 import { sendOrderConfirmationEmail } from "@/lib/email/send";
 import { formatPrice } from "@/lib/format";
+import { isValidEmail } from "@/lib/checkout-validation";
 import type { Cart, ShippingOption } from "@/lib/types";
 
 // Maps real failure codes to the Greek copy table in CHECKOUT_UX_SPEC.md §12.
@@ -66,7 +67,13 @@ async function cartResultFrom(run: (cartId: string) => Promise<unknown>): Promis
   }
 }
 
+// Server-side format check, not just the client's — this is what ends up as
+// SendGrid's `to` address for the order-confirmation email, and a Server
+// Action is a public endpoint the browser's own validation never protects.
 export async function updateCheckoutEmailAction(email: string): Promise<CheckoutActionResult> {
+  if (!isValidEmail(email)) {
+    return { ok: false, error: "Μη έγκυρη διεύθυνση email.", cart: await getCart() };
+  }
   return cartResultFrom((cartId) => setCartEmail(cartId, email));
 }
 

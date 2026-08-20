@@ -29,12 +29,30 @@ export function escapeHtml(value: string): string {
 
 type Email = { to: string; subject: string; html: string; text: string };
 
+// Three distinct, greppable outcomes for production log search — deliberately
+// not just "success"/"error" strings, so a real incident (e.g. "why did no
+// confirmation email arrive for order #1042") can be diagnosed from logs
+// alone: was email unconfigured, or did SendGrid actually reject the send?
+// Never includes the API key or the reset token/link — only what's needed to
+// diagnose delivery (recipient, subject, SendGrid's own status/error).
+type EmailLogEvent = "EMAIL_CONFIG_MISSING" | "EMAIL_SEND_FAILED" | "EMAIL_SEND_SUCCESS";
+
+function logEmail(event: EmailLogEvent, detail: Record<string, string | number>): void {
+  const line = `[email] ${event} ${JSON.stringify(detail)}`;
+  if (event === "EMAIL_SEND_SUCCESS") console.info(line);
+  else console.error(line);
+}
+
 async function send({ to, subject, html, text }: Email): Promise<void> {
   const apiKey = process.env.SENDGRID_API_KEY;
   const from = process.env.SENDGRID_FROM_EMAIL;
 
   if (!apiKey || !from) {
-    console.info(`[email] skipped "${subject}" to ${to} — SENDGRID_API_KEY/FROM_EMAIL not configured`);
+    logEmail("EMAIL_CONFIG_MISSING", {
+      subject,
+      to,
+      missing: !apiKey && !from ? "SENDGRID_API_KEY,SENDGRID_FROM_EMAIL" : !apiKey ? "SENDGRID_API_KEY" : "SENDGRID_FROM_EMAIL",
+    });
     return;
   }
 
@@ -55,12 +73,18 @@ async function send({ to, subject, html, text }: Email): Promise<void> {
       }),
     });
     if (!res.ok) {
-      console.error(`[email] SendGrid rejected "${subject}": ${res.status} ${await res.text().catch(() => "")}`);
+      // SendGrid's own error body is diagnostic (bad/unverified sender,
+      // suppressed recipient, malformed address, …) and contains no secret —
+      // the Authorization header itself is never included in `res`.
+      const body = await res.text().catch(() => "");
+      logEmail("EMAIL_SEND_FAILED", { subject, to, status: res.status, sendgridResponse: body.slice(0, 500) });
+      return;
     }
+    logEmail("EMAIL_SEND_SUCCESS", { subject, to, status: res.status });
   } catch (err) {
     // Never rethrow. An email provider outage must not roll back a placed
     // order or block a password reset the customer already requested.
-    console.error(`[email] failed to send "${subject}":`, err);
+    logEmail("EMAIL_SEND_FAILED", { subject, to, error: err instanceof Error ? err.message : String(err) });
   }
 }
 
