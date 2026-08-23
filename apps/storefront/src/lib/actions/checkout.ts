@@ -15,7 +15,7 @@ import { CART_ID_COOKIE, getCart } from "@/lib/data/cart";
 import { getCustomerId } from "@/lib/data/customer";
 import { getShippingOptionsForCart } from "@/lib/data/checkout";
 import { sendOrderConfirmationEmail } from "@/lib/email/send";
-import { formatPrice } from "@/lib/format";
+import { getOrderForEmail, markConfirmationEmailSent } from "@/lib/db/order-email";
 import { isValidEmail } from "@/lib/checkout-validation";
 import type { Cart, ShippingOption } from "@/lib/types";
 
@@ -68,7 +68,7 @@ async function cartResultFrom(run: (cartId: string) => Promise<unknown>): Promis
 }
 
 // Server-side format check, not just the client's — this is what ends up as
-// SendGrid's `to` address for the order-confirmation email, and a Server
+// Resend's `to` address for the order-confirmation email, and a Server
 // Action is a public endpoint the browser's own validation never protects.
 export async function updateCheckoutEmailAction(email: string): Promise<CheckoutActionResult> {
   if (!isValidEmail(email)) {
@@ -187,16 +187,20 @@ export async function completeCheckoutAction(): Promise<CheckoutCompleteResult> 
   (await cookies()).delete(CART_ID_COOKIE);
   revalidatePath("/", "layout");
 
-  await sendOrderConfirmationEmail({
-    to: order.email,
-    orderNumber: order.orderNumber,
-    totalFormatted: formatPrice({ amount: order.totalCents / 100, currencyCode: "EUR" }),
-    items: order.items.map((i) => ({
-      title: i.title,
-      quantity: i.quantity,
-      lineTotalFormatted: formatPrice({ amount: i.lineTotalCents / 100, currencyCode: "EUR" }),
-    })),
-  });
+  // The order is already committed above — nothing from here on may throw
+  // back to the customer. sendOrderConfirmationEmail itself never throws,
+  // but the read that gathers its data is a real query and must be guarded
+  // the same way, or a transient DB hiccup on this one read would turn an
+  // already-successful order into a customer-facing error page.
+  try {
+    const emailData = await getOrderForEmail(order.id);
+    if (emailData) {
+      const sent = await sendOrderConfirmationEmail(emailData);
+      if (sent) await markConfirmationEmailSent(order.id);
+    }
+  } catch (err) {
+    console.error("[checkout] ORDER_CONFIRMATION_EMAIL_DATA_FAILED", { orderId: order.id, error: String(err) });
+  }
 
   return { ok: true, orderId: order.id, displayId: order.orderNumber };
 }

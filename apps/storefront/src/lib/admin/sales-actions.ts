@@ -5,7 +5,9 @@ import { z } from "zod";
 import { requireAdmin, auditLog } from "@/lib/admin/auth";
 import {
   OrderError,
+  markShipmentEmailSent,
   saveAdminNote,
+  saveShipmentInfo,
   updateFulfillmentStatus,
   updateOrderStatus,
   updatePaymentStatus,
@@ -13,6 +15,8 @@ import {
   type OrderStatus,
   type PaymentStatus,
 } from "@/lib/admin/orders";
+import { getOrderForEmail } from "@/lib/db/order-email";
+import { sendShipmentNotificationEmail } from "@/lib/email/send";
 import { setCustomerActive, withdrawMarketingConsent } from "@/lib/admin/customers";
 import { DiscountError, deleteDiscount, saveDiscount } from "@/lib/admin/discounts";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
@@ -111,6 +115,104 @@ export async function setFulfillmentStatusAction(
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
   return { ok: true, message: "Η κατάσταση εκτέλεσης ενημερώθηκε." };
+}
+
+/**
+ * Saves courier/tracking, then — only on the FIRST save that leaves both
+ * fields non-empty (saveShipmentInfo's shouldNotify) — sends the shipment
+ * email automatically and records it. This is the entire "enter courier +
+ * tracking code, save, customer gets emailed" workflow; there is no
+ * separate "send email" button for the normal path.
+ */
+export async function saveShipmentInfoAction(
+  orderId: string,
+  courierName: string,
+  trackingCode: string,
+  trackingUrl: string
+): Promise<ActionResult> {
+  let user;
+  try {
+    user = await admin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+
+  const input = {
+    courierName: courierName.trim() || null,
+    trackingCode: trackingCode.trim() || null,
+    trackingUrl: trackingUrl.trim() || null,
+  };
+
+  let shouldNotify = false;
+  try {
+    ({ shouldNotify } = await saveShipmentInfo(orderId, input, user.id));
+    await auditLog(user.id, "order.shipment_info", "order", orderId, {
+      courierName: input.courierName,
+      trackingCode: input.trackingCode,
+    });
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+
+  if (!shouldNotify) {
+    return { ok: true, message: "Τα στοιχεία αποστολής αποθηκεύτηκαν." };
+  }
+
+  // The save above already succeeded and committed — nothing past this
+  // point may throw back to the admin, or a transient failure here would
+  // wrongly read as "the save failed" when it didn't.
+  try {
+    const orderData = await getOrderForEmail(orderId);
+    if (!orderData) return { ok: true, message: "Τα στοιχεία αποστολής αποθηκεύτηκαν." };
+
+    const sent = await sendShipmentNotificationEmail(orderData);
+    if (sent) {
+      await markShipmentEmailSent(orderId, user.id, false);
+      revalidatePath(`/admin/orders/${orderId}`);
+      return { ok: true, message: "Τα στοιχεία αποστολής αποθηκεύτηκαν. Το email αποστολής στάλθηκε αυτόματα." };
+    }
+  } catch (err) {
+    console.error("[admin] SHIPMENT_EMAIL_TRIGGER_FAILED", { orderId, error: String(err) });
+  }
+  return {
+    ok: true,
+    message: "Τα στοιχεία αποστολής αποθηκεύτηκαν, αλλά το email αποστολής απέτυχε — δοκίμασε «Επαναποστολή email».",
+  };
+}
+
+/**
+ * The only normal way to send a second shipment email for the same order —
+ * always sends, regardless of whether one was already sent automatically.
+ */
+export async function resendShipmentEmailAction(orderId: string): Promise<ActionResult> {
+  let user;
+  try {
+    user = await admin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+
+  let orderData;
+  let sent;
+  try {
+    orderData = await getOrderForEmail(orderId);
+    if (!orderData?.courierName?.trim() || !orderData.trackingCode?.trim()) {
+      return { ok: false, error: "Συμπλήρωσε εταιρεία μεταφοράς και κωδικό αποστολής πριν την αποστολή." };
+    }
+    sent = await sendShipmentNotificationEmail(orderData);
+  } catch (err) {
+    console.error("[admin] SHIPMENT_EMAIL_RESEND_FAILED", { orderId, error: String(err) });
+    return { ok: false, error: "Η αποστολή του email απέτυχε. Δοκίμασε ξανά." };
+  }
+  if (!sent) return { ok: false, error: "Η αποστολή του email απέτυχε. Δοκίμασε ξανά." };
+
+  await markShipmentEmailSent(orderId, user.id, true);
+  await auditLog(user.id, "order.shipment_email.resend", "order", orderId);
+  revalidatePath(`/admin/orders/${orderId}`);
+  return { ok: true, message: "Το email αποστολής στάλθηκε ξανά." };
 }
 
 export async function saveOrderNoteAction(orderId: string, note: string): Promise<ActionResult> {

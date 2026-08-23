@@ -3,6 +3,79 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Migrate email to Resend + automatic shipment-notification email (2026-08-23)
+
+Two pieces, done together because the second needed the first's transport.
+
+**SendGrid → Resend.** Direct instruction to migrate, reversing an earlier
+explicit decision this same session to stay on SendGrid ("never introduce
+Resend unless proven necessary") — a deliberate, later override, not a
+contradiction I introduced myself. `lib/email/send.ts` (the whole module)
+called SendGrid's REST API directly; now it's Resend's, same shape (no
+SDK, `fetch` only, never throws, degrades to a logged no-op when
+`RESEND_API_KEY`/`RESEND_FROM_EMAIL` are unset). Split into three files on
+the way, since the templates got much larger (see below): `send-core.ts`
+(transport + `escapeHtml`), `templates.ts` (HTML/text builders),
+`send.ts` (the three public `sendXEmail` functions) — one email service,
+not three. Full repo search confirms no `SENDGRID`/`sendgrid`/
+`@sendgrid` reference survives outside historical changelog/memory prose.
+
+**Order confirmation email, rewritten.** The old one was six lines: order
+number, an item/price table, a total. Real gaps against what a launch-
+ready confirmation email needs: no address, no payment method, no VAT
+breakdown, no discount line, no product images, no CTA back to the order.
+All of that is now sourced from one new read function,
+`getOrderForEmail()` (`lib/db/order-email.ts`) — deliberately not bolted
+onto `lib/db/orders.ts`'s existing `Order` type, which is shaped for the
+storefront confirmation page/account view and doesn't carry SKU, per-item
+image, or payment method. Shipping stays a single line: `shipping_cents`
+already has any heavy/oversized-item surcharge folded in by checkout
+(`computeTotals`), and splitting it into "base + surcharge" in the email
+would mean inventing numbers the order row doesn't separately store.
+Product images resolve through the existing `publicImageUrl()` and are
+simply omitted when null — true for every product today, since no
+photography has been uploaded yet; the layout doesn't break either way.
+
+**Shipment notification email — new, and the point of this whole change.**
+`shop.orders` gained five columns (`0015_shipment_tracking.sql`):
+`courier_name`, `tracking_code`, `tracking_url`,
+`confirmation_email_sent_at`, `shipment_email_sent_at`. The admin order
+detail page gained a "Αποστολή" card (`ShipmentControls.tsx`) with courier
+(free text, `<datalist>` suggestions — ACS/Γενική Ταχυδρομική/ΕΛΤΑ
+Courier/Speedex/Courier Center, not a locked enum), tracking code, and an
+*optional* manual tracking URL. Saving both courier and tracking code for
+the first time on an order sends the shipment email automatically, server-
+side, inside the Server Action — no client polling, no "Send Email"
+button for the normal flow. `shipment_email_sent_at` is the whole
+duplicate-protection mechanism: once it's set (by the automatic send or a
+manual resend), saving shipment info again — same values or a changed
+tracking code — never auto-sends again. That's a deliberate simplification
+over trying to diff old vs. new courier/tracking values: "was any
+automatic email ever sent for this order" is unambiguous; "does this count
+as a *new* shipment event" is not, and the spec this was built against
+explicitly asked for the safe reading. Re-notifying after that point is
+only ever the explicit "Επαναποστολή email αποστολής" button
+(`resendShipmentEmailAction`), which always sends and asks for
+confirmation first.
+
+No courier tracking-URL templates are hardcoded. Searched for official
+deep-link tracking URL formats for ACS, ΕΛΤΑ Courier, and Γενική
+Ταχυδρομική; none of the three had a confirmed, verifiable query-string
+format worth encoding into a template — guessing one was an explicit
+non-goal. The manual tracking-URL field is the sanctioned fallback: if the
+admin pastes one, the email gets a "Παρακολούθηση αποστολής" button; if
+not, it shows the tracking code as plain text. Both email-sent states
+(confirmation, shipment) show as "Sent · <date>" / "Not sent" on the same
+card, backed by `shop.order_event` (`type: 'email_confirmation'` /
+`'email_shipment'`) — reused, not a new notification-log table, since the
+existing per-order event timeline already does exactly this job.
+
+Not built: a courier-manageable admin config table (spec said "ideally,
+eventually" — a `<datalist>` of suggestions was judged sufficient for
+today's actual courier count of zero-confirmed) and an admin-only email
+preview screen (spec flagged it "if practical"; skipped in favor of
+spending the time on the mandatory automatic-trigger testing instead).
+
 ## About page (Σχετικά με εμάς) + breadcrumbs on every content page (2026-08-19)
 
 The About page (`sxetika`) existed as a row but was empty and unpublished —

@@ -47,6 +47,48 @@ database is unreachable — it is not the source of truth.
 Changing "Store name" in the admin renames the whole storefront. Nothing
 about the brand is hardcoded in a component any more.
 
+### Transactional email — Resend, not SendGrid (2026-08-23)
+
+`lib/email/` is the one email service, split three ways: `send-core.ts`
+(the actual Resend REST call — `POST https://api.resend.com/emails`, no
+SDK, matching every other external integration in this codebase), `templates.ts`
+(HTML/text builders), `send.ts` (the three public functions:
+`sendPasswordResetEmail`, `sendOrderConfirmationEmail`,
+`sendShipmentNotificationEmail`). Env vars: `RESEND_API_KEY`,
+`RESEND_FROM_EMAIL`, optional `RESEND_REPLY_TO_EMAIL` — unset either of the
+first two and every send degrades to a logged no-op
+(`EMAIL_CONFIG_MISSING`) rather than blocking checkout, a shipment save, or
+a password reset.
+
+This is a reversal of an earlier explicit decision this session to stay on
+SendGrid — done on direct instruction after that decision, not a
+freelance change. SendGrid is fully removed (`.env.example`, all code) as
+of this commit.
+
+**Shipment notification (new)**: `shop.orders` gained `courier_name`,
+`tracking_code`, `tracking_url`, `confirmation_email_sent_at`,
+`shipment_email_sent_at` (`0015_shipment_tracking.sql`). Admin enters
+courier + tracking on the order detail page (`ShipmentControls.tsx` →
+`saveShipmentInfoAction`); the moment both are non-empty **and no shipment
+email has ever been sent for that order**, one sends automatically —
+`shipment_email_sent_at` is the guard, so re-saving (same values, or a
+changed tracking code) never auto-sends a second time. The only way to send
+again is the explicit "Επαναποστολή email αποστολής" button
+(`resendShipmentEmailAction`), which always sends. No courier
+tracking-URL templates are hardcoded — no verified official deep-link
+format was confirmed for any Greek courier during this work, so tracking
+URL is a manual optional field; without one the email just shows the
+tracking code as text, per instruction not to invent a URL.
+
+Both order emails now share one query, `getOrderForEmail()`
+(`lib/db/order-email.ts`) — product image (currently always null, no
+product photography exists yet — see "Images" below), SKU, per-item
+pricing, address, payment method (only `cod` exists today), VAT
+breakdown, shipping (a single total; the heavy/oversized-item surcharge is
+already folded into `shipping_cents` by checkout, so the email cannot
+honestly show it as a separate line without fabricating a split that
+doesn't exist in the data).
+
 ### Legal identity — the shop's registered-entity fields (2026-08-19)
 
 `shop.site_setting` also has `legal_company_name`, `vat_number` (ΑΦΜ),

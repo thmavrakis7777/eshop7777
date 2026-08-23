@@ -129,6 +129,11 @@ export type AdminOrderDetail = {
   invoiceActivity: string | null;
   customerNote: string | null;
   adminNote: string | null;
+  courierName: string | null;
+  trackingCode: string | null;
+  trackingUrl: string | null;
+  confirmationEmailSentAt: string | null;
+  shipmentEmailSentAt: string | null;
   createdAt: string;
   items: Array<{
     id: string;
@@ -195,6 +200,11 @@ export async function getOrderDetail(id: string): Promise<AdminOrderDetail | nul
     invoiceActivity: (r.invoice_activity as string) ?? null,
     customerNote: (r.customer_note as string) ?? null,
     adminNote: (r.admin_note as string) ?? null,
+    courierName: (r.courier_name as string) ?? null,
+    trackingCode: (r.tracking_code as string) ?? null,
+    trackingUrl: (r.tracking_url as string) ?? null,
+    confirmationEmailSentAt: r.confirmation_email_sent_at ? new Date(r.confirmation_email_sent_at as string).toISOString() : null,
+    shipmentEmailSentAt: r.shipment_email_sent_at ? new Date(r.shipment_email_sent_at as string).toISOString() : null,
     createdAt: new Date(r.created_at as string).toISOString(),
     items: r.items as AdminOrderDetail["items"],
     events: (r.events as AdminOrderDetail["events"]).map((e) => ({
@@ -291,4 +301,52 @@ export async function updateFulfillmentStatus(
 
 export async function saveAdminNote(orderId: string, note: string | null): Promise<void> {
   await sql`UPDATE shop.orders SET admin_note = ${note} WHERE id = ${orderId}`;
+}
+
+// ---------------------------------------------------------------------------
+// Shipment tracking + the automatic shipment-email trigger
+// ---------------------------------------------------------------------------
+
+/**
+ * Persists courier/tracking and reports whether this save should trigger the
+ * automatic shipment email — true only the FIRST time both fields go from
+ * "not both present" to "both present", i.e. exactly once per order, ever.
+ * Saving again afterwards (same values, changed tracking code, whatever)
+ * never re-triggers it, by design (see 0015_shipment_tracking.sql) — only
+ * the admin's explicit "Resend" action can send a second one.
+ *
+ * The actual email send happens OUTSIDE this function, same reason
+ * completeOrder's confirmation email does: a Resend outage must not roll
+ * back data the admin just saved. The caller sends, then calls
+ * markShipmentEmailSent only if that send actually succeeded.
+ */
+export async function saveShipmentInfo(
+  orderId: string,
+  input: { courierName: string | null; trackingCode: string | null; trackingUrl: string | null },
+  adminUserId: string
+): Promise<{ shouldNotify: boolean }> {
+  return transaction(async (tx) => {
+    const [before] = await tx<{ shipment_email_sent_at: Date | null }[]>`
+      SELECT shipment_email_sent_at FROM shop.orders WHERE id = ${orderId} FOR UPDATE`;
+    if (!before) throw new OrderError("Order not found", "not_found");
+
+    await tx`
+      UPDATE shop.orders
+         SET courier_name = ${input.courierName}, tracking_code = ${input.trackingCode}, tracking_url = ${input.trackingUrl}
+       WHERE id = ${orderId}`;
+    await tx`
+      INSERT INTO shop.order_event (order_id, type, note, admin_user_id)
+      VALUES (${orderId}, 'shipment_info', 'Ενημερώθηκαν τα στοιχεία αποστολής', ${adminUserId})`;
+
+    return {
+      shouldNotify: Boolean(input.courierName?.trim() && input.trackingCode?.trim() && !before.shipment_email_sent_at),
+    };
+  });
+}
+
+export async function markShipmentEmailSent(orderId: string, adminUserId: string, manual: boolean): Promise<void> {
+  await sql`UPDATE shop.orders SET shipment_email_sent_at = now() WHERE id = ${orderId}`;
+  await sql`
+    INSERT INTO shop.order_event (order_id, type, note, admin_user_id)
+    VALUES (${orderId}, 'email_shipment', ${manual ? "Χειροκίνητη επαναποστολή email αποστολής" : "Αυτόματη αποστολή email αποστολής"}, ${adminUserId})`;
 }

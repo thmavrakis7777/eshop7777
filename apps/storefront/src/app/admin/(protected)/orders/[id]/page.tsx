@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderDetail } from "@/lib/admin/orders";
 import { OrderStatusControls } from "@/components/admin/OrderStatusControls";
+import { ShipmentControls } from "@/components/admin/ShipmentControls";
 import {
   Card,
   PageHeader,
@@ -18,6 +19,9 @@ const EVENT_LABELS: Record<string, string> = {
   status: "Κατάσταση",
   payment: "Πληρωμή",
   fulfillment: "Εκτέλεση",
+  shipment_info: "Στοιχεία αποστολής",
+  email_confirmation: "Email επιβεβαίωσης",
+  email_shipment: "Email αποστολής",
 };
 
 function Address({ address }: { address: Record<string, string | null> | null }) {
@@ -202,6 +206,18 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               fulfillmentStatus={order.fulfillmentStatus}
               adminNote={order.adminNote}
               itemCount={itemCount}
+            />
+          </Card>
+
+          <Card>
+            <SectionTitle>Αποστολή</SectionTitle>
+            <ShipmentControls
+              orderId={order.id}
+              courierName={order.courierName}
+              trackingCode={order.trackingCode}
+              trackingUrl={order.trackingUrl}
+              confirmationEmailSentAt={order.confirmationEmailSentAt}
+              shipmentEmailSentAt={order.shipmentEmailSentAt}
             />
           </Card>
         </div>
