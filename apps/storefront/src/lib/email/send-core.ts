@@ -24,7 +24,19 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-export type Email = { to: string; subject: string; html: string; text: string };
+export type Email = {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  // Optional per-send override of the "from" address — used only by the
+  // newsletter confirmation, if the owner has set a distinct sender for it
+  // in Admin -> Settings -> Email. Still just RESEND_FROM_EMAIL's domain
+  // that must be Resend-verified; an invalid override simply fails the send
+  // (logged as EMAIL_SEND_FAILED with Resend's own reason), it can't send
+  // from an arbitrary unverified address.
+  fromOverride?: string;
+};
 
 // Three distinct, greppable outcomes for production log search — so "why did
 // no confirmation email arrive for order #1042" is diagnosable from logs
@@ -48,9 +60,9 @@ function logEmail(event: EmailLogEvent, detail: Record<string, string | number>)
  * (order-confirmation and shipment-notification status shown in the admin
  * dashboard) can record it truthfully instead of assuming success.
  */
-export async function send({ to, subject, html, text }: Email): Promise<boolean> {
+export async function send({ to, subject, html, text, fromOverride }: Email): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
+  const from = fromOverride?.trim() || process.env.RESEND_FROM_EMAIL;
 
   if (!apiKey || !from) {
     logEmail("EMAIL_CONFIG_MISSING", {

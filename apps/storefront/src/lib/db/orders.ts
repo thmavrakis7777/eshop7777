@@ -2,6 +2,7 @@ import "server-only";
 import { sql } from "@/lib/db/client";
 import { toneFor } from "@/lib/db/catalog";
 import { toAddressSummary, type AddressJson } from "@/lib/db/cart";
+import { publicImageUrl } from "@/lib/storage/urls";
 import type { Order } from "@/lib/types";
 
 /**
@@ -35,12 +36,22 @@ type OrderRow = {
   invoice_doy: string | null;
   invoice_activity: string | null;
   created_at: Date;
+  status: string;
+  payment_status: string;
+  payment_method: string;
+  courier_name: string | null;
+  tracking_code: string | null;
+  tracking_url: string | null;
   items: Array<{
     id: string;
     title: string;
+    variant_title: string | null;
+    sku: string | null;
     quantity: number;
+    unit_price_cents: number;
     line_total_cents: number;
     product_slug: string | null;
+    image_path: string | null;
   }>;
 };
 
@@ -52,12 +63,22 @@ const ORDER_FIELDS = sql`
   o.shipping_method_name, o.shipping_address, o.billing_address,
   o.tax_document_type, o.invoice_company_name, o.invoice_afm,
   o.invoice_doy, o.invoice_activity, o.created_at,
+  o.status, o.payment_status, o.payment_method,
+  o.courier_name, o.tracking_code, o.tracking_url,
   COALESCE((
     SELECT json_agg(json_build_object(
-      'id', i.id, 'title', i.title, 'quantity', i.quantity,
-      'line_total_cents', i.line_total_cents, 'product_slug', i.product_slug
+      'id', i.id, 'title', i.title, 'variant_title', i.variant_title, 'sku', i.sku,
+      'quantity', i.quantity, 'unit_price_cents', i.unit_price_cents,
+      'line_total_cents', i.line_total_cents, 'product_slug', i.product_slug,
+      'image_path', img.storage_path
     ) ORDER BY i.id)
-    FROM shop.order_item i WHERE i.order_id = o.id
+    FROM shop.order_item i
+    LEFT JOIN LATERAL (
+      SELECT storage_path FROM shop.product_image
+       WHERE product_id = i.product_id
+       ORDER BY position LIMIT 1
+    ) img ON true
+    WHERE i.order_id = o.id
   ), '[]'::json) AS items`;
 
 export function toDomainOrder(o: OrderRow): Order {
@@ -68,8 +89,12 @@ export function toDomainOrder(o: OrderRow): Order {
     items: o.items.map((item) => ({
       id: item.id,
       title: item.title,
+      variantTitle: item.variant_title ?? undefined,
+      sku: item.sku ?? undefined,
       quantity: item.quantity,
+      unitPrice: eur(item.unit_price_cents),
       total: eur(item.line_total_cents),
+      imageUrl: publicImageUrl(item.image_path) ?? undefined,
       // Tone keys off the product slug where the line still has one, so a
       // placeholder tile keeps the same colour it had on the product page.
       placeholderTone: toneFor(item.product_slug ?? item.title),
@@ -95,6 +120,12 @@ export function toDomainOrder(o: OrderRow): Order {
         }
       : {}),
     createdAt: new Date(o.created_at).toISOString(),
+    status: o.status,
+    paymentStatus: o.payment_status,
+    paymentMethod: o.payment_method,
+    courierName: o.courier_name ?? undefined,
+    trackingCode: o.tracking_code ?? undefined,
+    trackingUrl: o.tracking_url ?? undefined,
   };
 }
 

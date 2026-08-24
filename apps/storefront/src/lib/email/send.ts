@@ -6,6 +6,8 @@ import { send, escapeHtml } from "@/lib/email/send-core";
 import {
   orderConfirmationHtml,
   orderConfirmationText,
+  ownerOrderNotificationHtml,
+  ownerOrderNotificationText,
   shipmentNotificationHtml,
   shipmentNotificationText,
 } from "@/lib/email/templates";
@@ -91,25 +93,84 @@ export async function sendWelcomeEmail(to: string, firstName: string): Promise<v
   });
 }
 
+const NEWSLETTER_DEFAULTS = {
+  subject: (storeName: string) => `Καλώς ήρθες στη λέσχη ${storeName}`,
+  heading: (storeName: string) => `Καλώς ήρθες στη λέσχη ${storeName}`,
+  body: "Ευχαριστούμε που εγγράφηκες! Θα λαμβάνεις νέες αφίξεις, οδηγούς αγορών και αποκλειστικές προσφορές απευθείας στο inbox σου.",
+};
+
 /**
  * Sent right after a successful newsletter signup (lib/actions/newsletter.ts).
  * Purely informational, single opt-in — no verification link, on the
  * explicit instruction that already shaped that feature: the checkbox
  * itself is the consent, this just confirms it landed.
+ *
+ * Subject/heading/body/button/footer are owner-editable (Admin -> Settings
+ * -> Email); every field falls back to the shipped Greek copy above when
+ * unset, so an empty settings row reads exactly as it did before these
+ * existed. The unsubscribe link is NOT part of that editable copy — it is
+ * always appended, always built server-side from this specific recipient's
+ * own token, so there is no way to edit it away or point it at someone
+ * else's subscription.
  */
-export async function sendNewsletterConfirmationEmail(to: string): Promise<void> {
+export async function sendNewsletterConfirmationEmail(to: string, unsubscribeToken: string): Promise<void> {
+  const { storeName } = await getBranding();
+  const settings = await getSiteSettings();
+  const unsubscribeUrl = `${siteUrl}/newsletter/apengrafi?token=${encodeURIComponent(unsubscribeToken)}`;
+
+  const subject = settings?.newsletterSubject?.trim() || NEWSLETTER_DEFAULTS.subject(storeName);
+  const heading = settings?.newsletterHeading?.trim() || NEWSLETTER_DEFAULTS.heading(storeName);
+  const body = settings?.newsletterBody?.trim() || NEWSLETTER_DEFAULTS.body;
+  const buttonText = settings?.newsletterButtonText?.trim() || null;
+  const buttonUrlRaw = settings?.newsletterButtonUrl?.trim() || null;
+  const buttonUrl = buttonUrlRaw ? (buttonUrlRaw.startsWith("http") ? buttonUrlRaw : `${siteUrl}${buttonUrlRaw}`) : null;
+  const footer = settings?.newsletterFooter?.trim() || null;
+
+  const buttonHtml =
+    buttonText && buttonUrl
+      ? `<p style="margin:0 0 20px"><a href="${escapeHtml(buttonUrl)}" style="display:inline-block;background:#1c1b19;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px">${escapeHtml(buttonText)}</a></p>`
+      : "";
+
+  await send({
+    to,
+    subject,
+    fromOverride: settings?.newsletterFromEmail ?? undefined,
+    text:
+      `${body}\n\n` +
+      (buttonText && buttonUrl ? `${buttonText}: ${buttonUrl}\n\n` : "") +
+      (footer ? `${footer}\n\n` : "") +
+      `Διαγραφή από το newsletter: ${unsubscribeUrl}`,
+    html: simpleShell(
+      heading,
+      `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">${escapeHtml(body)}</p>
+       ${buttonHtml}
+       ${footer ? `<p style="margin:0 0 16px;font-size:13px;line-height:1.6;color:#6b6862">${escapeHtml(footer)}</p>` : ""}
+       <p style="margin:20px 0 0;padding-top:16px;border-top:1px solid #e7e5e1;font-size:12px;color:#8890999a"><a href="${escapeHtml(unsubscribeUrl)}" style="color:#8890999a;text-decoration:underline">Διαγραφή από το newsletter</a></p>`,
+      storeName
+    ),
+  });
+}
+
+/**
+ * Owner-facing: "someone subscribed." Independent of, and never blocks, the
+ * customer-facing confirmation above. Skipped entirely (not a config-missing
+ * log — this is a genuinely optional feature) when no notification address
+ * is set, since unlike order notifications there is no sensible fallback
+ * recipient for "someone joined the newsletter."
+ */
+export async function sendNewsletterSignupNotificationEmail(subscriberEmail: string): Promise<void> {
+  const settings = await getSiteSettings();
+  const to = settings?.newsletterNotificationEmail?.trim();
+  if (!to) return;
+
   const { storeName } = await getBranding();
   await send({
     to,
-    subject: `Καλώς ήρθες στη λέσχη ${storeName}`,
-    text:
-      `Ευχαριστούμε που εγγράφηκες στο newsletter του ${storeName}!\n\n` +
-      `Θα λαμβάνεις νέες αφίξεις, οδηγούς αγορών και αποκλειστικές προσφορές απευθείας στο inbox σου.\n\n` +
-      `Αν θέλεις να διαγραφείς, επικοινώνησε μαζί μας.`,
+    subject: `Νέα εγγραφή newsletter | ${storeName}`,
+    text: `Ένας νέος συνδρομητής εγγράφηκε στο newsletter: ${subscriberEmail}`,
     html: simpleShell(
-      `Καλώς ήρθες στη λέσχη ${storeName}`,
-      `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Ευχαριστούμε που εγγράφηκες! Θα λαμβάνεις νέες αφίξεις, οδηγούς αγορών και αποκλειστικές προσφορές απευθείας στο inbox σου.</p>
-       <p style="margin:0;font-size:13px;line-height:1.6;color:#6b6862">Αν θέλεις να διαγραφείς από τη λίστα, επικοινώνησε μαζί μας.</p>`,
+      "Νέα εγγραφή newsletter",
+      `<p style="margin:0;font-size:14px;line-height:1.6">Ένας νέος συνδρομητής εγγράφηκε στο newsletter: <strong>${escapeHtml(subscriberEmail)}</strong></p>`,
       storeName
     ),
   });
@@ -165,6 +226,34 @@ export async function sendOrderConfirmationEmail(order: OrderEmailData): Promise
     subject: `Η παραγγελία σας #${order.orderNumber} καταχωρήθηκε επιτυχώς | ${storeName}`,
     html: orderConfirmationHtml(order, { storeName, contact, orderUrl }),
     text: orderConfirmationText(order, { storeName, orderUrl }),
+  });
+}
+
+/**
+ * Sent to the owner right after checkout completes — independent of, and
+ * never blocking, the customer confirmation above (a failure here must not
+ * read back as "the order failed"). Recipient: the configured owner
+ * notification address, falling back to the public contact email so this
+ * works out of the box before anyone visits Admin -> Settings -> Email.
+ * Silently skipped (not logged as config-missing) only when genuinely
+ * neither is set — a store with no contact email configured at all has
+ * bigger problems than a missing order alert, but this still must not
+ * throw.
+ */
+export async function sendOwnerOrderNotificationEmail(order: OrderEmailData): Promise<boolean> {
+  const settings = await getSiteSettings();
+  const to = settings?.ownerNotificationEmail?.trim() || settings?.contactEmail?.trim();
+  if (!to) return false;
+
+  const { storeName } = await getBranding();
+  const contact = await contactInfo();
+  const adminOrderUrl = `${siteUrl}/admin/orders/${order.id}`;
+
+  return send({
+    to,
+    subject: `Νέα παραγγελία #${order.orderNumber} | ${storeName}`,
+    html: ownerOrderNotificationHtml(order, { storeName, contact, adminOrderUrl }),
+    text: ownerOrderNotificationText(order, { adminOrderUrl }),
   });
 }
 

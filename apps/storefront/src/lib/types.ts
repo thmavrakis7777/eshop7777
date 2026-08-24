@@ -228,8 +228,12 @@ export type PaymentProvider = {
 export type OrderLineItem = {
   id: string;
   title: string;
+  variantTitle?: string;
+  sku?: string;
   quantity: number;
+  unitPrice: Money;
   total: Money;
+  imageUrl?: string;
   placeholderTone: Tone;
 };
 
@@ -253,6 +257,12 @@ export type Order = {
   taxDocumentType: TaxDocumentType;
   invoiceDetails?: InvoiceDetails;
   createdAt: string;
+  status: string;
+  paymentStatus: string;
+  paymentMethod: string;
+  courierName?: string;
+  trackingCode?: string;
+  trackingUrl?: string;
 };
 
 export type Customer = {

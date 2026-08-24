@@ -85,13 +85,25 @@ export const getSiteSettings = unstable_cache(
           default_seo_description: string | null;
           phone_orders_enabled: boolean | null;
           phone_orders_label: string | null;
+          owner_notification_email: string | null;
+          newsletter_notification_email: string | null;
+          newsletter_from_email: string | null;
+          newsletter_subject: string | null;
+          newsletter_heading: string | null;
+          newsletter_body: string | null;
+          newsletter_button_text: string | null;
+          newsletter_button_url: string | null;
+          newsletter_footer: string | null;
         }[]
       >`SELECT footer_tagline, contact_phone, contact_email, contact_address,
                business_hours, facebook_url, instagram_url, tiktok_url,
                announcement_text, cart_message,
                store_name, logo_path, favicon_path, og_image_path,
                default_seo_title, default_seo_description,
-               phone_orders_enabled, phone_orders_label
+               phone_orders_enabled, phone_orders_label,
+               owner_notification_email, newsletter_notification_email, newsletter_from_email,
+               newsletter_subject, newsletter_heading, newsletter_body,
+               newsletter_button_text, newsletter_button_url, newsletter_footer
           FROM shop.site_setting LIMIT 1`;
       const s = rows[0];
       if (!s) return null;
@@ -114,6 +126,15 @@ export const getSiteSettings = unstable_cache(
         cartMessage: s.cart_message,
         phoneOrdersEnabled: s.phone_orders_enabled ?? false,
         phoneOrdersLabel: s.phone_orders_label,
+        ownerNotificationEmail: s.owner_notification_email,
+        newsletterNotificationEmail: s.newsletter_notification_email,
+        newsletterFromEmail: s.newsletter_from_email,
+        newsletterSubject: s.newsletter_subject,
+        newsletterHeading: s.newsletter_heading,
+        newsletterBody: s.newsletter_body,
+        newsletterButtonText: s.newsletter_button_text,
+        newsletterButtonUrl: s.newsletter_button_url,
+        newsletterFooter: s.newsletter_footer,
       };
     } catch {
       return null;

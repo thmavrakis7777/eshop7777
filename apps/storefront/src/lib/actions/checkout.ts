@@ -14,7 +14,7 @@ import { CheckoutError, completeOrder } from "@/lib/db/checkout";
 import { CART_ID_COOKIE, getCart } from "@/lib/data/cart";
 import { getCustomerId } from "@/lib/data/customer";
 import { getShippingOptionsForCart } from "@/lib/data/checkout";
-import { sendOrderConfirmationEmail } from "@/lib/email/send";
+import { sendOrderConfirmationEmail, sendOwnerOrderNotificationEmail } from "@/lib/email/send";
 import { getOrderForEmail, markConfirmationEmailSent } from "@/lib/db/order-email";
 import { isValidEmail } from "@/lib/checkout-validation";
 import type { Cart, ShippingOption } from "@/lib/types";
@@ -192,14 +192,31 @@ export async function completeCheckoutAction(): Promise<CheckoutCompleteResult> 
   // but the read that gathers its data is a real query and must be guarded
   // the same way, or a transient DB hiccup on this one read would turn an
   // already-successful order into a customer-facing error page.
+  //
+  // Fetched once, used for both emails — one query, two independent sends.
+  // Each send is its own try/catch: the owner not getting notified must
+  // never affect whether the customer's own confirmation went out, and
+  // vice versa. Neither can double-fire on a retry — completeOrder above
+  // already flips the cart to 'completed' inside its own transaction, so a
+  // second call for the same cart fails at that step, before either send
+  // is ever reached.
   try {
     const emailData = await getOrderForEmail(order.id);
     if (emailData) {
-      const sent = await sendOrderConfirmationEmail(emailData);
-      if (sent) await markConfirmationEmailSent(order.id);
+      try {
+        const sent = await sendOrderConfirmationEmail(emailData);
+        if (sent) await markConfirmationEmailSent(order.id);
+      } catch (err) {
+        console.error("[checkout] ORDER_CONFIRMATION_EMAIL_FAILED", { orderId: order.id, error: String(err) });
+      }
+      try {
+        await sendOwnerOrderNotificationEmail(emailData);
+      } catch (err) {
+        console.error("[checkout] OWNER_NOTIFICATION_EMAIL_FAILED", { orderId: order.id, error: String(err) });
+      }
     }
   } catch (err) {
-    console.error("[checkout] ORDER_CONFIRMATION_EMAIL_DATA_FAILED", { orderId: order.id, error: String(err) });
+    console.error("[checkout] ORDER_EMAIL_DATA_FAILED", { orderId: order.id, error: String(err) });
   }
 
   return { ok: true, orderId: order.id, displayId: order.orderNumber };

@@ -240,6 +240,82 @@ export function shipmentNotificationHtml(
   });
 }
 
+/**
+ * Owner-facing "you have a new order" — same visual system as the customer
+ * confirmation (same productRow/summaryBlock/addressBlock), plus a customer
+ * identity block the customer's own copy has no reason to show itself.
+ * Links to the admin order page, not the public confirmation page.
+ */
+export function ownerOrderNotificationHtml(
+  order: OrderEmailData,
+  ctx: { storeName: string; contact: { phone: string | null; email: string | null; address: string | null }; adminOrderUrl: string }
+): string {
+  const itemRows = order.items.map(productRow).join("");
+  const customerName = [order.shippingAddress?.firstName, order.shippingAddress?.lastName].filter(Boolean).join(" ");
+  const customerPhone = order.shippingAddress?.phone;
+
+  const body = `
+    <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:${INK}">Νέα παραγγελία!</h1>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED}">Παραγγελία <strong style="color:${INK}">#${order.orderNumber}</strong> · ${escapeHtml(order.createdAtFormatted)}</p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SURFACE};border-radius:10px;margin-bottom:20px">
+      <tr><td style="padding:16px 20px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:8px">Πελάτης</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px">
+          ${customerName ? `<tr><td style="padding:2px 0;color:${MUTED}">Όνομα</td><td style="padding:2px 0;text-align:right;color:${INK}">${escapeHtml(customerName)}</td></tr>` : ""}
+          <tr><td style="padding:2px 0;color:${MUTED}">Email</td><td style="padding:2px 0;text-align:right;color:${INK}">${escapeHtml(order.email)}</td></tr>
+          ${customerPhone ? `<tr><td style="padding:2px 0;color:${MUTED}">Τηλέφωνο</td><td style="padding:2px 0;text-align:right;color:${INK}">${escapeHtml(customerPhone)}</td></tr>` : ""}
+        </table>
+      </td></tr>
+    </table>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemRows}</table>
+    ${summaryBlock(order)}
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px">
+      <tr>
+        <td width="50%" valign="top" style="padding-right:10px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Τρόπος πληρωμής</div>
+          <p style="margin:0;font-size:13px;color:${INK}">${escapeHtml(paymentMethodLabel(order.paymentMethod))}</p>
+        </td>
+        <td width="50%" valign="top" style="padding-left:10px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Παράδοση σε</div>
+          ${addressBlock(order.shippingAddress)}
+        </td>
+      </tr>
+    </table>
+
+    ${ctaButton("Άνοιγμα παραγγελίας", ctx.adminOrderUrl)}`;
+
+  return shell({
+    previewText: `Νέα παραγγελία #${order.orderNumber} — ${money(order.totalCents)}`,
+    bodyHtml: body,
+    storeName: ctx.storeName,
+    contact: ctx.contact,
+  });
+}
+
+export function ownerOrderNotificationText(order: OrderEmailData, ctx: { adminOrderUrl: string }): string {
+  const lines = order.items.map((i) => `${i.title} × ${i.quantity} — ${money(i.lineTotalCents)}`);
+  const customerName = [order.shippingAddress?.firstName, order.shippingAddress?.lastName].filter(Boolean).join(" ");
+  return [
+    `Νέα παραγγελία #${order.orderNumber}`,
+    ``,
+    customerName ? `Πελάτης: ${customerName}` : null,
+    `Email: ${order.email}`,
+    order.shippingAddress?.phone ? `Τηλέφωνο: ${order.shippingAddress.phone}` : null,
+    ``,
+    ...lines,
+    ``,
+    `Σύνολο: ${money(order.totalCents)}`,
+    `Τρόπος πληρωμής: ${paymentMethodLabel(order.paymentMethod)}`,
+    ``,
+    `Άνοιγμα παραγγελίας: ${ctx.adminOrderUrl}`,
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+}
+
 export function shipmentNotificationText(order: OrderEmailData, ctx: { storeName: string; orderUrl: string }): string {
   return [
     `Η παραγγελία σου απεστάλη!`,

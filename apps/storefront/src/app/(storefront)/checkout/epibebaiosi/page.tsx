@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { getOrder } from "@/lib/data/checkout";
 import { getCustomerId } from "@/lib/data/customer";
 import { formatPrice } from "@/lib/format";
+import { paymentMethodLabel } from "@/lib/order-status-labels";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
+import { OrderStatusBadge } from "@/components/account/OrderStatusBadge";
 
 // The explicit canonical matters even on a noindex page: without it this
 // route inherits the root layout's `canonical: "/"` and tells crawlers the
@@ -48,19 +51,30 @@ export default async function OrderConfirmationPage({
       <div className="mx-auto flex max-w-xl flex-col gap-8">
         <div className="flex flex-col items-center gap-2 text-center">
           <h1 className="font-display text-2xl text-ink md:text-3xl">Η παραγγελία σου ολοκληρώθηκε.</h1>
-          <p className="text-sm text-ink-muted">Παραγγελία #{order.displayId}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-ink-muted">Παραγγελία #{order.displayId}</p>
+            <OrderStatusBadge status={order.status} />
+          </div>
         </div>
 
         <div className="rounded-md border border-border p-5">
           <ul className="flex flex-col gap-3">
             {order.items.map((item) => (
               <li key={item.id} className="flex items-center gap-3">
-                <div className="w-12 shrink-0">
-                  <PlaceholderTile label={item.title} tone={item.placeholderTone} />
+                <div className="relative w-12 shrink-0 overflow-hidden rounded-sm">
+                  {item.imageUrl ? (
+                    <Image src={item.imageUrl} alt={item.title} width={48} height={48} className="h-12 w-12 object-cover" unoptimized />
+                  ) : (
+                    <PlaceholderTile label={item.title} tone={item.placeholderTone} />
+                  )}
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm text-ink">{item.title}</span>
-                  <span className="text-xs text-ink-muted">Ποσ.: {item.quantity}</span>
+                  {item.variantTitle && <span className="text-xs text-ink-muted">{item.variantTitle}</span>}
+                  <span className="text-xs text-ink-muted">
+                    Ποσ.: {item.quantity} × {formatPrice(item.unitPrice)}
+                    {item.sku && <span className="font-mono"> · {item.sku}</span>}
+                  </span>
                 </div>
                 <span className="shrink-0 text-sm text-ink tabular-nums">{formatPrice(item.total)}</span>
               </li>
@@ -87,6 +101,41 @@ export default async function OrderConfirmationPage({
             </div>
           </div>
         </div>
+
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-medium text-ink">Τρόπος πληρωμής</h2>
+            <p className="text-ink-muted">{paymentMethodLabel(order.paymentMethod)}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <h2 className="font-medium text-ink">Κατάσταση πληρωμής</h2>
+            <OrderStatusBadge status={order.paymentStatus} kind="payment" />
+          </div>
+        </div>
+
+        {order.courierName && order.trackingCode && (
+          <div className="flex flex-col gap-2 rounded-md bg-surface p-4 text-sm">
+            <h2 className="font-medium text-ink">Στοιχεία αποστολής</h2>
+            <div className="flex justify-between">
+              <span className="text-ink-muted">Εταιρεία μεταφοράς</span>
+              <span className="font-medium text-ink">{order.courierName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-muted">Κωδικός αποστολής</span>
+              <span className="font-mono text-ink">{order.trackingCode}</span>
+            </div>
+            {order.trackingUrl && (
+              <a
+                href={order.trackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 self-start rounded-sm bg-ink px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-accent"
+              >
+                Παρακολούθηση αποστολής
+              </a>
+            )}
+          </div>
+        )}
 
         {order.shippingAddress && (
           <div className="flex flex-col gap-1 text-sm">

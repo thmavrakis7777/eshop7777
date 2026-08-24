@@ -2,6 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin, requireOwner, auditLog } from "@/lib/admin/auth";
+import { isValidEmail } from "@/lib/checkout-validation";
 import { CACHE_TAGS } from "@/lib/db/content";
 import {
   deleteHomepageBlock,
@@ -12,9 +13,12 @@ import {
   saveHomepageBlock,
   saveHomepageSeo,
   savePromoBanner,
+  getEmailSettings,
+  saveEmailSettings,
   saveSiteSettings,
   setHomepageBlockPublished,
 } from "@/lib/admin/cms";
+import type { EmailSettings } from "@/lib/admin/cms";
 import type {
   HomepageSectionConfig,
   HomepageSectionKind,
@@ -347,6 +351,57 @@ export async function saveSiteSettingsAction(formData: FormData): Promise<Action
   // Header, footer and announcement bar render on every page.
   revalidatePath("/", "layout");
   return { ok: true, message: "Οι ρυθμίσεις αποθηκεύτηκαν." };
+}
+
+export async function saveEmailSettingsAction(formData: FormData): Promise<ActionResult> {
+  const { admin, insufficientRole } = await ownerGuard();
+  if (insufficientRole) return { ok: false, error: "Δεν έχεις δικαίωμα για αυτή την ενέργεια." };
+  if (!admin) return EXPIRED;
+
+  for (const [field, label] of [
+    ["ownerNotificationEmail", "Email ειδοποίησης νέων παραγγελιών"],
+    ["newsletterNotificationEmail", "Email ειδοποίησης νέων εγγραφών newsletter"],
+    ["newsletterFromEmail", "Email αποστολέα newsletter"],
+  ] as const) {
+    if (!formData.has(field)) continue;
+    const v = text(formData.get(field));
+    if (v && !isValidEmail(v)) return { ok: false, error: `${label}: μη έγκυρη διεύθυνση email.` };
+  }
+
+  const buttonUrl = formData.has("newsletterButtonUrl") ? text(formData.get("newsletterButtonUrl")) : undefined;
+  if (buttonUrl && !/^https?:\/\//i.test(buttonUrl) && !buttonUrl.startsWith("/")) {
+    return { ok: false, error: "Ο σύνδεσμος κουμπιού πρέπει να ξεκινά με / ή https://." };
+  }
+
+  try {
+    // The Email settings screen is two separate forms in two cards
+    // (notifications vs. confirmation-email copy). Each <form> only submits
+    // its own fields, so a field this specific submission doesn't carry
+    // must keep its current value, not get nulled out by the other card's
+    // absence — hence reading current settings first and only overriding
+    // what formData.has() actually.
+    const current = await getEmailSettings();
+    const field = (name: keyof EmailSettings) => (formData.has(name) ? text(formData.get(name)) : current[name]);
+
+    await saveEmailSettings({
+      ownerNotificationEmail: field("ownerNotificationEmail"),
+      newsletterNotificationEmail: field("newsletterNotificationEmail"),
+      newsletterFromEmail: field("newsletterFromEmail"),
+      newsletterSubject: field("newsletterSubject"),
+      newsletterHeading: field("newsletterHeading"),
+      newsletterBody: field("newsletterBody"),
+      newsletterButtonText: field("newsletterButtonText"),
+      newsletterButtonUrl: field("newsletterButtonUrl"),
+      newsletterFooter: field("newsletterFooter"),
+    });
+    await auditLog(admin.id, "email_settings.update", "site_setting", "singleton");
+  } catch {
+    return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
+  }
+
+  updateTag(CACHE_TAGS.siteSettings);
+  revalidatePath("/admin/settings/email");
+  return { ok: true, message: "Οι ρυθμίσεις email αποθηκεύτηκαν." };
 }
 
 export async function savePromoBannerAction(formData: FormData): Promise<ActionResult> {

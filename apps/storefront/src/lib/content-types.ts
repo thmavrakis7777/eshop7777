@@ -42,6 +42,19 @@ export type SiteSettings = {
   // number for the whole site, shown in two places.
   phoneOrdersEnabled: boolean;
   phoneOrdersLabel: string | null;
+  // Email settings — read by lib/email/send.ts. All optional; every consumer
+  // falls back sensibly (owner notification -> contactEmail, newsletter
+  // sender -> RESEND_FROM_EMAIL, copy -> hardcoded Greek defaults) so an
+  // empty settings row degrades to exactly what shipped before these existed.
+  ownerNotificationEmail: string | null;
+  newsletterNotificationEmail: string | null;
+  newsletterFromEmail: string | null;
+  newsletterSubject: string | null;
+  newsletterHeading: string | null;
+  newsletterBody: string | null;
+  newsletterButtonText: string | null;
+  newsletterButtonUrl: string | null;
+  newsletterFooter: string | null;
 };
 
 export type PromoBanner = {

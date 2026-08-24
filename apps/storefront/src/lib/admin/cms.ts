@@ -320,6 +320,86 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
 }
 
 // ---------------------------------------------------------------------------
+// Email settings — deliberately its own read/write pair, not folded into
+// AdminSiteSettings/saveSiteSettings above. That upsert writes every column
+// on the singleton from one form's fields; a second form pointed at it that
+// didn't also carry all ~25 other fields would blank them the moment
+// anyone saved just the email settings. A narrow, separately-scoped
+// UPDATE/read here can't do that by construction.
+// ---------------------------------------------------------------------------
+
+export type EmailSettings = {
+  ownerNotificationEmail: string | null;
+  newsletterNotificationEmail: string | null;
+  newsletterFromEmail: string | null;
+  newsletterSubject: string | null;
+  newsletterHeading: string | null;
+  newsletterBody: string | null;
+  newsletterButtonText: string | null;
+  newsletterButtonUrl: string | null;
+  newsletterFooter: string | null;
+};
+
+export async function getEmailSettings(): Promise<EmailSettings> {
+  const rows = await sql<
+    {
+      owner_notification_email: string | null; newsletter_notification_email: string | null;
+      newsletter_from_email: string | null; newsletter_subject: string | null;
+      newsletter_heading: string | null; newsletter_body: string | null;
+      newsletter_button_text: string | null; newsletter_button_url: string | null;
+      newsletter_footer: string | null;
+    }[]
+  >`SELECT owner_notification_email, newsletter_notification_email, newsletter_from_email,
+           newsletter_subject, newsletter_heading, newsletter_body,
+           newsletter_button_text, newsletter_button_url, newsletter_footer
+      FROM shop.site_setting LIMIT 1`;
+  const s = rows[0];
+  return {
+    ownerNotificationEmail: s?.owner_notification_email ?? null,
+    newsletterNotificationEmail: s?.newsletter_notification_email ?? null,
+    newsletterFromEmail: s?.newsletter_from_email ?? null,
+    newsletterSubject: s?.newsletter_subject ?? null,
+    newsletterHeading: s?.newsletter_heading ?? null,
+    newsletterBody: s?.newsletter_body ?? null,
+    newsletterButtonText: s?.newsletter_button_text ?? null,
+    newsletterButtonUrl: s?.newsletter_button_url ?? null,
+    newsletterFooter: s?.newsletter_footer ?? null,
+  };
+}
+
+/**
+ * A narrow UPDATE, not saveSiteSettings' upsert-every-column — this is its
+ * own admin screen so an owner editing email copy isn't also holding every
+ * storefront-content field hostage in the same submission (and vice versa:
+ * saving the Header & Footer form must not blank these).
+ */
+export async function saveEmailSettings(input: EmailSettings): Promise<void> {
+  // Upsert, not a bare UPDATE: no migration seeds the site_setting singleton
+  // row, so on a database where the Header & Footer form has never been
+  // saved yet, an UPDATE alone would silently affect zero rows.
+  await sql`
+    INSERT INTO shop.site_setting (
+      id, owner_notification_email, newsletter_notification_email, newsletter_from_email,
+      newsletter_subject, newsletter_heading, newsletter_body,
+      newsletter_button_text, newsletter_button_url, newsletter_footer, updated_at)
+    VALUES (
+      true, ${input.ownerNotificationEmail}, ${input.newsletterNotificationEmail}, ${input.newsletterFromEmail},
+      ${input.newsletterSubject}, ${input.newsletterHeading}, ${input.newsletterBody},
+      ${input.newsletterButtonText}, ${input.newsletterButtonUrl}, ${input.newsletterFooter}, now())
+    ON CONFLICT (id) DO UPDATE SET
+      owner_notification_email = EXCLUDED.owner_notification_email,
+      newsletter_notification_email = EXCLUDED.newsletter_notification_email,
+      newsletter_from_email = EXCLUDED.newsletter_from_email,
+      newsletter_subject = EXCLUDED.newsletter_subject,
+      newsletter_heading = EXCLUDED.newsletter_heading,
+      newsletter_body = EXCLUDED.newsletter_body,
+      newsletter_button_text = EXCLUDED.newsletter_button_text,
+      newsletter_button_url = EXCLUDED.newsletter_button_url,
+      newsletter_footer = EXCLUDED.newsletter_footer,
+      updated_at = now()`;
+}
+
+// ---------------------------------------------------------------------------
 // Promo banner
 // ---------------------------------------------------------------------------
 

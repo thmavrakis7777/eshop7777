@@ -3,7 +3,7 @@
 import { checkRateLimit, rateLimitKey } from "@/lib/auth/session";
 import { isValidEmail } from "@/lib/checkout-validation";
 import { subscribeToNewsletter } from "@/lib/db/newsletter";
-import { sendNewsletterConfirmationEmail } from "@/lib/email/send";
+import { sendNewsletterConfirmationEmail, sendNewsletterSignupNotificationEmail } from "@/lib/email/send";
 
 export type NewsletterActionResult =
   | { ok: true; status: "subscribed" | "already_subscribed" }
@@ -32,16 +32,23 @@ export async function subscribeToNewsletterAction(input: {
   }
 
   try {
-    const status = await subscribeToNewsletter(email);
+    const { status, unsubscribeToken } = await subscribeToNewsletter(email);
     // Only on a genuinely new (or reactivated) subscription — not on
     // already_subscribed, which would just be a noisy re-send to someone
     // already on the list. Guarded separately: the row is already
     // committed, so a failure here must not read back as "signup failed".
-    if (status === "subscribed") {
+    if (status === "subscribed" && unsubscribeToken) {
       try {
-        await sendNewsletterConfirmationEmail(email);
+        await sendNewsletterConfirmationEmail(email, unsubscribeToken);
       } catch (err) {
         console.error("[newsletter] CONFIRMATION_EMAIL_FAILED", { error: err instanceof Error ? err.message : String(err) });
+      }
+      // Best-effort, independent of the confirmation email above — the
+      // owner not being notified must never affect what the customer sees.
+      try {
+        await sendNewsletterSignupNotificationEmail(email);
+      } catch (err) {
+        console.error("[newsletter] OWNER_NOTIFICATION_FAILED", { error: err instanceof Error ? err.message : String(err) });
       }
     }
     return { ok: true, status };
