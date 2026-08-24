@@ -107,6 +107,11 @@ export function HomepageSectionBuilder({
           <p className="mt-0.5 text-xs text-ink-muted">
             Με τη σειρά που εμφανίζονται στο κατάστημα. {sections.length} ενότητες,{" "}
             {sections.filter((s) => s.isPublished).length} ορατές.
+            {sections.some(isDeadOnLive) && (
+              <span className="ml-1 font-medium text-danger">
+                {sections.filter(isDeadOnLive).length} δεν εμφανίζονται live παρότι είναι ορατές — δες την προειδοποίηση πιο κάτω.
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -179,6 +184,11 @@ export function HomepageSectionBuilder({
                     {!section.isPublished && (
                       <span className="rounded-sm bg-surface-strong px-1.5 py-0.5 text-[11px] text-ink-muted">
                         Κρυφή
+                      </span>
+                    )}
+                    {isDeadOnLive(section) && (
+                      <span className="rounded-sm bg-danger/10 px-1.5 py-0.5 text-[11px] font-medium text-danger">
+                        ⚠ Δεν εμφανίζεται live — λείπει επιλογή
                       </span>
                     )}
                   </div>
@@ -283,6 +293,23 @@ export function HomepageSectionBuilder({
       )}
     </section>
   );
+}
+
+/**
+ * True when a published section is guaranteed to render nothing live — a
+ * product rail whose source reference (category/collection/manual picks)
+ * was never actually set. Same class of problem `validateRailSource` in
+ * cms-actions.ts now blocks on save, surfaced here too so a row saved
+ * before that check existed doesn't sit invisible and undiagnosable.
+ */
+function isDeadOnLive(s: AdminHomepageBlock): boolean {
+  if (!s.isPublished || s.kind !== "product_rail") return false;
+  const source = s.config.source;
+  if (!source) return true;
+  if (source.type === "category") return !source.categorySlug;
+  if (source.type === "collection") return !source.collectionSlug;
+  if (source.type === "manual") return !source.productSlugs?.length;
+  return false;
 }
 
 /** One-line summary of what a section will actually render. */

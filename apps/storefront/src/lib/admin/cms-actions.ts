@@ -200,6 +200,32 @@ function parseConfig(kind: HomepageSectionKind, formData: FormData): HomepageSec
   return config;
 }
 
+/**
+ * Catches the one class of bug that silently deletes a section from the
+ * live homepage without ever showing an error: a product rail whose source
+ * needs a reference (a category, a collection, at least one manually-picked
+ * product) that was never actually filled in. The config still saves fine
+ * as valid JSON — resolveRailProducts() then quietly resolves it to zero
+ * products, and RailSection renders null, exactly as it's supposed to for a
+ * category that existed and was later deleted. There is no way to tell
+ * "reference never set" apart from "reference now gone" once it's saved, so
+ * the only real fix is refusing to save the first one.
+ */
+function validateRailSource(config: HomepageSectionConfig): string | null {
+  const source = config.source;
+  if (!source) return null;
+  if (source.type === "category" && !source.categorySlug) {
+    return "Διάλεξε μια κατηγορία για τη λωρίδα προϊόντων, αλλιώς δεν θα εμφανίζεται καθόλου στο κατάστημα.";
+  }
+  if (source.type === "collection" && !source.collectionSlug) {
+    return "Διάλεξε μια συλλογή για τη λωρίδα προϊόντων, αλλιώς δεν θα εμφανίζεται καθόλου στο κατάστημα.";
+  }
+  if (source.type === "manual" && !source.productSlugs?.length) {
+    return "Επίλεξε τουλάχιστον ένα προϊόν για τη χειροκίνητη λωρίδα, αλλιώς δεν θα εμφανίζεται καθόλου στο κατάστημα.";
+  }
+  return null;
+}
+
 export async function saveHomepageBlockAction(formData: FormData): Promise<ActionResult> {
   const admin = await guard();
   if (!admin) return EXPIRED;
@@ -207,6 +233,10 @@ export async function saveHomepageBlockAction(formData: FormData): Promise<Actio
   const rawKind = String(formData.get("kind") ?? "hero") as HomepageSectionKind;
   const kind = SECTION_KINDS.includes(rawKind) ? rawKind : "hero";
   const id = text(formData.get("id")) ?? undefined;
+  const config = parseConfig(kind, formData);
+
+  const railError = kind === "product_rail" ? validateRailSource(config) : null;
+  if (railError) return { ok: false, error: railError };
 
   try {
     const savedId = await saveHomepageBlock({
@@ -220,7 +250,7 @@ export async function saveHomepageBlockAction(formData: FormData): Promise<Actio
       imagePath: text(formData.get("imagePath")),
       mobileImagePath: text(formData.get("mobileImagePath")),
       imageAlt: text(formData.get("imageAlt")),
-      config: parseConfig(kind, formData),
+      config,
       sortOrder: Number(formData.get("sortOrder") ?? 0) || 0,
       isPublished: formData.get("isPublished") === "on",
     });
