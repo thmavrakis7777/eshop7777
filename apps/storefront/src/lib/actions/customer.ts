@@ -9,6 +9,7 @@ import {
   changeCustomerPassword,
   deleteCustomerAddress,
   findCustomerIdByEmail,
+  getCustomerById,
   loginCustomer,
   registerCustomer,
   setCustomerPassword,
@@ -27,7 +28,7 @@ import {
   rateLimitKey,
 } from "@/lib/auth/session";
 import { getCustomerAddresses, getCustomerId } from "@/lib/data/customer";
-import { sendPasswordResetEmail } from "@/lib/email/send";
+import { sendPasswordChangedEmail, sendPasswordResetEmail, sendWelcomeEmail } from "@/lib/email/send";
 import { isValidEmail, isValidPassword, isRequired, isValidPostalCode } from "@/lib/checkout-validation";
 import type { Address, Customer, CustomerAddress } from "@/lib/types";
 
@@ -78,10 +79,21 @@ export async function registerAction(input: {
     const { token } = await registerCustomer({ email, password, firstName, lastName });
     await setSessionCookie(token);
     revalidatePath("/", "layout");
-    return { ok: true };
   } catch (err) {
     return { ok: false, error: mapAuthError(err) };
   }
+
+  // Outside the try/catch above on purpose: the account already exists at
+  // this point, so a failure gathering/sending the welcome email must not
+  // read back as a failed registration. sendWelcomeEmail itself never
+  // throws, but guard the call anyway — same lesson as checkout's
+  // confirmation email.
+  try {
+    await sendWelcomeEmail(email, firstName);
+  } catch (err) {
+    console.error("[customer] WELCOME_EMAIL_FAILED", { error: String(err) });
+  }
+  return { ok: true };
 }
 
 export async function loginAction(input: { email: string; password: string }): Promise<AuthActionResult> {
@@ -155,6 +167,13 @@ export async function confirmPasswordResetAction(input: {
     // Anyone holding a session for this account loses it — the whole point of
     // resetting a password you believe is compromised.
     await destroyAllCustomerSessions(customerId);
+
+    try {
+      const customer = await getCustomerById(customerId);
+      if (customer) await sendPasswordChangedEmail(customer.email);
+    } catch (err) {
+      console.error("[customer] PASSWORD_CHANGED_EMAIL_FAILED", { error: String(err) });
+    }
     return { ok: true };
   } catch {
     return { ok: false, error: "Ο σύνδεσμος έχει λήξει ή έχει ήδη χρησιμοποιηθεί. Ζήτησε νέο." };
@@ -178,10 +197,17 @@ export async function changePasswordAction(input: {
     // customer isn't logged out of the tab they just used.
     await destroyAllCustomerSessions(customerId);
     await setSessionCookie(await createCustomerSession(customerId));
-    return { ok: true };
   } catch (err) {
     return { ok: false, error: mapAuthError(err) };
   }
+
+  try {
+    const customer = await getCustomerById(customerId);
+    if (customer) await sendPasswordChangedEmail(customer.email);
+  } catch (err) {
+    console.error("[customer] PASSWORD_CHANGED_EMAIL_FAILED", { error: String(err) });
+  }
+  return { ok: true };
 }
 
 export async function updateProfileAction(input: {
