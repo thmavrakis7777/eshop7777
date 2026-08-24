@@ -4,8 +4,14 @@
 for where the migration stands. `MIGRATION_AUDIT.md` holds the original
 analysis and the locked decisions; this file holds progress and what is next.
 
-Branch: `custom-dashboard-migration`. **Nothing has been pushed** — every phase
-is committed locally only, per the project's standing instruction.
+Branch: `custom-dashboard-migration`. **Stale note, corrected 2026-08-24**: this
+used to say nothing was pushed. That's no longer true — `origin/main` and
+`origin/custom-dashboard-migration` currently point at the identical commit,
+and that commit is what's deployed live in production (Vercel project
+`eshop7777`, serving `mavrakishome.gr` / `mavrakishome.com` and their `www`
+variants). See `DEPLOYMENT.md` for the real, current deployment state — don't
+plan a launch off the word "nothing has been pushed" anywhere in this repo's
+docs; verify against `git log origin/main` and Vercel directly instead.
 
 ---
 
@@ -38,11 +44,16 @@ both fully functional on Postgres, Medusa is completely gone — code deleted
 from the repo, tables dropped from the database (both 2026-08-16) —
 everything the app needs lives in the `shop` schema, and security/SEO/
 performance audits have all run with real fixes applied and live-verified.
-Two things remain genuinely open, not part of this migration's own scope:
-image upload (blocked on Supabase Storage credentials — see below) and the
-DB pooler-mode question flagged in Phase 16 (needs Supabase dashboard
-access). Nothing has been pushed to `origin/main` yet — see the top of this
-file.
+
+**Stale as of 2026-08-17, corrected 2026-08-24**: this used to list two
+open items here — both are done now. Image upload was wired up 2026-08-19
+(see §2 below). The DB pooler-mode question was actually already settled
+the same day this section was written — `DEPLOYMENT.md` has the full
+benchmark and decision (session mode, port 5432); this file just hadn't
+been updated to say so. The project is live in production on Vercel —
+see `DEPLOYMENT.md` for the real current deployment state, and the
+go-live audit (`scratch/mavrakis-audit.html`, not committed) for what's
+actually still open at the feature level.
 
 ---
 
@@ -142,17 +153,16 @@ already works correctly for any number of variants, just isn't pretty. Revisit
 once a real multi-option product exists, or if the owner wants to invest in it
 speculatively anyway.
 
-### 2. Image upload (blocked on credentials)
-Everything else in the admin works; images do not. Needs two values in
-`apps/storefront/.env.local`:
-```
-NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<service role key>
-```
-`lib/storage/urls.ts` already derives public URLs from a stored path.
-`lib/admin/cms.ts` has `isStorageConfigured()`. The admin says so honestly
-rather than showing a dead button. Once set: upload, reorder, alt text,
-primary selection for products, hero blocks and category images.
+### 2. Image upload — DONE (2026-08-19)
+`NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are configured
+(locally and in Vercel production). `lib/storage/urls.ts` derives public
+URLs from a stored path, `lib/admin/cms.ts`'s `isStorageConfigured()` gate
+is satisfied, and the CSP's `img-src` was extended to the Supabase Storage
+origin. Upload, reorder, alt text, and primary selection work for products,
+hero blocks, and category images — live-verified, not just wired.
+Real product photography is still sparse (11 of 16 catalog products have
+none yet), but that's a content gap now, not a blocked feature — tracked
+as QA-008 in the go-live audit.
 
 ### 3. Phase 13 — remove Medusa — DONE (2026-08-16)
 **Code**: `apps/backend/` (132 tracked files + all its untracked

@@ -1,5 +1,18 @@
 # Deployment Runbook
 
+**Status: LIVE in production**, corrected 2026-08-24 — this file used to
+read like deployment was still a future step ("create the Vercel project if
+not already done"). It isn't a future step: the Vercel project (`eshop7777`,
+under the `harris-7777` team) is live today, auto-deploying from `main` on
+every push, serving `mavrakishome.gr`, `www.mavrakishome.gr`,
+`mavrakishome.com`, and `www.mavrakishome.com` — all aliased to the same
+production deployment. `origin/main` and `origin/custom-dashboard-migration`
+currently point at the identical commit, so everything described in
+`MIGRATION_PLAN.md` is what's actually running. The rest of this file is
+still accurate as a *runbook* (how the pieces are configured, why session-
+mode pooling was chosen) — read it as "how the live setup works," not "what
+still needs to happen."
+
 Target architecture (rewritten 2026-08-16, Phase 13 of `MIGRATION_PLAN.md` —
 Medusa is gone, there is no longer a separate backend to deploy):
 
@@ -39,7 +52,7 @@ the full list with explanations:
 | Variable | Value | Notes |
 |---|---|---|
 | `DATABASE_URL` | the Supabase connection string already in use locally | copy exactly from `apps/storefront/.env.local` — **do not retype**, do not paste it anywhere else (not in this file, not in chat/logs) |
-| `NEXT_PUBLIC_SITE_URL` | leave unset until a real domain exists | Vercel auto-provides `VERCEL_URL` for every deployment, so canonical/sitemap/OG URLs are already correct with zero config (see `lib/site-config.ts`) — set this only once `stia.gr` (or whatever the real domain ends up being) is actually registered and attached |
+| `NEXT_PUBLIC_SITE_URL` | `https://www.mavrakishome.gr` | The real domain is registered and attached (this was written when it wasn't). `lib/site-config.ts`'s resolution order is `NEXT_PUBLIC_SITE_URL` → `VERCEL_URL` → a hardcoded `https://www.mavrakishome.gr` fallback, and the SEO audit (Phase 15) confirmed canonical/sitemap/OG URLs are correct in production either way — but whether this var is explicitly set in Vercel or the fallback happens to match wasn't checked here; set it explicitly rather than relying on the fallback. |
 | `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | optional, together | required for image upload — see `MIGRATION_PLAN.md`'s "Image upload (blocked on credentials)" section |
 | `GOOGLE_PLACES_API_KEY` | optional | address autocomplete degrades to manual entry if unset |
 | `GEMI_API_KEY` | optional | ΓΕΜΗ company lookup degrades to manual entry if unset |
@@ -96,12 +109,19 @@ Already in production use, already verified live:
   the Medusa-era setup, which ran as a persistent process and used a direct
   connection.
 
-## Manual steps that can't be automated from here
+## Current state (done, kept here for reference / redeploying elsewhere)
 
-1. Create the Vercel project (if not already done), connect this GitHub
-   repo, set Root Directory to `apps/storefront`, paste the environment
-   variables above.
-2. (Optional, later) Register a real domain, attach it in Vercel, set
-   `NEXT_PUBLIC_SITE_URL`.
-3. (Optional, once ready) Set up Supabase Storage + `NEXT_PUBLIC_SUPABASE_URL`/
-   `SUPABASE_SERVICE_ROLE_KEY` for image upload.
+1. **Vercel project**: `eshop7777`, team `harris-7777`, connected to GitHub
+   (`thmavrakis7777/eshop7777`), Root Directory `apps/storefront`, auto-deploys
+   on every push to `main`. Environment variables above are set in production.
+2. **Domain**: `mavrakishome.gr` / `mavrakishome.com` (both with and without
+   `www.`) are registered and attached, all aliased to the production
+   deployment. `NEXT_PUBLIC_SITE_URL` should be set to
+   `https://www.mavrakishome.gr` per the table above.
+3. **Supabase Storage**: `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`
+   are configured; image upload works in production (`MIGRATION_PLAN.md` §2).
+
+None of the above is a remaining setup step — it's the record of what's
+already configured, kept here so redeploying to a new Vercel project (a
+disaster-recovery scenario, not the normal path) has a real checklist to
+follow instead of guessing.
