@@ -65,6 +65,12 @@ SendGrid — done on direct instruction after that decision, not a
 freelance change. SendGrid is fully removed (`.env.example`, all code) as
 of this commit.
 
+**Live and verified (2026-08-24)**: `mavrakishome.gr` is a `verified`
+domain in Resend (EU region), `RESEND_API_KEY`/`RESEND_FROM_EMAIL` are set
+in Vercel production, and real send-and-deliver was confirmed for both
+emails plus the duplicate-protection and manual-resend paths — see
+`CHANGELOG.md`'s "Migrate email to Resend" entry for the specifics.
+
 **Shipment notification (new)**: `shop.orders` gained `courier_name`,
 `tracking_code`, `tracking_url`, `confirmation_email_sent_at`,
 `shipment_email_sent_at` (`0015_shipment_tracking.sql`). Admin enters

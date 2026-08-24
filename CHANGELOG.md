@@ -70,6 +70,18 @@ card, backed by `shop.order_event` (`type: 'email_confirmation'` /
 `'email_shipment'`) — reused, not a new notification-log table, since the
 existing per-order event timeline already does exactly this job.
 
+**Production-verified, 2026-08-24**, after the domain was DNS-verified and
+a real API key configured in Vercel: `mavrakishome.gr` shows `verified` in
+Resend. Four real sends against real orders (#1013, #1014 on
+mavrakishome.gr, cancelled after testing), each confirmed independently
+via Resend's own delivery log (not just "our code got a 200"):
+confirmation email → delivered; first courier+tracking save → shipment
+email sent automatically → delivered; re-saving with a *changed* tracking
+code → correctly did not send a second one (verified no new message
+appeared in Resend's log); explicit "Επαναποστολή" → sent a real fourth,
+distinct message → delivered. Admin-side testing used a temporary staff
+account created and deleted for this purpose, not the owner's real login.
+
 Not built: a courier-manageable admin config table (spec said "ideally,
 eventually" — a `<datalist>` of suggestions was judged sufficient for
 today's actual courier count of zero-confirmed) and an admin-only email
