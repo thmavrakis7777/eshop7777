@@ -1,6 +1,7 @@
 import "server-only";
 import { sql, type Tx } from "@/lib/db/client";
 import { toneFor } from "@/lib/db/catalog";
+import { publicImageUrl } from "@/lib/storage/urls";
 import type { Cart, CartLineItem, Money } from "@/lib/types";
 
 /**
@@ -68,6 +69,9 @@ type ItemRow = {
   // Joined live from the product, not frozen onto the line like price is:
   // if the owner corrects a shipping cost, open carts should reflect it.
   shipping_cost_cents: number | null;
+  // Also joined live (not snapshotted) — a newly uploaded photo should show up
+  // in an already-open cart without the customer re-adding the item.
+  image_path: string | null;
 };
 
 export type AddressJson = {
@@ -182,11 +186,17 @@ const cartQuery = (id: string) => sql<CartRow[]>`
              'title', i.title, 'sku', i.sku, 'product_slug', i.product_slug,
              'unit_price_cents', i.unit_price_cents,
              'compare_at_price_cents', i.compare_at_price_cents,
-             'shipping_cost_cents', p.shipping_cost_cents
+             'shipping_cost_cents', p.shipping_cost_cents,
+             'image_path', img.storage_path
            ) ORDER BY i.created_at)
            FROM shop.cart_item i
            LEFT JOIN shop.product_variant v ON v.id = i.variant_id
            LEFT JOIN shop.product p ON p.id = v.product_id
+           LEFT JOIN LATERAL (
+             SELECT storage_path FROM shop.product_image
+              WHERE product_id = p.id
+              ORDER BY position LIMIT 1
+           ) img ON true
           WHERE i.cart_id = c.id
          ), '[]'::json) AS items
     FROM shop.cart c
@@ -209,6 +219,7 @@ function toDomainCart(r: CartRow): Cart {
         : undefined,
     lineTotal: eur(i.unit_price_cents * i.quantity),
     placeholderTone: toneFor(i.product_slug),
+    imageUrl: publicImageUrl(i.image_path),
     hasExtraShipping: (i.shipping_cost_cents ?? 0) > 0,
   }));
 

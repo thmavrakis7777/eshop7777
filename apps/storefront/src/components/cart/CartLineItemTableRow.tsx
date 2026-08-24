@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { CartLineItem } from "@/lib/types";
 import { formatPrice, discountPercent } from "@/lib/format";
-import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { QuantityStepper } from "@/components/cart/QuantityStepper";
 import { CART_TABLE_GRID_COLS } from "@/components/cart/cart-table-grid";
 
@@ -31,7 +31,7 @@ export function CartLineItemTableRow({
     <div className={`hidden lg:grid ${CART_TABLE_GRID_COLS} items-center gap-4 py-6`}>
       <div className="flex min-w-0 gap-4">
         <Link href={`/proionta/${item.productHandle}`} className="w-28 shrink-0">
-          <PlaceholderTile label={item.title} tone={item.placeholderTone} />
+          <ProductImage imageUrl={item.imageUrl} label={item.title} tone={item.placeholderTone} sizes="112px" />
         </Link>
         <div className="flex min-w-0 flex-col justify-center gap-1.5">
           <Link

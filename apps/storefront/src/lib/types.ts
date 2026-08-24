@@ -115,6 +115,7 @@ export type CartLineItem = {
   compareAtUnitPrice?: Money;
   lineTotal: Money;
   placeholderTone: Tone;
+  imageUrl: string | null;
   // Snapshotted variant SKU, copied onto the line at order time so it stays
   // correct if the variant is later edited. (Pre-migration this pointed at
   // MedusaLineItem.variant_sku in lib/medusa.ts; that file no longer exists.)

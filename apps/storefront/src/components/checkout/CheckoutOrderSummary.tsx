@@ -1,6 +1,6 @@
 import type { Cart } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
-import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { CartTotals } from "@/components/cart/CartTotals";
 
 // Compact line-item presentation (small thumbnail, no quantity stepper —
@@ -43,7 +43,7 @@ function OrderSummaryContent({ cart }: { cart: Cart }) {
         {cart.items.map((item) => (
           <li key={item.id} className="flex items-center gap-3">
             <div className="w-12 shrink-0">
-              <PlaceholderTile label={item.title} tone={item.placeholderTone} />
+              <ProductImage imageUrl={item.imageUrl} label={item.title} tone={item.placeholderTone} sizes="48px" />
             </div>
             <div className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-sm text-ink">{item.title}</span>

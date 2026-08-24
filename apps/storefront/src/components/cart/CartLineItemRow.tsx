@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { CartLineItem } from "@/lib/types";
 import { formatPrice, discountPercent } from "@/lib/format";
-import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { QuantityStepper } from "@/components/cart/QuantityStepper";
 
 // The labeled-card layout — used by the drawer at every width (it's a
@@ -30,7 +30,7 @@ export function CartLineItemRow({
   return (
     <div className="flex gap-4 py-5">
       <Link href={`/proionta/${item.productHandle}`} className="w-20 shrink-0 sm:w-24">
-        <PlaceholderTile label={item.title} tone={item.placeholderTone} />
+        <ProductImage imageUrl={item.imageUrl} label={item.title} tone={item.placeholderTone} sizes="96px" />
       </Link>
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
