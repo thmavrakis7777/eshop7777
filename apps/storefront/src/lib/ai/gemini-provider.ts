@@ -93,6 +93,13 @@ type GeminiResponse = {
 export class GeminiProvider implements AIProvider {
   async generateSeoContent(input: SeoGenerationInput, fields: SeoField[] = ALL_FIELDS): Promise<SeoGenerationResult> {
     const apiKey = process.env.GEMINI_API_KEY;
+    // TEMPORARY diagnostic — boolean + length only, never the value itself.
+    // Remove once the "not_configured" issue is root-caused.
+    console.log("[ai] GEMINI_API_KEY check", {
+      present: Boolean(apiKey),
+      length: apiKey?.length ?? 0,
+      modelEnvPresent: Boolean(process.env.GEMINI_MODEL),
+    });
     if (!apiKey) throw new AIProviderError("Gemini API key not configured", "not_configured");
 
     const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
