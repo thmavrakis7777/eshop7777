@@ -108,6 +108,7 @@ export type NavCategory = CategoryNode & {
 
 export type CartLineItem = {
   id: string;
+  variantId: string;
   productHandle: string;
   title: string;
   quantity: number;

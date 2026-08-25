@@ -28,6 +28,9 @@ import {
   rateLimitKey,
 } from "@/lib/auth/session";
 import { getCustomerAddresses, getCustomerId } from "@/lib/data/customer";
+import { CART_ID_COOKIE, isCartId } from "@/lib/data/cart";
+import { mergeGuestCartIntoCustomer } from "@/lib/db/cart";
+import { setCartIdCookie } from "@/lib/actions/cart";
 import { sendPasswordChangedEmail, sendPasswordResetEmail, sendWelcomeEmail } from "@/lib/email/send";
 import { isValidEmail, isValidPassword, isRequired, isValidPostalCode } from "@/lib/checkout-validation";
 import type { Address, Customer, CustomerAddress } from "@/lib/types";
@@ -56,6 +59,25 @@ async function setSessionCookie(token: string) {
   (await cookies()).set(CUSTOMER_SESSION_COOKIE, token, cookieOptions);
 }
 
+/**
+ * Runs right after login/register. A guest's cart is a cookie the merge
+ * code can read directly (no client involvement needed, unlike the
+ * wishlist — see mergeWishlistOnLoginAction — which lives in localStorage
+ * and has to be merged from the client instead). Best-effort: a merge
+ * failure must never turn a successful login into a failed one, so errors
+ * are logged and swallowed, not surfaced.
+ */
+async function mergeGuestCart(customerId: string): Promise<void> {
+  const guestCartId = (await cookies()).get(CART_ID_COOKIE)?.value;
+  if (!isCartId(guestCartId)) return;
+  try {
+    const mergedCartId = await mergeGuestCartIntoCustomer(customerId, guestCartId);
+    if (mergedCartId !== guestCartId) await setCartIdCookie(mergedCartId);
+  } catch (err) {
+    console.error("[customer] CART_MERGE_FAILED", { error: String(err) });
+  }
+}
+
 export type AuthActionResult = { ok: true } | { ok: false; error: string };
 export type CustomerActionResult = { ok: true; customer: Customer } | { ok: false; error: string };
 export type AddressActionResult = { ok: true; addresses: CustomerAddress[] } | { ok: false; error: string };
@@ -76,8 +98,9 @@ export async function registerAction(input: {
   }
 
   try {
-    const { token } = await registerCustomer({ email, password, firstName, lastName });
+    const { customerId, token } = await registerCustomer({ email, password, firstName, lastName });
     await setSessionCookie(token);
+    await mergeGuestCart(customerId);
     revalidatePath("/", "layout");
   } catch (err) {
     return { ok: false, error: mapAuthError(err) };
@@ -107,8 +130,9 @@ export async function loginAction(input: { email: string; password: string }): P
   }
 
   try {
-    const token = await loginCustomer(email, password);
+    const { customerId, token } = await loginCustomer(email, password);
     await setSessionCookie(token);
+    await mergeGuestCart(customerId);
     revalidatePath("/", "layout");
     return { ok: true };
   } catch (err) {

@@ -93,7 +93,10 @@ export async function registerCustomer(input: {
  * dummy hash comparison when the account does not exist, so the two paths
  * also take the same amount of time.
  */
-export async function loginCustomer(email: string, password: string): Promise<string> {
+export async function loginCustomer(
+  email: string,
+  password: string
+): Promise<{ customerId: string; token: string }> {
   const [c] = await sql<{ id: string; password_hash: string | null }[]>`
     SELECT id, password_hash FROM shop.customer
      WHERE lower(email) = lower(${email}) AND is_active`;
@@ -110,7 +113,7 @@ export async function loginCustomer(email: string, password: string): Promise<st
     throw new AuthError("Invalid email or password", "invalid_credentials");
   }
 
-  return createCustomerSession(c.id);
+  return { customerId: c.id, token: await createCustomerSession(c.id) };
 }
 
 // A well-formed hash string with the same scrypt cost parameters as a real

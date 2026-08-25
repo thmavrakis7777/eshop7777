@@ -21,6 +21,25 @@ import type { Cart } from "@/lib/types";
 // matches shop.cart.expires_at's default.
 const CART_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
+/**
+ * The only place the cart_id cookie is ever written (also called from
+ * lib/actions/customer.ts after a login/register cart merge, which needs to
+ * repoint the cookie at a different — possibly pre-existing — cart id).
+ * httpOnly: nothing client-side reads this cookie — the cart is always
+ * resolved server-side — so keeping it out of `document.cookie` removes it
+ * as an XSS target at no cost.
+ */
+export async function setCartIdCookie(id: string): Promise<void> {
+  const jar = await cookies();
+  jar.set(CART_ID_COOKIE, id, {
+    maxAge: CART_COOKIE_MAX_AGE,
+    sameSite: "lax",
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+  });
+}
+
 async function getOrCreateCartId(): Promise<string> {
   const jar = await cookies();
   const existing = jar.get(CART_ID_COOKIE)?.value;
@@ -30,16 +49,7 @@ async function getOrCreateCartId(): Promise<string> {
   if (isCartId(existing)) return existing;
 
   const id = await createCart();
-  // httpOnly: nothing client-side reads this cookie — the cart is always
-  // resolved server-side — so keeping it out of `document.cookie` removes it
-  // as an XSS target at no cost.
-  jar.set(CART_ID_COOKIE, id, {
-    maxAge: CART_COOKIE_MAX_AGE,
-    sameSite: "lax",
-    path: "/",
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-  });
+  await setCartIdCookie(id);
   return id;
 }
 

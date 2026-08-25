@@ -208,6 +208,7 @@ const cartQuery = (id: string) => sql<CartRow[]>`
 function toDomainCart(r: CartRow): Cart {
   const items: CartLineItem[] = r.items.map((i) => ({
     id: i.id,
+    variantId: i.variant_id,
     productHandle: i.product_slug,
     title: i.title,
     quantity: i.quantity,
@@ -300,6 +301,51 @@ export async function createCart(customerId?: string | null): Promise<string> {
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO shop.cart (customer_id) VALUES (${customerId ?? null}) RETURNING id`;
   return row.id;
+}
+
+/**
+ * Runs on login/register. Two cases:
+ *
+ *  - The customer has no other active cart (the common case, especially a
+ *    first-ever login): the guest cart is simply claimed — one UPDATE, no
+ *    merge needed.
+ *  - The customer already has an active cart (returning on a second device,
+ *    or logged out and back in without checking out): the guest cart's
+ *    lines are folded into it via the existing `addItem()` — which already
+ *    sums quantities on a shared variant and enforces stock — then the
+ *    now-empty guest cart is marked `abandoned` (kept for audit, not
+ *    deleted). A line whose variant was deactivated or is out of stock is
+ *    skipped rather than failing the whole merge; login must never break
+ *    because of one stale cart line.
+ *
+ * Returns the id of the cart that should now be in the `cart_id` cookie.
+ */
+export async function mergeGuestCartIntoCustomer(customerId: string, guestCartId: string): Promise<string> {
+  const [existing] = await sql<{ id: string }[]>`
+    SELECT id FROM shop.cart
+     WHERE customer_id = ${customerId} AND status = 'active' AND id <> ${guestCartId}
+     ORDER BY updated_at DESC
+     LIMIT 1`;
+
+  if (!existing) {
+    await sql`UPDATE shop.cart SET customer_id = ${customerId} WHERE id = ${guestCartId} AND status = 'active'`;
+    return guestCartId;
+  }
+
+  const guestItems = await sql<{ variant_id: string; quantity: number }[]>`
+    SELECT variant_id, quantity FROM shop.cart_item WHERE cart_id = ${guestCartId}`;
+
+  for (const item of guestItems) {
+    try {
+      await addItem(existing.id, item.variant_id, item.quantity);
+    } catch (err) {
+      if (err instanceof CartError) continue;
+      throw err;
+    }
+  }
+
+  await sql`UPDATE shop.cart SET status = 'abandoned' WHERE id = ${guestCartId} AND status = 'active'`;
+  return existing.id;
 }
 
 /** Errors the actions layer maps to the Greek copy table in CART_UX_SPEC §14. */

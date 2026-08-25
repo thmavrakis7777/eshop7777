@@ -6,6 +6,7 @@ import { Breadcrumbs } from "@/components/category/Breadcrumbs";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
 import { RecentlyViewed } from "@/components/product/RecentlyViewed";
 import { RecentlyViewedTracker } from "@/components/product/RecentlyViewedTracker";
+import { ViewContentTracker } from "@/components/product/ViewContentTracker";
 import { StockStatus } from "@/components/product/StockStatus";
 import { ProductCharacteristics } from "@/components/product/ProductCharacteristics";
 import { ProductWarranty } from "@/components/product/ProductWarranty";
@@ -147,6 +148,7 @@ export default async function ProductPage({ params }: Props) {
     <>
       <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />
       <RecentlyViewedTracker handle={product.handle} />
+      <ViewContentTracker id={product.id} title={product.title} priceAmount={product.price.amount} />
       <Breadcrumbs items={breadcrumbItems} />
 
       <div className="container-shell mt-4 grid grid-cols-1 gap-8 md:mt-8 md:grid-cols-2 md:gap-12">

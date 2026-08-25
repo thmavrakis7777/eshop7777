@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { Product } from "@/lib/types";
 import { addLineItemAction } from "@/lib/actions/cart";
 import { useCartUI } from "@/components/cart/CartUIProvider";
+import { trackAddToCart } from "@/lib/analytics/track";
 
 // Handles both today's catalog (always exactly one variant) and a future
 // multi-variant product: with >1 variant, a choice is required before the
@@ -31,6 +32,14 @@ export function AddToCartButton({ product, className }: { product: Product; clas
       const result = await addLineItemAction(selectedVariantId, 1);
       if (result.ok) {
         showAddedToast();
+        if (selectedVariant) {
+          trackAddToCart({
+            variantId: selectedVariant.id,
+            title: product.title,
+            unitPriceAmount: selectedVariant.price.amount,
+            quantity: 1,
+          });
+        }
       } else {
         setError(result.error);
       }

@@ -7,6 +7,7 @@ import { formatPrice } from "@/lib/format";
 import { paymentMethodLabel } from "@/lib/order-status-labels";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 import { OrderStatusBadge } from "@/components/account/OrderStatusBadge";
+import { PurchaseTracker } from "@/components/checkout/PurchaseTracker";
 
 // The explicit canonical matters even on a noindex page: without it this
 // route inherits the root layout's `canonical: "/"` and tells crawlers the
@@ -48,6 +49,7 @@ export default async function OrderConfirmationPage({
 
   return (
     <div className="container-shell py-10 md:py-16">
+      <PurchaseTracker orderId={order.id} totalAmount={order.total.amount} />
       <div className="mx-auto flex max-w-xl flex-col gap-8">
         <div className="flex flex-col items-center gap-2 text-center">
           <h1 className="font-display text-2xl text-ink md:text-3xl">Η παραγγελία σου ολοκληρώθηκε.</h1>

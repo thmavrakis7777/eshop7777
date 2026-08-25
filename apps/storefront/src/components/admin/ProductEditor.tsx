@@ -9,6 +9,8 @@ import { CategorySelect } from "@/components/admin/CategorySelect";
 import { DynamicMembership } from "@/components/admin/DynamicMembership";
 import { ShippingFields } from "@/components/admin/ShippingFields";
 import { ProductImageManager } from "@/components/admin/ProductImageManager";
+import { InternalCodeField } from "@/components/admin/InternalCodeField";
+import { AiSeoGenerator } from "@/components/admin/AiSeoGenerator";
 
 /**
  * The product editor — the screen the store owner spends most of their time in.
@@ -132,6 +134,7 @@ export function ProductEditor({
                 className={field}
               />
             </Field>
+            <InternalCodeField productId={product.id} defaultValue={product.internalCode} />
           </Panel>
 
           <VariantsPanel product={product} />
@@ -204,6 +207,13 @@ export function ProductEditor({
               <input id="downloadsUrl" name="downloadsUrl" defaultValue={product.downloadsUrl ?? ""} className={field} />
             </Field>
           </Panel>
+
+          <AiSeoGenerator
+            productId={product.id}
+            hasExistingContent={Boolean(product.description || product.seo?.seoTitle || product.seo?.metaDescription)}
+            isPublished={product.isActive}
+            hasPrimaryImage={product.images.length > 0}
+          />
 
           <Panel title="SEO" hint="Αν τα αφήσεις κενά, χρησιμοποιείται ο τίτλος και η περιγραφή του προϊόντος.">
             <Field label="SEO τίτλος" htmlFor="seoTitle">

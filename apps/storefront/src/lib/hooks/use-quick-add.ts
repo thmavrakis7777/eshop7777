@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { Product } from "@/lib/types";
 import { addLineItemAction } from "@/lib/actions/cart";
 import { useCartUI } from "@/components/cart/CartUIProvider";
+import { trackAddToCart } from "@/lib/analytics/track";
 
 // Single-variant quick add only — never guesses a variant for a
 // multi-variant product (see PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md §2.3).
@@ -27,6 +28,12 @@ export function useQuickAdd(product: Product) {
       const result = await addLineItemAction(variant.id, 1);
       if (result.ok) {
         showAddedToast();
+        trackAddToCart({
+          variantId: variant.id,
+          title: product.title,
+          unitPriceAmount: variant.price.amount,
+          quantity: 1,
+        });
       } else {
         setError(result.error);
       }

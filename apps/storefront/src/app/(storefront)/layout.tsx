@@ -22,6 +22,7 @@ import { getPromoBanner } from "@/lib/data/promo-banner";
 import { getSiteSettings } from "@/lib/data/site-settings";
 import { getAnalyticsSettings } from "@/lib/data/analytics-settings";
 import { getPublishedLegalPages } from "@/lib/data/content-pages";
+import { getCustomerId } from "@/lib/data/customer";
 
 /**
  * Everything the shop wears: announcement bar, promo banner, header, footer,
@@ -120,7 +121,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
-  const [categories, cart, settings, configuredNav, branding, promoBanner, analyticsSettings, legalPages, nonce] =
+  const [categories, cart, settings, configuredNav, branding, promoBanner, analyticsSettings, legalPages, nonce, customerId] =
     await Promise.all([
       getNavCategories(),
       getCart(),
@@ -131,6 +132,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
       getAnalyticsSettings(),
       getPublishedLegalPages(),
       headers().then((h) => h.get("x-nonce") ?? undefined),
+      getCustomerId(),
     ]);
 
   // Permanent fallback, not a migration step: a shop that has never opened
@@ -172,7 +174,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
       >
         Μετάβαση στο περιεχόμενο
       </a>
-      <WishlistProvider>
+      <WishlistProvider isLoggedIn={customerId !== null}>
         <CartUIProvider>
           <AnnouncementBar
             text={settings?.announcementText ?? null}

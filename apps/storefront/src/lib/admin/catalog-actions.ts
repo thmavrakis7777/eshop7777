@@ -15,8 +15,10 @@ import {
   bulkSetCategory,
   bulkSetStock,
   createProduct,
+  deleteProductById,
   deleteProductImage,
   deleteVariant,
+  findProductByInternalCode,
   listProducts,
   saveVariant,
   slugify,
@@ -25,6 +27,7 @@ import {
 import { createMediaAsset } from "@/lib/admin/cms";
 import { uploadImage, UploadError } from "@/lib/storage/upload";
 import { SEARCH_CACHE_TAG } from "@/lib/db/catalog";
+import { META_FEED_CACHE_TAG } from "@/lib/db/meta-feed";
 
 /**
  * Every action here calls requireAdmin() FIRST, before reading its arguments.
@@ -77,6 +80,7 @@ function mapError(err: unknown): string {
     switch (err.code) {
       case "duplicate_slug": return "Υπάρχει ήδη προϊόν με αυτό το slug.";
       case "duplicate_sku": return "Υπάρχει ήδη προϊόν με αυτόν τον κωδικό (SKU).";
+      case "duplicate_internal_code": return "Ο εσωτερικός κωδικός χρησιμοποιείται ήδη.";
       case "last_variant": return "Δεν μπορείς να διαγράψεις τη μοναδική παραλλαγή ενός προϊόντος.";
       case "not_found": return "Δεν βρέθηκε.";
     }
@@ -125,6 +129,18 @@ const parseShippingClass = (value: FormDataEntryValue | null): ShippingClass => 
 /** Euros ("12", "12,50") to cents, or null when blank/unparseable. */
 const optionalCents = optionalPriceToCents;
 
+// Internal product code (e.g. "MH-00125") — admin-only, separate from SKU.
+// Trimmed and uppercased like SKU, but never required: blank clears it.
+const INTERNAL_CODE_RE = /^[A-Z0-9-]{1,40}$/;
+function validateInternalCode(value: FormDataEntryValue | null): { code: string | null } | { error: string } {
+  const raw = String(value ?? "").trim().toUpperCase();
+  if (!raw) return { code: null };
+  if (!INTERNAL_CODE_RE.test(raw)) {
+    return { error: "Ο εσωτερικός κωδικός επιτρέπει μόνο κεφαλαία λατινικά, αριθμούς και παύλες." };
+  }
+  return { code: raw };
+}
+
 // ---------------------------------------------------------------------------
 // Product
 // ---------------------------------------------------------------------------
@@ -149,6 +165,9 @@ export async function saveProductAction(productId: string, formData: FormData): 
   });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
+  const internalCodeResult = validateInternalCode(formData.get("internalCode"));
+  if ("error" in internalCodeResult) return { ok: false, error: internalCodeResult.error };
+
   try {
     await updateProduct(productId, {
       title: parsed.data.title,
@@ -157,6 +176,7 @@ export async function saveProductAction(productId: string, formData: FormData): 
       categoryId: optionalText(formData.get("categoryId")),
       isActive: formData.get("isActive") === "on",
       isNewOverride: formData.get("isNewOverride") === "on",
+      internalCode: internalCodeResult.code,
       material: optionalText(formData.get("material")),
       weightGrams: optionalNumber(formData.get("weightGrams")),
       lengthCm: optionalNumber(formData.get("lengthCm")),
@@ -202,6 +222,7 @@ export async function saveProductAction(productId: string, formData: FormData): 
   revalidatePath("/", "layout");
   // title/slug/hideFromSearch/isSearchBoosted all feed the search index.
   updateTag(SEARCH_CACHE_TAG);
+  updateTag(META_FEED_CACHE_TAG);
   return { ok: true, message: "Οι αλλαγές αποθηκεύτηκαν." };
 }
 
@@ -224,6 +245,9 @@ export async function createProductAction(formData: FormData): Promise<ActionRes
   });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
+  const internalCodeResult = validateInternalCode(formData.get("internalCode"));
+  if ("error" in internalCodeResult) return { ok: false, error: internalCodeResult.error };
+
   const slugInput = optionalText(formData.get("slug"));
   let id: string;
   try {
@@ -234,6 +258,7 @@ export async function createProductAction(formData: FormData): Promise<ActionRes
       priceCents: priceToCents(formData.get("price")),
       stockQuantity: Number(formData.get("stock") ?? 0) || 0,
       categoryId: optionalText(formData.get("categoryId")),
+      internalCode: internalCodeResult.code,
     });
     await auditLog(admin.id, "product.create", "product", id, { title: parsed.data.title });
   } catch (err) {
@@ -242,9 +267,63 @@ export async function createProductAction(formData: FormData): Promise<ActionRes
 
   revalidatePath("/admin/products");
   updateTag(SEARCH_CACHE_TAG);
+  updateTag(META_FEED_CACHE_TAG);
   // New products start inactive, so the operator lands in the editor to
   // finish them rather than back on a list where nothing looks different.
   redirect(`/admin/products/${id}`);
+}
+
+/**
+ * Live "Code already in use" check as the admin types/blurs the internal
+ * code field — read-only, cheap, never throws to the caller (an auth hiccup
+ * here must not block typing; the real, authoritative check is the one
+ * inside updateProduct/createProduct at save time).
+ */
+export async function checkInternalCodeAction(
+  code: string,
+  excludeProductId?: string
+): Promise<{ available: true } | { available: false; productId: string; productTitle: string }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { available: true };
+  }
+  const raw = code.trim().toUpperCase();
+  if (!raw) return { available: true };
+  const hit = await findProductByInternalCode(raw, excludeProductId);
+  return hit ? { available: false, productId: hit.id, productTitle: hit.title } : { available: true };
+}
+
+/**
+ * The "Delete Product" action inside the duplicate-internal-code warning —
+ * the one place in the admin a single product can be deleted directly
+ * (every other delete path is the bulk list action). Same authorization and
+ * the same order-history guard as bulkArchive, just for one id.
+ */
+export async function deleteProductAction(productId: string): Promise<ActionResult> {
+  let admin;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+
+  try {
+    const result = await deleteProductById(productId);
+    await auditLog(admin.id, "product.delete", "product", productId, result);
+    revalidatePath("/admin/products");
+    revalidatePath("/", "layout");
+    updateTag(SEARCH_CACHE_TAG);
+    updateTag(META_FEED_CACHE_TAG);
+    return {
+      ok: true,
+      message: result.deleted
+        ? "Το προϊόν διαγράφηκε οριστικά."
+        : "Το προϊόν έχει παραγγελίες, οπότε απενεργοποιήθηκε αντί να διαγραφεί.",
+    };
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -290,6 +369,8 @@ export async function saveVariantAction(productId: string, formData: FormData): 
   revalidatePath("/", "layout");
   // sku feeds the search index (buildSearchIndexEntry indexes variant SKUs).
   updateTag(SEARCH_CACHE_TAG);
+  // Price/stock/SKU here all feed the Meta feed too, not just search.
+  updateTag(META_FEED_CACHE_TAG);
   return { ok: true, message: "Η παραλλαγή αποθηκεύτηκε." };
 }
 
@@ -308,6 +389,7 @@ export async function deleteVariantAction(productId: string, variantId: string):
   }
   revalidatePath(`/admin/products/${productId}`);
   updateTag(SEARCH_CACHE_TAG);
+  updateTag(META_FEED_CACHE_TAG);
   return { ok: true, message: "Η παραλλαγή διαγράφηκε." };
 }
 
@@ -342,6 +424,7 @@ export async function addProductImageAction(productId: string, formData: FormDat
 
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/", "layout");
+  updateTag(META_FEED_CACHE_TAG);
   return { ok: true, message: "Η εικόνα προστέθηκε." };
 }
 
@@ -356,6 +439,7 @@ export async function deleteProductImageAction(productId: string, imageId: strin
   await auditLog(admin.id, "product.image_delete", "product", productId, { imageId });
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/", "layout");
+  updateTag(META_FEED_CACHE_TAG);
   return { ok: true, message: "Η εικόνα διαγράφηκε." };
 }
 
@@ -377,6 +461,10 @@ export async function adjustStockAction(variantId: string, quantity: number): Pr
   revalidatePath("/admin/inventory");
   revalidatePath("/admin/products");
   revalidatePath("/", "layout");
+  // Stock isn't part of the search index, but it is the Meta feed's
+  // availability field — a stock change must invalidate the feed even
+  // though it has never needed to touch SEARCH_CACHE_TAG.
+  updateTag(META_FEED_CACHE_TAG);
   return { ok: true, message: "Το απόθεμα ενημερώθηκε." };
 }
 
@@ -451,6 +539,7 @@ export async function bulkProductAction(ids: string[], op: BulkOperation): Promi
     // others are harmless no-ops for search, but a bulk op runs rarely
     // enough that invalidating unconditionally isn't worth branching on.
     updateTag(SEARCH_CACHE_TAG);
+    updateTag(META_FEED_CACHE_TAG);
     return { ok: true, message };
   } catch (err) {
     return { ok: false, error: mapError(err) };

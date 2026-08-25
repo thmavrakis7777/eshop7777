@@ -111,6 +111,16 @@ export function NewProductForm({ categories }: { categories: CategoryOption[] })
 
       <CategorySelect categories={categories} />
 
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="np-internal-code" className="text-sm font-medium text-ink">
+          Εσωτερικός κωδικός (προαιρετικό)
+        </label>
+        <input id="np-internal-code" name="internalCode" placeholder="π.χ. MH-00125" className={field} />
+        <p className="text-xs text-ink-muted">
+          Ξεχωριστός από το SKU, δεν εμφανίζεται στον πελάτη — επεξεργάσιμος αργότερα στη σελίδα του προϊόντος.
+        </p>
+      </div>
+
       {error && (
         <p role="alert" className="text-sm text-danger">
           {error}

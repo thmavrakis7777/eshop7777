@@ -108,6 +108,7 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
          ? sql`AND (
                  translate(lower(p.title), 'άέήίόύώΐΰϊϋς', 'αεηιουωιυιυσ') LIKE ${"%" + folded + "%"}
                  OR p.slug ILIKE ${"%" + q + "%"}
+                 OR p.internal_code ILIKE ${"%" + q + "%"}
                  OR EXISTS (SELECT 1 FROM shop.product_variant v
                              WHERE v.product_id = p.id AND v.sku ILIKE ${"%" + q + "%"})
                )`
@@ -174,6 +175,9 @@ export type AdminProductDetail = {
   categoryId: string | null;
   isActive: boolean;
   isNewOverride: boolean;
+  // Internal, business-only identifier (e.g. "MH-00125") — separate from
+  // variant SKU, never customer-facing. Nullable/unset for most products.
+  internalCode: string | null;
   vatRate: number | null;
   material: string | null;
   weightGrams: number | null;
@@ -252,6 +256,7 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
     categoryId: (r.category_id as string) ?? null,
     isActive: r.is_active as boolean,
     isNewOverride: r.is_new_override as boolean,
+    internalCode: (r.internal_code as string) ?? null,
     vatRate: r.vat_rate != null ? Number(r.vat_rate) : null,
     material: (r.material as string) ?? null,
     weightGrams: (r.weight_grams as number) ?? null,
@@ -302,12 +307,30 @@ export async function deleteProductImage(imageId: string): Promise<void> {
   await sql`DELETE FROM shop.product_image WHERE id = ${imageId}`;
 }
 
+/**
+ * The alt_text column has existed since 0001_init.sql, but until now
+ * nothing ever wrote to it — addProductImage() accepts an altText argument
+ * no caller ever passed. First real write path, added for the AI SEO tool
+ * but usable by any future manual alt-text editor too.
+ */
+export async function updateProductImageAlt(imageId: string, altText: string): Promise<void> {
+  await sql`UPDATE shop.product_image SET alt_text = ${altText} WHERE id = ${imageId}`;
+}
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
 
 export class CatalogError extends Error {
-  constructor(message: string, public readonly code: "duplicate_slug" | "duplicate_sku" | "not_found" | "last_variant") {
+  constructor(
+    message: string,
+    public readonly code:
+      | "duplicate_slug"
+      | "duplicate_sku"
+      | "duplicate_internal_code"
+      | "not_found"
+      | "last_variant"
+  ) {
     super(message);
   }
 }
@@ -336,6 +359,7 @@ export type ProductInput = {
   categoryId: string | null;
   isActive: boolean;
   isNewOverride: boolean;
+  internalCode: string | null;
   material: string | null;
   weightGrams: number | null;
   lengthCm: number | null;
@@ -367,11 +391,17 @@ export async function updateProduct(id: string, input: ProductInput): Promise<vo
       SELECT id FROM shop.product WHERE slug = ${input.slug} AND id <> ${id}`;
     if (dupe.length > 0) throw new CatalogError("Slug already in use", "duplicate_slug");
 
+    if (input.internalCode) {
+      const dupeCode = await tx<{ id: string }[]>`
+        SELECT id FROM shop.product WHERE internal_code = ${input.internalCode} AND id <> ${id}`;
+      if (dupeCode.length > 0) throw new CatalogError("Internal code already in use", "duplicate_internal_code");
+    }
+
     const updated = await tx`
       UPDATE shop.product SET
         title = ${input.title}, slug = ${input.slug}, description = ${input.description},
         category_id = ${input.categoryId}, is_active = ${input.isActive},
-        is_new_override = ${input.isNewOverride}, material = ${input.material},
+        is_new_override = ${input.isNewOverride}, internal_code = ${input.internalCode}, material = ${input.material},
         weight_grams = ${input.weightGrams}, length_cm = ${input.lengthCm},
         width_cm = ${input.widthCm}, height_cm = ${input.heightCm},
         origin_country = ${input.originCountry}, badge_label = ${input.badgeLabel},
@@ -416,16 +446,22 @@ export async function createProduct(input: {
   priceCents: number;
   stockQuantity: number;
   categoryId: string | null;
+  internalCode?: string | null;
 }): Promise<string> {
   return transaction(async (tx) => {
     const dupeSlug = await tx<{ id: string }[]>`SELECT id FROM shop.product WHERE slug = ${input.slug}`;
     if (dupeSlug.length > 0) throw new CatalogError("Slug already in use", "duplicate_slug");
     const dupeSku = await tx<{ id: string }[]>`SELECT id FROM shop.product_variant WHERE sku = ${input.sku}`;
     if (dupeSku.length > 0) throw new CatalogError("SKU already in use", "duplicate_sku");
+    if (input.internalCode) {
+      const dupeCode = await tx<{ id: string }[]>`
+        SELECT id FROM shop.product WHERE internal_code = ${input.internalCode}`;
+      if (dupeCode.length > 0) throw new CatalogError("Internal code already in use", "duplicate_internal_code");
+    }
 
     const [p] = await tx<{ id: string }[]>`
-      INSERT INTO shop.product (title, slug, category_id, is_active)
-      VALUES (${input.title}, ${input.slug}, ${input.categoryId}, false)
+      INSERT INTO shop.product (title, slug, category_id, is_active, internal_code)
+      VALUES (${input.title}, ${input.slug}, ${input.categoryId}, false, ${input.internalCode ?? null})
       RETURNING id`;
 
     // Every product has at least one variant — the storefront's price and
@@ -435,6 +471,114 @@ export async function createProduct(input: {
       VALUES (${p.id}, ${input.sku}, 'Default', ${input.priceCents}, ${input.stockQuantity})`;
 
     return p.id;
+  });
+}
+
+/**
+ * Category name (+ parent, for "Parent > Child" context) and collection
+ * titles for a product — AdminProductDetail only carries IDs for both
+ * (categoryId, collectionIds), and the AI SEO prompt needs real names, not
+ * IDs. Small, separate lookup rather than bloating getProductForEdit's
+ * already-large query for a feature that isn't on by default.
+ */
+export async function getProductPromptContext(productId: string): Promise<{
+  categoryName: string | null;
+  parentCategoryName: string | null;
+  collectionTitles: string[];
+}> {
+  const [row] = await sql<{ category_name: string | null; parent_category_name: string | null }[]>`
+    SELECT c.name AS category_name, pc.name AS parent_category_name
+      FROM shop.product p
+      LEFT JOIN shop.category c ON c.id = p.category_id
+      LEFT JOIN shop.category pc ON pc.id = c.parent_id
+     WHERE p.id = ${productId}`;
+
+  const collections = await sql<{ title: string }[]>`
+    SELECT col.title FROM shop.product_collection link
+    JOIN shop.collection col ON col.id = link.collection_id
+    WHERE link.product_id = ${productId}`;
+
+  return {
+    categoryName: row?.category_name ?? null,
+    parentCategoryName: row?.parent_category_name ?? null,
+    collectionTitles: collections.map((c) => c.title),
+  };
+}
+
+/**
+ * Persists whichever of the AI-generated fields the admin chose to keep —
+ * deliberately its own small function rather than routing through
+ * updateProduct(), which requires the entire ProductInput shape (shipping,
+ * badges, collections, ...) and would silently blank anything not passed.
+ * COALESCE means an omitted key here leaves that column untouched.
+ */
+export async function updateProductAiSeoContent(
+  productId: string,
+  fields: { title?: string; description?: string; slug?: string; seoTitle?: string; metaDescription?: string }
+): Promise<void> {
+  await transaction(async (tx) => {
+    if (fields.slug) {
+      const dupe = await tx<{ id: string }[]>`
+        SELECT id FROM shop.product WHERE slug = ${fields.slug} AND id <> ${productId}`;
+      if (dupe.length > 0) throw new CatalogError("Slug already in use", "duplicate_slug");
+    }
+
+    if (fields.title !== undefined || fields.description !== undefined || fields.slug !== undefined) {
+      const updated = await tx`
+        UPDATE shop.product SET
+          title = COALESCE(${fields.title ?? null}, title),
+          description = COALESCE(${fields.description ?? null}, description),
+          slug = COALESCE(${fields.slug ?? null}, slug)
+        WHERE id = ${productId}`;
+      if (updated.count === 0) throw new CatalogError("Product not found", "not_found");
+    }
+
+    if (fields.seoTitle !== undefined || fields.metaDescription !== undefined) {
+      await tx`
+        INSERT INTO shop.seo_meta (resource_type, resource_id, seo_title, meta_description)
+        VALUES ('product', ${productId}, ${fields.seoTitle ?? null}, ${fields.metaDescription ?? null})
+        ON CONFLICT (resource_type, resource_id) DO UPDATE SET
+          seo_title = COALESCE(EXCLUDED.seo_title, shop.seo_meta.seo_title),
+          meta_description = COALESCE(EXCLUDED.meta_description, shop.seo_meta.meta_description),
+          updated_at = now()`;
+    }
+  });
+}
+
+/**
+ * Who currently holds a given internal code, for the "Code already in use"
+ * live-check UI — cheap, read-only, no error thrown for the normal
+ * "available" case (that's not exceptional, it's the common answer).
+ */
+export async function findProductByInternalCode(
+  code: string,
+  excludeProductId?: string
+): Promise<{ id: string; title: string } | null> {
+  const [row] = await sql<{ id: string; title: string }[]>`
+    SELECT id, title FROM shop.product
+     WHERE internal_code = ${code} ${excludeProductId ? sql`AND id <> ${excludeProductId}` : sql``}
+     LIMIT 1`;
+  return row ?? null;
+}
+
+/**
+ * Single-product delete, for the "Delete Product" action inside the
+ * duplicate-internal-code warning. Same reference-check as bulkArchive
+ * (below): a product with real order history is soft-deactivated instead
+ * of hard-deleted, so deleting the *other* product holding a clashing code
+ * never quietly erases real sales data.
+ */
+export async function deleteProductById(id: string): Promise<{ deleted: boolean; deactivated: boolean }> {
+  return transaction(async (tx) => {
+    const referenced = await tx<{ id: string }[]>`
+      SELECT 1 AS id FROM shop.order_item WHERE product_id = ${id} LIMIT 1`;
+    if (referenced.length > 0) {
+      await tx`UPDATE shop.product SET is_active = false WHERE id = ${id}`;
+      return { deleted: false, deactivated: true };
+    }
+    const res = await tx`DELETE FROM shop.product WHERE id = ${id}`;
+    if (res.count === 0) throw new CatalogError("Product not found", "not_found");
+    return { deleted: true, deactivated: false };
   });
 }
 

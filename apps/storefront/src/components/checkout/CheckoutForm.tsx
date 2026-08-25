@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Cart, PaymentProvider, ShippingOption, TaxDocumentType } from "@/lib/types";
 import {
@@ -34,6 +34,7 @@ import { TaxDocumentSection } from "@/components/checkout/TaxDocumentSection";
 import { PaymentSection } from "@/components/checkout/PaymentSection";
 import { CheckoutOrderSummary } from "@/components/checkout/CheckoutOrderSummary";
 import { formatPrice } from "@/lib/format";
+import { trackInitiateCheckout } from "@/lib/analytics/track";
 
 function validateDetails(d: ContactAddressFields): ContactAddressErrors {
   const errors: ContactAddressErrors = {};
@@ -70,6 +71,19 @@ export function CheckoutForm({
 }) {
   const router = useRouter();
   const [cart, setCart] = useState(initialCart);
+
+  // Fires once per checkout page load, off the cart as it was when checkout
+  // was entered — not on `cart` state, which changes on every address/
+  // shipping save and would otherwise re-fire InitiateCheckout repeatedly
+  // for what's still the same checkout attempt.
+  useEffect(() => {
+    trackInitiateCheckout({
+      id: initialCart.id,
+      itemIds: initialCart.items.map((i) => i.variantId),
+      totalAmount: initialCart.total.amount,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCart.id]);
 
   const [email, setEmail] = useState(initialCart.email ?? "");
   const [emailError, setEmailError] = useState<string>();

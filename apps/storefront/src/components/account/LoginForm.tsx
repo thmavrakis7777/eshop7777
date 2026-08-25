@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FormField } from "@/components/checkout/FormField";
 import { loginAction } from "@/lib/actions/customer";
+import { mergeWishlistOnLoginAction } from "@/lib/actions/wishlist";
+import { getWishlistSnapshot } from "@/lib/wishlist-storage";
 import { isValidEmail, isRequired } from "@/lib/checkout-validation";
 
 export function LoginForm({ redirectTo }: { redirectTo: string }) {
@@ -26,6 +28,14 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       if (!result.ok) {
         setError(result.error);
         return;
+      }
+      // Server Actions can't read localStorage — the guest wishlist has to
+      // be merged from here, right after login succeeds. Best-effort: a
+      // failure here must not block navigating past a successful login.
+      try {
+        await mergeWishlistOnLoginAction(getWishlistSnapshot());
+      } catch {
+        // Non-critical — the account's own wishlist still loads normally.
       }
       router.push(redirectTo);
       router.refresh();

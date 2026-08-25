@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FormField } from "@/components/checkout/FormField";
 import { registerAction } from "@/lib/actions/customer";
+import { mergeWishlistOnLoginAction } from "@/lib/actions/wishlist";
+import { getWishlistSnapshot } from "@/lib/wishlist-storage";
 import { isValidEmail, isValidPassword, isRequired } from "@/lib/checkout-validation";
 
 export function RegisterForm({ redirectTo }: { redirectTo: string }) {
@@ -36,6 +38,11 @@ export function RegisterForm({ redirectTo }: { redirectTo: string }) {
       if (!result.ok) {
         setError(result.error);
         return;
+      }
+      try {
+        await mergeWishlistOnLoginAction(getWishlistSnapshot());
+      } catch {
+        // Non-critical — the account's own wishlist still loads normally.
       }
       router.push(redirectTo);
       router.refresh();
