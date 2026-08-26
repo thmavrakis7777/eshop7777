@@ -6,7 +6,7 @@ import type { Money, NavCategory } from "@/lib/types";
 import type { NavItem } from "@/lib/data/navigation";
 import { formatPrice } from "@/lib/format";
 import {
-  BagIcon,
+  CartIcon,
   ChevronDownIcon,
   CloseIcon,
   HeartIcon,
@@ -118,7 +118,7 @@ export function Header({
               onClick={openDrawer}
             >
               <span className="relative flex">
-                <BagIcon />
+                <CartIcon />
                 {cartItemCount > 0 && (
                   <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-white tabular-nums">
                     {cartItemCount}

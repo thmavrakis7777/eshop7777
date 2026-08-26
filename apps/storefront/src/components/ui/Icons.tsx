@@ -44,6 +44,20 @@ export function BagIcon({ className = base }: IconProps) {
   );
 }
 
+export function CartIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden="true">
+      <path
+        d="M3 4h2.1l1 2M6.1 6h14.4l-1.8 7.6a1.8 1.8 0 01-1.75 1.4H8.9a1.8 1.8 0 01-1.76-1.42L6.1 6z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="10" cy="19.5" r="1.35" />
+      <circle cx="17" cy="19.5" r="1.35" />
+    </svg>
+  );
+}
+
 export function ChevronDownIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
