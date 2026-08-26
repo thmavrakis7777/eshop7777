@@ -492,15 +492,40 @@ export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
  * bought" would be a fabricated one until order data exists (see CART_UX_SPEC
  * §12 and the identical reasoning already applied on the PDP).
  */
-export async function getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {
+/**
+ * Two-tier priority, one query: products in the exact same category first
+ * (tier 0 — the most specific level this product sits at), then other
+ * products anywhere under the same top-level/main category (tier 1 — walks
+ * up to the root ancestor via `up`, then back down its whole subtree via
+ * `tree`, same recursive-CTE shape getProductsByCategorySlug already uses).
+ * A product already filed directly under a root category has `up`/`tree`
+ * collapse to that same subtree, so the two tiers naturally overlap there
+ * instead of needing a special case. `ORDER BY (c.slug <> handle)` sorts
+ * tier 0 (false) before tier 1 (true) — Postgres orders booleans false-first.
+ */
+export async function getRelatedProducts(product: Product, limit = 8): Promise<Product[]> {
   if (!product.categoryHandle) return [];
 
   const rows = (await sql`
+    WITH RECURSIVE up AS (
+      SELECT id, parent_id FROM shop.category WHERE slug = ${product.categoryHandle}
+      UNION ALL
+      SELECT c.id, c.parent_id FROM shop.category c JOIN up ON c.id = up.parent_id
+    ),
+    root AS (
+      SELECT id FROM up WHERE parent_id IS NULL LIMIT 1
+    ),
+    tree AS (
+      SELECT id FROM root
+      UNION ALL
+      SELECT c.id FROM shop.category c JOIN tree t ON c.parent_id = t.id
+    )
     SELECT ${productFields}
       FROM shop.product p
       LEFT JOIN shop.category c ON c.id = p.category_id
-     WHERE p.is_active AND c.slug = ${product.categoryHandle} AND p.id <> ${product.id}
-     ORDER BY p.created_at DESC
+     WHERE p.is_active AND p.id <> ${product.id}
+       AND (c.slug = ${product.categoryHandle} OR p.category_id IN (SELECT id FROM tree))
+     ORDER BY (c.slug <> ${product.categoryHandle}), p.created_at DESC
      LIMIT ${limit}
   `) as unknown as ProductRow[];
 

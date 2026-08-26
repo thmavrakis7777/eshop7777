@@ -95,7 +95,7 @@ export async function getProductsByHandles(handles: string[]): Promise<Product[]
   return getProductsBySlugs(handles);
 }
 
-export async function getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {
+export async function getRelatedProducts(product: Product, limit = 8): Promise<Product[]> {
   return dbGetRelatedProducts(product, limit);
 }
 
