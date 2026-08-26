@@ -36,13 +36,16 @@ export async function getShippingOptionsForCart(_cartId?: string): Promise<Shipp
 }
 
 /**
- * Payment methods. Exactly one exists — cash on delivery (Αντικαταβολή) —
- * and Medusa's payment-collection/payment-session ceremony around it bought
- * nothing. Still a list, never hardcoded at the call site, so a real card
- * processor is one entry rather than a refactor.
+ * Payment methods — admin-configurable (Settings → Πληρωμές), never
+ * hardcoded at the call site. Only methods that are both real, implemented
+ * flows AND switched on by the owner ever reach checkout; card payment (no
+ * processor integration exists) has no row to switch on in the first place.
  */
 export async function getPaymentProviders(): Promise<PaymentProvider[]> {
-  return [{ id: "cod" }];
+  const rows = await sql<
+    { code: string; name: string; description: string | null }[]
+  >`SELECT code, name, description FROM shop.payment_method WHERE is_active ORDER BY sort_order, name`;
+  return rows.map((r) => ({ id: r.code, name: r.name, description: r.description }));
 }
 
 /**

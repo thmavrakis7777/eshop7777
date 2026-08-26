@@ -3,12 +3,8 @@ import { sql } from "@/lib/db/client";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 
 /**
- * Store configuration: shipping, analytics, search synonyms and the admin
- * users themselves.
- *
- * Payment deliberately has no editor. Exactly one method exists (cash on
- * delivery) and it has nothing to configure; a settings screen offering
- * toggles for methods that do not exist would be furniture.
+ * Store configuration: shipping, payment methods, analytics, search
+ * synonyms and the admin users themselves.
  */
 
 export class SettingsError extends Error {
@@ -92,6 +88,55 @@ export async function deleteShippingMethod(id: string): Promise<"deleted" | "dis
   }
   await sql`DELETE FROM shop.shipping_method WHERE id = ${id}`;
   return "deleted";
+}
+
+// ---------------------------------------------------------------------------
+// Payment methods
+//
+// Only two codes ever exist (enforced by shop.payment_method's CHECK
+// constraint) because only two are real, implementable flows without a
+// payment gateway: COD and bank transfer both just create an unpaid order
+// the owner reconciles manually. Card payment has no processor integration
+// anywhere in this codebase — it deliberately has no row here at all, so it
+// can never appear as a real checkout option no matter what an admin does;
+// the settings page renders it as a fixed "not configured" line instead of
+// a toggle. No create/delete here (unlike shipping methods) — the two rows
+// are seeded once by the migration and only ever edited/toggled.
+// ---------------------------------------------------------------------------
+
+export type AdminPaymentMethod = {
+  id: string;
+  code: "cod" | "bank_transfer";
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  sortOrder: number;
+};
+
+export async function listPaymentMethods(): Promise<AdminPaymentMethod[]> {
+  const rows = await sql<
+    { id: string; code: "cod" | "bank_transfer"; name: string; description: string | null; is_active: boolean; sort_order: number }[]
+  >`SELECT id, code, name, description, is_active, sort_order
+      FROM shop.payment_method ORDER BY sort_order, name`;
+
+  return rows.map((r) => ({
+    id: r.id, code: r.code, name: r.name, description: r.description,
+    isActive: r.is_active, sortOrder: r.sort_order,
+  }));
+}
+
+export async function savePaymentMethod(input: {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  sortOrder: number;
+}): Promise<void> {
+  await sql`
+    UPDATE shop.payment_method SET
+      name = ${input.name}, description = ${input.description},
+      is_active = ${input.isActive}, sort_order = ${input.sortOrder}
+    WHERE id = ${input.id}`;
 }
 
 // ---------------------------------------------------------------------------

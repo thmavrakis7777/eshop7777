@@ -7,6 +7,7 @@ const TABS = [
   { href: "/admin/settings", label: "Λογαριασμός", exact: true },
   { href: "/admin/settings/email", label: "Email" },
   { href: "/admin/settings/shipping", label: "Αποστολές" },
+  { href: "/admin/settings/payments", label: "Πληρωμές" },
   { href: "/admin/settings/search", label: "Αναζήτηση" },
   { href: "/admin/settings/analytics", label: "Analytics" },
   { href: "/admin/settings/users", label: "Διαχειριστές" },

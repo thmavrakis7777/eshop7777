@@ -90,8 +90,11 @@ export default async function AdminAccountSettingsPage() {
           <SectionTitle>Πληρωμές</SectionTitle>
           <Card>
             <p className="text-sm text-ink-muted">
-              Αυτή τη στιγμή υποστηρίζεται μόνο <strong className="text-ink">αντικαταβολή</strong> — ο
-              πελάτης πληρώνει κατά την παράδοση. Δεν υπάρχει τίποτα να ρυθμιστεί.
+              Ενεργοποίηση/απενεργοποίηση τρόπων πληρωμής και το κείμενο που βλέπει ο πελάτης στο{" "}
+              <Link href="/admin/settings/payments" className="text-ink underline underline-offset-2">
+                Ρυθμίσεις → Πληρωμές
+              </Link>
+              .
             </p>
             <p className="mt-3 text-xs text-ink-muted">
               Η προσθήκη κάρτας (π.χ. Stripe) χρειάζεται λογαριασμό εμπόρου και πραγματικά κλειδιά API —

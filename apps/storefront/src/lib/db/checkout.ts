@@ -39,7 +39,11 @@ export type CompletedOrder = {
   items: Array<{ title: string; quantity: number; lineTotalCents: number }>;
 };
 
-export async function completeOrder(cartId: string, customerId: string | null): Promise<CompletedOrder> {
+export async function completeOrder(
+  cartId: string,
+  customerId: string | null,
+  paymentMethodCode: string
+): Promise<CompletedOrder> {
   return sql.begin(async (tx) => {
     // FOR UPDATE: serialises concurrent submissions of the same cart. A
     // double-click produces one order and one "already completed" error,
@@ -126,6 +130,13 @@ export async function completeOrder(cartId: string, customerId: string | null): 
         FROM shop.shipping_method WHERE id = ${cart.shipping_method_id}`;
     if (!shipping) throw new CheckoutError("Shipping method unavailable", "missing_details");
 
+    // Re-validated at completion time, same as shipping above: a method the
+    // customer selected minutes ago may have been disabled by the owner
+    // since. Never trust the client-supplied code past this check.
+    const [payment] = await tx<{ code: string }[]>`
+      SELECT code FROM shop.payment_method WHERE code = ${paymentMethodCode} AND is_active`;
+    if (!payment) throw new CheckoutError("Payment method unavailable", "missing_details");
+
     // Same arithmetic the cart displayed — one implementation, imported, not
     // reimplemented here. The customer is charged what they were shown.
     const totals = computeTotals({
@@ -168,7 +179,7 @@ export async function completeOrder(cartId: string, customerId: string | null): 
         ${totals.subtotalCents}, ${totals.discountCents}, ${totals.shippingCents},
         ${totals.vatCents}, ${totals.totalCents}, ${totals.vatRate},
         ${cart.shipping_address as never}, ${(cart.billing_address ?? cart.shipping_address) as never},
-        ${shipping.name}, 'cod', ${discount?.code ?? null},
+        ${shipping.name}, ${payment.code}, ${discount?.code ?? null},
         ${cart.tax_document_type}, ${cart.invoice_company_name}, ${cart.invoice_afm},
         ${cart.invoice_doy}, ${cart.invoice_activity})
       RETURNING id, order_number`;

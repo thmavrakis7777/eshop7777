@@ -12,6 +12,7 @@ import {
   deleteShippingMethod,
   deleteSynonym,
   saveAnalytics,
+  savePaymentMethod,
   saveShippingMethod,
   saveSynonym,
   setAdminActive,
@@ -48,6 +49,46 @@ const toCents = (v: FormDataEntryValue | null): number | null => {
 };
 
 const EXPIRED: ActionResult = { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+
+// ---------------------------------------------------------------------------
+// Payment methods
+// ---------------------------------------------------------------------------
+
+// Owner-only, same tier as shipping — which checkout offers is revenue-
+// affecting, store-wide config. No create/delete action: the two rows
+// (cod, bank_transfer) are fixed by shop.payment_method's own CHECK
+// constraint, this only edits/toggles the existing ones.
+export async function savePaymentMethodAction(formData: FormData): Promise<ActionResult> {
+  let admin;
+  try {
+    admin = await requireOwner();
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
+
+  const id = String(formData.get("id") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!id) return { ok: false, error: "Λείπει το αναγνωριστικό." };
+  if (!name) return { ok: false, error: "Το όνομα είναι υποχρεωτικό." };
+
+  try {
+    await savePaymentMethod({
+      id,
+      name,
+      description: text(formData.get("description")),
+      isActive: formData.get("isActive") === "on",
+      sortOrder: Number(formData.get("sortOrder") ?? 0) || 0,
+    });
+    await auditLog(admin.id, "payment_method.update", "payment_method", id);
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
+
+  revalidatePath("/admin/settings/payments");
+  // Checkout reads these live, so the storefront must see the change.
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Ο τρόπος πληρωμής ενημερώθηκε." };
+}
 
 // ---------------------------------------------------------------------------
 // Shipping

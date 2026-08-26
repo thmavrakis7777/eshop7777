@@ -173,13 +173,13 @@ export type CheckoutCompleteResult =
  * customer an order that is already placed and whose stock is already
  * deducted.
  */
-export async function completeCheckoutAction(): Promise<CheckoutCompleteResult> {
+export async function completeCheckoutAction(paymentMethodCode: string): Promise<CheckoutCompleteResult> {
   const cartId = await requireCartId();
   if (!cartId) return { ok: false, error: EXPIRED };
 
   let order;
   try {
-    order = await completeOrder(cartId, await getCustomerId());
+    order = await completeOrder(cartId, await getCustomerId(), paymentMethodCode);
   } catch (err) {
     return { ok: false, error: mapCheckoutError(err) };
   }

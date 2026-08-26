@@ -131,6 +131,11 @@ export function CheckoutForm({
 
   const [pendingLineId, setPendingLineId] = useState<string | null>(null);
 
+  // Defaults to the first configured provider — with today's real data
+  // that's almost always the only one, so this preserves the previous
+  // no-choice-needed behavior exactly while supporting a real second option.
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(paymentProviders[0]?.id ?? null);
+
   const [submitError, setSubmitError] = useState<string>();
   // Deliberately its own transition, separate from the background saves
   // below (email/details/shipping each track their own `*Saving` boolean
@@ -346,9 +351,10 @@ export function CheckoutForm({
   );
 
   function handleSubmit() {
+    if (!selectedPaymentId) return;
     setSubmitError(undefined);
     startSubmitTransition(async () => {
-      const result = await completeCheckoutAction();
+      const result = await completeCheckoutAction(selectedPaymentId);
       if (result.ok) {
         router.push(`/checkout/epibebaiosi?order=${result.orderId}`);
       } else {
@@ -365,6 +371,7 @@ export function CheckoutForm({
     Boolean(cart.shippingAddress) &&
     cart.hasShippingMethod &&
     taxDocumentReady &&
+    Boolean(selectedPaymentId) &&
     !isSubmitting;
 
   // Removing the last item mid-checkout must not leave an unusable form
@@ -435,7 +442,7 @@ export function CheckoutForm({
             saving={taxSaving}
             afmLookupLoading={afmLookupLoading}
           />
-          <PaymentSection providers={paymentProviders} />
+          <PaymentSection providers={paymentProviders} selectedId={selectedPaymentId} onSelect={setSelectedPaymentId} />
 
           <div className="hidden flex-col gap-3 border-t border-border pt-6 lg:flex">
             <SubmitButton canSubmit={canSubmit} isPending={isSubmitting} total={cart.total} onSubmit={handleSubmit} error={submitError} />

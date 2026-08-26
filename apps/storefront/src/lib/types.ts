@@ -224,7 +224,11 @@ export type ShippingOption = {
 };
 
 export type PaymentProvider = {
+  // Stable code the order stores and completion validates against — not a
+  // vendor id (there's no vendor): "cod" | "bank_transfer" today.
   id: string;
+  name: string;
+  description: string | null;
 };
 
 export type OrderLineItem = {
