@@ -93,13 +93,6 @@ type GeminiResponse = {
 export class GeminiProvider implements AIProvider {
   async generateSeoContent(input: SeoGenerationInput, fields: SeoField[] = ALL_FIELDS): Promise<SeoGenerationResult> {
     const apiKey = process.env.GEMINI_API_KEY;
-    // TEMPORARY diagnostic — boolean + length only, never the value itself.
-    // Remove once the "not_configured" issue is root-caused.
-    console.log("[ai] GEMINI_API_KEY check", {
-      present: Boolean(apiKey),
-      length: apiKey?.length ?? 0,
-      modelEnvPresent: Boolean(process.env.GEMINI_MODEL),
-    });
     if (!apiKey) throw new AIProviderError("Gemini API key not configured", "not_configured");
 
     const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
@@ -123,15 +116,11 @@ export class GeminiProvider implements AIProvider {
         }),
       });
     } catch (err) {
-      // TEMPORARY diagnostic — network-level failure, no secrets. Remove once root-caused.
-      console.log("[ai] Gemini network error", { endpoint, model, error: String(err) });
       throw new AIProviderError(`Gemini request failed: ${String(err)}`, "request_failed");
     }
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      // TEMPORARY diagnostic — HTTP status + error body only, never the API key. Remove once root-caused.
-      console.log("[ai] Gemini non-OK response", { endpoint, model, status: res.status, body: body.slice(0, 500) });
       throw new AIProviderError(`Gemini returned ${res.status}: ${body.slice(0, 300)}`, "request_failed");
     }
 
