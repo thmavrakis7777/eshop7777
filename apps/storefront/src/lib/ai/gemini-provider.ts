@@ -102,7 +102,7 @@ export class GeminiProvider implements AIProvider {
     });
     if (!apiKey) throw new AIProviderError("Gemini API key not configured", "not_configured");
 
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
     const prompt = buildUserPrompt(input, fields);
 
     const endpoint = `${API_BASE}/${model}:generateContent`;
