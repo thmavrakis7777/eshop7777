@@ -105,9 +105,11 @@ export class GeminiProvider implements AIProvider {
     const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     const prompt = buildUserPrompt(input, fields);
 
+    const endpoint = `${API_BASE}/${model}:generateContent`;
+
     let res: Response;
     try {
-      res = await fetch(`${API_BASE}/${model}:generateContent`, {
+      res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
@@ -121,11 +123,15 @@ export class GeminiProvider implements AIProvider {
         }),
       });
     } catch (err) {
+      // TEMPORARY diagnostic — network-level failure, no secrets. Remove once root-caused.
+      console.log("[ai] Gemini network error", { endpoint, model, error: String(err) });
       throw new AIProviderError(`Gemini request failed: ${String(err)}`, "request_failed");
     }
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
+      // TEMPORARY diagnostic — HTTP status + error body only, never the API key. Remove once root-caused.
+      console.log("[ai] Gemini non-OK response", { endpoint, model, status: res.status, body: body.slice(0, 500) });
       throw new AIProviderError(`Gemini returned ${res.status}: ${body.slice(0, 300)}`, "request_failed");
     }
 
