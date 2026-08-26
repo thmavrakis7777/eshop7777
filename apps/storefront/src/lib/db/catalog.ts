@@ -206,6 +206,58 @@ const productFields = sql`
 
 export type ProductSort = "newest" | "title-asc" | "price-asc" | "price-desc";
 
+// Category-listing filters. Every field is optional and additive (AND'd
+// together) — an absent field means "don't filter on this." Values are
+// validated against that category's own CategoryFacets before ever reaching
+// here (see parseFilters in lib/search-params.ts), so this layer trusts its
+// input the same way orderBy() trusts its whitelisted sort value.
+export type CategoryFilters = {
+  minPriceCents?: number;
+  maxPriceCents?: number;
+  inStockOnly?: boolean;
+  material?: string[];
+  origin?: string[];
+};
+
+// What's actually worth offering as a filter for one category (+ its
+// descendants) right now — computed from real data, never a fixed list.
+// `materials`/`origins` are omitted (empty array) unless at least 2 distinct
+// values exist among in-scope products: a facet with only one possible value
+// can't narrow anything, so showing it would be exactly the "meaningless
+// filter" the storefront must not display.
+export type CategoryFacets = {
+  priceMinCents: number | null;
+  priceMaxCents: number | null;
+  hasOutOfStock: boolean;
+  materials: string[];
+  origins: { code: string; label: string }[];
+};
+
+function whereFilters(f: CategoryFilters | undefined) {
+  const filters = f ?? {};
+  return sql`
+    ${filters.minPriceCents != null
+      ? sql`AND (SELECT MIN(v.price_cents) FROM shop.product_variant v
+                  WHERE v.product_id = p.id AND v.is_active) >= ${filters.minPriceCents}`
+      : sql``}
+    ${filters.maxPriceCents != null
+      ? sql`AND (SELECT MIN(v.price_cents) FROM shop.product_variant v
+                  WHERE v.product_id = p.id AND v.is_active) <= ${filters.maxPriceCents}`
+      : sql``}
+    ${filters.inStockOnly
+      ? sql`AND EXISTS (SELECT 1 FROM shop.product_variant v
+                          WHERE v.product_id = p.id AND v.is_active
+                            AND (v.allow_backorder OR v.stock_quantity > 0))`
+      : sql``}
+    ${filters.material && filters.material.length > 0
+      ? sql`AND p.material = ANY(${filters.material})`
+      : sql``}
+    ${filters.origin && filters.origin.length > 0
+      ? sql`AND p.origin_country = ANY(${filters.origin})`
+      : sql``}
+  `;
+}
+
 // Whitelisted fragments — the sort value never reaches SQL as a string.
 // Greek titles sort with the ICU el-GR collation (verified available on this
 // database), not byte order, so "Άλφα" lands where a Greek reader expects.
@@ -226,9 +278,9 @@ function orderBy(sort: ProductSort) {
  */
 export async function getProductsByCategorySlug(
   slug: string,
-  opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
+  opts: { sort?: ProductSort; limit?: number; offset?: number; filters?: CategoryFilters } = {}
 ): Promise<{ products: Product[]; count: number }> {
-  const { sort = "newest", limit = 24, offset = 0 } = opts;
+  const { sort = "newest", limit = 24, offset = 0, filters } = opts;
 
   const rows = (await sql`
     WITH RECURSIVE tree AS (
@@ -240,6 +292,7 @@ export async function getProductsByCategorySlug(
       FROM shop.product p
       LEFT JOIN shop.category c ON c.id = p.category_id
      WHERE p.is_active AND p.category_id IN (SELECT id FROM tree)
+     ${whereFilters(filters)}
      ${orderBy(sort)}
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;
@@ -247,6 +300,58 @@ export async function getProductsByCategorySlug(
   return {
     products: rows.map(toDomainProduct),
     count: rows.length > 0 ? Number(rows[0].total_count) : 0,
+  };
+}
+
+/**
+ * What filters are actually worth showing for one category (+ descendants)
+ * right now — computed from real product/variant data, not a fixed list. See
+ * CategoryFacets for the "only if it can actually narrow something" rule.
+ */
+export async function getCategoryFilterFacets(slug: string): Promise<CategoryFacets> {
+  const rows = (await sql`
+    WITH RECURSIVE tree AS (
+      SELECT id FROM shop.category WHERE slug = ${slug} AND is_active
+      UNION ALL
+      SELECT c.id FROM shop.category c JOIN tree t ON c.parent_id = t.id WHERE c.is_active
+    )
+    SELECT
+      MIN(v.price_cents) AS price_min_cents,
+      MAX(v.price_cents) AS price_max_cents,
+      bool_or(NOT (v.allow_backorder OR v.stock_quantity > 0)) AS has_out_of_stock,
+      array_agg(DISTINCT p.material)
+        FILTER (WHERE p.material IS NOT NULL AND p.material <> '') AS materials,
+      array_agg(DISTINCT p.origin_country)
+        FILTER (WHERE p.origin_country IS NOT NULL AND p.origin_country <> '') AS origins
+      FROM shop.product p
+      JOIN shop.product_variant v ON v.product_id = p.id AND v.is_active
+     WHERE p.is_active AND p.category_id IN (SELECT id FROM tree)
+  `) as unknown as Array<{
+    price_min_cents: number | null;
+    price_max_cents: number | null;
+    has_out_of_stock: boolean | null;
+    materials: string[] | null;
+    origins: string[] | null;
+  }>;
+
+  const row = rows[0];
+  const materials = row?.materials ?? [];
+  const originCodes = row?.origins ?? [];
+
+  return {
+    // Only a real range (min !== max) can narrow anything.
+    priceMinCents: row && row.price_min_cents !== row.price_max_cents ? row.price_min_cents : null,
+    priceMaxCents: row && row.price_min_cents !== row.price_max_cents ? row.price_max_cents : null,
+    // Only meaningful if at least one in-scope product is actually out of
+    // stock — otherwise the checkbox would filter nothing away.
+    hasOutOfStock: row?.has_out_of_stock === true,
+    materials: materials.length >= 2 ? materials.sort((a, b) => a.localeCompare(b, "el")) : [],
+    origins:
+      originCodes.length >= 2
+        ? originCodes
+            .map((code) => ({ code, label: COUNTRY_NAMES_EL[code.toLowerCase()] ?? code }))
+            .sort((a, b) => a.label.localeCompare(b.label, "el"))
+        : [],
   };
 }
 

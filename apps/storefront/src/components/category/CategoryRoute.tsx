@@ -4,8 +4,8 @@ import { CategoryPLPView, PAGE_SIZE } from "@/components/category/CategoryPLPVie
 import { toChildLinks } from "@/components/category/CategoryChildNav";
 import type { Crumb } from "@/components/category/Breadcrumbs";
 import { categoryPathHref, getCategoryPath } from "@/lib/data/categories";
-import { getProductsByCategoryHandle } from "@/lib/data/products";
-import { parsePage, parseSort } from "@/lib/search-params";
+import { getCategoryFilterFacets, getProductsByCategoryHandle } from "@/lib/data/products";
+import { parseFilters, parsePage, parseSort } from "@/lib/search-params";
 
 /**
  * Every category page, at every depth.
@@ -25,7 +25,7 @@ export async function CategoryRoute({
   searchParams,
 }: {
   segments: string[];
-  searchParams: Promise<{ sort?: string; page?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const path = await getCategoryPath(segments);
   // Covers a slug that doesn't exist, one that's inactive, and one that
@@ -38,15 +38,18 @@ export async function CategoryRoute({
     return <CategoryLandingView category={category} ancestors={ancestors} />;
   }
 
-  const { sort: sortParam, page: pageParam } = await searchParams;
-  const sort = parseSort(sortParam);
-  const page = parsePage(pageParam);
+  const sp = await searchParams;
+  const sort = parseSort(sp.sort);
+  const page = parsePage(sp.page);
+  const facets = await getCategoryFilterFacets(category.handle);
+  const filters = parseFilters(sp, facets);
 
   const basePath = categoryPathHref(ancestors, category);
   const { products, count } = await getProductsByCategoryHandle(category.handle, {
     sort,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
+    filters,
   });
 
   const trail = [...ancestors, category];
@@ -82,6 +85,8 @@ export async function CategoryRoute({
       page={page}
       basePath={basePath}
       source={{ type: "category", categoryHandle: category.handle }}
+      facets={facets}
+      filters={filters}
     />
   );
 }

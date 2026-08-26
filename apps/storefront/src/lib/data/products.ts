@@ -3,6 +3,7 @@ import {
   getAllCollectionSlugs,
   getAllProductSlugs,
   getCartCrossSell as dbGetCartCrossSell,
+  getCategoryFilterFacets as dbGetCategoryFilterFacets,
   getFeaturedProductsPaged as dbGetFeaturedProductsPaged,
   getNewArrivalsPaged as dbGetNewArrivalsPaged,
   getSaleProductsPaged as dbGetSaleProductsPaged,
@@ -18,7 +19,7 @@ import {
 import { expandQueryWithSynonyms } from "@/lib/data/search-management";
 import { buildSearchIndexEntry, rankSearchMatches } from "@/lib/search";
 import type { Product } from "@/lib/types";
-import type { ProductSort } from "@/lib/db/catalog";
+import type { CategoryFacets, CategoryFilters, ProductSort } from "@/lib/db/catalog";
 
 /**
  * Product reads. Every function here keeps the exact signature it had when
@@ -32,13 +33,17 @@ import type { ProductSort } from "@/lib/db/catalog";
  */
 
 export { toneFor };
-export type { ProductSort };
+export type { CategoryFacets, CategoryFilters, ProductSort };
 
 export async function getProductsByCategoryHandle(
   categoryHandle: string,
-  opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
+  opts: { sort?: ProductSort; limit?: number; offset?: number; filters?: CategoryFilters } = {}
 ): Promise<{ products: Product[]; count: number }> {
   return getProductsByCategorySlug(categoryHandle, opts);
+}
+
+export async function getCategoryFilterFacets(categoryHandle: string): Promise<CategoryFacets> {
+  return dbGetCategoryFilterFacets(categoryHandle);
 }
 
 export async function getProductsByCollectionHandle(

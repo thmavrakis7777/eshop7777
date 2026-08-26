@@ -2,10 +2,12 @@ import Link from "next/link";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
 import { CategoryChildNav, type ChildCategoryLink } from "@/components/category/CategoryChildNav";
 import { SortControl } from "@/components/category/SortControl";
+import { CategoryFilterSidebar } from "@/components/category/CategoryFilterSidebar";
+import { CategoryFilterDrawer } from "@/components/category/CategoryFilterDrawer";
 import { renderBody } from "@/components/content/ContentPageView";
 import { InfiniteProductGrid, type ProductSource } from "@/components/category/InfiniteProductGrid";
 import type { Product } from "@/lib/types";
-import type { ProductSort } from "@/lib/data/products";
+import type { CategoryFacets, CategoryFilters, ProductSort } from "@/lib/data/products";
 
 // Bumped from 12 to 24 alongside infinite scroll: fewer round-trips per
 // scroll session, still small/fast for the first paint. One shared value
@@ -32,6 +34,8 @@ export function CategoryPLPView({
   extraParams,
   emptyMessage,
   sortable = true,
+  facets,
+  filters,
 }: {
   title: string;
   description?: string;
@@ -74,6 +78,11 @@ export function CategoryPLPView({
   // visibly snapped back to "Νεότερα πρώτα" (confirmed live). Listings
   // that really are sortable leave this at its default.
   sortable?: boolean;
+  // Category-only: which filters can be shown and which are currently
+  // active. Undefined for listing types that don't offer filtering yet
+  // (search, sale, featured, collections) — nothing filter-related renders.
+  facets?: CategoryFacets;
+  filters?: CategoryFilters;
 }) {
   return (
     <>
@@ -87,37 +96,47 @@ export function CategoryPLPView({
           <CategoryChildNav title={childNavTitle ?? "Διάλεξε κατηγορία"} items={childCategories} />
         )}
 
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
           <span className="text-sm text-ink-muted">{count} προϊόντα</span>
-          {sortable && <SortControl current={sort} />}
+          <div className="flex items-center gap-3">
+            {facets && filters && <CategoryFilterDrawer facets={facets} filters={filters} />}
+            {sortable && <SortControl current={sort} />}
+          </div>
         </div>
 
-        {products.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-sm text-ink-muted">
-              {emptyMessage ?? "Δεν βρέθηκαν προϊόντα σε αυτή την κατηγορία αυτή τη στιγμή."}
-            </p>
-            {parentLink && (
-              <Link
-                href={parentLink.href}
-                className="mt-4 inline-block py-1.5 text-sm font-medium text-accent hover:underline"
-              >
-                <span aria-hidden="true">←</span> Επιστροφή σε {parentLink.label}
-              </Link>
+        <div className="mt-6 flex items-start gap-8">
+          {facets && filters && <CategoryFilterSidebar facets={facets} filters={filters} />}
+
+          <div className="min-w-0 flex-1">
+            {products.length === 0 ? (
+              <div className="py-16 text-center">
+                <p className="text-sm text-ink-muted">
+                  {emptyMessage ?? "Δεν βρέθηκαν προϊόντα σε αυτή την κατηγορία αυτή τη στιγμή."}
+                </p>
+                {parentLink && (
+                  <Link
+                    href={parentLink.href}
+                    className="mt-4 inline-block py-1.5 text-sm font-medium text-accent hover:underline"
+                  >
+                    <span aria-hidden="true">←</span> Επιστροφή σε {parentLink.label}
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <InfiniteProductGrid
+                source={source}
+                sort={sort}
+                page={page}
+                pageSize={PAGE_SIZE}
+                initialProducts={products}
+                initialCount={count}
+                basePath={basePath}
+                extraParams={extraParams}
+                filters={filters}
+              />
             )}
           </div>
-        ) : (
-          <InfiniteProductGrid
-            source={source}
-            sort={sort}
-            page={page}
-            pageSize={PAGE_SIZE}
-            initialProducts={products}
-            initialCount={count}
-            basePath={basePath}
-            extraParams={extraParams}
-          />
-        )}
+        </div>
 
         {longDescription && (
           <section className="mt-14 max-w-3xl border-t border-border pt-8">

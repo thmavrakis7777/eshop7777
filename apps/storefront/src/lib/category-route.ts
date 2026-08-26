@@ -2,7 +2,7 @@ import "server-only";
 import type { Metadata } from "next";
 import { categoryPathHref, getCategoryPath } from "@/lib/data/categories";
 import { getSeoOverride } from "@/lib/data/seo";
-import { canonicalListingPath, parsePage } from "@/lib/search-params";
+import { canonicalListingPath, hasAnyFilterParam, parsePage } from "@/lib/search-params";
 import { siteUrl } from "@/lib/site-config";
 
 /**
@@ -15,7 +15,11 @@ import { siteUrl } from "@/lib/site-config";
  * canonical handling and OG tags identical to the top level for free, rather
  * than by a third copy someone has to remember to update.
  */
-export async function categoryMetadata(segments: string[], pageParam?: string): Promise<Metadata> {
+export async function categoryMetadata(
+  segments: string[],
+  pageParam?: string,
+  searchParams: Record<string, string | string[] | undefined> = {}
+): Promise<Metadata> {
   const path = await getCategoryPath(segments);
   if (!path) return {};
   const { category, ancestors } = path;
@@ -40,11 +44,17 @@ export async function categoryMetadata(segments: string[], pageParam?: string): 
   const href = categoryPathHref(ancestors, category);
   const canonical = page === 1 && seo?.canonicalUrl ? seo.canonicalUrl : canonicalListingPath(href, page);
 
+  // Filtered URLs (?material=..., ?price_min=..., etc.) must stay crawlable
+  // (internal links still followed) but never indexed — same treatment as an
+  // admin-set noindex — or every filter combination becomes a duplicate URL
+  // competing with the one real, canonical category page.
+  const noindex = seo?.robots === "noindex" || hasAnyFilterParam(searchParams);
+
   return {
     title: seo?.seoTitle ? { absolute: seo.seoTitle } : title,
     description,
     alternates: { canonical },
-    ...(seo?.robots === "noindex" ? { robots: { index: false, follow: true } } : {}),
+    ...(noindex ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
       title: seo?.ogTitle || title,
       description: seo?.ogDescription || description,

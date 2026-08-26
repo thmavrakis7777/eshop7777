@@ -7,6 +7,7 @@ import {
   getProductsByCategoryHandle,
   getProductsByCollectionHandle,
   searchProducts,
+  type CategoryFilters,
   type ProductSort,
 } from "@/lib/data/products";
 import type { Product } from "@/lib/types";
@@ -28,9 +29,15 @@ export async function loadMoreCategoryProductsAction(
   categoryHandle: string,
   sort: ProductSort,
   offset: number,
-  limit: number
+  limit: number,
+  filters?: CategoryFilters
 ): Promise<{ products: Product[]; count: number }> {
-  return getProductsByCategoryHandle(categoryHandle, { sort, limit: clampLimit(limit), offset: clampOffset(offset) });
+  return getProductsByCategoryHandle(categoryHandle, {
+    sort,
+    limit: clampLimit(limit),
+    offset: clampOffset(offset),
+    filters,
+  });
 }
 
 export async function loadMoreCollectionProductsAction(

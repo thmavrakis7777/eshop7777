@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Pagination } from "@/components/category/Pagination";
 import type { Product } from "@/lib/types";
-import type { ProductSort } from "@/lib/data/products";
+import type { CategoryFilters, ProductSort } from "@/lib/data/products";
+import { filtersToSearchEntries } from "@/lib/search-params";
 import {
   loadMoreCategoryProductsAction,
   loadMoreCollectionProductsAction,
@@ -33,9 +34,11 @@ function fetchNextPage(
   source: ProductSource,
   sort: ProductSort,
   offset: number,
-  limit: number
+  limit: number,
+  filters?: CategoryFilters
 ): Promise<{ products: Product[]; count: number }> {
-  if (source.type === "category") return loadMoreCategoryProductsAction(source.categoryHandle, sort, offset, limit);
+  if (source.type === "category")
+    return loadMoreCategoryProductsAction(source.categoryHandle, sort, offset, limit, filters);
   if (source.type === "collection")
     return loadMoreCollectionProductsAction(source.collectionHandle, sort, offset, limit);
   if (source.type === "search") return loadMoreSearchProductsAction(source.query, offset, limit);
@@ -61,6 +64,7 @@ export function InfiniteProductGrid({
   initialCount,
   basePath,
   extraParams,
+  filters,
 }: {
   source: ProductSource;
   sort: ProductSort;
@@ -73,16 +77,21 @@ export function InfiniteProductGrid({
   // page href is built here instead of by the caller.
   basePath: string;
   extraParams?: Record<string, string>;
+  // Category listings only — see CategoryPLPView. Carried into both the
+  // infinite-scroll fetch and the <noscript> pagination hrefs so a filtered
+  // view stays filtered across batches/pages.
+  filters?: CategoryFilters;
 }) {
   function buildPageHref(p: number): string {
     const params = new URLSearchParams(extraParams);
     if (sort !== "newest") params.set("sort", sort);
+    if (filters) for (const [k, v] of filtersToSearchEntries(filters)) params.append(k, v);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return qs ? `${basePath}?${qs}` : basePath;
   }
 
-  const resetKey = `${sourceKeyOf(source)}:${sort}:${page}`;
+  const resetKey = `${sourceKeyOf(source)}:${sort}:${page}:${JSON.stringify(filters ?? {})}`;
 
   // React's documented "adjust state during render" pattern: when the
   // listing identity (category/search/sort/SSR page) changes, snap straight
@@ -115,7 +124,7 @@ export function InfiniteProductGrid({
 
     startTransition(async () => {
       try {
-        const result = await fetchNextPage(source, sort, offset, pageSize);
+        const result = await fetchNextPage(source, sort, offset, pageSize, filters);
         setState((prev) => {
           if (prev.resetKey !== resetKey) return prev; // a reset landed mid-flight; discard this response
           const seen = new Set(prev.products.map((p) => p.id));
