@@ -84,7 +84,7 @@ function summaryBlock(order: OrderEmailData): string {
   }
 }
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = { cod: "Αντικαταβολή" };
+const PAYMENT_METHOD_LABELS: Record<string, string> = { cod: "Αντικαταβολή", bank_transfer: "Τραπεζική κατάθεση" };
 function paymentMethodLabel(method: string): string {
   return PAYMENT_METHOD_LABELS[method] ?? method;
 }

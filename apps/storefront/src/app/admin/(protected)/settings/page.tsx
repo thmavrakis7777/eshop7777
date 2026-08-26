@@ -69,10 +69,6 @@ export default async function AdminAccountSettingsPage() {
                 <dt className="text-ink-muted">Νόμισμα</dt>
                 <dd className="text-ink">EUR (€)</dd>
               </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-ink-muted">Τρόπος πληρωμής</dt>
-                <dd className="text-ink">Αντικαταβολή</dd>
-              </div>
             </dl>
             <p className="mt-4 border-t border-border pt-3 text-xs text-ink-muted">
               Οι τιμές καταχωρούνται <strong className="text-ink">με ΦΠΑ</strong>, όπως τις βλέπει ο πελάτης

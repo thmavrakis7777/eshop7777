@@ -22,7 +22,7 @@ export const PAYMENT_STATUS_LABELS: Record<string, { label: string; tone: Status
   partially_refunded: { label: "Μερική επιστροφή", tone: "neutral" },
 };
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = { cod: "Αντικαταβολή" };
+const PAYMENT_METHOD_LABELS: Record<string, string> = { cod: "Αντικαταβολή", bank_transfer: "Τραπεζική κατάθεση" };
 export function paymentMethodLabel(method: string): string {
   return PAYMENT_METHOD_LABELS[method] ?? method;
 }
