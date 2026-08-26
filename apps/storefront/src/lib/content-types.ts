@@ -38,6 +38,11 @@ export type SiteSettings = {
   tiktokUrl: string | null;
   announcementText: string | null;
   cartMessage: string | null;
+  // Global defaults for the PDP's delivery/returns/payment line — see
+  // ProductExtra.deliveryTextOverride/etc for the per-product override.
+  pdpDeliveryText: string | null;
+  pdpReturnsText: string | null;
+  pdpPaymentText: string | null;
   // Header "Phone Orders" line. The number itself is contactPhone — one
   // number for the whole site, shown in two places.
   phoneOrdersEnabled: boolean;
@@ -190,6 +195,13 @@ export type ProductExtra = {
   badgeTone: "accent" | "success" | "neutral";
   warrantyText: string | null;
   downloadsUrl: string | null;
+  // Per-product overrides of the PDP's delivery/returns/payment line — see
+  // SiteSettings.pdpDeliveryText/etc for the global default this replaces.
+  // Empty/unset (both null here — this projection never carries '') means
+  // "use the global default," resolved at the PDP with `||`.
+  deliveryTextOverride: string | null;
+  returnsTextOverride: string | null;
+  paymentTextOverride: string | null;
 };
 
 /**

@@ -400,6 +400,41 @@ export async function saveEmailSettings(input: EmailSettings): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// PDP content defaults — same deliberately-separate narrow read/write pair
+// as EmailSettings above, for the same reason: a form here must not carry
+// (and risk blanking) the ~25 other Header & Footer fields.
+// ---------------------------------------------------------------------------
+
+export type PdpContentDefaults = {
+  pdpDeliveryText: string | null;
+  pdpReturnsText: string | null;
+  pdpPaymentText: string | null;
+};
+
+export async function getPdpContentDefaults(): Promise<PdpContentDefaults> {
+  const rows = await sql<
+    { pdp_delivery_text: string | null; pdp_returns_text: string | null; pdp_payment_text: string | null }[]
+  >`SELECT pdp_delivery_text, pdp_returns_text, pdp_payment_text FROM shop.site_setting LIMIT 1`;
+  const s = rows[0];
+  return {
+    pdpDeliveryText: s?.pdp_delivery_text ?? null,
+    pdpReturnsText: s?.pdp_returns_text ?? null,
+    pdpPaymentText: s?.pdp_payment_text ?? null,
+  };
+}
+
+export async function savePdpContentDefaults(input: PdpContentDefaults): Promise<void> {
+  await sql`
+    INSERT INTO shop.site_setting (id, pdp_delivery_text, pdp_returns_text, pdp_payment_text, updated_at)
+    VALUES (true, ${input.pdpDeliveryText}, ${input.pdpReturnsText}, ${input.pdpPaymentText}, now())
+    ON CONFLICT (id) DO UPDATE SET
+      pdp_delivery_text = EXCLUDED.pdp_delivery_text,
+      pdp_returns_text = EXCLUDED.pdp_returns_text,
+      pdp_payment_text = EXCLUDED.pdp_payment_text,
+      updated_at = now()`;
+}
+
+// ---------------------------------------------------------------------------
 // Promo banner
 // ---------------------------------------------------------------------------
 

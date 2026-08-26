@@ -19,6 +19,7 @@ import { categoryPathHref, getCategoryTrail } from "@/lib/data/categories";
 import { getProductByHandle, getRelatedProducts } from "@/lib/data/products";
 import type { Product } from "@/lib/types";
 import { getProductExtra } from "@/lib/data/product-extras";
+import { getSiteSettings } from "@/lib/data/site-settings";
 import { getSeoOverride } from "@/lib/data/seo";
 import { formatPrice, formatPriceFrom } from "@/lib/format";
 import { siteUrl } from "@/lib/site-config";
@@ -80,12 +81,21 @@ export default async function ProductPage({ params }: Props) {
   // and /mageirika-skeyi/tigania, both of which 404. Related products moved
   // to their own Suspense boundary below (see RelatedProducts) — below the
   // fold and independent, no reason for it to gate the rest of the page.
-  const [categoryTrail, seo, extra, nonce] = await Promise.all([
+  const [categoryTrail, seo, extra, siteSettings, nonce] = await Promise.all([
     product.categoryHandle ? getCategoryTrail(product.categoryHandle) : undefined,
     getSeoOverride("product", product.id),
     getProductExtra(product.id),
+    getSiteSettings(),
     headers().then((h) => h.get("x-nonce") ?? undefined),
   ]);
+
+  // Per-product override, falling back to the site-wide default — both
+  // owner-editable (product edit page / Content → Header & Footer). `||` not
+  // `??`: an override saved as '' means "cleared back to the default," not
+  // "show a blank line" (this schema's empty-string-is-unset convention).
+  const deliveryText = extra?.deliveryTextOverride || siteSettings?.pdpDeliveryText || "2-3 εργάσιμες σε όλη την Ελλάδα";
+  const returnsText = extra?.returnsTextOverride || siteSettings?.pdpReturnsText || "Δωρεάν εντός 30 ημερών";
+  const paymentText = extra?.paymentTextOverride || siteSettings?.pdpPaymentText || "Αντικαταβολή κατά την παράδοση";
 
   const productJsonLd = {
     "@context": "https://schema.org",
@@ -215,20 +225,20 @@ export default async function ProductPage({ params }: Props) {
             )}
             <div className="flex justify-between">
               <dt className="text-ink-muted">Παράδοση</dt>
-              <dd className="text-ink">2-3 εργάσιμες σε όλη την Ελλάδα</dd>
+              <dd className="text-ink">{deliveryText}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-ink-muted">Επιστροφές</dt>
-              <dd className="text-ink">Δωρεάν εντός 30 ημερών</dd>
+              <dd className="text-ink">{returnsText}</dd>
             </div>
-            {/* Reconciled with what checkout can actually offer: the only
-                configured Medusa payment provider is pp_system_default,
-                presented as "Αντικαταβολή". The previous "Κάρτα, Viva
-                Wallet, αντικαταβολή" was aspirational copy that checkout
-                visibly contradicted. */}
+            {/* Editable from Settings → Content → Header & Footer (global
+                default) or this product's own edit page (override) — see
+                MIGRATION_PLAN.md. Reconciled with what checkout can actually
+                offer by default: only "Αντικαταβολή" until real payment
+                methods are configured (Settings → Payments). */}
             <div className="flex justify-between">
               <dt className="text-ink-muted">Πληρωμή</dt>
-              <dd className="text-ink">Αντικαταβολή κατά την παράδοση</dd>
+              <dd className="text-ink">{paymentText}</dd>
             </div>
           </dl>
         </div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getAdminUser } from "@/lib/admin/auth";
-import { getAdminPromoBanner, getAdminSiteSettings } from "@/lib/admin/cms";
-import { savePromoBannerAction, saveSiteSettingsAction } from "@/lib/admin/cms-actions";
+import { getAdminPromoBanner, getAdminSiteSettings, getPdpContentDefaults } from "@/lib/admin/cms";
+import { savePromoBannerAction, savePdpContentDefaultsAction, saveSiteSettingsAction } from "@/lib/admin/cms-actions";
 import { CmsForm } from "@/components/admin/CmsForm";
 import { Card, PageHeader, SectionTitle } from "@/components/admin/ui/primitives";
 
@@ -10,7 +10,12 @@ export const metadata = { title: "Header & Footer" };
 const euros = (cents: number | null) => (cents == null ? "" : (cents / 100).toFixed(2).replace(".", ","));
 
 export default async function AdminLayoutContentPage() {
-  const [admin, settings, banner] = await Promise.all([getAdminUser(), getAdminSiteSettings(), getAdminPromoBanner()]);
+  const [admin, settings, banner, pdpContent] = await Promise.all([
+    getAdminUser(),
+    getAdminSiteSettings(),
+    getAdminPromoBanner(),
+    getPdpContentDefaults(),
+  ]);
   // Carries the VAT rate and free-shipping threshold — owner-only
   // (saveSiteSettingsAction requireOwner), unlike the promo banner below
   // (still requireAdmin — marketing copy, not revenue-affecting config).
@@ -159,6 +164,27 @@ export default async function AdminLayoutContentPage() {
                     hint: "Μετά την ημερομηνία αυτή το banner κρύβεται αυτόματα.",
                   },
                   { name: "isPublished", label: "Δημοσιευμένο", type: "checkbox" },
+                ]}
+              />
+            </Card>
+          </section>
+
+          <section>
+            <SectionTitle hint="Στη σελίδα κάθε προϊόντος, κάτω από το κουμπί «Προσθήκη στο καλάθι»">
+              Πληροφορίες προϊόντος
+            </SectionTitle>
+            <Card>
+              <p className="mb-4 text-xs text-ink-muted">
+                Προεπιλογή για όλα τα προϊόντα. Μπορείς να ορίσεις διαφορετικό κείμενο για συγκεκριμένο προϊόν
+                από την επεξεργασία του.
+              </p>
+              <CmsForm
+                action={savePdpContentDefaultsAction}
+                values={pdpContent}
+                fields={[
+                  { name: "pdpDeliveryText", label: "Παράδοση", type: "text" },
+                  { name: "pdpReturnsText", label: "Επιστροφές", type: "text" },
+                  { name: "pdpPaymentText", label: "Πληρωμή", type: "text" },
                 ]}
               />
             </Card>

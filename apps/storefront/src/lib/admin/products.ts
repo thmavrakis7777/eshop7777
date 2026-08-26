@@ -191,6 +191,12 @@ export type AdminProductDetail = {
   badgeTone: "accent" | "success" | "neutral";
   warrantyText: string | null;
   downloadsUrl: string | null;
+  // Per-product overrides of the PDP delivery/returns/payment line — null
+  // means "use the site-wide default" (Settings → Content → Πληροφορίες
+  // προϊόντος).
+  deliveryTextOverride: string | null;
+  returnsTextOverride: string | null;
+  paymentTextOverride: string | null;
   hideFromSearch: boolean;
   isSearchBoosted: boolean;
   createdAt: string;
@@ -270,6 +276,9 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
     badgeTone: (r.badge_tone as AdminProductDetail["badgeTone"]) ?? "neutral",
     warrantyText: (r.warranty_text as string) ?? null,
     downloadsUrl: (r.downloads_url as string) ?? null,
+    deliveryTextOverride: (r.delivery_text_override as string) ?? null,
+    returnsTextOverride: (r.returns_text_override as string) ?? null,
+    paymentTextOverride: (r.payment_text_override as string) ?? null,
     hideFromSearch: r.hide_from_search as boolean,
     isSearchBoosted: r.is_search_boosted as boolean,
     createdAt: new Date(r.created_at as string).toISOString(),
@@ -372,6 +381,9 @@ export type ProductInput = {
   badgeTone: "accent" | "success" | "neutral";
   warrantyText: string | null;
   downloadsUrl: string | null;
+  deliveryTextOverride: string | null;
+  returnsTextOverride: string | null;
+  paymentTextOverride: string | null;
   hideFromSearch: boolean;
   isSearchBoosted: boolean;
   collectionIds: string[];
@@ -409,7 +421,10 @@ export async function updateProduct(id: string, input: ProductInput): Promise<vo
         downloads_url = ${input.downloadsUrl}, hide_from_search = ${input.hideFromSearch},
         is_search_boosted = ${input.isSearchBoosted},
         shipping_class = ${input.shippingClass},
-        shipping_cost_cents = ${input.shippingCostCents}
+        shipping_cost_cents = ${input.shippingCostCents},
+        delivery_text_override = ${input.deliveryTextOverride},
+        returns_text_override = ${input.returnsTextOverride},
+        payment_text_override = ${input.paymentTextOverride}
       WHERE id = ${id}`;
     if (updated.count === 0) throw new CatalogError("Product not found", "not_found");
 

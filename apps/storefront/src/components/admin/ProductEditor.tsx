@@ -35,10 +35,14 @@ export function ProductEditor({
   product,
   categories,
   collections,
+  pdpDefaults,
 }: {
   product: AdminProductDetail;
   categories: CategoryOption[];
   collections: Array<{ id: string; title: string }>;
+  // Shown as placeholder text in the override fields below, so the owner can
+  // see what they're overriding without leaving this page.
+  pdpDefaults: { pdpDeliveryText: string | null; pdpReturnsText: string | null; pdpPaymentText: string | null } | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -179,6 +183,39 @@ export function ProductEditor({
               defaultClass={product.shippingClass}
               defaultCostCents={product.shippingCostCents}
             />
+          </Panel>
+
+          <Panel
+            title="Πληροφορίες προϊόντος"
+            hint="Προαιρετικό — αντικαθιστά για αυτό το προϊόν μόνο την προεπιλογή από Περιεχόμενο → Header &amp; Footer. Άφησέ τα κενά για να ισχύει η γενική προεπιλογή."
+          >
+            <Field label="Παράδοση" htmlFor="deliveryTextOverride">
+              <input
+                id="deliveryTextOverride"
+                name="deliveryTextOverride"
+                placeholder={pdpDefaults?.pdpDeliveryText ?? ""}
+                defaultValue={product.deliveryTextOverride ?? ""}
+                className={field}
+              />
+            </Field>
+            <Field label="Επιστροφές" htmlFor="returnsTextOverride">
+              <input
+                id="returnsTextOverride"
+                name="returnsTextOverride"
+                placeholder={pdpDefaults?.pdpReturnsText ?? ""}
+                defaultValue={product.returnsTextOverride ?? ""}
+                className={field}
+              />
+            </Field>
+            <Field label="Πληρωμή" htmlFor="paymentTextOverride">
+              <input
+                id="paymentTextOverride"
+                name="paymentTextOverride"
+                placeholder={pdpDefaults?.pdpPaymentText ?? ""}
+                defaultValue={product.paymentTextOverride ?? ""}
+                className={field}
+              />
+            </Field>
           </Panel>
 
           <Panel title="Εμπορική προβολή">

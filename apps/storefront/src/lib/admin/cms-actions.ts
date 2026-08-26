@@ -15,10 +15,12 @@ import {
   savePromoBanner,
   getEmailSettings,
   saveEmailSettings,
+  getPdpContentDefaults,
+  savePdpContentDefaults,
   saveSiteSettings,
   setHomepageBlockPublished,
 } from "@/lib/admin/cms";
-import type { EmailSettings } from "@/lib/admin/cms";
+import type { EmailSettings, PdpContentDefaults } from "@/lib/admin/cms";
 import type {
   HomepageSectionConfig,
   HomepageSectionKind,
@@ -380,6 +382,32 @@ export async function saveSiteSettingsAction(formData: FormData): Promise<Action
   revalidatePath("/admin/content/layout");
   // Header, footer and announcement bar render on every page.
   revalidatePath("/", "layout");
+  return { ok: true, message: "Οι ρυθμίσεις αποθηκεύτηκαν." };
+}
+
+// Product-page informational copy (delivery/returns/payment line) — treated
+// like the rest of this file's content/marketing writes (any admin), not
+// owner-only like saveSiteSettingsAction: it's not revenue/tax config.
+export async function savePdpContentDefaultsAction(formData: FormData): Promise<ActionResult> {
+  const admin = await guard();
+  if (!admin) return EXPIRED;
+
+  try {
+    const current = await getPdpContentDefaults();
+    const field = (name: keyof PdpContentDefaults) => (formData.has(name) ? text(formData.get(name)) : current[name]);
+
+    await savePdpContentDefaults({
+      pdpDeliveryText: field("pdpDeliveryText"),
+      pdpReturnsText: field("pdpReturnsText"),
+      pdpPaymentText: field("pdpPaymentText"),
+    });
+    await auditLog(admin.id, "pdp_content_defaults.update", "site_setting", "singleton");
+  } catch {
+    return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
+  }
+
+  updateTag(CACHE_TAGS.siteSettings);
+  revalidatePath("/admin/content/layout");
   return { ok: true, message: "Οι ρυθμίσεις αποθηκεύτηκαν." };
 }
 

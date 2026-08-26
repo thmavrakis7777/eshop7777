@@ -77,6 +77,9 @@ export const getSiteSettings = unstable_cache(
           tiktok_url: string | null;
           announcement_text: string | null;
           cart_message: string | null;
+          pdp_delivery_text: string | null;
+          pdp_returns_text: string | null;
+          pdp_payment_text: string | null;
           store_name: string | null;
           logo_path: string | null;
           favicon_path: string | null;
@@ -98,6 +101,7 @@ export const getSiteSettings = unstable_cache(
       >`SELECT footer_tagline, contact_phone, contact_email, contact_address,
                business_hours, facebook_url, instagram_url, tiktok_url,
                announcement_text, cart_message,
+               pdp_delivery_text, pdp_returns_text, pdp_payment_text,
                store_name, logo_path, favicon_path, og_image_path,
                default_seo_title, default_seo_description,
                phone_orders_enabled, phone_orders_label,
@@ -124,6 +128,9 @@ export const getSiteSettings = unstable_cache(
         tiktokUrl: s.tiktok_url,
         announcementText: s.announcement_text,
         cartMessage: s.cart_message,
+        pdpDeliveryText: s.pdp_delivery_text,
+        pdpReturnsText: s.pdp_returns_text,
+        pdpPaymentText: s.pdp_payment_text,
         phoneOrdersEnabled: s.phone_orders_enabled ?? false,
         phoneOrdersLabel: s.phone_orders_label,
         ownerNotificationEmail: s.owner_notification_email,
@@ -385,19 +392,28 @@ export async function getProductExtra(productId: string): Promise<ProductExtra |
         badge_tone: "accent" | "success" | "neutral";
         warranty_text: string | null;
         downloads_url: string | null;
+        delivery_text_override: string | null;
+        returns_text_override: string | null;
+        payment_text_override: string | null;
       }[]
-    >`SELECT badge_label, badge_tone, warranty_text, downloads_url
+    >`SELECT badge_label, badge_tone, warranty_text, downloads_url,
+             delivery_text_override, returns_text_override, payment_text_override
         FROM shop.product WHERE id = ${productId} LIMIT 1`;
     const e = rows[0];
+    // null only means "no such product" — callers that only care about
+    // badge/warranty/downloads already null-check those fields individually
+    // (see ProductWarranty), so always returning the row here (even when
+    // those three are empty) is what lets the delivery/returns/payment
+    // overrides reach the PDP instead of being silently dropped.
     if (!e) return null;
-    // Nothing merchandised for this product — null, so the PDP renders no
-    // empty badge/warranty section rather than an empty shell.
-    if (!e.badge_label && !e.warranty_text && !e.downloads_url) return null;
     return {
       badgeLabel: e.badge_label,
       badgeTone: e.badge_tone ?? "neutral",
       warrantyText: e.warranty_text,
       downloadsUrl: e.downloads_url,
+      deliveryTextOverride: e.delivery_text_override,
+      returnsTextOverride: e.returns_text_override,
+      paymentTextOverride: e.payment_text_override,
     };
   } catch {
     return null;
