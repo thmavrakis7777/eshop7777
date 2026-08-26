@@ -218,27 +218,25 @@ export default async function ProductPage({ params }: Props) {
 
           <dl className="mt-10 flex flex-col gap-3 border-t border-border pt-6 text-sm">
             {product.code && (
-              <div className="flex justify-between">
-                <dt className="text-ink-muted">Κωδικός προϊόντος</dt>
-                <dd className="text-ink">{product.code}</dd>
+              <div>
+                <dt className="inline text-ink-muted">Κωδικός προϊόντος:</dt>{" "}
+                <dd className="inline text-ink">{product.code}</dd>
               </div>
             )}
-            <div className="flex justify-between">
-              <dt className="text-ink-muted">Παράδοση</dt>
-              <dd className="text-ink">{deliveryText}</dd>
+            <div>
+              <dt className="inline text-ink-muted">Παράδοση:</dt> <dd className="inline text-ink">{deliveryText}</dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-ink-muted">Επιστροφές</dt>
-              <dd className="text-ink">{returnsText}</dd>
+            <div>
+              <dt className="inline text-ink-muted">Επιστροφές:</dt>{" "}
+              <dd className="inline text-ink">{returnsText}</dd>
             </div>
             {/* Editable from Settings → Content → Header & Footer (global
                 default) or this product's own edit page (override) — see
                 MIGRATION_PLAN.md. Reconciled with what checkout can actually
                 offer by default: only "Αντικαταβολή" until real payment
                 methods are configured (Settings → Payments). */}
-            <div className="flex justify-between">
-              <dt className="text-ink-muted">Πληρωμή</dt>
-              <dd className="text-ink">{paymentText}</dd>
+            <div>
+              <dt className="inline text-ink-muted">Πληρωμή:</dt> <dd className="inline text-ink">{paymentText}</dd>
             </div>
           </dl>
         </div>
