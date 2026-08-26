@@ -74,6 +74,38 @@ export function validateField(field: SeoField, value: string): ValidationResult 
   return { ok: true };
 }
 
+function normalizeForComparison(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+/**
+ * Backstop against the AI echoing the admin's own description/notes
+ * verbatim instead of genuinely rewriting them — the admin's text is a
+ * content brief, not final copy (explicit requirement). Flags an exact or
+ * near-exact match only; short sources are skipped so legitimate reuse of
+ * a few terms/phrases never trips this.
+ */
+export function checkNotVerbatimCopy(value: string, sources: Array<string | null | undefined>): ValidationResult {
+  const normalizedValue = normalizeForComparison(value);
+  for (const source of sources) {
+    if (!source) continue;
+    const normalizedSource = normalizeForComparison(source);
+    if (normalizedSource.length < 20) continue;
+    if (normalizedValue === normalizedSource || normalizedValue.includes(normalizedSource)) {
+      return {
+        ok: false,
+        error: "Το κείμενο μοιάζει να αντιγράφει αυτούσια τη σημείωση/περιγραφή του διαχειριστή. Δοκίμασε ξανά.",
+      };
+    }
+  }
+  return { ok: true };
+}
+
 export function validateGeneratedContent(
   result: Partial<SeoGenerationResult>,
   fields: SeoField[]

@@ -11,7 +11,7 @@ import {
   updateProductImageAlt,
 } from "@/lib/admin/products";
 import { getAIProvider, AIProviderError, type SeoField, type SeoGenerationResult } from "@/lib/ai";
-import { validateGeneratedContent, validateField } from "@/lib/ai/validate-seo-content";
+import { validateGeneratedContent, validateField, checkNotVerbatimCopy } from "@/lib/ai/validate-seo-content";
 import { SEARCH_CACHE_TAG } from "@/lib/db/catalog";
 import { META_FEED_CACHE_TAG } from "@/lib/db/meta-feed";
 
@@ -96,6 +96,8 @@ export async function generateSeoContentAction(productId: string, adminNotes?: s
     const content = await getAIProvider().generateSeoContent(built.input, ALL_FIELDS);
     const check = validateGeneratedContent(content, ALL_FIELDS);
     if (!check.ok) return { ok: false, error: check.error };
+    const copyCheck = checkNotVerbatimCopy(content.description, [built.input.adminNotes, built.input.description]);
+    if (!copyCheck.ok) return { ok: false, error: copyCheck.error };
     return { ok: true, content };
   } catch (err) {
     return { ok: false, error: mapAiError(err) };
@@ -123,6 +125,10 @@ export async function regenerateFieldAction(
     const content = await getAIProvider().generateSeoContent(built.input, [field]);
     const check = validateField(field, content[field]);
     if (!check.ok) return { ok: false, error: check.error };
+    if (field === "description") {
+      const copyCheck = checkNotVerbatimCopy(content.description, [built.input.adminNotes, built.input.description]);
+      if (!copyCheck.ok) return { ok: false, error: copyCheck.error };
+    }
     return { ok: true, value: content[field] };
   } catch (err) {
     return { ok: false, error: mapAiError(err) };
