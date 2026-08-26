@@ -2,17 +2,30 @@ import type { Cart } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { CartTotals } from "@/components/cart/CartTotals";
+import { CloseIcon } from "@/components/ui/Icons";
 
-// Compact line-item presentation (small thumbnail, no quantity stepper —
-// checkout's summary is read-only, editing happens back in the cart), not
-// the cart's own 5-column table or labeled card — appropriate density for
-// a sidebar/collapsed panel rather than a dedicated review page
+// Compact line-item presentation (small thumbnail, quantity as plain text —
+// checkout's summary has no stepper, editing quantity still happens back in
+// the cart), not the cart's own 5-column table or labeled card — appropriate
+// density for a sidebar/collapsed panel rather than a dedicated review page
 // (CHECKOUT_UX_SPEC.md §10/§11). Mobile: a native <details> disclosure,
 // collapsed by default but with the total always visible in the <summary>
 // even collapsed — no JS needed for expand/collapse, keyboard-operable by
 // default. Desktop: always-expanded sticky card, mirroring the cart page's
-// own established sticky-summary layout.
-export function CheckoutOrderSummary({ cart }: { cart: Cart }) {
+// own established sticky-summary layout. Each row does allow one edit —
+// removing the item entirely — via a small "X" at the very start of the
+// row (never the end, so it can't be mistaken for a quantity/price action).
+export function CheckoutOrderSummary({
+  cart,
+  onRemove,
+  pendingLineId,
+}: {
+  cart: Cart;
+  onRemove: (lineItemId: string) => void;
+  // Disables just that row's remove button mid-request — never the whole
+  // page — and gives it a quiet loading affordance.
+  pendingLineId: string | null;
+}) {
   return (
     <>
       <details className="rounded-md border border-border lg:hidden">
@@ -24,24 +37,45 @@ export function CheckoutOrderSummary({ cart }: { cart: Cart }) {
           </span>
         </summary>
         <div className="border-t border-border p-4">
-          <OrderSummaryContent cart={cart} />
+          <OrderSummaryContent cart={cart} onRemove={onRemove} pendingLineId={pendingLineId} />
         </div>
       </details>
 
       <div className="hidden rounded-md border border-border p-5 lg:sticky lg:top-24 lg:block">
         <h2 className="mb-4 font-display text-lg text-ink">Η παραγγελία σου</h2>
-        <OrderSummaryContent cart={cart} />
+        <OrderSummaryContent cart={cart} onRemove={onRemove} pendingLineId={pendingLineId} />
       </div>
     </>
   );
 }
 
-function OrderSummaryContent({ cart }: { cart: Cart }) {
+function OrderSummaryContent({
+  cart,
+  onRemove,
+  pendingLineId,
+}: {
+  cart: Cart;
+  onRemove: (lineItemId: string) => void;
+  pendingLineId: string | null;
+}) {
   return (
     <div className="flex flex-col gap-4">
       <ul className="flex flex-col gap-3">
         {cart.items.map((item) => (
-          <li key={item.id} className="flex items-center gap-3">
+          <li key={item.id} className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onRemove(item.id)}
+              disabled={pendingLineId === item.id}
+              aria-label="Αφαίρεση προϊόντος"
+              // 44px touch target via padding around a small visual glyph —
+              // the icon itself stays elegant/quiet, the tappable area
+              // doesn't. -ml-2 keeps the larger hit area from pushing the
+              // thumbnail/title out of alignment with the rest of the row.
+              className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-sm text-ink-muted transition-colors hover:text-danger disabled:opacity-40"
+            >
+              <CloseIcon className="h-4 w-4" />
+            </button>
             <div className="w-12 shrink-0">
               <ProductImage imageUrl={item.imageUrl} label={item.title} tone={item.placeholderTone} sizes="48px" />
             </div>

@@ -24,6 +24,7 @@ import {
   updateTaxDocumentAction,
   type TaxDocumentDetails,
 } from "@/lib/actions/checkout";
+import { removeLineItemAction } from "@/lib/actions/cart";
 import { lookupCompanyByAfm } from "@/lib/actions/afm-lookup";
 import { EmailSection } from "@/components/checkout/EmailSection";
 import { ContactSection } from "@/components/checkout/ContactSection";
@@ -33,6 +34,7 @@ import { ShippingSection } from "@/components/checkout/ShippingSection";
 import { TaxDocumentSection } from "@/components/checkout/TaxDocumentSection";
 import { PaymentSection } from "@/components/checkout/PaymentSection";
 import { CheckoutOrderSummary } from "@/components/checkout/CheckoutOrderSummary";
+import { EmptyCartState } from "@/components/cart/EmptyCartState";
 import { formatPrice } from "@/lib/format";
 import { trackInitiateCheckout } from "@/lib/analytics/track";
 
@@ -126,6 +128,8 @@ export function CheckoutForm({
   const [invoiceTouched, setInvoiceTouched] = useState<Set<keyof InvoiceFormFields>>(new Set());
   const [taxSaving, setTaxSaving] = useState(false);
   const [afmLookupLoading, setAfmLookupLoading] = useState(false);
+
+  const [pendingLineId, setPendingLineId] = useState<string | null>(null);
 
   const [submitError, setSubmitError] = useState<string>();
   // Deliberately its own transition, separate from the background saves
@@ -262,6 +266,20 @@ export function CheckoutForm({
     setShippingSaving(false);
   }
 
+  // Reuses the same removeLineItemAction the cart page/drawer already call —
+  // no separate checkout-side removal logic. Totals/shipping recompute for
+  // free because every mutation here replaces the whole `cart` state with
+  // the server-authoritative result (same pattern as handleSelectShipping
+  // etc. above); if the removed item was the only one, cart.items.length
+  // drops to 0 and the component below renders the empty-cart state instead
+  // of a checkout form with nothing to check out.
+  async function handleRemoveItem(lineItemId: string) {
+    setPendingLineId(lineItemId);
+    const result = await removeLineItemAction(lineItemId);
+    if (result.ok) setCart(result.cart);
+    setPendingLineId(null);
+  }
+
   async function saveTaxDocument(payload: TaxDocumentDetails) {
     setTaxSaving(true);
     const result = await updateTaxDocumentAction(payload);
@@ -342,7 +360,19 @@ export function CheckoutForm({
   const taxDocumentReady =
     taxDocumentType === "receipt" || Object.keys(validateInvoiceFields(invoiceFields)).length === 0;
   const canSubmit =
-    Boolean(cart.email) && Boolean(cart.shippingAddress) && cart.hasShippingMethod && taxDocumentReady && !isSubmitting;
+    cart.items.length > 0 &&
+    Boolean(cart.email) &&
+    Boolean(cart.shippingAddress) &&
+    cart.hasShippingMethod &&
+    taxDocumentReady &&
+    !isSubmitting;
+
+  // Removing the last item mid-checkout must not leave an unusable form
+  // with nothing to pay for — hand the shopper back to a clear, familiar
+  // empty state instead (same one the cart page/drawer already use).
+  if (cart.items.length === 0) {
+    return <EmptyCartState />;
+  }
 
   return (
     <>
@@ -413,7 +443,7 @@ export function CheckoutForm({
         </div>
 
         <div className="order-first lg:order-none">
-          <CheckoutOrderSummary cart={cart} />
+          <CheckoutOrderSummary cart={cart} onRemove={handleRemoveItem} pendingLineId={pendingLineId} />
         </div>
       </div>
 
