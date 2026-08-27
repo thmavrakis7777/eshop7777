@@ -40,22 +40,25 @@ import { trackInitiateCheckout } from "@/lib/analytics/track";
 
 function validateDetails(d: ContactAddressFields): ContactAddressErrors {
   const errors: ContactAddressErrors = {};
-  if (!isRequired(d.firstName)) errors.firstName = "Συμπλήρωσε αυτό το πεδίο.";
-  if (!isRequired(d.lastName)) errors.lastName = "Συμπλήρωσε αυτό το πεδίο.";
-  if (!isValidPhone(d.phone)) errors.phone = "Το τηλέφωνο δεν είναι έγκυρο.";
-  if (!isRequired(d.street)) errors.street = "Συμπλήρωσε αυτό το πεδίο.";
-  if (!isRequired(d.number)) errors.number = "Συμπλήρωσε αυτό το πεδίο.";
-  if (!isValidPostalCode(d.postalCode)) errors.postalCode = "Ο ταχυδρομικός κώδικας δεν είναι έγκυρος.";
-  if (!isRequired(d.city)) errors.city = "Συμπλήρωσε αυτό το πεδίο.";
+  if (!isRequired(d.firstName)) errors.firstName = "Παρακαλώ συμπληρώστε το πεδίο";
+  if (!isRequired(d.lastName)) errors.lastName = "Παρακαλώ συμπληρώστε το πεδίο";
+  if (!isRequired(d.phone)) errors.phone = "Παρακαλώ συμπληρώστε το πεδίο";
+  else if (!isValidPhone(d.phone)) errors.phone = "Το τηλέφωνο δεν είναι έγκυρο.";
+  if (!isRequired(d.street)) errors.street = "Παρακαλώ συμπληρώστε το πεδίο";
+  if (!isRequired(d.number)) errors.number = "Παρακαλώ συμπληρώστε το πεδίο";
+  if (!isRequired(d.postalCode)) errors.postalCode = "Παρακαλώ συμπληρώστε το πεδίο";
+  else if (!isValidPostalCode(d.postalCode)) errors.postalCode = "Ο ταχυδρομικός κώδικας δεν είναι έγκυρος.";
+  if (!isRequired(d.city)) errors.city = "Παρακαλώ συμπληρώστε το πεδίο";
   return errors;
 }
 
 function validateInvoiceFields(f: InvoiceFormFields): InvoiceFormErrors {
   const errors: InvoiceFormErrors = {};
-  if (!isRequired(f.companyName)) errors.companyName = "Συμπλήρωσε αυτό το πεδίο.";
-  if (!isValidAFM(f.afm)) errors.afm = "Το ΑΦΜ δεν είναι έγκυρο.";
-  if (!isRequired(f.doy)) errors.doy = "Συμπλήρωσε αυτό το πεδίο.";
-  if (!isRequired(f.activity)) errors.activity = "Συμπλήρωσε αυτό το πεδίο.";
+  if (!isRequired(f.companyName)) errors.companyName = "Παρακαλώ συμπληρώστε το πεδίο";
+  if (!isRequired(f.afm)) errors.afm = "Παρακαλώ συμπληρώστε το πεδίο";
+  else if (!isValidAFM(f.afm)) errors.afm = "Το ΑΦΜ δεν είναι έγκυρο.";
+  if (!isRequired(f.doy)) errors.doy = "Παρακαλώ συμπληρώστε το πεδίο";
+  if (!isRequired(f.activity)) errors.activity = "Παρακαλώ συμπληρώστε το πεδίο";
   return errors;
 }
 
@@ -135,6 +138,15 @@ export function CheckoutForm({
   // that's almost always the only one, so this preserves the previous
   // no-choice-needed behavior exactly while supporting a real second option.
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(paymentProviders[0]?.id ?? null);
+
+  // Set the first time "Ολοκλήρωση Παραγγελίας" is clicked while required
+  // fields are still missing/invalid — from then on, every section's error
+  // filter (below) reveals its errors regardless of per-field touched state,
+  // instead of only the fields the customer has actually blurred. Reusing
+  // the exact same validate* functions and touched-filter shape the blur
+  // flow already uses, just OR'd with this flag, rather than a second
+  // validation system.
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const [submitError, setSubmitError] = useState<string>();
   // Deliberately its own transition, separate from the background saves
@@ -235,8 +247,24 @@ export function CheckoutForm({
     await attemptDetailsSave();
   }
 
+  // emailError (set on blur, and the only place a server-side failure like
+  // "already in use" surfaces) always wins when present. Below sm the
+  // customer can reach Place Order without ever blurring email at all — this
+  // is what still catches "missing" or "invalid" once submitAttempted flips.
+  const visibleEmailError =
+    emailError ??
+    (submitAttempted
+      ? !isRequired(email)
+        ? "Παρακαλώ συμπληρώστε το πεδίο"
+        : !isValidEmail(email)
+          ? "Το email δεν είναι έγκυρο."
+          : undefined
+      : undefined);
+
   const visibleDetailsErrors: ContactAddressErrors = Object.fromEntries(
-    Object.entries(validateDetails(details)).filter(([field]) => touchedFields.has(field as keyof ContactAddressFields))
+    Object.entries(validateDetails(details)).filter(
+      ([field]) => submitAttempted || touchedFields.has(field as keyof ContactAddressFields)
+    )
   );
 
   function handleBillingToggle(checked: boolean) {
@@ -256,9 +284,14 @@ export function CheckoutForm({
     await attemptDetailsSave();
   }
 
+  // Only reveal-all when the billing section is actually the one in effect
+  // — otherwise submitAttempted would flag its (irrelevant, still-empty)
+  // fields the moment the customer checks the box later, despite them never
+  // being required in the first place while unchecked.
   const visibleBillingErrors: BillingAddressErrors = Object.fromEntries(
-    Object.entries(validateAddressFields(billingFields)).filter(([field]) =>
-      billingTouched.has(field as keyof BillingAddressFields)
+    Object.entries(validateAddressFields(billingFields)).filter(
+      ([field]) =>
+        (submitAttempted && billingDiffers) || billingTouched.has(field as keyof BillingAddressFields)
     )
   );
 
@@ -344,13 +377,76 @@ export function CheckoutForm({
     await saveTaxDocument({ type: "invoice", ...currentFields });
   }
 
+  // Same reasoning as visibleBillingErrors above: only reveal-all while
+  // Τιμολόγιο is actually selected.
   const visibleInvoiceErrors: InvoiceFormErrors = Object.fromEntries(
-    Object.entries(validateInvoiceFields(invoiceFields)).filter(([field]) =>
-      invoiceTouched.has(field as keyof InvoiceFormFields)
+    Object.entries(validateInvoiceFields(invoiceFields)).filter(
+      ([field]) =>
+        (submitAttempted && taxDocumentType === "invoice") || invoiceTouched.has(field as keyof InvoiceFormFields)
     )
   );
 
+  // DOM order of every required text field, section by section, so the
+  // first entry found invalid here is also the first one the customer would
+  // see scrolling down the page — used only to decide where to scroll/focus
+  // on a blocked submit, not a second source of truth for validity.
+  function findFirstInvalidFieldId(): string | null {
+    if (!isRequired(email) || !isValidEmail(email)) return "checkout-email";
+
+    const detailsErrors = validateDetails(details);
+    const detailsIds: [keyof ContactAddressFields, string][] = [
+      ["firstName", "checkout-first-name"],
+      ["lastName", "checkout-last-name"],
+      ["phone", "checkout-phone"],
+      ["street", "checkout-street"],
+      ["number", "checkout-number"],
+      ["postalCode", "checkout-postal-code"],
+      ["city", "checkout-city"],
+    ];
+    for (const [field, id] of detailsIds) {
+      if (detailsErrors[field]) return id;
+    }
+
+    if (billingDiffers) {
+      const billingErrors = validateAddressFields(billingFields);
+      const billingIds: ["street" | "number" | "postalCode" | "city", string][] = [
+        ["street", "billing-street"],
+        ["number", "billing-number"],
+        ["postalCode", "billing-postal-code"],
+        ["city", "billing-city"],
+      ];
+      for (const [field, id] of billingIds) {
+        if (billingErrors[field]) return id;
+      }
+    }
+
+    if (taxDocumentType === "invoice") {
+      const invoiceErrors = validateInvoiceFields(invoiceFields);
+      const invoiceIds: [keyof InvoiceFormFields, string][] = [
+        ["companyName", "invoice-company-name"],
+        ["afm", "invoice-afm"],
+        ["doy", "invoice-doy"],
+        ["activity", "invoice-activity"],
+      ];
+      for (const [field, id] of invoiceIds) {
+        if (invoiceErrors[field]) return id;
+      }
+    }
+
+    return null;
+  }
+
   function handleSubmit() {
+    if (!canSubmit) {
+      setSubmitAttempted(true);
+      const firstInvalidId = findFirstInvalidFieldId();
+      if (firstInvalidId) {
+        const el = document.getElementById(firstInvalidId);
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        el?.focus();
+      }
+      return;
+    }
     if (!selectedPaymentId) return;
     setSubmitError(undefined);
     startSubmitTransition(async () => {
@@ -382,20 +478,16 @@ export function CheckoutForm({
   }
 
   return (
-    <>
-      {/* pb-28 makes room at the bottom for the mobile fixed submit bar so
-          it never overlaps the payment section when scrolled all the way
-          down; irrelevant on lg+, where that bar doesn't render. */}
-      <div className="grid grid-cols-1 gap-10 pb-28 lg:grid-cols-[1fr_380px] lg:pb-0">
-        {/* DOM order stays [form, summary] — matching the desktop reading
-            order (left = form, right = summary) — and CSS `order` alone
-            moves the summary to the top on mobile, per
-            CHECKOUT_UX_SPEC.md §5 ("how much am I paying" answered before
-            any data entry starts). Reordering the DOM itself instead of
-            using `order` here would flip the desktop columns too — found
-            live while testing this exact mistake. */}
-        <div className="flex flex-col gap-8">
-          <EmailSection value={email} onChange={setEmail} onBlur={handleEmailBlur} error={emailError} saving={emailSaving} />
+    <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px]">
+      {/* DOM order stays [form, summary] — matching the desktop reading
+          order (left = form, right = summary) — and CSS `order` alone
+          moves the summary to the top on mobile, per
+          CHECKOUT_UX_SPEC.md §5 ("how much am I paying" answered before
+          any data entry starts). Reordering the DOM itself instead of
+          using `order` here would flip the desktop columns too — found
+          live while testing this exact mistake. */}
+      <div className="flex flex-col gap-8">
+          <EmailSection value={email} onChange={setEmail} onBlur={handleEmailBlur} error={visibleEmailError} saving={emailSaving} />
           <ContactSection
             values={details}
             errors={visibleDetailsErrors}
@@ -442,24 +534,24 @@ export function CheckoutForm({
             saving={taxSaving}
             afmLookupLoading={afmLookupLoading}
           />
-          <PaymentSection providers={paymentProviders} selectedId={selectedPaymentId} onSelect={setSelectedPaymentId} />
+        <PaymentSection providers={paymentProviders} selectedId={selectedPaymentId} onSelect={setSelectedPaymentId} />
 
-          <div className="hidden flex-col gap-3 border-t border-border pt-6 lg:flex">
-            <SubmitButton canSubmit={canSubmit} isPending={isSubmitting} total={cart.total} onSubmit={handleSubmit} error={submitError} />
-          </div>
-        </div>
-
-        <div className="order-first lg:order-none">
-          <CheckoutOrderSummary cart={cart} onRemove={handleRemoveItem} pendingLineId={pendingLineId} />
+        {/* Normal document flow on every breakpoint — not sticky/fixed. On
+            mobile this used to be a `fixed inset-x-0 bottom-0` bar, always
+            visible over the form from the moment checkout opened — exactly
+            what put it in front of the customer before they'd filled
+            anything in. Putting it here, last in the form column, means
+            it's only encountered after scrolling past every section — the
+            same place desktop has always shown it. */}
+        <div className="flex flex-col gap-3 border-t border-border pt-6">
+          <SubmitButton canSubmit={canSubmit} isPending={isSubmitting} total={cart.total} onSubmit={handleSubmit} error={submitError} />
         </div>
       </div>
 
-      {/* Mobile only: sticky to the bottom of the viewport, always
-          reachable without scrolling back down — CHECKOUT_UX_SPEC.md §5. */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 lg:hidden">
-        <SubmitButton canSubmit={canSubmit} isPending={isSubmitting} total={cart.total} onSubmit={handleSubmit} error={submitError} />
+      <div className="order-first lg:order-none">
+        <CheckoutOrderSummary cart={cart} onRemove={handleRemoveItem} pendingLineId={pendingLineId} />
       </div>
-    </>
+    </div>
   );
 }
 
@@ -495,11 +587,20 @@ function SubmitButton({
         </a>
         .
       </p>
+      {/* Only truly `disabled` while a submission is already in flight — a
+          native `disabled` button never dispatches `click` at all, which
+          would make it impossible to reveal inline field errors by clicking
+          this while required fields are still missing. `aria-disabled` +
+          the same dimmed styling communicates the not-ready state instead,
+          without blocking the click that's supposed to surface why. */}
       <button
         type="button"
         onClick={onSubmit}
-        disabled={!canSubmit}
-        className="w-full rounded-sm bg-ink px-6 py-4 text-center text-sm font-medium tracking-wide text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={isPending}
+        aria-disabled={!canSubmit}
+        className={`w-full rounded-sm bg-ink px-6 py-4 text-center text-sm font-medium tracking-wide text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 ${
+          !canSubmit && !isPending ? "cursor-not-allowed opacity-50" : ""
+        }`}
       >
         {isPending ? "Επεξεργασία…" : `ΟΛΟΚΛΗΡΩΣΗ ΠΑΡΑΓΓΕΛΙΑΣ · ${formatPrice(total)}`}
       </button>

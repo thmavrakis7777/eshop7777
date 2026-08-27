@@ -52,10 +52,11 @@ export function validateAddressFields<T extends { street: string; number: string
   fields: T
 ): Partial<Record<"street" | "number" | "postalCode" | "city", string>> {
   const errors: Partial<Record<"street" | "number" | "postalCode" | "city", string>> = {};
-  if (!fields.street.trim()) errors.street = "Συμπλήρωσε αυτό το πεδίο.";
-  if (!fields.number.trim()) errors.number = "Συμπλήρωσε αυτό το πεδίο.";
-  if (!/^\d{5}$/.test(fields.postalCode.trim())) errors.postalCode = "Ο ταχυδρομικός κώδικας δεν είναι έγκυρος.";
-  if (!fields.city.trim()) errors.city = "Συμπλήρωσε αυτό το πεδίο.";
+  if (!fields.street.trim()) errors.street = "Παρακαλώ συμπληρώστε το πεδίο";
+  if (!fields.number.trim()) errors.number = "Παρακαλώ συμπληρώστε το πεδίο";
+  if (!fields.postalCode.trim()) errors.postalCode = "Παρακαλώ συμπληρώστε το πεδίο";
+  else if (!/^\d{5}$/.test(fields.postalCode.trim())) errors.postalCode = "Ο ταχυδρομικός κώδικας δεν είναι έγκυρος.";
+  if (!fields.city.trim()) errors.city = "Παρακαλώ συμπληρώστε το πεδίο";
   return errors;
 }
 
