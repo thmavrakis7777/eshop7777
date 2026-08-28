@@ -6,6 +6,7 @@ import type { Crumb } from "@/components/category/Breadcrumbs";
 import { categoryPathHref, getCategoryPath } from "@/lib/data/categories";
 import { getCategoryFilterFacets, getProductsByCategoryHandle } from "@/lib/data/products";
 import { parseFilters, parsePage, parseSort } from "@/lib/search-params";
+import { siteUrl } from "@/lib/site-config";
 
 /**
  * Every category page, at every depth.
@@ -87,6 +88,7 @@ export async function CategoryRoute({
       source={{ type: "category", categoryHandle: category.handle }}
       facets={facets}
       filters={filters}
+      collectionUrl={page === 1 ? `${siteUrl}${basePath}` : undefined}
     />
   );
 }

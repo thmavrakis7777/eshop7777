@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
 import { CategoryChildNav, type ChildCategoryLink } from "@/components/category/CategoryChildNav";
 import { SortControl } from "@/components/category/SortControl";
@@ -8,6 +9,8 @@ import { renderBody } from "@/components/content/ContentPageView";
 import { InfiniteProductGrid, type ProductSource } from "@/components/category/InfiniteProductGrid";
 import type { Product } from "@/lib/types";
 import type { CategoryFacets, CategoryFilters, ProductSort } from "@/lib/data/products";
+import { safeJsonLd } from "@/lib/json-ld";
+import { siteUrl } from "@/lib/site-config";
 
 // Bumped from 12 to 24 alongside infinite scroll: fewer round-trips per
 // scroll session, still small/fast for the first paint. One shared value
@@ -17,7 +20,7 @@ const PAGE_SIZE = 24;
 
 export { PAGE_SIZE };
 
-export function CategoryPLPView({
+export async function CategoryPLPView({
   title,
   description,
   breadcrumbs,
@@ -36,6 +39,7 @@ export function CategoryPLPView({
   sortable = true,
   facets,
   filters,
+  collectionUrl,
 }: {
   title: string;
   description?: string;
@@ -83,9 +87,44 @@ export function CategoryPLPView({
   // (search, sale, featured, collections) — nothing filter-related renders.
   facets?: CategoryFacets;
   filters?: CategoryFilters;
+  /**
+   * Absolute URL of this listing, e.g. `${siteUrl}/kouzina/mageirika-skeyi`.
+   * Only passed for real category/subcategory pages (CategoryRoute) — search
+   * results, New Arrivals, Sale and Collections leave this undefined, so no
+   * CollectionPage schema is emitted for listing types that aren't a
+   * genuine, permanent taxonomy node. Renders `mainEntity.itemListElement`
+   * from whatever `products` this page actually shows (real handles/titles,
+   * correctly offset for pagination) — never invented, never a fake
+   * Product schema.
+   */
+  collectionUrl?: string;
 }) {
+  const nonce = collectionUrl ? ((await headers()).get("x-nonce") ?? undefined) : undefined;
+  const collectionJsonLd = collectionUrl
+    ? {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: title,
+        url: collectionUrl,
+        ...(description ? { description } : {}),
+        mainEntity: {
+          "@type": "ItemList",
+          numberOfItems: count,
+          itemListElement: products.map((p, i) => ({
+            "@type": "ListItem",
+            position: (page - 1) * PAGE_SIZE + i + 1,
+            url: `${siteUrl}/proionta/${p.handle}`,
+            name: p.title,
+          })),
+        },
+      }
+    : null;
+
   return (
     <>
+      {collectionJsonLd && (
+        <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: safeJsonLd(collectionJsonLd) }} />
+      )}
       <Breadcrumbs items={breadcrumbs} />
 
       <div className="container-shell mt-4">

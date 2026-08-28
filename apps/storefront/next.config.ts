@@ -38,6 +38,36 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // Category SEO taxonomy fix (see scratch/seo-taxonomy-*.sql): 3 main
+  // categories had slugs left over from a previous name (ΚΗΠΟΣ/ΥΓΡΑΕΡΙΟ/
+  // ΕΡΓΑΛΕΙΑ), and 8 legacy subcategories that were never part of the
+  // approved taxonomy were deleted outright rather than kept. These 301s
+  // point already-indexed URLs at the closest surviving page instead of
+  // breaking them: the 3 renamed-slug parents' remaining children first
+  // (before the parent's own catch-all, so Next.js's first-match-wins
+  // doesn't send a deleted child down the wrong path), then the deleted
+  // leaves that hung directly off ΚΟΥΖΙΝΑ/ΜΠΑΝΙΟ/ΚΗΠΟΣ (slugs unchanged,
+  // so only the deleted leaf itself needs a rule).
+  async redirects() {
+    return [
+      // Specific overrides MUST precede their catch-all counterpart below —
+      // Next.js uses first-match-wins, and these 2 children were deleted
+      // (not moved), so the general /eidi-spitiou/:path* rule would
+      // otherwise send them to a page that doesn't exist.
+      { source: "/eidi-spitiou/diakosmisi", destination: "/spiti-organosi", permanent: true },
+      { source: "/eidi-spitiou/yfasmata-spitiou", destination: "/spiti-organosi", permanent: true },
+      { source: "/eidi-spitiou", destination: "/ergaleia", permanent: true },
+      { source: "/eidi-spitiou/:path*", destination: "/ergaleia/:path*", permanent: true },
+      { source: "/katharismos/plysimo-siderosma", destination: "/spiti-organosi", permanent: true },
+      { source: "/katharismos/skoupes-ergaleia", destination: "/spiti-organosi", permanent: true },
+      { source: "/katharismos", destination: "/spiti-organosi", permanent: true },
+      { source: "/katharismos/:path*", destination: "/spiti-organosi/:path*", permanent: true },
+      { source: "/kipos/exoterikos-choros", destination: "/kipos", permanent: true },
+      { source: "/kouzina/axesouar-kouzinas", destination: "/kouzina", permanent: true },
+      { source: "/banio/axesouar-baniou", destination: "/banio", permanent: true },
+      { source: "/banio/petsetes-yfasmata", destination: "/banio", permanent: true },
+    ];
+  },
   images: { remotePatterns },
 };
 
