@@ -37,6 +37,12 @@ const getCachedCategoryPromos = unstable_cache(fetchEnabledCategoryPromos, ["cat
   tags: [CATEGORY_CACHE_TAG],
 });
 
+// Default text when a category has never had this row configured, or left
+// button_text blank — a plain, honest label rather than interpolating the
+// category name into a fixed phrase (the name is already the heading right
+// above this link in the drawer).
+const DEFAULT_VIEW_ALL_TEXT = "Δείτε όλα τα προϊόντα της κατηγορίας";
+
 type CategoryRow = {
   id: string;
   slug: string;
@@ -47,6 +53,9 @@ type CategoryRow = {
   page_type: string;
   image_path: string | null;
   faq: FaqItem[] | null;
+  view_all_enabled: boolean;
+  view_all_button_text: string | null;
+  view_all_position: string;
 };
 
 // The tree query additionally carries each category's subtree product count;
@@ -63,6 +72,11 @@ function toCategory(r: CategoryRow): Category {
     pageType: r.page_type === "landing" ? "landing" : "products",
     imagePath: r.image_path,
     faq: r.faq,
+    mobileViewAllButton: {
+      enabled: r.view_all_enabled,
+      text: r.view_all_button_text || DEFAULT_VIEW_ALL_TEXT,
+      position: r.view_all_position === "top" ? "top" : "bottom",
+    },
   };
 }
 
@@ -96,10 +110,14 @@ async function fetchAllCategories(): Promise<CategoryTreeRow[]> {
     )
     SELECT c.id, c.slug, c.name, c.description, c.sort_order,
            c.page_type, c.image_path, c.faq, p.slug AS parent_slug,
-           COALESCE(cnt.n, 0) AS product_count
+           COALESCE(cnt.n, 0) AS product_count,
+           COALESCE(vab.enabled, true) AS view_all_enabled,
+           vab.button_text AS view_all_button_text,
+           COALESCE(vab.position, 'bottom') AS view_all_position
       FROM shop.category c
       LEFT JOIN shop.category p ON p.id = c.parent_id
       LEFT JOIN counts cnt ON cnt.root_id = c.id
+      LEFT JOIN shop.category_view_all_button vab ON vab.category_id = c.id
      WHERE c.is_active
      ORDER BY c.sort_order, c.name COLLATE "el-GR-x-icu"`;
 }

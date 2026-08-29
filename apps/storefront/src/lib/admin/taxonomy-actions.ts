@@ -10,6 +10,7 @@ import {
   moveCategory,
   saveCategory,
   saveCategoryMegaMenuPromo,
+  saveCategoryViewAllButton,
   saveCollection,
 } from "@/lib/admin/taxonomy";
 import { adjustStock } from "@/lib/admin/products";
@@ -121,6 +122,16 @@ export async function saveCategoryAction(formData: FormData): Promise<ActionResu
         destinationType: destinationTypeRaw === "sale" ? "sale" : "all_products",
       });
     }
+
+    // Unlike the mega-menu promo, the mobile "view all" link applies at
+    // every depth (any category with children shows one in the drill-down),
+    // so this is saved unconditionally — no parentId gate.
+    const viewAllPositionRaw = formData.get("viewAllPosition");
+    await saveCategoryViewAllButton(savedId, {
+      enabled: formData.get("viewAllEnabled") === "on",
+      buttonText: text(formData.get("viewAllButtonText")),
+      position: viewAllPositionRaw === "top" ? "top" : "bottom",
+    });
 
     await auditLog(admin.id, id ? "category.update" : "category.create", "category", savedId, {
       name: parsed.data.name,

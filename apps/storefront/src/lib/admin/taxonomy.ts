@@ -52,6 +52,13 @@ export type AdminCategory = {
   megaMenuDescription: string | null;
   megaMenuButtonText: string | null;
   megaMenuDestinationType: "all_products" | "sale";
+  // Mobile drill-down menu's "view all products" link
+  // (shop.category_view_all_button) — unlike the mega-menu promo above,
+  // applies at every depth (any category with children shows this link),
+  // so it is not gated to depth === 0 anywhere.
+  viewAllEnabled: boolean;
+  viewAllButtonText: string | null;
+  viewAllPosition: "top" | "bottom";
 };
 
 /**
@@ -70,6 +77,7 @@ export async function listCategoryTree(): Promise<AdminCategory[]> {
       megamenu_enabled: boolean; megamenu_image_path: string | null;
       megamenu_title: string | null; megamenu_description: string | null;
       megamenu_button_text: string | null; megamenu_destination_type: string;
+      view_all_enabled: boolean; view_all_button_text: string | null; view_all_position: string;
     }[]
   >`
     WITH RECURSIVE tree AS (
@@ -93,9 +101,13 @@ export async function listCategoryTree(): Promise<AdminCategory[]> {
       cp.title AS megamenu_title,
       cp.description AS megamenu_description,
       cp.button_text AS megamenu_button_text,
-      COALESCE(cp.destination_type, 'all_products') AS megamenu_destination_type
+      COALESCE(cp.destination_type, 'all_products') AS megamenu_destination_type,
+      COALESCE(vab.enabled, true) AS view_all_enabled,
+      vab.button_text AS view_all_button_text,
+      COALESCE(vab.position, 'bottom') AS view_all_position
     FROM tree t
     LEFT JOIN shop.category_promo cp ON cp.category_id = t.id
+    LEFT JOIN shop.category_view_all_button vab ON vab.category_id = t.id
     ORDER BY t.path COLLATE "el-GR-x-icu"`;
 
   return rows.map((r) => ({
@@ -110,6 +122,9 @@ export async function listCategoryTree(): Promise<AdminCategory[]> {
     megaMenuDescription: r.megamenu_description,
     megaMenuButtonText: r.megamenu_button_text,
     megaMenuDestinationType: r.megamenu_destination_type === "sale" ? "sale" : "all_products",
+    viewAllEnabled: r.view_all_enabled,
+    viewAllButtonText: r.view_all_button_text,
+    viewAllPosition: r.view_all_position === "top" ? "top" : "bottom",
   }));
 }
 
@@ -147,6 +162,26 @@ export async function saveCategoryMegaMenuPromo(
       description = EXCLUDED.description,
       button_text = EXCLUDED.button_text,
       destination_type = EXCLUDED.destination_type,
+      updated_at = now()`;
+}
+
+/**
+ * Upserts the mobile drill-down menu's "view all products in this category"
+ * link config. Same upsert-not-delete pattern and same reasoning as
+ * saveCategoryMegaMenuPromo above, in its own table (0021) — a completely
+ * separate feature from the mega-menu promo, not a variant of it.
+ */
+export async function saveCategoryViewAllButton(
+  categoryId: string,
+  input: { enabled: boolean; buttonText: string | null; position: "top" | "bottom" }
+): Promise<void> {
+  await sql`
+    INSERT INTO shop.category_view_all_button (category_id, enabled, button_text, position, updated_at)
+    VALUES (${categoryId}, ${input.enabled}, ${input.buttonText}, ${input.position}, now())
+    ON CONFLICT (category_id) DO UPDATE SET
+      enabled = EXCLUDED.enabled,
+      button_text = EXCLUDED.button_text,
+      position = EXCLUDED.position,
       updated_at = now()`;
 }
 

@@ -268,6 +268,14 @@ function CategoryForm({
   const [megaMenuDestinationType, setMegaMenuDestinationType] = useState<"all_products" | "sale">(
     category?.megaMenuDestinationType ?? "all_products"
   );
+  // Unlike the mega-menu promo above, this applies at every depth — a
+  // subcategory's own drill-down level shows this same link — so it is
+  // never gated behind isMainCategory. Defaults match the DB's own
+  // COALESCE defaults (enabled true, bottom) for a category that has never
+  // had this row configured, so a brand-new category's form already shows
+  // the real out-of-the-box behavior rather than an unrelated blank state.
+  const [viewAllEnabled, setViewAllEnabled] = useState(category?.viewAllEnabled ?? true);
+  const [viewAllPosition, setViewAllPosition] = useState<"top" | "bottom">(category?.viewAllPosition ?? "bottom");
 
   // A category cannot be its own parent, nor a descendant's child. The
   // server enforces this too; excluding them here just avoids offering a
@@ -511,6 +519,62 @@ function CategoryForm({
           )}
         </div>
       )}
+
+      {/* Every category, any depth — not gated like the mega-menu promo
+          above. This is the drill-down link inside the mobile menu ("Δείτε
+          όλα τα προϊόντα της κατηγορίας"), and every category with
+          subcategories shows one at its own level, main category or not. */}
+      <div className="flex flex-col gap-4 rounded-md border border-border p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-ink">Κινητό μενού — κουμπί «Δείτε όλα»</p>
+            <p className="text-xs text-ink-muted">
+              Ο σύνδεσμος που εμφανίζεται στο μενού πλοήγησης του κινητού, μαζί με τις υποκατηγορίες αυτής
+              της κατηγορίας, και οδηγεί στη σελίδα με όλα τα προϊόντα της.
+            </p>
+          </div>
+          <label className="flex shrink-0 items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              name="viewAllEnabled"
+              checked={viewAllEnabled}
+              onChange={(e) => setViewAllEnabled(e.target.checked)}
+              className="h-4 w-4 accent-ink"
+            />
+            Ενεργό
+          </label>
+        </div>
+
+        {viewAllEnabled && (
+          <div className="flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:gap-6">
+            <div className="flex flex-1 flex-col gap-1.5">
+              <label className="text-sm font-medium text-ink">Κείμενο κουμπιού</label>
+              <input
+                name="viewAllButtonText"
+                defaultValue={category?.viewAllButtonText ?? ""}
+                // Must match DEFAULT_VIEW_ALL_TEXT in lib/data/categories.ts
+                // — shown as a placeholder (the real fallback), not typed
+                // into the field, so an admin who never touches this still
+                // gets it without a duplicate value stored in the row.
+                placeholder="Δείτε όλα τα προϊόντα της κατηγορίας"
+                className={field}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-ink">Θέση</label>
+              <select
+                name="viewAllPosition"
+                value={viewAllPosition}
+                onChange={(e) => setViewAllPosition(e.target.value as "top" | "bottom")}
+                className={field}
+              >
+                <option value="bottom">Κάτω — μετά τις υποκατηγορίες</option>
+                <option value="top">Πάνω — πριν τις υποκατηγορίες</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
 
       <label className="flex items-center gap-2 text-sm text-ink">
         <input type="checkbox" name="isActive" defaultChecked={category?.isActive ?? true} className="h-4 w-4 accent-ink" />

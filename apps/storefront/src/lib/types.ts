@@ -23,6 +23,14 @@ export type Category = {
   pageType?: "products" | "landing";
   imagePath?: string | null;
   faq?: FaqItem[] | null;
+  // Mobile drill-down menu's "view all products in this category" link
+  // (shop.category_view_all_button). Optional like the fields above —
+  // populated with real defaults already applied (see toCategory()) by
+  // every category fetched through fetchAllCategories(), omitted wherever
+  // a Category is constructed for a context that never reads it. Separate
+  // from NavCategory's `promo` (desktop mega-menu panel) on purpose —
+  // independent feature, independent table, never merged.
+  mobileViewAllButton?: { enabled: boolean; text: string; position: "top" | "bottom" };
 };
 
 export type ProductVariant = {

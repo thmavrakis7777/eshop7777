@@ -13,6 +13,13 @@ import { publicImageUrl } from "@/lib/storage/urls";
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Mirrors DEFAULT_VIEW_ALL_TEXT in lib/data/categories.ts — only used as a
+// last-resort fallback if a CategoryNode somehow arrives without
+// mobileViewAllButton populated (every real node from fetchAllCategories
+// always has it; this keeps the component correct even if a caller ever
+// hands it a hand-built CategoryNode that omits the optional field).
+const DEFAULT_VIEW_ALL_TEXT = "Δείτε όλα τα προϊόντα της κατηγορίας";
+
 // One shape for every tappable line in the drawer. py-4 puts a text-sm row at
 // 52px and the smaller text-xs back row at 48px — both comfortably past the
 // 44px one-handed target, on the narrowest phone the shop supports.
@@ -213,27 +220,57 @@ function MenuDrawer({
                   </Link>
                 )}
 
-                <nav className="flex flex-col" aria-label={current.name}>
-                  {/* The level's own page is a destination like any other, and
-                      without this row a category with children could only be
-                      passed through, never opened. */}
-                  <Link
-                    href={currentHref}
-                    className={`${ROW} border-b border-border text-sm font-medium text-accent`}
-                    onClick={onClose}
-                  >
-                    Δες τα όλα σε {current.name}
-                  </Link>
-                  {current.children.map((child) => (
-                    <CategoryRow
-                      key={child.handle}
-                      node={child}
-                      href={`${currentHref}/${child.handle}`}
-                      onDrill={drillInto}
-                      onClose={onClose}
-                    />
-                  ))}
-                </nav>
+                {(() => {
+                  // Dashboard-configurable (Category Management → "Κινητό
+                  // μενού"): enable/disable, button text, and top/bottom
+                  // position, per category, surviving renames since it's
+                  // keyed by the category's own id (shop.category_view_all_
+                  // button). Defaults (enabled, bottom, default text) match
+                  // what a category with no explicit row gets from the
+                  // database's own COALESCE, so this branch is only ever a
+                  // defensive fallback, not the real default path.
+                  const viewAll = current.mobileViewAllButton;
+                  const showViewAll = viewAll?.enabled ?? true;
+                  const viewAllText = viewAll?.text ?? DEFAULT_VIEW_ALL_TEXT;
+                  const viewAllOnTop = viewAll?.position === "top";
+
+                  // Conditionally rendered, not conditionally hidden — when
+                  // disabled this is simply absent from the tree, so no
+                  // empty row/gap survives (section 7 of the spec).
+                  const viewAllLink = showViewAll ? (
+                    <Link
+                      key="view-all"
+                      href={currentHref}
+                      className={`${ROW} border-b border-border text-sm font-medium text-accent last:border-0`}
+                      onClick={onClose}
+                    >
+                      {viewAllText}
+                    </Link>
+                  ) : null;
+
+                  return (
+                    <nav className="flex flex-col" aria-label={current.name}>
+                      {viewAllOnTop && viewAllLink}
+                      {current.children.map((child) => (
+                        <CategoryRow
+                          key={child.handle}
+                          node={child}
+                          href={`${currentHref}/${child.handle}`}
+                          onDrill={drillInto}
+                          onClose={onClose}
+                        />
+                      ))}
+                      {/* Default position — the last element in the
+                          scrollable flow, so reaching it is exactly the
+                          same "scroll the container to its real bottom"
+                          behavior already verified for the last
+                          subcategory. No fixed/sticky wrapper, no
+                          reserved height: it's a completely normal flex
+                          child like every CategoryRow above it. */}
+                      {!viewAllOnTop && viewAllLink}
+                    </nav>
+                  );
+                })()}
               </>
             ) : (
               <>
