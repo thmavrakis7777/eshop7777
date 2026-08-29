@@ -7,6 +7,7 @@ import { categoryPathHref } from "@/lib/data/categories";
 import { getSiteSettings } from "@/lib/data/site-settings";
 import { safeJsonLd } from "@/lib/json-ld";
 import { siteUrl } from "@/lib/site-config";
+import { publicImageUrl } from "@/lib/storage/urls";
 import type { Category, FaqItem } from "@/lib/types";
 
 /**
@@ -122,10 +123,13 @@ export async function CategoryLandingView({
       <div className="container-shell mt-4 max-w-3xl">
         <h1 className="font-display text-3xl text-ink md:text-4xl">{category.name}</h1>
 
-        {category.imagePath && (
+        {/* imagePath is a bucket-relative path, not a URL — resolving it
+            through publicImageUrl() is what makes an uploaded (as opposed to
+            pasted-external-URL) hero image actually render. */}
+        {publicImageUrl(category.imagePath) && (
           // eslint-disable-next-line @next/next/no-img-element -- admin-entered path/URL, not a known-dimension local asset worth next/image's config for a single optional hero.
           <img
-            src={category.imagePath}
+            src={publicImageUrl(category.imagePath)!}
             alt={`${category.name} στο ${storeName}`}
             className="mt-6 w-full rounded-lg object-cover"
           />

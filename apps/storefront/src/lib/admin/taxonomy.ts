@@ -42,6 +42,16 @@ export type AdminCategory = {
   pageType: "products" | "landing";
   imagePath: string | null;
   faq: FaqItem[] | null;
+  // Mega-menu promotional panel (shop.category_promo) — meaningful for
+  // top-level categories only (depth === 0), but read for every row so the
+  // edit form always shows whatever is already saved even if a category was
+  // re-parented after its promo was configured.
+  megaMenuEnabled: boolean;
+  megaMenuImagePath: string | null;
+  megaMenuTitle: string | null;
+  megaMenuDescription: string | null;
+  megaMenuButtonText: string | null;
+  megaMenuDestinationType: "all_products" | "sale";
 };
 
 /**
@@ -57,6 +67,9 @@ export async function listCategoryTree(): Promise<AdminCategory[]> {
       parent_id: string | null; sort_order: number; is_active: boolean;
       page_type: string; image_path: string | null; faq: FaqItem[] | null;
       depth: number; product_count: number; child_count: number;
+      megamenu_enabled: boolean; megamenu_image_path: string | null;
+      megamenu_title: string | null; megamenu_description: string | null;
+      megamenu_button_text: string | null; megamenu_destination_type: string;
     }[]
   >`
     WITH RECURSIVE tree AS (
@@ -74,8 +87,15 @@ export async function listCategoryTree(): Promise<AdminCategory[]> {
     )
     SELECT t.*,
       (SELECT COUNT(*) FROM shop.product p WHERE p.category_id = t.id)::int AS product_count,
-      (SELECT COUNT(*) FROM shop.category c2 WHERE c2.parent_id = t.id)::int AS child_count
+      (SELECT COUNT(*) FROM shop.category c2 WHERE c2.parent_id = t.id)::int AS child_count,
+      COALESCE(cp.enabled, false) AS megamenu_enabled,
+      cp.image_path AS megamenu_image_path,
+      cp.title AS megamenu_title,
+      cp.description AS megamenu_description,
+      cp.button_text AS megamenu_button_text,
+      COALESCE(cp.destination_type, 'all_products') AS megamenu_destination_type
     FROM tree t
+    LEFT JOIN shop.category_promo cp ON cp.category_id = t.id
     ORDER BY t.path COLLATE "el-GR-x-icu"`;
 
   return rows.map((r) => ({
@@ -84,7 +104,50 @@ export async function listCategoryTree(): Promise<AdminCategory[]> {
     pageType: r.page_type === "landing" ? "landing" : "products",
     imagePath: r.image_path, faq: r.faq,
     depth: r.depth, productCount: r.product_count, childCount: r.child_count,
+    megaMenuEnabled: r.megamenu_enabled,
+    megaMenuImagePath: r.megamenu_image_path,
+    megaMenuTitle: r.megamenu_title,
+    megaMenuDescription: r.megamenu_description,
+    megaMenuButtonText: r.megamenu_button_text,
+    megaMenuDestinationType: r.megamenu_destination_type === "sale" ? "sale" : "all_products",
   }));
+}
+
+/**
+ * Upserts the mega-menu promotional panel for one category. A real 1:1 table
+ * (see 0020_category_promo.sql) rather than an all-fields-required call
+ * through saveCategory() — that function's signature is the base category
+ * record, and adding six presentation-only fields to it would risk a caller
+ * clobbering them by omission. Called unconditionally with `enabled: false`
+ * clears/disables an existing panel without deleting the row, which is fine:
+ * a disabled row is indistinguishable from "no row" to every storefront
+ * reader (see fetchEnabledCategoryPromos in lib/data/categories.ts).
+ */
+export async function saveCategoryMegaMenuPromo(
+  categoryId: string,
+  input: {
+    enabled: boolean;
+    imagePath: string | null;
+    title: string | null;
+    description: string | null;
+    buttonText: string | null;
+    destinationType: "all_products" | "sale";
+  }
+): Promise<void> {
+  await sql`
+    INSERT INTO shop.category_promo
+      (category_id, enabled, image_path, title, description, button_text, destination_type, updated_at)
+    VALUES
+      (${categoryId}, ${input.enabled}, ${input.imagePath}, ${input.title}, ${input.description},
+       ${input.buttonText}, ${input.destinationType}, now())
+    ON CONFLICT (category_id) DO UPDATE SET
+      enabled = EXCLUDED.enabled,
+      image_path = EXCLUDED.image_path,
+      title = EXCLUDED.title,
+      description = EXCLUDED.description,
+      button_text = EXCLUDED.button_text,
+      destination_type = EXCLUDED.destination_type,
+      updated_at = now()`;
 }
 
 export async function saveCategory(input: {

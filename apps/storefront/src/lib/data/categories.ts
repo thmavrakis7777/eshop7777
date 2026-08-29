@@ -7,16 +7,35 @@ import type { Category, CategoryNode, FaqItem, NavCategory } from "@/lib/types";
 // Invalidated by category/collection admin saves (taxonomy-actions.ts).
 export const CATEGORY_CACHE_TAG = "categories";
 
-// Curated marketing copy for the mega menu's featured tile. Presentation
-// content, not catalog data — it has no database equivalent and belongs here
-// rather than in the category table. (Phase 10 moves this into the CMS so the
-// store owner can edit it; until then it stays exactly as it was.)
-const FEATURED_COPY: Record<string, NavCategory["featured"]> = {
-  kouzina: { title: "Το σετ μαγειρικής της σεζόν", ctaLabel: "Δες τη συλλογή", href: "/kouzina" },
-  "apothikefsi-organosi": { title: "Οργανώστε κάθε γωνιά του σπιτιού", ctaLabel: "Ανακάλυψε", href: "/apothikefsi-organosi" },
-  banio: { title: "Ένα μπάνιο σαν spa", ctaLabel: "Δες τη συλλογή", href: "/banio" },
-  kipos: { title: "Ο κήπος σου, αναζωογονημένος", ctaLabel: "Δες τη συλλογή", href: "/kipos" },
+type CategoryPromoRow = {
+  category_id: string;
+  image_path: string | null;
+  title: string | null;
+  description: string | null;
+  button_text: string | null;
+  destination_type: "all_products" | "sale";
 };
+
+// Only enabled panels — a disabled/never-configured category is meant to
+// read as "no promo" everywhere downstream, not as a promo with blank
+// fields. Cached the same way as the category rows themselves (60s,
+// invalidated by CATEGORY_CACHE_TAG) since a dashboard save touches both.
+//
+// Returns a plain array, not a Map: unstable_cache round-trips its return
+// value through JSON, which silently turns a Map into `{}` — confirmed live
+// (a real `next build` TypeError, `.get is not a function`) rather than
+// assumed. The Map is built after the cached call returns instead.
+async function fetchEnabledCategoryPromos(): Promise<CategoryPromoRow[]> {
+  return sql<CategoryPromoRow[]>`
+    SELECT category_id, image_path, title, description, button_text, destination_type
+      FROM shop.category_promo
+     WHERE enabled`;
+}
+
+const getCachedCategoryPromos = unstable_cache(fetchEnabledCategoryPromos, ["category-promos"], {
+  revalidate: 60,
+  tags: [CATEGORY_CACHE_TAG],
+});
 
 type CategoryRow = {
   id: string;
@@ -141,8 +160,22 @@ const getCategoryTree = cache(async (): Promise<CategoryNode[]> => {
 });
 
 export const getNavCategories = cache(async (): Promise<NavCategory[]> => {
-  const roots = await getCategoryTree();
-  return roots.map((root) => ({ ...root, featured: FEATURED_COPY[root.handle] }));
+  const [roots, promoRows] = await Promise.all([getCategoryTree(), getCachedCategoryPromos()]);
+  const promos = new Map(promoRows.map((r) => [r.category_id, r]));
+  return roots.map((root): NavCategory => {
+    const p = promos.get(root.id);
+    if (!p) return { ...root, promo: undefined };
+    return {
+      ...root,
+      promo: {
+        imagePath: p.image_path,
+        title: p.title,
+        description: p.description,
+        buttonText: p.button_text || "Δες τα προϊόντα",
+        href: p.destination_type === "sale" ? `${categoryPathHref([], root)}?sale=1` : categoryPathHref([], root),
+      },
+    };
+  });
 });
 
 /**

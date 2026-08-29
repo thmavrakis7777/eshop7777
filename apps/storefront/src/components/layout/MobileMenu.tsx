@@ -8,6 +8,7 @@ import type { NavItem } from "@/lib/data/navigation";
 import { ChevronRightIcon, CloseIcon, HeartIcon, UserIcon } from "@/components/ui/Icons";
 import { StoreLogo } from "./StoreLogo";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
+import { publicImageUrl } from "@/lib/storage/urls";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -66,6 +67,12 @@ function MenuDrawer({
 
   const depth = path.length;
   const current = path.at(-1);
+  // Only ever real at depth 1: `path[0]` is the exact NavCategory object
+  // Header.tsx's own top-level list holds (see the top-level branch below,
+  // `drillInto(category)`), so it's the only level with a `.promo` — a
+  // grandchild CategoryNode from `node.children` never carries one. Main-
+  // category-only by construction, matching the desktop mega menu.
+  const topLevelPromo = depth === 1 ? (current as NavCategory | undefined)?.promo : undefined;
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -171,6 +178,40 @@ function MenuDrawer({
                       the only thing naming the level. */}
                   <h2 className="-mt-1 px-4 pb-4 font-display text-lg break-words text-ink">{current.name}</h2>
                 </div>
+
+                {/* Compact by design (spec: "do not blindly force the same
+                    large promotional panel into the mobile menu") — one
+                    row, not the desktop panel's full image tile, so it
+                    can't push the last subcategory further down a screen
+                    that's already tight. Lives in the same scrollable flow
+                    as everything below it; it never claims a fixed height
+                    or its own scroll container, so it can't be the thing
+                    that breaks reaching the final subcategory. */}
+                {topLevelPromo && (
+                  <Link
+                    href={topLevelPromo.href}
+                    onClick={onClose}
+                    className={`${ROW} gap-3 border-b border-border`}
+                  >
+                    {(() => {
+                      const imageUrl = publicImageUrl(topLevelPromo.imagePath);
+                      return imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- fixed 48x48 thumbnail in a flex row, not worth next/image's config for this size.
+                        <img
+                          src={imageUrl}
+                          alt=""
+                          className="h-12 w-12 shrink-0 rounded-sm bg-surface object-cover"
+                        />
+                      ) : null;
+                    })()}
+                    <span className="min-w-0 flex-1">
+                      {topLevelPromo.title && (
+                        <span className="block truncate text-sm font-medium text-ink">{topLevelPromo.title}</span>
+                      )}
+                      <span className="text-xs font-medium text-accent">{topLevelPromo.buttonText}</span>
+                    </span>
+                  </Link>
+                )}
 
                 <nav className="flex flex-col" aria-label={current.name}>
                   {/* The level's own page is a destination like any other, and

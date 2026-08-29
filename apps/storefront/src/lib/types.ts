@@ -103,7 +103,15 @@ export type CategoryNode = Category & {
 };
 
 export type NavCategory = CategoryNode & {
-  featured?: { title: string; ctaLabel: string; href: string };
+  // Dashboard-managed mega-menu promotional tile — undefined when the
+  // category has no enabled promo configured (shop.category_promo).
+  promo?: {
+    imagePath: string | null;
+    title: string | null;
+    description: string | null;
+    buttonText: string;
+    href: string;
+  };
 };
 
 export type CartLineItem = {

@@ -9,6 +9,7 @@ import {
   deleteCollection,
   moveCategory,
   saveCategory,
+  saveCategoryMegaMenuPromo,
   saveCollection,
 } from "@/lib/admin/taxonomy";
 import { adjustStock } from "@/lib/admin/products";
@@ -89,19 +90,38 @@ export async function saveCategoryAction(formData: FormData): Promise<ActionResu
   const pageType = pageTypeRaw === "landing" ? "landing" : "products";
 
   const id = text(formData.get("id")) ?? undefined;
+  const parentId = text(formData.get("parentId"));
   try {
     const savedId = await saveCategory({
       id,
       name: parsed.data.name,
       slug: parsed.data.slug,
       description: text(formData.get("description")),
-      parentId: text(formData.get("parentId")),
+      parentId,
       sortOrder: Number(formData.get("sortOrder") ?? 0) || 0,
       isActive: formData.get("isActive") === "on",
       pageType,
       imagePath: text(formData.get("imagePath")),
       faq: parseFaq(formData),
     });
+
+    // Mega-menu promo is main-category-only (section 11 of the spec) — the
+    // form only ever shows/submits these fields for a top-level category,
+    // but the server re-derives "is this top-level" from parentId itself
+    // rather than trusting a client-side decision, so a manipulated request
+    // can't attach a promo panel to a subcategory the mega menu never reads.
+    if (!parentId) {
+      const destinationTypeRaw = formData.get("megaMenuDestinationType");
+      await saveCategoryMegaMenuPromo(savedId, {
+        enabled: formData.get("megaMenuEnabled") === "on",
+        imagePath: text(formData.get("megaMenuImagePath")),
+        title: text(formData.get("megaMenuTitle")),
+        description: text(formData.get("megaMenuDescription")),
+        buttonText: text(formData.get("megaMenuButtonText")),
+        destinationType: destinationTypeRaw === "sale" ? "sale" : "all_products",
+      });
+    }
+
     await auditLog(admin.id, id ? "category.update" : "category.create", "category", savedId, {
       name: parsed.data.name,
     });

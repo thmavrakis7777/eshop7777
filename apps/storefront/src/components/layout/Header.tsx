@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { Money, NavCategory } from "@/lib/types";
 import type { NavItem } from "@/lib/data/navigation";
 import { formatPrice } from "@/lib/format";
+import { publicImageUrl } from "@/lib/storage/urls";
 import {
   CartIcon,
   ChevronDownIcon,
@@ -284,18 +286,56 @@ export function Header({
                   Όλα τα προϊόντα →
                 </Link>
               </div>
-              {activeMegaMenu.featured && (
-                <Link
-                  href={activeMegaMenu.featured.href}
-                  className="group flex flex-col justify-end rounded-md bg-surface p-4"
-                  onClick={() => setOpenMenu(null)}
-                >
-                  <span className="text-sm font-medium text-ink">{activeMegaMenu.featured.title}</span>
-                  <span className="mt-1 text-xs text-accent group-hover:underline">
-                    {activeMegaMenu.featured.ctaLabel}
-                  </span>
-                </Link>
-              )}
+              {activeMegaMenu.promo && (() => {
+                const promo = activeMegaMenu.promo;
+                const imageUrl = publicImageUrl(promo.imagePath);
+                return (
+                  <Link
+                    href={promo.href}
+                    className="group relative flex min-h-48 flex-col justify-end overflow-hidden rounded-md bg-surface p-4"
+                    onClick={() => setOpenMenu(null)}
+                  >
+                    {imageUrl && (
+                      <Image
+                        src={imageUrl}
+                        // Decorative — the visible title/button text below
+                        // already say what this links to; a second
+                        // description of the same image would be noise for
+                        // a screen reader, not help.
+                        alt=""
+                        fill
+                        sizes="(min-width: 1024px) 22vw, 0px"
+                        className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+                      />
+                    )}
+                    {/* Gradient only when there's a photo behind the text —
+                        the flat bg-surface fallback is already legible on
+                        its own and doesn't need darkening. */}
+                    {imageUrl && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/10 to-transparent" aria-hidden="true" />
+                    )}
+                    <div className="relative z-10">
+                      {promo.title && (
+                        <span className={`block text-sm font-medium ${imageUrl ? "text-white" : "text-ink"}`}>
+                          {promo.title}
+                        </span>
+                      )}
+                      {promo.description && (
+                        <span className={`mt-1 block text-xs ${imageUrl ? "text-white/80" : "text-ink-muted"}`}>
+                          {promo.description}
+                        </span>
+                      )}
+                      <span
+                        className={`mt-2 inline-block text-xs font-medium group-hover:underline ${
+                          imageUrl ? "text-white" : "text-accent"
+                        }`}
+                      >
+                        {promo.buttonText}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })()}
             </div>
           </div>
         )}

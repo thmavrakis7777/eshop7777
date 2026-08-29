@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRightIcon } from "@/components/ui/Icons";
 import type { CategoryNode } from "@/lib/types";
+import { publicImageUrl } from "@/lib/storage/urls";
 
 export type ChildCategoryLink = {
   name: string;
@@ -102,11 +103,15 @@ export function CategoryChildNav({
  * deliberate rather than broken.
  */
 function CategoryThumb({ name, imagePath }: { name: string; imagePath?: string | null }) {
-  if (imagePath) {
+  // imagePath is a bucket-relative path, not a URL (see lib/storage/urls) —
+  // rendering it straight into src 404s for every uploaded image and only
+  // ever worked by accident for a pasted external http(s) URL.
+  const imageUrl = publicImageUrl(imagePath);
+  if (imageUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- admin-entered path or remote URL, not a known-dimension local asset; same call as CategoryLandingView's hero.
       <img
-        src={imagePath}
+        src={imageUrl}
         alt=""
         className="hidden aspect-[4/3] w-full bg-surface object-cover sm:block"
       />

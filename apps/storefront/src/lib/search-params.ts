@@ -4,7 +4,7 @@ const VALID_SORTS: ProductSort[] = ["newest", "title-asc", "price-asc", "price-d
 
 // The full set of URL param keys a category filter can occupy — used both to
 // detect "is any filter active" (for the noindex decision) and to parse them.
-const FILTER_PARAM_KEYS = ["price_min", "price_max", "in_stock", "material", "origin"] as const;
+const FILTER_PARAM_KEYS = ["price_min", "price_max", "in_stock", "material", "origin", "sale"] as const;
 
 type RawSearchParams = Record<string, string | string[] | undefined>;
 
@@ -50,6 +50,11 @@ export function parseFilters(searchParams: RawSearchParams, facets: CategoryFace
   const origins = toArray(searchParams.origin).filter((o) => originCodes.has(o));
   if (origins.length > 0) filters.origin = origins;
 
+  // Not facet-gated like material/origin — "on sale" isn't a value drawn
+  // from this category's product data, it's a fixed predicate (see
+  // SALE_PREDICATE) that's always a valid thing to ask for.
+  if (firstOf(searchParams.sale) === "1") filters.saleOnly = true;
+
   return filters;
 }
 
@@ -59,6 +64,7 @@ export function countActiveFilters(filters: CategoryFilters): number {
   if (filters.inStockOnly) n++;
   if (filters.material && filters.material.length > 0) n++;
   if (filters.origin && filters.origin.length > 0) n++;
+  if (filters.saleOnly) n++;
   return n;
 }
 
@@ -71,6 +77,7 @@ export function filtersToSearchEntries(filters: CategoryFilters): Array<[string,
   if (filters.inStockOnly) entries.push(["in_stock", "1"]);
   for (const m of filters.material ?? []) entries.push(["material", m]);
   for (const o of filters.origin ?? []) entries.push(["origin", o]);
+  if (filters.saleOnly) entries.push(["sale", "1"]);
   return entries;
 }
 

@@ -256,6 +256,18 @@ function CategoryForm({
   const derivedSlug = slugTouched ? slug : slugFromName(name);
   const [pageType, setPageType] = useState<"products" | "landing">(category?.pageType ?? "products");
   const faq = category?.faq ?? [];
+  // Drives whether the mega-menu promotion section shows at all — it only
+  // ever applies to a top-level category (no parent), matching the mega
+  // menu itself, which only ever opens for a category with a parentId of
+  // null. Tracked live (not just category?.parentId) so picking a parent
+  // for a brand-new category hides the section before the first save,
+  // rather than only after a reload.
+  const [parentId, setParentId] = useState(category?.parentId ?? "");
+  const isMainCategory = parentId === "";
+  const [megaMenuEnabled, setMegaMenuEnabled] = useState(category?.megaMenuEnabled ?? false);
+  const [megaMenuDestinationType, setMegaMenuDestinationType] = useState<"all_products" | "sale">(
+    category?.megaMenuDestinationType ?? "all_products"
+  );
 
   // A category cannot be its own parent, nor a descendant's child. The
   // server enforces this too; excluding them here just avoids offering a
@@ -312,7 +324,7 @@ function CategoryForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-ink">Γονική κατηγορία</label>
-          <select name="parentId" defaultValue={category?.parentId ?? ""} className={field}>
+          <select name="parentId" value={parentId} onChange={(e) => setParentId(e.target.value)} className={field}>
             <option value="">— Καμία (κύρια κατηγορία) —</option>
             {parentOptions.map((c) => (
               <option key={c.id} value={c.id}>
@@ -394,6 +406,109 @@ function CategoryForm({
               <textarea name={`faqAnswer${i}`} rows={2} defaultValue={faq[i - 1]?.answer ?? ""} className={field} />
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Main categories only (section 11 of the spec) — this is the panel
+          the desktop mega menu shows beside a category's subcategories, and
+          the mega menu itself never opens for anything but a top-level
+          category. Server-side, saveCategoryAction re-derives the same
+          "no parent" condition from parentId rather than trusting this
+          client-side gate. */}
+      {isMainCategory && (
+        <div className="flex flex-col gap-4 rounded-md border border-border p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-ink">Προβολή στο mega menu</p>
+              <p className="text-xs text-ink-muted">
+                Η δεξιά προωθητική στήλη που εμφανίζεται όταν κάποιος ανοίγει αυτή την κατηγορία στην κύρια
+                πλοήγηση (desktop) — και μια πιο συμπαγής εκδοχή στο κινητό μενού.
+              </p>
+            </div>
+            <label className="flex shrink-0 items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                name="megaMenuEnabled"
+                checked={megaMenuEnabled}
+                onChange={(e) => setMegaMenuEnabled(e.target.checked)}
+                className="h-4 w-4 accent-ink"
+              />
+              Ενεργό
+            </label>
+          </div>
+
+          {megaMenuEnabled && (
+            <div className="flex flex-col gap-4 border-t border-border pt-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-ink">Εικόνα προβολής</label>
+                <ImageUploadField
+                  name="megaMenuImagePath"
+                  defaultValue={category?.megaMenuImagePath}
+                  folder="categories"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-ink">Τίτλος</label>
+                <input
+                  name="megaMenuTitle"
+                  defaultValue={category?.megaMenuTitle ?? ""}
+                  placeholder="π.χ. Ανακάλυψε τα νέα είδη κουζίνας"
+                  className={field}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-ink">Περιγραφή (προαιρετικό)</label>
+                <textarea
+                  name="megaMenuDescription"
+                  rows={2}
+                  defaultValue={category?.megaMenuDescription ?? ""}
+                  className={field}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-ink">Κείμενο κουμπιού</label>
+                <input
+                  name="megaMenuButtonText"
+                  defaultValue={category?.megaMenuButtonText ?? ""}
+                  placeholder="π.χ. ΔΕΣ ΤΑ ΠΡΟΪΟΝΤΑ"
+                  className={field}
+                />
+              </div>
+
+              <fieldset className="flex flex-col gap-2">
+                <legend className="text-sm font-medium text-ink">Προορισμός κουμπιού</legend>
+                <label className="flex items-center gap-2 text-sm text-ink">
+                  <input
+                    type="radio"
+                    name="megaMenuDestinationType"
+                    value="all_products"
+                    checked={megaMenuDestinationType === "all_products"}
+                    onChange={() => setMegaMenuDestinationType("all_products")}
+                    className="h-4 w-4 accent-ink"
+                  />
+                  Όλα τα προϊόντα αυτής της κατηγορίας
+                </label>
+                <label className="flex items-center gap-2 text-sm text-ink">
+                  <input
+                    type="radio"
+                    name="megaMenuDestinationType"
+                    value="sale"
+                    checked={megaMenuDestinationType === "sale"}
+                    onChange={() => setMegaMenuDestinationType("sale")}
+                    className="h-4 w-4 accent-ink"
+                  />
+                  Προϊόντα σε προσφορά αυτής της κατηγορίας
+                </label>
+                <p className="text-xs text-ink-muted">
+                  Η δεύτερη επιλογή δείχνει πάντα τα πραγματικά προϊόντα σε έκπτωση αυτή τη στιγμή — τίποτα
+                  να ενημερώνεις χειροκίνητα όταν αλλάζουν οι προσφορές.
+                </p>
+              </fieldset>
+            </div>
+          )}
         </div>
       )}
 

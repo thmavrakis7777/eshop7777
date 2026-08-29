@@ -217,6 +217,12 @@ export type CategoryFilters = {
   inStockOnly?: boolean;
   material?: string[];
   origin?: string[];
+  // Reuses SALE_PREDICATE — the same "on sale" definition getSaleProductsPaged
+  // (/prosfores) uses site-wide — scoped to one category via the same
+  // whereFilters() pipeline every other facet already goes through. Powers
+  // the mega-menu promo's "discounted products in this category" CTA
+  // (?sale=1) without a second, category-scoped definition of "on sale."
+  saleOnly?: boolean;
 };
 
 // What's actually worth offering as a filter for one category (+ its
@@ -255,6 +261,7 @@ function whereFilters(f: CategoryFilters | undefined) {
     ${filters.origin && filters.origin.length > 0
       ? sql`AND p.origin_country = ANY(${filters.origin})`
       : sql``}
+    ${filters.saleOnly ? sql`AND ${SALE_PREDICATE}` : sql``}
   `;
 }
 
