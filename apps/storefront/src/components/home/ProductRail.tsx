@@ -53,7 +53,7 @@ export function ProductRail({
   if (products.length === 0) return null;
 
   return (
-    <section className="container-shell mt-16 md:mt-24">
+    <section className="w-full container-shell mt-16 md:mt-24">
       <div className="flex items-end justify-between">
         <h2 className="text-2xl text-ink md:text-3xl">{title}</h2>
         {viewAllHref && (
