@@ -145,6 +145,38 @@ type GeminiResponse = {
   candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
 };
 
+/**
+ * Server-side-only diagnostic logging for a failed Gemini call. Deliberately
+ * the only thing this change does — no prompt, model, endpoint, rate-limit,
+ * or save-path logic is touched. Without this, a failure's real cause (HTTP
+ * status, Gemini's own error body, or the actual network error) was
+ * discarded the moment it was wrapped into the generic AIProviderError the
+ * UI shows — confirmed live: a real production failure produced zero
+ * matching entries in Vercel's runtime logs at any level, because nothing
+ * here ever called console.error. This exact gap already cost one prior
+ * debugging pass (see git history: temporary console.log added, root-caused
+ * as model retirement, then removed) — this is the permanent version of
+ * that, not a one-off.
+ *
+ * Never logs: the API key, request headers, cookies, or any prompt/product/
+ * category content (title, description, admin notes) — only operational
+ * metadata plus Gemini's own response, truncated.
+ */
+function logGeminiFailure(details: {
+  kind: "network" | "http_error";
+  model: string;
+  requestType: string;
+  status?: number;
+  errorBody?: string;
+  errorName?: string;
+  errorMessage?: string;
+}) {
+  console.error("[gemini] request failed", {
+    timestamp: new Date().toISOString(),
+    ...details,
+  });
+}
+
 export class GeminiProvider implements AIProvider {
   async generateSeoContent(input: SeoGenerationInput, fields: SeoField[] = ALL_FIELDS): Promise<SeoGenerationResult> {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -152,6 +184,9 @@ export class GeminiProvider implements AIProvider {
 
     const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
     const subject = input.subjectType ?? "product";
+    // "category:description,seoTitle,metaDescription" / "product:description,seoTitle,...,imageAlt" —
+    // which surface called this and which fields it asked for, nothing else.
+    const requestType = `${subject}:${fields.join(",")}`;
     const prompt = buildUserPrompt(input, fields);
 
     const endpoint = `${API_BASE}/${model}:generateContent`;
@@ -172,11 +207,25 @@ export class GeminiProvider implements AIProvider {
         }),
       });
     } catch (err) {
+      logGeminiFailure({
+        kind: "network",
+        model,
+        requestType,
+        errorName: err instanceof Error ? err.name : typeof err,
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
       throw new AIProviderError(`Gemini request failed: ${String(err)}`, "request_failed");
     }
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
+      logGeminiFailure({
+        kind: "http_error",
+        model,
+        requestType,
+        status: res.status,
+        errorBody: body.slice(0, 500),
+      });
       throw new AIProviderError(`Gemini returned ${res.status}: ${body.slice(0, 300)}`, "request_failed");
     }
 
