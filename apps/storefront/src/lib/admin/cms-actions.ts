@@ -4,6 +4,8 @@ import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin, requireOwner, auditLog } from "@/lib/admin/auth";
 import { isValidEmail } from "@/lib/checkout-validation";
 import { CACHE_TAGS } from "@/lib/db/content";
+import { CATEGORY_CACHE_TAG } from "@/lib/data/categories";
+import { updateCategoryDescription } from "@/lib/admin/taxonomy";
 import {
   deleteHomepageBlock,
   duplicateHomepageBlock,
@@ -549,13 +551,26 @@ export async function saveHomepageSeoAction(formData: FormData): Promise<ActionR
   return { ok: true, message: "Το SEO της αρχικής αποθηκεύτηκε." };
 }
 
+/**
+ * The manual SEO-GEO editor for a category — full control over every field,
+ * whether it was hand-typed here or written earlier by the "SEO-GEO" AI
+ * button (lib/admin/ai-category-seo-actions.ts). Both write the exact same
+ * shop.category.description / shop.seo_meta columns, so nothing saved by
+ * one is locked from the other; this is the one place all of them (and the
+ * social/keywords fields AI never touches) are editable together, and it
+ * works with zero AI involvement.
+ */
 export async function saveCategorySeoAction(categoryId: string, formData: FormData): Promise<ActionResult> {
   const admin = await guard();
   if (!admin) return EXPIRED;
   try {
+    await updateCategoryDescription(categoryId, text(formData.get("description")));
     await saveCategorySeo(categoryId, {
       seoTitle: text(formData.get("seoTitle")),
       metaDescription: text(formData.get("metaDescription")),
+      keywords: text(formData.get("keywords")),
+      ogTitle: text(formData.get("ogTitle")),
+      ogDescription: text(formData.get("ogDescription")),
       robots: formData.get("robots") === "noindex" ? "noindex" : "index",
     });
     await auditLog(admin.id, "seo.category.update", "seo_meta", categoryId);
@@ -564,6 +579,8 @@ export async function saveCategorySeoAction(categoryId: string, formData: FormDa
   }
 
   updateTag(CACHE_TAGS.seo);
+  updateTag(CATEGORY_CACHE_TAG);
+  revalidatePath("/admin/categories");
   revalidatePath("/admin/content/seo");
   revalidatePath("/", "layout");
   return { ok: true, message: "Το SEO της κατηγορίας αποθηκεύτηκε." };

@@ -157,7 +157,7 @@ export async function saveCategory(input: {
  * field and would risk clobbering name/slug/parent/etc. if any of those were
  * ever wired up wrong on the caller's side.
  */
-export async function updateCategoryDescription(id: string, description: string): Promise<void> {
+export async function updateCategoryDescription(id: string, description: string | null): Promise<void> {
   await sql`UPDATE shop.category SET description = ${description}, updated_at = now() WHERE id = ${id}`;
 }
 

@@ -3,8 +3,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin, auditLog } from "@/lib/admin/auth";
 import { checkRateLimit, rateLimitKey } from "@/lib/auth/session";
-import { listCategorySeo, saveCategorySeo } from "@/lib/admin/cms";
-import type { AdminSeoRow } from "@/lib/admin/cms";
+import { listCategorySeo, getCategorySeoState, saveCategorySeo } from "@/lib/admin/cms";
 import { updateCategoryDescription } from "@/lib/admin/taxonomy";
 import { CATEGORY_CACHE_TAG } from "@/lib/data/categories";
 import { CACHE_TAGS } from "@/lib/db/content";
@@ -175,20 +174,28 @@ export async function saveCategoryAiSeoContentAction(
     if (!check.ok) return { ok: false, error: check.error };
   }
 
-  const rows = await listCategorySeo();
-  const current: AdminSeoRow | undefined = rows.find((r) => r.resourceId === categoryId);
-  if (!current) return { ok: false, error: "Δεν βρέθηκε η κατηγορία." };
-
+  // Everything that can fail — including the lookup — lives inside this one
+  // try/catch, so a transient DB hiccup here surfaces as a real error
+  // instead of silently skipping the write (the actual bug this fixed:
+  // this lookup used to run un-guarded via the much heavier
+  // listCategorySeo(), before the try/catch even started).
   try {
+    const current = await getCategorySeoState(categoryId);
+    if (!current) return { ok: false, error: "Δεν βρέθηκε η κατηγορία." };
+
     if (fields.description !== undefined) {
       await updateCategoryDescription(categoryId, fields.description);
     }
     if (fields.seoTitle !== undefined || fields.metaDescription !== undefined) {
-      // Never touches robots — that stays whatever the manual "Επεξεργασία"
-      // form last set it to; AI generation has no opinion on indexing.
+      // Never touches robots, keywords, or the social/Open Graph fields —
+      // those stay whatever the manual editor last set them to; AI
+      // generation only ever covers description/seoTitle/metaDescription.
       await saveCategorySeo(categoryId, {
         seoTitle: fields.seoTitle ?? current.seoTitle,
         metaDescription: fields.metaDescription ?? current.metaDescription,
+        keywords: current.keywords,
+        ogTitle: current.ogTitle,
+        ogDescription: current.ogDescription,
         robots: current.robots,
       });
     }

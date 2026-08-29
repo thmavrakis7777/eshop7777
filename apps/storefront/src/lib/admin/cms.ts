@@ -596,6 +596,9 @@ export type AdminSeoRow = {
   isActive: boolean;
   seoTitle: string | null;
   metaDescription: string | null;
+  keywords: string | null;
+  ogTitle: string | null;
+  ogDescription: string | null;
   robots: "index" | "noindex";
 };
 
@@ -664,8 +667,12 @@ export async function listCategorySeo(): Promise<AdminSeoRow[]> {
   const [tree, seoRows] = await Promise.all([
     listCategoryTree(),
     sql<
-      { resource_id: string; seo_title: string | null; meta_description: string | null; robots: "index" | "noindex" | null }[]
-    >`SELECT resource_id, seo_title, meta_description, robots
+      {
+        resource_id: string; seo_title: string | null; meta_description: string | null;
+        keywords: string | null; og_title: string | null; og_description: string | null;
+        robots: "index" | "noindex" | null;
+      }[]
+    >`SELECT resource_id, seo_title, meta_description, keywords, og_title, og_description, robots
         FROM shop.seo_meta WHERE resource_type = 'category'`,
   ]);
   const seoById = new Map(seoRows.map((r) => [r.resource_id, r]));
@@ -683,16 +690,68 @@ export async function listCategorySeo(): Promise<AdminSeoRow[]> {
       isActive: c.isActive,
       seoTitle: seo?.seo_title ?? null,
       metaDescription: seo?.meta_description ?? null,
+      keywords: seo?.keywords ?? null,
+      ogTitle: seo?.og_title ?? null,
+      ogDescription: seo?.og_description ?? null,
       robots: seo?.robots ?? "index",
     };
   });
 }
 
+/**
+ * One category's current SEO override, if any — for callers (the AI SEO-GEO
+ * save action, and the manual editor's own preserve-what-isn't-being-changed
+ * logic) that need a merge base without the whole tree. Deliberately not
+ * `listCategorySeo()` filtered down: that rebuilds all 157 categories via
+ * `listCategoryTree()`'s recursive CTE (with a per-row product/child count
+ * subquery) just to read one row — real, avoidable load on a save path, and
+ * a real reliability risk (a single unrelated failure there was silently
+ * dropping the whole save before this existed — see
+ * ai-category-seo-actions.ts).
+ */
+export async function getCategorySeoState(categoryId: string): Promise<{
+  seoTitle: string | null;
+  metaDescription: string | null;
+  keywords: string | null;
+  ogTitle: string | null;
+  ogDescription: string | null;
+  robots: "index" | "noindex";
+} | null> {
+  const rows = await sql<
+    {
+      seo_title: string | null; meta_description: string | null; keywords: string | null;
+      og_title: string | null; og_description: string | null; robots: "index" | "noindex" | null;
+    }[]
+  >`SELECT s.seo_title, s.meta_description, s.keywords, s.og_title, s.og_description, s.robots
+      FROM shop.category c
+      LEFT JOIN shop.seo_meta s ON s.resource_type = 'category' AND s.resource_id = c.id::text
+     WHERE c.id = ${categoryId}`;
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    seoTitle: r.seo_title,
+    metaDescription: r.meta_description,
+    keywords: r.keywords,
+    ogTitle: r.og_title,
+    ogDescription: r.og_description,
+    robots: r.robots ?? "index",
+  };
+}
+
 export async function saveCategorySeo(
   categoryId: string,
-  input: { seoTitle: string | null; metaDescription: string | null; robots: "index" | "noindex" }
+  input: {
+    seoTitle: string | null;
+    metaDescription: string | null;
+    keywords: string | null;
+    ogTitle: string | null;
+    ogDescription: string | null;
+    robots: "index" | "noindex";
+  }
 ): Promise<void> {
-  const hasContent = input.seoTitle || input.metaDescription || input.robots === "noindex";
+  const hasContent =
+    input.seoTitle || input.metaDescription || input.keywords || input.ogTitle || input.ogDescription ||
+    input.robots === "noindex";
   if (!hasContent) {
     // An override with every field cleared would shadow the page's own
     // metadata with nothing. Removing the row restores the default.
@@ -700,10 +759,11 @@ export async function saveCategorySeo(
     return;
   }
   await sql`
-    INSERT INTO shop.seo_meta (resource_type, resource_id, seo_title, meta_description, robots)
-    VALUES ('category', ${categoryId}, ${input.seoTitle}, ${input.metaDescription}, ${input.robots})
+    INSERT INTO shop.seo_meta (resource_type, resource_id, seo_title, meta_description, keywords, og_title, og_description, robots)
+    VALUES ('category', ${categoryId}, ${input.seoTitle}, ${input.metaDescription}, ${input.keywords}, ${input.ogTitle}, ${input.ogDescription}, ${input.robots})
     ON CONFLICT (resource_type, resource_id) DO UPDATE SET
       seo_title = EXCLUDED.seo_title, meta_description = EXCLUDED.meta_description,
+      keywords = EXCLUDED.keywords, og_title = EXCLUDED.og_title, og_description = EXCLUDED.og_description,
       robots = EXCLUDED.robots, updated_at = now()`;
 }
 
