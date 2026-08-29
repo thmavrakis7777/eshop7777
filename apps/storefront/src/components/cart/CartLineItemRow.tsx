@@ -64,6 +64,7 @@ export function CartLineItemRow({
             productTitle={item.title}
             disabled={pending}
             onChange={onQuantityChange}
+            onRemove={onRemove}
           />
         </div>
 

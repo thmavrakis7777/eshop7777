@@ -246,10 +246,13 @@ brief's explicit requirement.
 - Stepper: `−` / numeric value / `+`, inline in the row, usable directly in
   the drawer (the brief is explicit: no forcing a trip to the full cart page
   just to change a quantity).
-- `−` is **disabled, not decrement-past-1** at quantity 1 — going to 0 via
-  the minus button would silently remove the item, which is a bigger,
-  easily-mis-tapped action than adjusting quantity. Removal is a deliberate,
-  separate control (the "Αφαίρεση" link, §8).
+- `−` at quantity 1 **removes the line item** (identical action to the
+  "Αφαίρεση" link, §8), rather than staying disabled. **Reversed 2026-08-29**
+  from the original "disabled at 1" design (the earlier reasoning — that
+  going to 0 via a fast-tap minus is a bigger, easier-to-mis-tap action than
+  adjusting quantity — was overridden by an explicit product decision:
+  minus-to-remove is now the expected behavior, alongside the separate
+  "Αφαίρεση" control, not instead of it).
 - `+` was originally planned to disable once the line quantity reaches
   available stock. **Implementation note (2026-08-08):** the Store API
   doesn't expose per-variant stock counts in this setup, so there's no

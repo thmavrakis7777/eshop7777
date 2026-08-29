@@ -23,16 +23,16 @@ export async function Breadcrumbs({ items }: { items: Crumb[] }) {
   return (
     <nav aria-label="Breadcrumb" className="container-shell pt-4 text-sm text-ink-muted">
       <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
-      <ol className="flex flex-wrap items-center gap-1.5">
+      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
         {withHome.map((item, i) => (
-          <li key={item.href} className="flex items-center gap-1.5">
+          <li key={item.href} className="flex min-w-0 max-w-full items-center gap-1.5">
             {i > 0 && <span aria-hidden="true">/</span>}
             {i === withHome.length - 1 ? (
-              <span className="text-ink" aria-current="page">
+              <span className="min-w-0 break-words text-ink" aria-current="page">
                 {item.label}
               </span>
             ) : (
-              <Link href={item.href} className="hover:text-ink hover:underline">
+              <Link href={item.href} className="min-w-0 break-words hover:text-ink hover:underline">
                 {item.label}
               </Link>
             )}

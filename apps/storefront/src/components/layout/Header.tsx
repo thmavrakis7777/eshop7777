@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Money, NavCategory } from "@/lib/types";
 import type { NavItem } from "@/lib/data/navigation";
@@ -43,6 +43,28 @@ export function Header({
   const [searchOpen, setSearchOpen] = useState(false);
   const activeMegaMenu = navCategories.find((c) => c.handle === openMenu) ?? null;
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
+  const headerRowRef = useRef<HTMLDivElement>(null);
+  // The mega menu panel sits at `top-full` of this whole row (logo/icon row
+  // + the category nav line beneath it), and that combined height isn't a
+  // fixed design-token value — it flexes with the logo's clamp()ed font
+  // size and whether the nav wraps to a second line for a long category
+  // list. A static `calc(100vh - var(--header-height))` undercounts the nav
+  // line and lets the panel's bottom edge run past the viewport on a short
+  // window (confirmed live at 1440x600). Measuring the real edge is the
+  // only way to keep the panel's own bottom pinned inside the viewport at
+  // every height.
+  const [menuMaxHeight, setMenuMaxHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!openMenu) return;
+    function recompute() {
+      const bottom = headerRowRef.current?.getBoundingClientRect().bottom ?? 0;
+      setMenuMaxHeight(Math.max(160, window.innerHeight - bottom - 16));
+    }
+    recompute();
+    window.addEventListener("resize", recompute);
+    return () => window.removeEventListener("resize", recompute);
+  }, [openMenu]);
 
   return (
     <header
@@ -51,7 +73,7 @@ export function Header({
         if (e.key === "Escape") setOpenMenu(null);
       }}
     >
-      <div className="container-shell relative" onMouseLeave={() => setOpenMenu(null)}>
+      <div ref={headerRowRef} className="container-shell relative" onMouseLeave={() => setOpenMenu(null)}>
         {/* Three columns with FORCED-equal outer widths, so the brand sits at
             the true centre of the header rather than centred in whatever
             space the icons happen to leave. minmax(0,1fr) is what makes the
@@ -210,7 +232,15 @@ export function Header({
             // implement, and it makes screen readers announce ordinary
             // navigation links as menu items. A list of links is what this
             // actually is.
-            className="absolute inset-x-0 top-full z-50 hidden rounded-b-md border border-t-0 border-border bg-bg p-6 shadow-lg lg:block"
+            //
+            // max-height + overflow-y-auto is load-bearing: with neither, a
+            // category with many subcategories (or a short viewport, e.g.
+            // 1440x600) pushed content below the fold with no way to reach
+            // it. menuMaxHeight is measured (see above) rather than a fixed
+            // calc(), so the panel scrolls internally instead of ever
+            // extending past the visible window regardless of header height.
+            className="absolute inset-x-0 top-full z-50 hidden overflow-y-auto overscroll-contain rounded-b-md border border-t-0 border-border bg-bg p-6 shadow-lg lg:block"
+            style={menuMaxHeight !== null ? { maxHeight: menuMaxHeight } : undefined}
           >
             <div className="grid grid-cols-3 gap-6">
               {/* Two levels deep, and deliberately no further: a column per
