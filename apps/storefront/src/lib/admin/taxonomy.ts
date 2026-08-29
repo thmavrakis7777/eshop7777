@@ -151,6 +151,16 @@ export async function saveCategory(input: {
  * operator clicked. Skipping that would let a legal-looking move strand every
  * grandchild at an unroutable URL.
  */
+/**
+ * Single-column update for the AI SEO-GEO flow (ai-category-seo-actions.ts)
+ * — deliberately not routed through `saveCategory`, which requires every
+ * field and would risk clobbering name/slug/parent/etc. if any of those were
+ * ever wired up wrong on the caller's side.
+ */
+export async function updateCategoryDescription(id: string, description: string): Promise<void> {
+  await sql`UPDATE shop.category SET description = ${description}, updated_at = now() WHERE id = ${id}`;
+}
+
 async function assertDepthFits(parentId: string | null, movingId: string | undefined): Promise<void> {
   if (!parentId) return;
 
@@ -190,6 +200,14 @@ function faqJson(faq: FaqItem[] | null) {
  * Refuses rather than cascades. Deleting a category with children would
  * orphan a whole branch; deleting one with products would silently
  * uncategorise them. Both are recoverable mistakes only if they never happen.
+ *
+ * `shop.seo_meta` has no FK to `shop.category` — it is a polymorphic
+ * association shared with products/pages/collections/homepage, so nothing
+ * enforces this automatically. Once the category itself is gone, its SEO
+ * override becomes an unreachable row (never shown by `listCategorySeo`,
+ * which starts FROM the category table), so nothing broken is user-visible —
+ * but it would sit as dead data forever otherwise. Deleted in the same
+ * transaction, not as a cleanup job.
  */
 export async function deleteCategory(id: string): Promise<void> {
   const [counts] = await sql<{ children: number; products: number }[]>`
@@ -197,7 +215,11 @@ export async function deleteCategory(id: string): Promise<void> {
            (SELECT COUNT(*) FROM shop.product WHERE category_id = ${id})::int AS products`;
   if (counts.children > 0) throw new TaxonomyError("Category has subcategories", "has_children");
   if (counts.products > 0) throw new TaxonomyError("Category has products", "has_products");
-  await sql`DELETE FROM shop.category WHERE id = ${id}`;
+
+  await transaction(async (tx) => {
+    await tx`DELETE FROM shop.seo_meta WHERE resource_type = 'category' AND resource_id = ${id}`;
+    await tx`DELETE FROM shop.category WHERE id = ${id}`;
+  });
 }
 
 export async function moveCategory(id: string, direction: "up" | "down"): Promise<void> {

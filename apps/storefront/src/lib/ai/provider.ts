@@ -8,6 +8,18 @@ import "server-only";
  * interface plus one line in lib/ai/index.ts, not a rewrite.
  */
 
+/**
+ * What kind of page this generation is for — changes only the prompt's own
+ * framing (gemini-provider.ts), never the request/response shape. Optional,
+ * defaults to "product" (gemini-provider.ts's ALL_FIELDS default and every
+ * existing product call site never sets this), so the product SEO-GEO
+ * workflow is byte-for-byte unchanged. "category" exists so a category's
+ * generated copy reads like a listing page ("browse our cookware") rather
+ * than a single item ("this pan features...") — the previous prompt had no
+ * way to say that.
+ */
+export type SeoSubjectType = "product" | "category";
+
 export type SeoGenerationInput = {
   title: string;
   description: string | null;
@@ -32,6 +44,7 @@ export type SeoGenerationInput = {
   // Gates the UI's "changing this breaks links" warning — never gates
   // generation itself.
   isPublished: boolean;
+  subjectType?: SeoSubjectType;
 };
 
 export type SeoField = "description" | "seoTitle" | "metaDescription" | "h1" | "slug" | "imageAlt";

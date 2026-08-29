@@ -2,7 +2,7 @@ import "server-only";
 import type { AIProvider } from "@/lib/ai/provider";
 import { GeminiProvider } from "@/lib/ai/gemini-provider";
 
-export type { AIProvider, SeoField, SeoGenerationInput, SeoGenerationResult } from "@/lib/ai/provider";
+export type { AIProvider, SeoField, SeoGenerationInput, SeoGenerationResult, SeoSubjectType } from "@/lib/ai/provider";
 export { AIProviderError } from "@/lib/ai/provider";
 
 /**

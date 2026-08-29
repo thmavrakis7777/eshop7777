@@ -5,6 +5,7 @@ import {
   type SeoField,
   type SeoGenerationInput,
   type SeoGenerationResult,
+  type SeoSubjectType,
 } from "@/lib/ai/provider";
 
 /**
@@ -20,14 +21,31 @@ import {
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-const FIELD_DESCRIPTIONS: Record<SeoField, string> = {
-  description: "Πρωτότυπη περιγραφή προϊόντος, 2-4 προτάσεις φυσικού, χρήσιμου ελληνικού κειμένου.",
-  seoTitle: "Σύντομος, φυσικός τίτλος SEO (έως ~60 χαρακτήρες) όπως θα αναζητούσε το προϊόν ένας πελάτης.",
-  metaDescription: "Meta description (έως ~155 χαρακτήρες), εξηγεί το προϊόν, χωρίς clickbait.",
-  h1: "Καθαρός H1 — συνήθως πολύ κοντά στο πραγματικό όνομα του προϊόντος.",
-  slug: "URL slug: πεζά λατινικά, αριθμοί και παύλες μόνο, σύντομο και περιγραφικό.",
-  imageAlt: "Σύντομο, περιγραφικό alt text για την κύρια φωτογραφία (όχι λέξεις-κλειδιά).",
-};
+/**
+ * Per-field instructions sent to Gemini, both in the prompt text and as the
+ * structured-output schema's own field descriptions. Only the 3 fields a
+ * category ever requests (description/seoTitle/metaDescription — see
+ * ai-category-seo-actions.ts) have a "category" variant; h1/slug/imageAlt
+ * are never requested for a category, so their (product-only) wording is
+ * harmless to leave as-is rather than writing text nothing will read.
+ */
+function fieldDescriptions(subject: SeoSubjectType): Record<SeoField, string> {
+  const forCategory = subject === "category";
+  return {
+    description: forCategory
+      ? "Πρωτότυπη περιγραφή κατηγορίας προϊόντων, 2-4 προτάσεις φυσικού, χρήσιμου ελληνικού κειμένου — για σελίδα-λίστα πολλών προϊόντων, όχι για ένα μεμονωμένο προϊόν."
+      : "Πρωτότυπη περιγραφή προϊόντος, 2-4 προτάσεις φυσικού, χρήσιμου ελληνικού κειμένου.",
+    seoTitle: forCategory
+      ? "Σύντομος, φυσικός τίτλος SEO (έως ~60 χαρακτήρες) όπως θα αναζητούσε την κατηγορία ένας πελάτης."
+      : "Σύντομος, φυσικός τίτλος SEO (έως ~60 χαρακτήρες) όπως θα αναζητούσε το προϊόν ένας πελάτης.",
+    metaDescription: forCategory
+      ? "Meta description (έως ~155 χαρακτήρες), εξηγεί τι θα βρει ο πελάτης σε αυτή την κατηγορία, χωρίς clickbait."
+      : "Meta description (έως ~155 χαρακτήρες), εξηγεί το προϊόν, χωρίς clickbait.",
+    h1: "Καθαρός H1 — συνήθως πολύ κοντά στο πραγματικό όνομα του προϊόντος.",
+    slug: "URL slug: πεζά λατινικά, αριθμοί και παύλες μόνο, σύντομο και περιγραφικό.",
+    imageAlt: "Σύντομο, περιγραφικό alt text για την κύρια φωτογραφία (όχι λέξεις-κλειδιά).",
+  };
+}
 
 const ALL_FIELDS: SeoField[] = ["description", "seoTitle", "metaDescription", "h1", "slug", "imageAlt"];
 
@@ -35,7 +53,12 @@ const ALL_FIELDS: SeoField[] = ["description", "seoTitle", "metaDescription", "h
 // live lookup (explicit requirement: no Google Search call per product, no
 // fabricated search-volume claims). The model applies these as reasoning
 // guidance, not as literal keywords to insert.
-const SYSTEM_PROMPT = `Είσαι έμπειρος συντάκτης περιεχομένου e-commerce για ένα σοβαρό ελληνικό κατάστημα οικιακών ειδών (MAVRAKIS HOME). Γράφεις πρωτότυπο, φυσικό ελληνικό κείμενο — ποτέ δεν αντιγράφεις αυτούσια την περιγραφή ή τις σημειώσεις του διαχειριστή.
+function systemPrompt(subject: SeoSubjectType): string {
+  const categoryNote =
+    subject === "category"
+      ? "\n\nΣΗΜΑΝΤΙΚΟ: Αυτή τη φορά γράφεις για μια ΚΑΤΗΓΟΡΙΑ προϊόντων — μια σελίδα-λίστα με πολλά διαφορετικά προϊόντα μέσα, όχι ένα συγκεκριμένο προϊόν. Γράψε σαν να καλωσορίζεις τον πελάτη σε αυτό το τμήμα του καταστήματος (π.χ. \"Στα Χ θα βρεις...\", \"Η κατηγορία Χ περιλαμβάνει...\"), ποτέ σαν να περιγράφεις τα χαρακτηριστικά ενός μεμονωμένου αντικειμένου."
+      : "";
+  return `Είσαι έμπειρος συντάκτης περιεχομένου e-commerce για ένα σοβαρό ελληνικό κατάστημα οικιακών ειδών (MAVRAKIS HOME). Γράφεις πρωτότυπο, φυσικό ελληνικό κείμενο — ποτέ δεν αντιγράφεις αυτούσια την περιγραφή ή τις σημειώσεις του διαχειριστή.${categoryNote}
 
 ΙΕΡΑΡΧΙΑ ΠΗΓΩΝ (εφάρμοσέ την με αυτή τη σειρά):
 1. Τα δομημένα στοιχεία προϊόντος (κατηγορία, υλικό, διαστάσεις, βάρος, SKU, παραλλαγή, τιμή κ.λπ.) είναι η πηγή αλήθειας.
@@ -62,8 +85,11 @@ const SYSTEM_PROMPT = `Είσαι έμπειρος συντάκτης περιε
 6. Το H1 πρέπει να είναι κοντά στο πραγματικό όνομα προϊόντος, όχι γεμάτο keywords.
 7. Έξοδος πάντα στα ελληνικά, εκτός από το slug.
 8. Μην αντιγράφεις ΠΟΤΕ αυτούσια ή σχεδόν αυτούσια την περιγραφή ή τις σημειώσεις του διαχειριστή — το τελικό κείμενο πρέπει να είναι γνήσια αναδιατυπωμένο, όπως στο ΠΑΡΑΔΕΙΓΜΑ ΥΦΟΥΣ παραπάνω.`;
+}
 
 function buildUserPrompt(input: SeoGenerationInput, fields: SeoField[]): string {
+  const subject = input.subjectType ?? "product";
+  const forCategory = subject === "category";
   const facts: string[] = [`Τίτλος: ${input.title}`];
   if (input.categoryName) {
     facts.push(`Κατηγορία: ${input.parentCategoryName ? `${input.parentCategoryName} > ` : ""}${input.categoryName}`);
@@ -87,12 +113,17 @@ function buildUserPrompt(input: SeoGenerationInput, fields: SeoField[]): string 
   // Kept separate from `facts` on purpose — these are the content brief
   // (source-priority tier 2), never the structured source of truth (tier 1).
   const brief: string[] = [];
-  if (input.description) brief.push(`Υπάρχουσα περιγραφή προϊόντος: ${input.description}`);
+  if (input.description) {
+    brief.push(`Υπάρχουσα περιγραφή ${forCategory ? "κατηγορίας" : "προϊόντος"}: ${input.description}`);
+  }
   if (input.adminNotes) brief.push(`Σημειώσεις διαχειριστή: ${input.adminNotes}`);
 
-  const wanted = fields.map((f) => `- ${f}: ${FIELD_DESCRIPTIONS[f]}`).join("\n");
+  const descriptions = fieldDescriptions(subject);
+  const wanted = fields.map((f) => `- ${f}: ${descriptions[f]}`).join("\n");
 
-  const sections = [`ΔΟΜΗΜΕΝΑ ΣΤΟΙΧΕΙΑ ΠΡΟΪΟΝΤΟΣ (πηγή αλήθειας):\n${facts.map((f) => `- ${f}`).join("\n")}`];
+  const sections = [
+    `ΔΟΜΗΜΕΝΑ ΣΤΟΙΧΕΙΑ ${forCategory ? "ΚΑΤΗΓΟΡΙΑΣ" : "ΠΡΟΪΟΝΤΟΣ"} (πηγή αλήθειας):\n${facts.map((f) => `- ${f}`).join("\n")}`,
+  ];
   if (brief.length > 0) {
     sections.push(
       `ΠΕΡΙΓΡΑΦΗ / ΣΗΜΕΙΩΣΕΙΣ ΔΙΑΧΕΙΡΙΣΤΗ (content brief — χρησιμοποίησέ τες για όρους και χαρακτηριστικά που δεν έρχονται σε αντίθεση με τα παραπάνω δομημένα στοιχεία· ΜΗΝ τις αντιγράψεις αυτούσιες):\n${brief.map((f) => `- ${f}`).join("\n")}`
@@ -103,9 +134,10 @@ function buildUserPrompt(input: SeoGenerationInput, fields: SeoField[]): string 
   return sections.join("\n\n");
 }
 
-function buildResponseSchema(fields: SeoField[]) {
+function buildResponseSchema(fields: SeoField[], subject: SeoSubjectType) {
+  const descriptions = fieldDescriptions(subject);
   const properties: Record<string, { type: string; description: string }> = {};
-  for (const f of fields) properties[f] = { type: "string", description: FIELD_DESCRIPTIONS[f] };
+  for (const f of fields) properties[f] = { type: "string", description: descriptions[f] };
   return { type: "OBJECT", properties, required: fields };
 }
 
@@ -119,6 +151,7 @@ export class GeminiProvider implements AIProvider {
     if (!apiKey) throw new AIProviderError("Gemini API key not configured", "not_configured");
 
     const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+    const subject = input.subjectType ?? "product";
     const prompt = buildUserPrompt(input, fields);
 
     const endpoint = `${API_BASE}/${model}:generateContent`;
@@ -129,11 +162,11 @@ export class GeminiProvider implements AIProvider {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          system_instruction: { parts: [{ text: systemPrompt(subject) }] },
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
-            responseSchema: buildResponseSchema(fields),
+            responseSchema: buildResponseSchema(fields, subject),
             temperature: 0.9, // higher than default — instruction §12 wants genuine variety across products, not a fixed template
           },
         }),

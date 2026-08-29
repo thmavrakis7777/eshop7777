@@ -13,6 +13,7 @@ import {
 } from "@/lib/admin/taxonomy";
 import { adjustStock } from "@/lib/admin/products";
 import { CATEGORY_CACHE_TAG } from "@/lib/data/categories";
+import { CACHE_TAGS } from "@/lib/db/content";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
 import type { FaqItem } from "@/lib/types";
 
@@ -128,6 +129,11 @@ export async function deleteCategoryAction(id: string): Promise<ActionResult> {
     return { ok: false, error: mapError(err) };
   }
   revalidatePath("/admin/categories");
+  // deleteCategory() also removes the category's shop.seo_meta row (if any)
+  // in the same transaction — this just makes sure the SEO Management page
+  // stops showing it as customised immediately, not after its own revalidate.
+  revalidatePath("/admin/content/seo");
+  updateTag(CACHE_TAGS.seo);
   revalidateStorefront();
   updateTag(CATEGORY_CACHE_TAG);
   return { ok: true, message: "Η κατηγορία διαγράφηκε." };

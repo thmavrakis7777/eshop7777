@@ -1,6 +1,7 @@
 import "server-only";
 import { sql, transaction } from "@/lib/db/client";
 import type { HomepageSectionConfig, HomepageSectionKind } from "@/lib/content-types";
+import { listCategoryTree } from "@/lib/admin/taxonomy";
 
 /**
  * Storefront content management.
@@ -585,6 +586,14 @@ export type AdminSeoRow = {
   resourceType: "product" | "category" | "collection" | "page" | "homepage";
   resourceId: string;
   label: string;
+  // Category rows only — the same parent/depth/slug/description shop.category
+  // already has, so the SEO list can render the real tree (instead of a flat
+  // list) and the AI generator can use real facts (instead of fabricating).
+  parentId: string | null;
+  depth: number;
+  slug: string;
+  description: string | null;
+  isActive: boolean;
   seoTitle: string | null;
   metaDescription: string | null;
   robots: "index" | "noindex";
@@ -639,30 +648,44 @@ export async function saveHomepageSeo(input: HomepageSeo): Promise<void> {
 }
 
 /**
- * Every category, with its SEO override if one exists. Categories are listed
- * whether or not they have overrides, because "which pages have I customised"
- * is the question this screen answers.
+ * Every category at every depth, with its SEO override if one exists.
+ * Categories are listed whether or not they have overrides, because "which
+ * pages have I customised" is the question this screen answers — and a
+ * category must not disappear from here just because no one has touched its
+ * SEO yet.
+ *
+ * Deliberately built on `listCategoryTree()` (the same recursive-CTE tree
+ * `CategoryManager` renders) rather than a second, separately-ordered query —
+ * one tree, one source of order/depth, so this list can never drift from the
+ * real category structure. `seo_meta` is looked up by category id (never
+ * name), so a rename never orphans the association.
  */
 export async function listCategorySeo(): Promise<AdminSeoRow[]> {
-  const rows = await sql<
-    {
-      id: string; name: string; slug: string; seo_title: string | null;
-      meta_description: string | null; robots: "index" | "noindex" | null;
-    }[]
-  >`SELECT c.id, c.name, c.slug, s.seo_title, s.meta_description, s.robots
-      FROM shop.category c
-      LEFT JOIN shop.seo_meta s
-        ON s.resource_type = 'category' AND s.resource_id = c.id::text
-     ORDER BY c.sort_order, c.name COLLATE "el-GR-x-icu"`;
+  const [tree, seoRows] = await Promise.all([
+    listCategoryTree(),
+    sql<
+      { resource_id: string; seo_title: string | null; meta_description: string | null; robots: "index" | "noindex" | null }[]
+    >`SELECT resource_id, seo_title, meta_description, robots
+        FROM shop.seo_meta WHERE resource_type = 'category'`,
+  ]);
+  const seoById = new Map(seoRows.map((r) => [r.resource_id, r]));
 
-  return rows.map((r) => ({
-    resourceType: "category" as const,
-    resourceId: r.id,
-    label: r.name,
-    seoTitle: r.seo_title,
-    metaDescription: r.meta_description,
-    robots: r.robots ?? "index",
-  }));
+  return tree.map((c) => {
+    const seo = seoById.get(c.id);
+    return {
+      resourceType: "category" as const,
+      resourceId: c.id,
+      label: c.name,
+      parentId: c.parentId,
+      depth: c.depth,
+      slug: c.slug,
+      description: c.description,
+      isActive: c.isActive,
+      seoTitle: seo?.seo_title ?? null,
+      metaDescription: seo?.meta_description ?? null,
+      robots: seo?.robots ?? "index",
+    };
+  });
 }
 
 export async function saveCategorySeo(
