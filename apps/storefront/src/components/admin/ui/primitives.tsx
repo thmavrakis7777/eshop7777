@@ -27,7 +27,7 @@ export function PageHeader({
   action,
 }: {
   title: string;
-  description?: string;
+  description?: ReactNode;
   breadcrumb?: Array<{ label: string; href?: string }>;
   action?: ReactNode;
 }) {

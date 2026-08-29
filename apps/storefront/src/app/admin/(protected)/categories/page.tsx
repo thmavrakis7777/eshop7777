@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { countDynamicCollections } from "@/lib/admin/products";
 import { listCategoryTree } from "@/lib/admin/taxonomy";
 import { CategoryManager } from "@/components/admin/CategoryManager";
@@ -17,7 +18,17 @@ export default async function AdminCategoriesPage() {
     <>
       <PageHeader
         title="Κατηγορίες"
-        description={`${categories.length} κατηγορίες, ${topLevel} στο πρώτο επίπεδο. Η σειρά εδώ καθορίζει τη σειρά στο μενού του καταστήματος.`}
+        description={
+          <>
+            {categories.length} κατηγορίες, {topLevel} στο πρώτο επίπεδο. Η σειρά εδώ καθορίζει τη
+            σειρά των υποκατηγοριών μέσα σε κάθε γονική κατηγορία. Για τη σειρά των κύριων
+            κατηγοριών στη μπάρα του καταστήματος, χρησιμοποίησε τη{" "}
+            <Link href="/admin/content/navigation" className="underline underline-offset-2">
+              Πλοήγηση
+            </Link>
+            .
+          </>
+        }
       />
       <DynamicCollections counts={dynamicCounts} />
       <section>

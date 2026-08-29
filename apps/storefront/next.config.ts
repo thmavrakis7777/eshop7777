@@ -66,6 +66,11 @@ const nextConfig: NextConfig = {
       { source: "/kouzina/axesouar-kouzinas", destination: "/kouzina", permanent: true },
       { source: "/banio/axesouar-baniou", destination: "/banio", permanent: true },
       { source: "/banio/petsetes-yfasmata", destination: "/banio", permanent: true },
+      // Ηλεκτρολογικά kept its old "fotismos" ("lighting") slug when it was
+      // renamed from Φωτισμός during the same taxonomy fix — cosmetic, but a
+      // real mismatch. Children first, same first-match-wins reasoning above.
+      { source: "/ergaleia/fotismos/:path*", destination: "/ergaleia/ilektrologika/:path*", permanent: true },
+      { source: "/ergaleia/fotismos", destination: "/ergaleia/ilektrologika", permanent: true },
     ];
   },
   images: { remotePatterns },
