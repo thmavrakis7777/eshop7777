@@ -136,7 +136,11 @@ function MenuDrawer({
     setGoingBack(true);
   }
 
-  const currentHref = `/${path.map((c) => c.handle).join("/")}`;
+  // current.canonicalHref, not a path-handle join: a cross-listed category
+  // drilled into from a non-primary parent has a real URL that lives
+  // elsewhere (wherever its OWN primary parent puts it), so concatenating
+  // this drill session's own path would silently build the wrong link.
+  const currentHref = current?.canonicalHref ?? `/${path.map((c) => c.handle).join("/")}`;
   const parentName = depth > 1 ? path[depth - 2].name : null;
 
   return (
@@ -251,14 +255,12 @@ function MenuDrawer({
                   return (
                     <nav className="flex flex-col" aria-label={current.name}>
                       {viewAllOnTop && viewAllLink}
-                      {current.children.map((child) => (
-                        <CategoryRow
-                          key={child.handle}
-                          node={child}
-                          href={`${currentHref}/${child.handle}`}
-                          onDrill={drillInto}
-                          onClose={onClose}
-                        />
+                      {/* displayChildren, not children — see Header.tsx's
+                          mega menu for the same reasoning: this level's
+                          canonical children plus anything cross-listed
+                          here (shop.category_secondary_parent). */}
+                      {current.displayChildren.map((child) => (
+                        <CategoryRow key={child.handle} node={child} onDrill={drillInto} onClose={onClose} />
                       ))}
                       {/* Default position — the last element in the
                           scrollable flow, so reaching it is exactly the
@@ -319,8 +321,10 @@ function MenuDrawer({
                     // A SALES chip, a custom URL or a childless category has
                     // nothing to drill into, so it stays a plain link. The
                     // chevron is a promise, and one that opens an empty level
-                    // is worse than no chevron at all.
-                    if (!category || category.children.length === 0) {
+                    // is worse than no chevron at all. displayChildren, not
+                    // children, so a main category made up entirely of
+                    // cross-listed subcategories still drills in correctly.
+                    if (!category || category.displayChildren.length === 0) {
                       return (
                         <Link
                           key={item.id}
@@ -373,19 +377,21 @@ function MenuDrawer({
  */
 function CategoryRow({
   node,
-  href,
   onDrill,
   onClose,
 }: {
   node: CategoryNode;
-  href: string;
   onDrill: (node: CategoryNode) => void;
   onClose: () => void;
 }) {
-  if (node.children.length === 0) {
+  // displayChildren, not children: a cross-listed leaf category (no
+  // children of its own) always renders as a direct link to its real
+  // canonical URL here, never a drill-in — there is nothing of its own to
+  // drill into regardless of which parent it's being shown under.
+  if (node.displayChildren.length === 0) {
     return (
       <Link
-        href={href}
+        href={node.canonicalHref}
         className={`${ROW} border-b border-border text-sm text-ink last:border-0`}
         onClick={onClose}
       >

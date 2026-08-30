@@ -37,6 +37,22 @@ const getCachedCategoryPromos = unstable_cache(fetchEnabledCategoryPromos, ["cat
   tags: [CATEGORY_CACHE_TAG],
 });
 
+type SecondaryParentEdge = { category_id: string; parent_category_id: string };
+
+// The whole edge table in one query — at this scale (a handful of
+// cross-listed categories) cheaper than resolving them one at a time per
+// node while assembling the tree, and the tree assembly below needs the
+// full set anyway to attach each edge's category under its extra parent.
+async function fetchSecondaryParentEdges(): Promise<SecondaryParentEdge[]> {
+  return sql<SecondaryParentEdge[]>`
+    SELECT category_id, parent_category_id FROM shop.category_secondary_parent`;
+}
+
+const getCachedSecondaryParentEdges = unstable_cache(fetchSecondaryParentEdges, ["category-secondary-parents"], {
+  revalidate: 60,
+  tags: [CATEGORY_CACHE_TAG],
+});
+
 // Default text when a category has never had this row configured, or left
 // button_text blank — a plain, honest label rather than interpolating the
 // category name into a fixed phrase (the name is already the heading right
@@ -98,9 +114,23 @@ async function fetchAllCategories(): Promise<CategoryTreeRow[]> {
     WITH RECURSIVE sub AS (
       SELECT c.id AS root_id, c.id FROM shop.category c WHERE c.is_active
       UNION ALL
+      -- Postgres only allows a recursive CTE's self-reference (sub) to
+      -- appear exactly once in the recursive term, so the real parent_id
+      -- chain and shop.category_secondary_parent's cross-listing edges are
+      -- combined into one "edges" relation first and joined to sub once —
+      -- see getProductsByCategorySlug in lib/db/catalog.ts for the same
+      -- technique and the full reasoning (confirmed live: two separate
+      -- UNION ALL arms each joining sub fails even parenthesized). A
+      -- cross-listed category's products count toward every parent it's
+      -- listed under, matching what that category's own listing page shows.
       SELECT s.root_id, c.id
-        FROM shop.category c JOIN sub s ON c.parent_id = s.id
-       WHERE c.is_active
+        FROM sub s
+        JOIN (
+          SELECT id, parent_id AS parent FROM shop.category WHERE is_active
+          UNION ALL
+          SELECT category_id AS id, parent_category_id AS parent FROM shop.category_secondary_parent
+        ) edges ON edges.parent = s.id
+        JOIN shop.category c ON c.id = edges.id AND c.is_active
     ),
     counts AS (
       SELECT s.root_id, COUNT(*)::int AS n
@@ -151,12 +181,18 @@ const getCachedCategoryRows = unstable_cache(fetchAllCategories, ["category-rows
  * promote the orphan into a top-level category the owner never created.
  */
 const getCategoryTree = cache(async (): Promise<CategoryNode[]> => {
-  const rows = await getCachedCategoryRows();
+  const [rows, secondaryEdges] = await Promise.all([getCachedCategoryRows(), getCachedSecondaryParentEdges()]);
 
   const nodes = new Map<string, CategoryNode>();
+  const nodesById = new Map<string, CategoryNode>();
   const childSlugs = new Map<string, string[]>();
   for (const r of rows) {
-    nodes.set(r.slug, { ...toCategory(r), children: [], productCount: r.product_count });
+    // canonicalHref/displayChildren are filled in below, once the primary
+    // tree (and therefore every node's real ancestor chain) is known —
+    // never left at this placeholder value by the time a caller sees them.
+    const node: CategoryNode = { ...toCategory(r), children: [], productCount: r.product_count, canonicalHref: "", displayChildren: [] };
+    nodes.set(r.slug, node);
+    nodesById.set(r.id, node);
     if (r.parent_slug) {
       const siblings = childSlugs.get(r.parent_slug);
       if (siblings) siblings.push(r.slug);
@@ -167,11 +203,31 @@ const getCategoryTree = cache(async (): Promise<CategoryNode[]> => {
   // Rows arrive already ordered by sort_order, so pushing children in row
   // order is what makes the dashboard's ordering hold at every level.
   const roots = rows.filter((r) => !r.parent_slug).map((r) => nodes.get(r.slug)!);
+  for (const root of roots) root.canonicalHref = `/${root.handle}`;
+
   const queue = [...roots];
   while (queue.length > 0) {
     const node = queue.shift()!;
     node.children = (childSlugs.get(node.handle) ?? []).map((slug) => nodes.get(slug)!);
+    for (const child of node.children) child.canonicalHref = `${node.canonicalHref}/${child.handle}`;
     queue.push(...node.children);
+  }
+
+  // displayChildren starts as a copy (not the same array reference) of the
+  // canonical children — appending cross-listed entries to it must never
+  // mutate `children` itself, since that field is the sitemap/routing
+  // source of truth and must stay exactly the parent_id tree.
+  for (const node of nodesById.values()) node.displayChildren = [...node.children];
+
+  // Attach each cross-listed category under every extra parent it's
+  // configured for. Both sides only resolve if the row is still active
+  // (nodesById is built from the already-is_active-filtered rows above), so
+  // a deactivated category on either end of the relationship simply doesn't
+  // appear — the same rule the primary tree already applies.
+  for (const edge of secondaryEdges) {
+    const child = nodesById.get(edge.category_id);
+    const parent = nodesById.get(edge.parent_category_id);
+    if (child && parent) parent.displayChildren.push(child);
   }
 
   return roots;

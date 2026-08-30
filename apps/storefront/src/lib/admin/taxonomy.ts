@@ -59,6 +59,13 @@ export type AdminCategory = {
   viewAllEnabled: boolean;
   viewAllButtonText: string | null;
   viewAllPosition: "top" | "bottom";
+  // True many-to-many cross-listing (shop.category_secondary_parent) — this
+  // category's primary parent stays parentId above (unchanged, still what
+  // determines its one canonical URL); these are the EXTRA parents it also
+  // appears under in navigation and product-listing inheritance. Any
+  // category, at any depth, since real examples need it below the top level
+  // (e.g. a category listed under another main category's own subcategory).
+  secondaryParents: { id: string; name: string }[];
 };
 
 /**
@@ -68,6 +75,23 @@ export type AdminCategory = {
  * moving a product needs to know where it actually sits.
  */
 export async function listCategoryTree(): Promise<AdminCategory[]> {
+  // Separate query rather than an array_agg bolted onto the SELECT t.* below
+  // — that would force a GROUP BY over every column in t.*, just to carry a
+  // 1:many relationship a handful of categories actually have. Merged into
+  // the tree rows in JS instead, keyed by category_id.
+  const secondaryRows = await sql<{ category_id: string; parent_id: string; parent_name: string }[]>`
+    SELECT csp.category_id, csp.parent_category_id AS parent_id, p.name AS parent_name
+      FROM shop.category_secondary_parent csp
+      JOIN shop.category p ON p.id = csp.parent_category_id
+     ORDER BY p.name COLLATE "el-GR-x-icu"`;
+  const secondaryByCategory = new Map<string, { id: string; name: string }[]>();
+  for (const r of secondaryRows) {
+    const list = secondaryByCategory.get(r.category_id);
+    const entry = { id: r.parent_id, name: r.parent_name };
+    if (list) list.push(entry);
+    else secondaryByCategory.set(r.category_id, [entry]);
+  }
+
   const rows = await sql<
     {
       id: string; slug: string; name: string; description: string | null;
@@ -125,6 +149,7 @@ export async function listCategoryTree(): Promise<AdminCategory[]> {
     viewAllEnabled: r.view_all_enabled,
     viewAllButtonText: r.view_all_button_text,
     viewAllPosition: r.view_all_position === "top" ? "top" : "bottom",
+    secondaryParents: secondaryByCategory.get(r.id) ?? [],
   }));
 }
 
@@ -183,6 +208,65 @@ export async function saveCategoryViewAllButton(
       button_text = EXCLUDED.button_text,
       position = EXCLUDED.position,
       updated_at = now()`;
+}
+
+/**
+ * Replaces the full set of secondary (cross-listing) parents for one
+ * category. Replace-all rather than incremental add/remove — the dashboard
+ * form always submits the complete desired set (a checklist), so this
+ * matches what the admin actually sees and saves in one action, the same
+ * pattern saveCategory itself uses for the primary category record.
+ *
+ * Validates each candidate parent isn't already reachable as an ANCESTOR of
+ * `categoryId` — through the primary parent_id chain, through existing
+ * secondary-parent edges, or any mix of the two — before writing anything.
+ * A plain CHECK constraint can only catch direct self-reference; a longer
+ * cycle (A cross-lists B, B cross-lists A, or a cycle formed by mixing
+ * primary and secondary edges) requires walking the graph, which only the
+ * application can do. Rejecting it here is what keeps every downstream
+ * recursive CTE (category page product queries, the nav tree builder)
+ * guaranteed to terminate.
+ */
+export async function saveCategorySecondaryParents(categoryId: string, parentIds: string[]): Promise<void> {
+  const uniqueParentIds = [...new Set(parentIds)].filter((id) => id !== categoryId);
+
+  for (const parentId of uniqueParentIds) {
+    // Postgres only allows a recursive CTE's self-reference (up) to appear
+    // exactly once in the recursive term — two separate UNION arms each
+    // joining up fails ("must not appear more than once"), confirmed live.
+    // Both edge types (the primary parent_id chain, and shop.category_
+    // secondary_parent's cross-listing) are combined into one "edges"
+    // relation first and joined to up once — same technique as the
+    // category-page product queries in lib/db/catalog.ts.
+    const [{ isAncestor }] = await sql<{ isAncestor: boolean }[]>`
+      WITH RECURSIVE up AS (
+        SELECT id FROM shop.category WHERE id = ${parentId}
+        UNION
+        SELECT edges.parent AS id
+          FROM up u
+          JOIN (
+            SELECT id, parent_id AS parent FROM shop.category WHERE parent_id IS NOT NULL
+            UNION ALL
+            SELECT category_id AS id, parent_category_id AS parent FROM shop.category_secondary_parent
+          ) edges ON edges.id = u.id
+      )
+      SELECT EXISTS (SELECT 1 FROM up WHERE id = ${categoryId}) AS "isAncestor"`;
+    if (isAncestor) {
+      throw new TaxonomyError(
+        "Cannot add this category as a parent — it would create a circular relationship",
+        "cycle"
+      );
+    }
+  }
+
+  await transaction(async (tx) => {
+    await tx`DELETE FROM shop.category_secondary_parent WHERE category_id = ${categoryId}`;
+    for (const parentId of uniqueParentIds) {
+      await tx`
+        INSERT INTO shop.category_secondary_parent (category_id, parent_category_id)
+        VALUES (${categoryId}, ${parentId})`;
+    }
+  });
 }
 
 export async function saveCategory(input: {

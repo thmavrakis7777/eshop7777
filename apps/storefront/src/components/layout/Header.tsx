@@ -174,7 +174,7 @@ export function Header({
               // category actually has children — a SALES chip or a custom URL
               // has nothing to expand.
               const children = item.categorySlug
-                ? (navCategories.find((c) => c.handle === item.categorySlug)?.children ?? [])
+                ? (navCategories.find((c) => c.handle === item.categorySlug)?.displayChildren ?? [])
                 : [];
               const hasMenu = children.length > 0;
 
@@ -252,21 +252,29 @@ export function Header({
                   who wants to go deeper does it on the category page, where
                   there is room to do it one level at a time. */}
               <div className="col-span-2 grid grid-cols-3 gap-x-6 gap-y-5">
-                {activeMegaMenu.children.map((child) => (
+                {/* displayChildren, not children: the canonical parent_id
+                    tree plus any category cross-listed here (shop.category_
+                    secondary_parent). Every link uses each node's own
+                    canonicalHref rather than concatenating this menu's
+                    handle with the child's — that concatenation assumes the
+                    child's URL lives under this exact category, which is
+                    false for a cross-listed one (its real URL is wherever
+                    its PRIMARY parent puts it). */}
+                {activeMegaMenu.displayChildren.map((child) => (
                   <div key={child.handle} className="min-w-0">
                     <Link
-                      href={`/${activeMegaMenu.handle}/${child.handle}`}
+                      href={child.canonicalHref}
                       className="block rounded-sm px-2 py-1 text-sm font-medium text-ink hover:text-accent transition-colors"
                       onClick={() => setOpenMenu(null)}
                     >
                       {child.name}
                     </Link>
-                    {child.children.length > 0 && (
+                    {child.displayChildren.length > 0 && (
                       <ul className="mt-1 flex flex-col">
-                        {child.children.map((grandchild) => (
+                        {child.displayChildren.map((grandchild) => (
                           <li key={grandchild.handle}>
                             <Link
-                              href={`/${activeMegaMenu.handle}/${child.handle}/${grandchild.handle}`}
+                              href={grandchild.canonicalHref}
                               className="block rounded-sm px-2 py-1 text-xs text-ink-muted hover:text-ink transition-colors"
                               onClick={() => setOpenMenu(null)}
                             >
@@ -279,7 +287,7 @@ export function Header({
                   </div>
                 ))}
                 <Link
-                  href={`/${activeMegaMenu.handle}`}
+                  href={activeMegaMenu.canonicalHref}
                   className="self-start rounded-sm px-2 py-1 text-sm font-medium text-accent hover:underline"
                   onClick={() => setOpenMenu(null)}
                 >

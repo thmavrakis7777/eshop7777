@@ -293,11 +293,32 @@ export async function getProductsByCategorySlug(
     WITH RECURSIVE tree AS (
       SELECT id FROM shop.category WHERE slug = ${slug} AND is_active
       UNION ALL
-      SELECT c.id FROM shop.category c JOIN tree t ON c.parent_id = t.id WHERE c.is_active
+      -- Postgres allows a recursive CTE's self-reference (tree) to appear
+      -- exactly once in the recursive term — two separate UNION ALL arms
+      -- each joining tree fails ("must not appear more than once"), even
+      -- parenthesized (confirmed live). So both edge types — the real
+      -- parent_id chain, and shop.category_secondary_parent's cross-listing
+      -- — are combined into one "edges" relation first, joined to tree once.
+      -- A cross-listed category's products must show up in this subtree
+      -- without changing its own primary parent_id; walking from tree (not
+      -- just the root) also carries in a cross-listed category's own
+      -- primary-parent descendants, in the same pass.
+      SELECT c.id
+        FROM tree t
+        JOIN (
+          SELECT id, parent_id AS parent FROM shop.category WHERE is_active
+          UNION ALL
+          SELECT category_id AS id, parent_category_id AS parent FROM shop.category_secondary_parent
+        ) edges ON edges.parent = t.id
+        JOIN shop.category c ON c.id = edges.id AND c.is_active
     )
     SELECT ${productFields}, COUNT(*) OVER () AS total_count
       FROM shop.product p
       LEFT JOIN shop.category c ON c.id = p.category_id
+     -- IN (SELECT id FROM tree) is a set-membership test — a category id
+     -- reachable more than once in the recursive walk (unlikely given the
+     -- cycle check on save, but not load-bearing here either way) still
+     -- selects each real product row exactly once.
      WHERE p.is_active AND p.category_id IN (SELECT id FROM tree)
      ${whereFilters(filters)}
      ${orderBy(sort)}
@@ -320,7 +341,17 @@ export async function getCategoryFilterFacets(slug: string): Promise<CategoryFac
     WITH RECURSIVE tree AS (
       SELECT id FROM shop.category WHERE slug = ${slug} AND is_active
       UNION ALL
-      SELECT c.id FROM shop.category c JOIN tree t ON c.parent_id = t.id WHERE c.is_active
+      -- Same combined-edges technique as getProductsByCategorySlug (see
+      -- that function's comment) — facets must reflect the same product
+      -- set the listing itself shows.
+      SELECT c.id
+        FROM tree t
+        JOIN (
+          SELECT id, parent_id AS parent FROM shop.category WHERE is_active
+          UNION ALL
+          SELECT category_id AS id, parent_category_id AS parent FROM shop.category_secondary_parent
+        ) edges ON edges.parent = t.id
+        JOIN shop.category c ON c.id = edges.id AND c.is_active
     )
     SELECT
       MIN(v.price_cents) AS price_min_cents,

@@ -276,6 +276,14 @@ function CategoryForm({
   // the real out-of-the-box behavior rather than an unrelated blank state.
   const [viewAllEnabled, setViewAllEnabled] = useState(category?.viewAllEnabled ?? true);
   const [viewAllPosition, setViewAllPosition] = useState<"top" | "bottom">(category?.viewAllPosition ?? "bottom");
+  // Cross-listing (shop.category_secondary_parent) — the primary parent
+  // above still determines this category's one canonical URL; these are
+  // the EXTRA categories it also appears under. Tracked as a Set of ids so
+  // toggling one checkbox doesn't re-scan the whole list.
+  const [secondaryParentIds, setSecondaryParentIds] = useState<Set<string>>(
+    () => new Set(category?.secondaryParents.map((p) => p.id) ?? [])
+  );
+  const [parentSearch, setParentSearch] = useState("");
 
   // A category cannot be its own parent, nor a descendant's child. The
   // server enforces this too; excluding them here just avoids offering a
@@ -304,6 +312,32 @@ function CategoryForm({
   const parentOptions = categories.filter(
     (c) => !descendantIds.has(c.id) && c.depth + 1 + subtreeHeight <= MAX_CATEGORY_DEPTH
   );
+
+  // A secondary parent can be any other category at any depth (the real
+  // cases need an intermediate category, not just a top-level one) — only
+  // self/descendants (would cycle) and the current primary parent (already
+  // covers that relationship) are excluded. The server re-validates cycles
+  // properly (including ones through other secondary edges this list can't
+  // see), so this is a client-side convenience, not the real guarantee.
+  const selectedSecondaryParents = categories.filter((c) => secondaryParentIds.has(c.id));
+  const addableCandidates = categories.filter(
+    (c) => !descendantIds.has(c.id) && c.id !== parentId && !secondaryParentIds.has(c.id)
+  );
+  const filteredAddableCandidates = parentSearch.trim()
+    ? addableCandidates.filter((c) => c.name.toLowerCase().includes(parentSearch.trim().toLowerCase()))
+    : addableCandidates;
+
+  function addSecondaryParent(id: string) {
+    setSecondaryParentIds((prev) => new Set(prev).add(id));
+    setParentSearch("");
+  }
+  function removeSecondaryParent(id: string) {
+    setSecondaryParentIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
 
   return (
     <form
@@ -574,6 +608,85 @@ function CategoryForm({
             </div>
           </div>
         )}
+      </div>
+
+      {/* True many-to-many cross-listing (shop.category_secondary_parent).
+          Γονική κατηγορία above stays this category's ONE primary parent —
+          the source of its canonical URL/breadcrumb, unaffected by this
+          section — these are the EXTRA categories it also appears under in
+          navigation and product listings. Submitted as hidden inputs (not
+          the checkboxes below, which only exist to add new ones and would
+          otherwise vanish from the form whenever the search text hides
+          them) so the full selected set survives regardless of what the
+          search box currently shows. */}
+      <div className="flex flex-col gap-3 rounded-md border border-border p-4">
+        <div>
+          <p className="text-sm font-medium text-ink">Επιπλέον γονικές κατηγορίες</p>
+          <p className="text-xs text-ink-muted">
+            Η κατηγορία παραμένει μία — εμφανίζεται επιπλέον κάτω από κάθε κατηγορία που επιλέξεις εδώ, στην
+            πλοήγηση και στη λίστα προϊόντων της, χωρίς να αλλάζει η κύρια διεύθυνσή της (URL) ή το breadcrumb.
+          </p>
+        </div>
+
+        {selectedSecondaryParents.map((p) => (
+          <input key={p.id} type="hidden" name="secondaryParentIds" value={p.id} />
+        ))}
+
+        {selectedSecondaryParents.length > 0 && (
+          <ul className="flex flex-wrap gap-2">
+            {selectedSecondaryParents.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-sm text-ink"
+              >
+                {p.name}
+                <button
+                  type="button"
+                  onClick={() => removeSecondaryParent(p.id)}
+                  aria-label={`Αφαίρεση ${p.name} από τις επιπλέον γονικές κατηγορίες`}
+                  className="text-ink-muted hover:text-danger"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-ink" htmlFor="secondaryParentSearch">
+            Προσθήκη γονικής κατηγορίας
+          </label>
+          <input
+            id="secondaryParentSearch"
+            type="text"
+            value={parentSearch}
+            onChange={(e) => setParentSearch(e.target.value)}
+            placeholder="Αναζήτηση κατηγορίας…"
+            className={field}
+          />
+          {parentSearch.trim() && (
+            <ul className="mt-1 max-h-48 overflow-y-auto rounded-md border border-border">
+              {filteredAddableCandidates.length === 0 ? (
+                <li className="px-3 py-2 text-sm text-ink-muted">Καμία κατηγορία δεν ταιριάζει.</li>
+              ) : (
+                filteredAddableCandidates.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => addSecondaryParent(c.id)}
+                      className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-surface"
+                    >
+                      {"   ".repeat(c.depth)}
+                      {c.depth > 0 ? "└ " : ""}
+                      {c.name}
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          )}
+        </div>
       </div>
 
       <label className="flex items-center gap-2 text-sm text-ink">

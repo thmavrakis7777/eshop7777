@@ -33,7 +33,7 @@ export async function CategoryRoute({
   // exists but not under the parent the URL claims — all of which must 404
   // rather than render a category at a second address.
   if (!path) notFound();
-  const { category, ancestors, children } = path;
+  const { category, ancestors } = path;
 
   if (category.pageType === "landing") {
     return <CategoryLandingView category={category} ancestors={ancestors} />;
@@ -75,7 +75,11 @@ export async function CategoryRoute({
       // ΚΛΕΙΔΙΑ & ΑΣΦΑΛΕΙΑ branch) were meanwhile not rendered at all.
       longDescription={category.description}
       breadcrumbs={breadcrumbs}
-      childCategories={toChildLinks(children, basePath)}
+      // displayChildren, not children: shows any category cross-listed here
+      // (shop.category_secondary_parent) alongside this category's real
+      // primary children — each link already points at its own real
+      // canonical URL (toChildLinks), never a path built under this page.
+      childCategories={toChildLinks(category.displayChildren)}
       // "Shop by category" entering a main category; "choose a type" once
       // you are already inside one and picking a narrower kind of thing.
       childNavTitle={ancestors.length === 0 ? "Αγόρασε ανά κατηγορία" : "Διάλεξε τύπο"}

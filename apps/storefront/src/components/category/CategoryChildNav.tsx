@@ -12,10 +12,15 @@ export type ChildCategoryLink = {
   pageType?: "products" | "landing";
 };
 
-export function toChildLinks(children: CategoryNode[], basePath: string): ChildCategoryLink[] {
+// No basePath parameter: child.canonicalHref is already this child's real,
+// complete URL. Concatenating basePath + child.handle was only ever correct
+// because every child used to be a primary child of the page being viewed —
+// a cross-listed child's real URL can live under a different category
+// entirely (wherever its own primary parent puts it).
+export function toChildLinks(children: CategoryNode[]): ChildCategoryLink[] {
   return children.map((child) => ({
     name: child.name,
-    href: `${basePath}/${child.handle}`,
+    href: child.canonicalHref,
     imagePath: child.imagePath,
     productCount: child.productCount,
     pageType: child.pageType,

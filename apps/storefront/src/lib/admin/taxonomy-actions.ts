@@ -10,6 +10,7 @@ import {
   moveCategory,
   saveCategory,
   saveCategoryMegaMenuPromo,
+  saveCategorySecondaryParents,
   saveCategoryViewAllButton,
   saveCollection,
 } from "@/lib/admin/taxonomy";
@@ -132,6 +133,14 @@ export async function saveCategoryAction(formData: FormData): Promise<ActionResu
       buttonText: text(formData.get("viewAllButtonText")),
       position: viewAllPositionRaw === "top" ? "top" : "bottom",
     });
+
+    // Cross-listing (secondary parents) — a plain multi-value checkbox list,
+    // so getAll() is the complete desired set the admin just submitted.
+    // saveCategorySecondaryParents does its own cycle/self-reference
+    // validation server-side rather than trusting the checked ids came from
+    // the real form (the client already excludes self/descendants, but a
+    // crafted request bypassing that must still be rejected here).
+    await saveCategorySecondaryParents(savedId, formData.getAll("secondaryParentIds") as string[]);
 
     await auditLog(admin.id, id ? "category.update" : "category.create", "category", savedId, {
       name: parsed.data.name,

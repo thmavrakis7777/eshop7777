@@ -106,8 +106,25 @@ export type Product = {
  * what its listing page actually shows — see getProductsByCategorySlug.
  */
 export type CategoryNode = Category & {
+  // The canonical parent_id tree only — this is what URL routing, the
+  // sitemap, and breadcrumbs walk. Never contains a cross-listed entry: a
+  // category is reachable at exactly one URL, so nothing outside this field
+  // may ever double as a route source.
   children: CategoryNode[];
   productCount: number;
+  // Always this node's own canonical URL (built from its primary-parent
+  // ancestor chain), computed once when the tree is assembled. Every
+  // renderer should link to a category via this field rather than
+  // concatenating a parent's handle with this node's own handle — that
+  // concatenation is only correct for a primary child, and silently wrong
+  // for a cross-listed one.
+  canonicalHref: string;
+  // Presentation-only: this node's canonical `children` PLUS any category
+  // that lists this node as a secondary parent (shop.category_secondary_
+  // parent) — used by navigation/mega-menu/category-page "shop by type"
+  // rendering so a cross-listed category shows up everywhere it's
+  // configured to, without ever feeding back into `children`/routing.
+  displayChildren: CategoryNode[];
 };
 
 export type NavCategory = CategoryNode & {
