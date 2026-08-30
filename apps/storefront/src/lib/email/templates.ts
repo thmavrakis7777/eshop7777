@@ -20,6 +20,10 @@ const MUTED = "#6b6862";
 const BORDER = "#e7e5e1";
 const SURFACE = "#f6f5f3";
 
+// Fixed by design (task spec) — the one intentionally hardcoded URL in these
+// templates; everything else in this file is order data.
+const GOOGLE_REVIEW_URL = "https://g.page/r/CTF_LbREk3QQEBE/review";
+
 const money = (cents: number) => `${(cents / 100).toFixed(2).replace(".", ",")} €`;
 
 function ctaButton(label: string, href: string): string {
@@ -152,16 +156,14 @@ export function orderConfirmationHtml(
     ${summaryBlock(order)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px">
-      <tr>
-        <td width="50%" valign="top" style="padding-right:10px">
-          <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Τρόπος πληρωμής</div>
-          <p style="margin:0;font-size:13px;color:${INK}">${escapeHtml(paymentMethodLabel(order.paymentMethod))}</p>
-        </td>
-        <td width="50%" valign="top" style="padding-left:10px">
-          <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Παράδοση σε</div>
-          ${addressBlock(order.shippingAddress)}
-        </td>
-      </tr>
+      <tr><td>
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Τρόπος πληρωμής</div>
+        <p style="margin:0;font-size:13px;color:${INK}">${escapeHtml(paymentMethodLabel(order.paymentMethod))}</p>
+      </td></tr>
+      <tr><td style="padding-top:16px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Παράδοση σε</div>
+        ${addressBlock(order.shippingAddress)}
+      </td></tr>
     </table>
 
     ${ctaButton("Δείτε την παραγγελία σας", ctx.orderUrl)}
@@ -220,8 +222,8 @@ export function shipmentNotificationHtml(
       <tr><td style="padding:18px 20px">
         <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:8px">Στοιχεία αποστολής</div>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px">
-          <tr><td style="padding:2px 0;color:${MUTED}">Εταιρεία μεταφοράς</td><td style="padding:2px 0;text-align:right;color:${INK};font-weight:600">${escapeHtml(order.courierName ?? "")}</td></tr>
-          <tr><td style="padding:2px 0;color:${MUTED}">Κωδικός αποστολής</td><td style="padding:2px 0;text-align:right;color:${INK};font-family:monospace">${escapeHtml(order.trackingCode ?? "")}</td></tr>
+          <tr><td style="padding:3px 0;color:${INK}"><span style="color:${MUTED}">Εταιρεία μεταφοράς:</span> <span style="font-weight:600">${escapeHtml(order.courierName ?? "")}</span></td></tr>
+          <tr><td style="padding:3px 0;color:${INK}"><span style="color:${MUTED}">Κωδικός αποστολής:</span> <span style="font-family:monospace">${escapeHtml(order.trackingCode ?? "")}</span></td></tr>
         </table>
       </td></tr>
     </table>
@@ -230,7 +232,16 @@ export function shipmentNotificationHtml(
 
     <p style="margin:20px 0 0;font-size:13px;line-height:1.7;color:${MUTED}">
       Η παραγγελία σου βρίσκεται καθ' οδόν προς εσένα. Αν χρειαστείς βοήθεια με την παραλαβή, επικοινώνησε μαζί μας.
-    </p>`;
+    </p>
+
+    <div style="margin-top:24px;border-top:1px solid ${BORDER};padding-top:20px">
+      <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:${INK}">Η γνώμη σας είναι σημαντική για εμάς</p>
+      <p style="margin:0;font-size:13px;line-height:1.7;color:${MUTED}">
+        Ευχαριστούμε που επιλέξατε το ${escapeHtml(ctx.storeName)}. Αν μείνατε ικανοποιημένοι από την εμπειρία σας, θα χαρούμε πολύ
+        να μοιραστείτε την αξιολόγησή σας στο Google — η γνώμη σας βοηθά και άλλους πελάτες να μας γνωρίσουν.
+      </p>
+      ${ctaButton("Αφήστε μας μια αξιολόγηση στο Google", GOOGLE_REVIEW_URL)}
+    </div>`;
 
   return shell({
     previewText: `Η παραγγελία σου #${order.orderNumber} απεστάλη.`,
@@ -327,6 +338,9 @@ export function shipmentNotificationText(order: OrderEmailData, ctx: { storeName
     order.trackingUrl ? `Παρακολούθηση: ${order.trackingUrl}` : null,
     ``,
     `Δείτε την παραγγελία σας: ${ctx.orderUrl}`,
+    ``,
+    `Η γνώμη σας είναι σημαντική για εμάς — αν μείνατε ικανοποιημένοι από την εμπειρία σας στο ${ctx.storeName}, θα χαρούμε πολύ να μοιραστείτε την αξιολόγησή σας στο Google:`,
+    GOOGLE_REVIEW_URL,
   ]
     .filter((l) => l !== null)
     .join("\n");
