@@ -1,6 +1,7 @@
 import "server-only";
 import { sql } from "@/lib/db/client";
 import { computeTotals } from "@/lib/db/cart";
+import { isHeraklionAddress } from "@/lib/heraklion";
 
 /**
  * Order completion — the single most correctness-critical function in this
@@ -87,10 +88,19 @@ export async function completeOrder(
         price_cents: number;
         stock_quantity: number;
         allow_backorder: boolean;
+        // Was missing from this query entirely (pre-existing bug, unrelated
+        // to Heraklion): computeTotals's oversized-item surcharge branch
+        // never saw this column here, so it was always 0 at order-completion
+        // time even for a heavy product, even though the same cart correctly
+        // showed the surcharge right up until the moment of purchase. Fixed
+        // alongside this feature because the Heraklion test matrix (item 13)
+        // explicitly exercises "Heraklion + heavy product" through this exact
+        // function.
+        shipping_cost_cents: number | null;
       }[]
     >`SELECT i.variant_id, v.product_id, i.quantity,
              p.title, v.title AS variant_title, v.sku, p.slug,
-             v.price_cents, v.stock_quantity, v.allow_backorder
+             v.price_cents, v.stock_quantity, v.allow_backorder, p.shipping_cost_cents
         FROM shop.cart_item i
         JOIN shop.product_variant v ON v.id = i.variant_id
         JOIN shop.product p ON p.id = v.product_id
@@ -125,10 +135,26 @@ export async function completeOrder(
     }
 
     const [shipping] = await tx<
-      { id: string; name: string; price_cents: number; free_over_cents: number | null; is_pickup: boolean }[]
-    >`SELECT id, name, price_cents, free_over_cents, is_pickup
+      {
+        id: string; name: string; price_cents: number; free_over_cents: number | null;
+        is_pickup: boolean; heraklion_only: boolean;
+      }[]
+    >`SELECT id, name, price_cents, free_over_cents, is_pickup, heraklion_only
         FROM shop.shipping_method WHERE id = ${cart.shipping_method_id}`;
     if (!shipping) throw new CheckoutError("Shipping method unavailable", "missing_details");
+
+    // Final, authoritative gate before the price is ever charged. The cart
+    // was locked FOR UPDATE above, so this reads the same address the order
+    // is about to be placed with — a Heraklion-priced method can only ever
+    // be charged for a cart whose own saved address genuinely is Heraklion,
+    // regardless of what setShippingMethod validated minutes earlier or what
+    // the client sends.
+    if (
+      shipping.heraklion_only &&
+      !isHeraklionAddress(cart.shipping_address as { city?: string | null; postal_code?: string | null } | null)
+    ) {
+      throw new CheckoutError("Shipping method unavailable", "missing_details");
+    }
 
     // Re-validated at completion time, same as shipping above: a method the
     // customer selected minutes ago may have been disabled by the owner
@@ -140,7 +166,11 @@ export async function completeOrder(
     // Same arithmetic the cart displayed — one implementation, imported, not
     // reimplemented here. The customer is charged what they were shown.
     const totals = computeTotals({
-      items: items.map((i) => ({ unit_price_cents: i.price_cents, quantity: i.quantity })),
+      items: items.map((i) => ({
+        unit_price_cents: i.price_cents,
+        quantity: i.quantity,
+        shipping_cost_cents: i.shipping_cost_cents,
+      })),
       discount: discount
         ? { type: discount.type, value: discount.value, min_subtotal_cents: discount.min_subtotal_cents }
         : null,

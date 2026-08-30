@@ -29,6 +29,11 @@ export type AdminShippingMethod = {
   isPickup: boolean;
   isActive: boolean;
   sortOrder: number;
+  // Offered (and priced) only when the cart's delivery address resolves to
+  // Heraklion (src/lib/heraklion.ts) — see getShippingOptionsForCart. Every
+  // other field on this row means exactly what it means for a normal
+  // method: this one just narrows *when* it's offered.
+  heraklionOnly: boolean;
 };
 
 export async function listShippingMethods(): Promise<AdminShippingMethod[]> {
@@ -36,14 +41,15 @@ export async function listShippingMethods(): Promise<AdminShippingMethod[]> {
     {
       id: string; name: string; description: string | null; price_cents: number;
       free_over_cents: number | null; is_pickup: boolean; is_active: boolean; sort_order: number;
+      heraklion_only: boolean;
     }[]
-  >`SELECT id, name, description, price_cents, free_over_cents, is_pickup, is_active, sort_order
+  >`SELECT id, name, description, price_cents, free_over_cents, is_pickup, is_active, sort_order, heraklion_only
       FROM shop.shipping_method ORDER BY sort_order, name`;
 
   return rows.map((r) => ({
     id: r.id, name: r.name, description: r.description, priceCents: r.price_cents,
     freeOverCents: r.free_over_cents, isPickup: r.is_pickup, isActive: r.is_active,
-    sortOrder: r.sort_order,
+    sortOrder: r.sort_order, heraklionOnly: r.heraklion_only,
   }));
 }
 
@@ -56,21 +62,23 @@ export async function saveShippingMethod(input: {
   isPickup: boolean;
   isActive: boolean;
   sortOrder: number;
+  heraklionOnly: boolean;
 }): Promise<void> {
   if (input.id) {
     await sql`
       UPDATE shop.shipping_method SET
         name = ${input.name}, description = ${input.description},
         price_cents = ${input.priceCents}, free_over_cents = ${input.freeOverCents},
-        is_pickup = ${input.isPickup}, is_active = ${input.isActive}, sort_order = ${input.sortOrder}
+        is_pickup = ${input.isPickup}, is_active = ${input.isActive}, sort_order = ${input.sortOrder},
+        heraklion_only = ${input.heraklionOnly}
       WHERE id = ${input.id}`;
     return;
   }
   await sql`
     INSERT INTO shop.shipping_method (name, description, price_cents, free_over_cents,
-                                      is_pickup, is_active, sort_order)
+                                      is_pickup, is_active, sort_order, heraklion_only)
     VALUES (${input.name}, ${input.description}, ${input.priceCents}, ${input.freeOverCents},
-            ${input.isPickup}, ${input.isActive}, ${input.sortOrder})`;
+            ${input.isPickup}, ${input.isActive}, ${input.sortOrder}, ${input.heraklionOnly})`;
 }
 
 /**

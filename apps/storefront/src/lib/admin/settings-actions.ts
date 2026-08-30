@@ -107,17 +107,39 @@ export async function saveShippingMethodAction(formData: FormData): Promise<Acti
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { ok: false, error: "Το όνομα είναι υποχρεωτικό." };
 
+  // toCents returns null both for "empty" and for "unparseable" — the two
+  // must not be conflated here, since an empty "Δωρεάν άνω των" legitimately
+  // means "never free" (see MethodForm's caption), while an empty/garbled
+  // "Κόστος" does not have an equally valid empty meaning. Re-checking the
+  // raw text distinguishes them.
+  const priceRaw = String(formData.get("price") ?? "").trim();
+  const priceCents = toCents(formData.get("price"));
+  if (priceRaw && priceCents === null) return { ok: false, error: "Μη έγκυρη τιμή στο πεδίο «Κόστος»." };
+  if (priceCents !== null && priceCents < 0) {
+    return { ok: false, error: "Το κόστος αποστολής δεν μπορεί να είναι αρνητικό." };
+  }
+
+  const freeOverRaw = String(formData.get("freeOver") ?? "").trim();
+  const freeOverCents = toCents(formData.get("freeOver"));
+  if (freeOverRaw && freeOverCents === null) {
+    return { ok: false, error: "Μη έγκυρη τιμή στο πεδίο «Δωρεάν άνω των»." };
+  }
+  if (freeOverCents !== null && freeOverCents < 0) {
+    return { ok: false, error: "Το όριο δωρεάν αποστολής δεν μπορεί να είναι αρνητικό." };
+  }
+
   const id = text(formData.get("id")) ?? undefined;
   try {
     await saveShippingMethod({
       id,
       name,
       description: text(formData.get("description")),
-      priceCents: toCents(formData.get("price")) ?? 0,
-      freeOverCents: toCents(formData.get("freeOver")),
+      priceCents: priceCents ?? 0,
+      freeOverCents,
       isPickup: formData.get("isPickup") === "on",
       isActive: formData.get("isActive") === "on",
       sortOrder: Number(formData.get("sortOrder") ?? 0) || 0,
+      heraklionOnly: formData.get("heraklionOnly") === "on",
     });
     await auditLog(admin.id, id ? "shipping.update" : "shipping.create", "shipping_method", id ?? name);
   } catch (err) {
@@ -125,7 +147,12 @@ export async function saveShippingMethodAction(formData: FormData): Promise<Acti
   }
 
   revalidatePath("/admin/settings/shipping");
-  // Checkout reads these live, so the storefront must see the change.
+  // Checkout reads these live (uncached, per-cart), so no tag needed there.
+  // The cart page's free-shipping progress bar DOES cache the nationwide
+  // threshold (getNationwideFreeShippingThresholdCents) — this is what makes
+  // a dashboard price/threshold edit show up on the storefront immediately
+  // instead of waiting out its 60s revalidate window.
+  updateTag(CACHE_TAGS.shipping);
   revalidatePath("/", "layout");
   return { ok: true, message: id ? "Η μέθοδος ενημερώθηκε." : "Η μέθοδος δημιουργήθηκε." };
 }
@@ -141,6 +168,7 @@ export async function deleteShippingMethodAction(id: string): Promise<ActionResu
     const outcome = await deleteShippingMethod(id);
     await auditLog(admin.id, `shipping.${outcome}`, "shipping_method", id);
     revalidatePath("/admin/settings/shipping");
+    updateTag(CACHE_TAGS.shipping);
     revalidatePath("/", "layout");
     return {
       ok: true,

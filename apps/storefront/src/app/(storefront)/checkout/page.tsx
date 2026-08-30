@@ -28,8 +28,10 @@ export default async function CheckoutPage() {
   // earlier visit — a refresh, or navigating back into checkout — resolve
   // the options up front instead of always starting the shipping section at
   // "fill in your address" until the customer re-touches a field. Cheap:
-  // getShippingOptionsForCart doesn't do per-cart zone lookups, it's one
-  // query for every active shop.shipping_method row.
+  // Cheap either way: getShippingOptionsForCart reads this same cart's own
+  // already-saved address (one extra indexed lookup) to decide whether the
+  // Heraklion-only method belongs in the list, then one query over
+  // shop.shipping_method — no external zone service involved.
   //
   // Every other data read on this route (getCart -> getCartById) already
   // swallows a database error and degrades rather than throwing — this repo

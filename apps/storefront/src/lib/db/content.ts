@@ -56,6 +56,7 @@ export const CACHE_TAGS = {
   homepageBlocks: "homepage-blocks",
   contentPages: "content-pages",
   seo: "seo",
+  shipping: "shipping-methods",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -149,6 +150,34 @@ export const getSiteSettings = unstable_cache(
   },
   ["site-settings"],
   { revalidate: 60, tags: [CACHE_TAGS.siteSettings] }
+);
+
+// ---------------------------------------------------------------------------
+// Shipping — nationwide free-shipping threshold, for the cart page/drawer's
+// progress bar (src/components/cart/FreeShippingProgress.tsx). Address-blind
+// on purpose: the cart page never has a delivery address yet (that's a
+// checkout-only concept), so this can only ever show the ONE rule that
+// applies regardless of address — the shared nationwide free_over_cents —
+// never the Heraklion-specific one, which needs an address to even know
+// applies. Heraklion-aware progress only appears once an address exists, in
+// ShippingSection.tsx. Cheap and cacheable: this is store config, not a
+// per-cart calculation, unlike getShippingOptionsForCart.
+// ---------------------------------------------------------------------------
+
+export const getNationwideFreeShippingThresholdCents = unstable_cache(
+  async (): Promise<number | null> => {
+    try {
+      const [row] = await sql<{ free_over_cents: number | null }[]>`
+        SELECT free_over_cents FROM shop.shipping_method
+         WHERE is_active AND NOT is_pickup AND NOT heraklion_only AND free_over_cents IS NOT NULL
+         ORDER BY sort_order, name LIMIT 1`;
+      return row?.free_over_cents ?? null;
+    } catch {
+      return null;
+    }
+  },
+  ["nationwide-free-shipping-threshold"],
+  { revalidate: 60, tags: [CACHE_TAGS.shipping] }
 );
 
 // ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@ import "server-only";
 import { sql, type Tx } from "@/lib/db/client";
 import { toneFor } from "@/lib/db/catalog";
 import { publicImageUrl } from "@/lib/storage/urls";
+import { isHeraklionAddress } from "@/lib/heraklion";
 import type { Cart, CartLineItem, Money } from "@/lib/types";
 
 /**
@@ -503,16 +504,50 @@ export async function setCartAddresses(
   shipping: AddressJson,
   billing: AddressJson
 ): Promise<void> {
+  // If a heraklion_only method was already selected and the new address no
+  // longer qualifies, its shipping_method_id must not silently survive the
+  // address change: getCart()'s own computeTotals joins whatever method is
+  // still referenced here, so leaving it in place would show a stale
+  // Heraklion price (possibly "Δωρεάν") on the cart/order-summary for an
+  // address that no longer earns it — a display-only version of the same
+  // issue setShippingMethod/completeOrder already block at selection and
+  // order-placement time, not something a customer could actually be
+  // charged, but the cart total should never show a number checkout would
+  // then refuse to honour. The client's own selectedShippingId already
+  // resets on every address save (CheckoutForm's attemptDetailsSave); this
+  // is that same reset applied to the source of truth it was missing from.
   await sql`
     UPDATE shop.cart
-       SET shipping_address = ${sql.json(shipping)}, billing_address = ${sql.json(billing)}
+       SET shipping_address = ${sql.json(shipping)}, billing_address = ${sql.json(billing)},
+           shipping_method_id = CASE
+             WHEN ${!isHeraklionAddress(shipping)} AND shipping_method_id IN (
+               SELECT id FROM shop.shipping_method WHERE heraklion_only
+             ) THEN NULL
+             ELSE shipping_method_id
+           END
      WHERE id = ${cartId}`;
 }
 
 export async function setShippingMethod(cartId: string, methodId: string): Promise<void> {
-  const [m] = await sql<{ id: string }[]>`
-    SELECT id FROM shop.shipping_method WHERE id = ${methodId} AND is_active`;
+  const [m] = await sql<{ id: string; heraklion_only: boolean }[]>`
+    SELECT id, heraklion_only FROM shop.shipping_method WHERE id = ${methodId} AND is_active`;
   if (!m) throw new CartError("Unknown shipping method", "not_found");
+
+  // Server-authoritative eligibility check — getShippingOptionsForCart
+  // already filters the Heraklion-only method out of the list for a
+  // non-Heraklion address, but that only stops it from being *offered*.
+  // This Server Action's `methodId` argument is a public endpoint like any
+  // other, so a request built by hand rather than through the rendered UI
+  // must be re-checked against the cart's own saved address here, or a
+  // customer could select a Heraklion price for an Athens delivery.
+  if (m.heraklion_only) {
+    const [cart] = await sql<{ shipping_address: { city?: string | null; postal_code?: string | null } | null }[]>`
+      SELECT shipping_address FROM shop.cart WHERE id = ${cartId}`;
+    if (!isHeraklionAddress(cart?.shipping_address ?? null)) {
+      throw new CartError("Shipping method not available for this address", "not_found");
+    }
+  }
+
   await sql`UPDATE shop.cart SET shipping_method_id = ${methodId} WHERE id = ${cartId}`;
 }
 

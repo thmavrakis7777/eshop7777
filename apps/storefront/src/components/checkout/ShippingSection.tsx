@@ -5,10 +5,22 @@ import { formatPrice } from "@/lib/format";
 import { PICKUP_LOCATION } from "@/lib/pickup-config";
 import type { ShippingOption } from "@/lib/types";
 
-function ShippingOptionPrice({ price }: { price: ShippingOption["price"] }) {
+// `option.price` is the method's own flat rate — it does not by itself know
+// whether THIS cart already clears that method's free_over_cents (nationwide
+// €79, or Heraklion's own configured threshold): computeTotals applies that
+// waiver when the order total is charged, but the row was still showing the
+// static rate right up until the customer selected it, which reads as
+// "€2.50 charged" for a cart that was actually about to be charged nothing.
+// `qualifiesFree` mirrors that same comparison here, from data the option
+// already carries, purely for display — callers must pass `false` whenever
+// the cart has an oversized/heavy line (computeTotals's surcharge branch
+// takes priority over free_over_cents entirely; see cart.ts's
+// computeTotals), or this would show "Δωρεάν" on a cart that is actually
+// about to be charged a real heavy-item surcharge.
+function ShippingOptionPrice({ price, qualifiesFree }: { price: ShippingOption["price"]; qualifiesFree: boolean }) {
   // A pickup/free option showing "0,00 €" reads like a pricing glitch, not
   // an intentional free method — "Δωρεάν" is the honest, deliberate label.
-  if (price.amount === 0) return <span className="font-medium text-success">Δωρεάν</span>;
+  if (price.amount === 0 || qualifiesFree) return <span className="font-medium text-success">Δωρεάν</span>;
   return <span className="font-medium text-ink tabular-nums">{formatPrice(price)}</span>;
 }
 
@@ -42,6 +54,38 @@ function PickupLocationInfo() {
 // them (CHECKOUT_UX_SPEC.md §8) — never hardcoded. Real prices, real names.
 // Selecting one saves it to the cart immediately so the order summary
 // updates in place, not just on final submit.
+// Deliberately names no location: whichever non-pickup option is currently
+// relevant (Heraklion-only when that's what the address resolved to,
+// otherwise the shared nationwide rate) already carries its own real
+// free_over_cents, so this stays correct for both regimes without having to
+// know which one it's looking at — and never risks showing "...στο
+// Ηράκλειο" copy to a customer whose address isn't Heraklion.
+function FreeShippingHint({ options, selectedId, subtotalAfterDiscountEur, hasOversizedItems }: {
+  options: ShippingOption[];
+  selectedId: string | null;
+  subtotalAfterDiscountEur: number;
+  hasOversizedItems: boolean;
+}) {
+  // An oversized/heavy line always charges its own real cost, regardless of
+  // subtotal (see computeTotals) — never claim "free shipping" over that.
+  if (hasOversizedItems) return null;
+
+  const relevant = options.find((o) => o.id === selectedId) ?? options.find((o) => !o.isPickup);
+  if (!relevant || relevant.freeOverCents == null) return null;
+
+  const thresholdEur = relevant.freeOverCents / 100;
+  if (subtotalAfterDiscountEur >= thresholdEur) {
+    return <p className="text-xs font-medium text-success">Έχεις δωρεάν μεταφορικά!</p>;
+  }
+  const remaining = thresholdEur - subtotalAfterDiscountEur;
+  return (
+    <p className="text-xs text-ink-muted">
+      Απομένουν <span className="font-medium text-ink">{formatPrice({ amount: remaining, currencyCode: "EUR" })}</span> για
+      δωρεάν μεταφορικά.
+    </p>
+  );
+}
+
 export function ShippingSection({
   status,
   options,
@@ -49,6 +93,8 @@ export function ShippingSection({
   onSelect,
   onRetry,
   saving,
+  subtotalAfterDiscountEur,
+  hasOversizedItems,
 }: {
   // "error" is distinct from "pending-address" on purpose: the address was
   // complete and valid, the save to the server just failed (a transient
@@ -62,10 +108,24 @@ export function ShippingSection({
   onSelect: (option: ShippingOption) => void;
   onRetry?: () => void;
   saving?: boolean;
+  subtotalAfterDiscountEur: number;
+  // An oversized/heavy cart line always charges its own real shipping cost
+  // (computeTotals in cart.ts) regardless of any free_over_cents threshold —
+  // this suppresses every "Δωρεάν"/progress message in this section from
+  // claiming otherwise while that's true.
+  hasOversizedItems: boolean;
 }) {
   return (
     <section className="flex flex-col gap-3">
       <SectionHeading number={4} title="Τρόπος αποστολής" />
+      {status === "ready" && (
+        <FreeShippingHint
+          options={options}
+          selectedId={selectedId}
+          subtotalAfterDiscountEur={subtotalAfterDiscountEur}
+          hasOversizedItems={hasOversizedItems}
+        />
+      )}
 
       {status === "pending-address" && (
         <p className="text-sm text-ink-muted">Συμπλήρωσε τη διεύθυνσή σου για να δεις τις επιλογές αποστολής.</p>
@@ -127,7 +187,15 @@ export function ShippingSection({
                     )}
                   </span>
                 </span>
-                <ShippingOptionPrice price={option.price} />
+                <ShippingOptionPrice
+                  price={option.price}
+                  qualifiesFree={
+                    !option.isPickup &&
+                    !hasOversizedItems &&
+                    option.freeOverCents != null &&
+                    subtotalAfterDiscountEur >= option.freeOverCents / 100
+                  }
+                />
               </label>
               {option.isPickup && selectedId === option.id && <PickupLocationInfo />}
             </div>

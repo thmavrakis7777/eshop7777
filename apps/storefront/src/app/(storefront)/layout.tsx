@@ -23,6 +23,7 @@ import { getSiteSettings } from "@/lib/data/site-settings";
 import { getAnalyticsSettings } from "@/lib/data/analytics-settings";
 import { getPublishedLegalPages } from "@/lib/data/content-pages";
 import { getCustomerId } from "@/lib/data/customer";
+import { getNationwideFreeShippingThresholdCents } from "@/lib/data/checkout";
 
 /**
  * Everything the shop wears: announcement bar, promo banner, header, footer,
@@ -121,8 +122,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
-  const [categories, cart, settings, configuredNav, branding, promoBanner, analyticsSettings, legalPages, nonce, customerId] =
-    await Promise.all([
+  const [
+    categories, cart, settings, configuredNav, branding, promoBanner, analyticsSettings,
+    legalPages, nonce, customerId, nationwideFreeShippingThresholdCents,
+  ] = await Promise.all([
       getNavCategories(),
       getCart(),
       getSiteSettings(),
@@ -133,6 +136,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
       getPublishedLegalPages(),
       headers().then((h) => h.get("x-nonce") ?? undefined),
       getCustomerId(),
+      getNationwideFreeShippingThresholdCents(),
     ]);
 
   // Permanent fallback, not a migration step: a shop that has never opened
@@ -199,7 +203,10 @@ export default async function StorefrontLayout({ children }: { children: React.R
             logoUrl={branding.logoUrl}
             legalPages={legalPages}
           />
-          <CartDrawer cartMessage={settings?.cartMessage ?? null} />
+          <CartDrawer
+            cartMessage={settings?.cartMessage ?? null}
+            freeShippingThresholdCents={nationwideFreeShippingThresholdCents}
+          />
           <AddToCartToast />
         </CartUIProvider>
       </WishlistProvider>

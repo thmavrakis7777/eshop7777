@@ -67,6 +67,9 @@ export function ShippingManager({ methods }: { methods: AdminShippingMethod[] })
                   {m.isPickup && (
                     <span className="rounded-sm bg-surface-strong px-1.5 py-0.5 text-xs text-ink">Παραλαβή</span>
                   )}
+                  {m.heraklionOnly && (
+                    <span className="rounded-sm bg-accent/10 px-1.5 py-0.5 text-xs text-accent">Μόνο Ηράκλειο</span>
+                  )}
                   {!m.isActive && (
                     <span className="rounded-sm bg-surface px-1.5 py-0.5 text-xs text-ink-muted">Ανενεργή</span>
                   )}
@@ -172,8 +175,23 @@ function MethodForm({
             <input type="checkbox" name="isActive" defaultChecked={method?.isActive ?? true} className="h-4 w-4 accent-ink" />
             Ενεργή
           </label>
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              name="heraklionOnly"
+              defaultChecked={method?.heraklionOnly ?? false}
+              className="h-4 w-4 accent-ink"
+            />
+            Μόνο για παραδόσεις στο Ηράκλειο
+          </label>
         </div>
       </div>
+
+      <p className="text-xs text-ink-muted">
+        Μια μέθοδος «Μόνο για παραδόσεις στο Ηράκλειο» εμφανίζεται στο checkout αντί των υπόλοιπων
+        μεθόδων αποστολής (εκτός παραλαβής) μόνο όταν η διεύθυνση παράδοσης είναι στο Ηράκλειο
+        Κρήτης — το «Κόστος» και το «Δωρεάν άνω των» παραπάνω λειτουργούν κανονικά για αυτήν.
+      </p>
 
       <div className="flex gap-2">
         <button

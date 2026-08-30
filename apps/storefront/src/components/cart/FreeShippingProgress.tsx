@@ -1,23 +1,35 @@
-import { FREE_SHIPPING_THRESHOLD_EUR } from "@/lib/cart-config";
 import { formatPrice } from "@/lib/format";
 
-// Disabled (2026-08-08, CHECKOUT_UX_SPEC.md §0.2): both real Medusa shipping
-// options are flat-rate with no conditional discount, so this promise
-// wasn't backed by anything — a customer who saw "free shipping" here would
-// still be charged the real flat rate at checkout. Explicit user decision:
-// soften the cart's message rather than build a real backend rule right
-// now. Flip this back to `true` (and nothing else) once a real
-// free-shipping rule/promotion exists on the backend.
-const FREE_SHIPPING_MESSAGE_ENABLED = false;
-
+// Re-enabled once a real, admin-configurable free-shipping rule existed to
+// back it (shop.shipping_method.free_over_cents — see Admin → Ρυθμίσεις →
+// Αποστολές). Previously this rendered a promise backed by nothing but an
+// env var (CHECKOUT_UX_SPEC.md §0.2), which could show "free shipping" while
+// checkout charged the real flat rate — deliberately disabled until that was
+// fixed rather than left showing a number nobody set.
+//
+// Deliberately NOT Heraklion-aware: the cart page/drawer never has a
+// delivery address (that only exists once checkout starts), so it can only
+// ever show the ONE rule that applies regardless of address — the shared
+// nationwide threshold, read from the dashboard via
+// getNationwideFreeShippingThresholdCents. The Heraklion-specific version of
+// this message lives in ShippingSection.tsx, where an address is actually
+// known.
+//
 // Omitted entirely at zero cart value — nothing to make progress toward yet
-// (CART_UX_SPEC.md §11). Threshold is a config value, not hardcoded here.
-export function FreeShippingProgress({ subtotalEur }: { subtotalEur: number }) {
-  if (!FREE_SHIPPING_MESSAGE_ENABLED || subtotalEur <= 0) return null;
+// (CART_UX_SPEC.md §11) — and when no nationwide threshold is configured.
+export function FreeShippingProgress({
+  subtotalEur,
+  thresholdCents,
+}: {
+  subtotalEur: number;
+  thresholdCents: number | null;
+}) {
+  if (thresholdCents == null || subtotalEur <= 0) return null;
+  const thresholdEur = thresholdCents / 100;
 
-  const reached = subtotalEur >= FREE_SHIPPING_THRESHOLD_EUR;
-  const remaining = FREE_SHIPPING_THRESHOLD_EUR - subtotalEur;
-  const progress = Math.min(100, (subtotalEur / FREE_SHIPPING_THRESHOLD_EUR) * 100);
+  const reached = subtotalEur >= thresholdEur;
+  const remaining = thresholdEur - subtotalEur;
+  const progress = Math.min(100, (subtotalEur / thresholdEur) * 100);
 
   return (
     <div className="flex flex-col gap-1.5">

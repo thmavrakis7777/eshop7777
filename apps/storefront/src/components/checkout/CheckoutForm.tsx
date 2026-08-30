@@ -223,7 +223,21 @@ export function CheckoutForm({
       // Address changed since a shipping method was chosen — the old
       // choice may no longer be valid, so it isn't carried forward
       // silently; the customer picks again from the refreshed list.
-      setSelectedShippingId(null);
+      //
+      // Exception: when the refreshed list has exactly one non-pickup
+      // delivery option (the normal outcome the moment an address resolves
+      // to Heraklion — getShippingOptionsForCart hides every nationwide
+      // method in that case), there is nothing to actually pick between, so
+      // auto-selecting it avoids an unnecessary extra click and matches the
+      // "Heraklion address → shipping recalculates automatically" behavior.
+      // A non-Heraklion address still offers several courier options, so
+      // this never fires for the general case.
+      const deliveryOptions = result.shippingOptions.filter((o) => !o.isPickup);
+      if (deliveryOptions.length === 1) {
+        void handleSelectShipping(deliveryOptions[0]);
+      } else {
+        setSelectedShippingId(null);
+      }
     } else {
       // Distinct from "pending-address": the address itself was complete
       // and valid (it passed validateDetails above) — the save to the
@@ -523,6 +537,12 @@ export function CheckoutForm({
             onSelect={handleSelectShipping}
             onRetry={() => void attemptDetailsSave()}
             saving={shippingSaving}
+            // Same subtotal computeTotals compares free_over_cents against
+            // server-side (after discount, never the pre-discount total) —
+            // reusing cart.subtotal/discountTotal already in state, not a
+            // second calculation of what "the subtotal" means.
+            subtotalAfterDiscountEur={cart.subtotal.amount - cart.discountTotal.amount}
+            hasOversizedItems={cart.items.some((item) => item.hasExtraShipping)}
           />
           <TaxDocumentSection
             type={taxDocumentType}

@@ -21,7 +21,13 @@ const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled
 // transition is disabled and no transitionend event would ever fire.
 const EXIT_TRANSITION_MS = 300;
 
-export function CartDrawer({ cartMessage }: { cartMessage: string | null }) {
+export function CartDrawer({
+  cartMessage,
+  freeShippingThresholdCents,
+}: {
+  cartMessage: string | null;
+  freeShippingThresholdCents: number | null;
+}) {
   const { isDrawerOpen, closeDrawer } = useCartUI();
   // Stays mounted for EXIT_TRANSITION_MS after isDrawerOpen goes false so the
   // slide/fade-out has something to animate — CartDrawerInner drives the
@@ -42,6 +48,7 @@ export function CartDrawer({ cartMessage }: { cartMessage: string | null }) {
       onRequestClose={closeDrawer}
       onClosed={() => setMounted(false)}
       cartMessage={cartMessage}
+      freeShippingThresholdCents={freeShippingThresholdCents}
     />
   );
 }
@@ -51,11 +58,13 @@ function CartDrawerInner({
   onRequestClose,
   onClosed,
   cartMessage,
+  freeShippingThresholdCents,
 }: {
   open: boolean;
   onRequestClose: () => void;
   onClosed: () => void;
   cartMessage: string | null;
+  freeShippingThresholdCents: number | null;
 }) {
   const controller = useCartController(null);
   const router = useRouter();
@@ -193,7 +202,10 @@ function CartDrawerInner({
         {cart && hasItems && (
           <div className="flex flex-col gap-3 border-t border-border p-4">
             {cartMessage && <p className="text-xs text-ink-muted">{cartMessage}</p>}
-            <FreeShippingProgress subtotalEur={cart.subtotal.amount} />
+            <FreeShippingProgress
+              subtotalEur={cart.subtotal.amount - cart.discountTotal.amount}
+              thresholdCents={freeShippingThresholdCents}
+            />
 
             <CouponForm
               promotions={cart.promotions}

@@ -16,7 +16,15 @@ import { EmptyCartState } from "@/components/cart/EmptyCartState";
 // — a purpose-built mobile layout, not the desktop table squeezed narrower.
 // Both variants render from the same `cart.items` so they can never drift
 // out of sync with each other; only one is ever visible at a given width.
-export function CartPageView({ initialCart, cartMessage }: { initialCart: Cart; cartMessage: string | null }) {
+export function CartPageView({
+  initialCart,
+  cartMessage,
+  freeShippingThresholdCents,
+}: {
+  initialCart: Cart;
+  cartMessage: string | null;
+  freeShippingThresholdCents: number | null;
+}) {
   const controller = useCartController(initialCart);
   const cart = controller.cart;
   if (!cart) return null;
@@ -71,7 +79,10 @@ export function CartPageView({ initialCart, cartMessage }: { initialCart: Cart; 
 
       <aside className="flex h-fit flex-col gap-4 rounded-md border border-border p-5 lg:sticky lg:top-24">
         {cartMessage && <p className="text-xs text-ink-muted">{cartMessage}</p>}
-        <FreeShippingProgress subtotalEur={cart.subtotal.amount} />
+        <FreeShippingProgress
+          subtotalEur={cart.subtotal.amount - cart.discountTotal.amount}
+          thresholdCents={freeShippingThresholdCents}
+        />
 
         <CouponForm
           promotions={cart.promotions}

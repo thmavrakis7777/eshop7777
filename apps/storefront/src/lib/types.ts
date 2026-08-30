@@ -254,6 +254,12 @@ export type ShippingOption = {
   // lib/data/checkout.ts. Drives whether ShippingSection shows the
   // pickup-location info block instead of just a price row.
   isPickup: boolean;
+  // Cart subtotal (after discount) above which THIS option becomes free, in
+  // euro cents — null means it's never conditionally free. Carried through
+  // so ShippingSection can show "X€ away from free shipping" without a
+  // second round trip; it is not itself the eligibility check (the server
+  // already only returns options the address actually qualifies for).
+  freeOverCents: number | null;
 };
 
 export type PaymentProvider = {
