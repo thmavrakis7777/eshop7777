@@ -104,7 +104,7 @@ export function Header({
           <StoreLogo
             storeName={storeName}
             logoUrl={logoUrl}
-            className="font-display text-[clamp(0.8125rem,3.6vw,1.5rem)] tracking-tight text-ink whitespace-nowrap col-start-2 justify-self-center"
+            className="font-display text-[clamp(0.84375rem,4vw,1.5rem)] tracking-tight text-ink whitespace-nowrap col-start-2 justify-self-center"
           />
 
 

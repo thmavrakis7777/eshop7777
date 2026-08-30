@@ -57,6 +57,13 @@
     background: var(--color-bg);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    /* Safety net for the full-bleed homepage sections (Hero/EditorialBanner/
+       Newsletter no longer use container-shell) — none of them rely on
+       100vw or negative margins to reach the edge, so this should never
+       actually clip anything; it exists purely so a future off-by-a-pixel
+       full-bleed addition fails as "no scrollbar" instead of "1px
+       horizontal scroll on every page." */
+    overflow-x: hidden;
   }
 
   h1,

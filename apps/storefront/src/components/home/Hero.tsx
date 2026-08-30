@@ -56,7 +56,7 @@ export function HeroSlide({
   const showButton = content.config?.showButton !== false && Boolean(ctaLabel && ctaHref);
 
   return (
-    <div className="relative flex min-h-[26rem] flex-col justify-end overflow-hidden rounded-lg bg-surface-strong p-8 md:min-h-[32rem] md:p-14">
+    <div className="relative flex min-h-[26rem] flex-col justify-end overflow-hidden bg-surface-strong p-8 md:min-h-[32rem] md:p-14">
       {/* A real <img> rather than a CSS background-image: the latter is an
           inline `style="background-image:url(...)"` attribute, which a
           strict CSP without 'unsafe-inline' on style-src-elem blocks —
@@ -112,7 +112,13 @@ export function HeroSlide({
 // carousel (see HeroCarousel).
 export function Hero({ slides, storeName }: { slides: HomepageSection[]; storeName: string }) {
   return (
-    <section className="container-shell pt-6 md:pt-10">
+    // Deliberately not container-shell: the hero is meant to run edge to
+    // edge (no ancestor between here and <body> restricts width — see
+    // (storefront)/layout.tsx — so simply not opting into the constraint
+    // is the whole fix, no 100vw/negative-margin trick needed). The actual
+    // heading/body/CTA inside HeroSlide keep their own max-w-xl, so text
+    // never stretches just because the section now can.
+    <section className="pt-6 md:pt-10">
       {slides.length >= 2 ? (
         <HeroCarousel slides={slides} storeName={storeName} />
       ) : (

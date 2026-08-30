@@ -55,8 +55,11 @@ export function Newsletter({ section }: { section?: HomepageSection } = {}) {
   }
 
   return (
-    <section className="container-shell mt-16 md:mt-24">
-      <div className="relative overflow-hidden rounded-lg bg-ink px-6 py-12 text-center md:px-12 md:py-16">
+    // Not container-shell — the dark background now runs edge to edge; the
+    // heading/body/form inside already cap themselves individually
+    // (max-w-md, max-w-sm) so nothing stretches just because the section can.
+    <section className="mt-16 md:mt-24">
+      <div className="relative overflow-hidden bg-ink px-6 py-12 text-center md:px-12 md:py-16">
         {imageUrl && (
           <>
             <Image
@@ -64,7 +67,9 @@ export function Newsletter({ section }: { section?: HomepageSection } = {}) {
               alt={section?.imageAlt ?? ""}
               fill
               unoptimized
-              sizes="(min-width: 768px) 1152px, 100vw"
+              // The box is now always the true viewport width, not
+              // container-shell's old ≤1152px cap.
+              sizes="100vw"
               className="object-cover"
             />
             {/* Keeps the white copy readable over any uploaded image — the

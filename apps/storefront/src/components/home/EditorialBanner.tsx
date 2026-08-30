@@ -20,7 +20,7 @@ function PromoSection({ block, imageFirst }: { block: HomepageSection; imageFirs
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
       <div
-        className={`flex flex-col justify-center rounded-lg bg-surface p-8 md:p-12 ${
+        className={`flex flex-col justify-center bg-surface p-8 md:p-12 ${
           imageFirst ? "order-2 md:order-1" : "order-2"
         }`}
       >
@@ -38,8 +38,10 @@ function PromoSection({ block, imageFirst }: { block: HomepageSection; imageFirs
           // eslint-disable-next-line @next/next/no-img-element -- admin-supplied external URL, not part of the optimized product-image pipeline
           <img
             src={block.imageUrl}
-            alt=""
-            className="aspect-square w-full rounded-lg object-cover md:aspect-auto md:h-full"
+            alt={block.imageAlt ?? ""}
+            loading="lazy"
+            decoding="async"
+            className="aspect-square w-full object-cover md:aspect-auto md:h-full"
           />
         ) : (
           <PlaceholderTile
@@ -60,8 +62,11 @@ function PromoSection({ block, imageFirst }: { block: HomepageSection; imageFirs
 export function EditorialBanner({ blocks }: { blocks: HomepageSection[] }) {
   const items = blocks.length > 0 ? blocks : [DEFAULT_BLOCK];
 
+  // Not container-shell — same reasoning as Hero: nothing between here and
+  // <body> constrains width, so the promo banner already runs edge to edge
+  // without it. The text half keeps its own p-8/p-12 padding either way.
   return (
-    <section className="container-shell mt-16 flex flex-col gap-10 md:mt-24 md:gap-16">
+    <section className="mt-16 flex flex-col gap-10 md:mt-24 md:gap-16">
       {items.map((block, i) => (
         <PromoSection key={block.id} block={block} imageFirst={i % 2 === 0} />
       ))}

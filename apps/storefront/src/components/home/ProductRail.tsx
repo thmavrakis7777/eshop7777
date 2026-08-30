@@ -53,7 +53,12 @@ export function ProductRail({
   if (products.length === 0) return null;
 
   return (
-    <section className="w-full container-shell mt-16 md:mt-24">
+    // text-left resets whatever a caller's own ancestor happens to set —
+    // EmptyCartState wraps Recently Viewed in a text-center div for its own
+    // icon/message, which was leaking into every ProductCard's name/price
+    // here (none of them set their own text-align, so they inherited it).
+    // A no-op everywhere else this rail is used.
+    <section className="w-full container-shell mt-16 md:mt-24 text-left">
       <div className="flex items-end justify-between">
         <h2 className="text-2xl text-ink md:text-3xl">{title}</h2>
         {viewAllHref && (
