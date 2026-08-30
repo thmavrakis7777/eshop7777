@@ -32,6 +32,13 @@ export type AdminDiscount = {
   createdAt: string;
   /** Derived, not stored — so it can never drift from the dates behind it. */
   state: "active" | "scheduled" | "expired" | "exhausted" | "disabled";
+  /**
+   * Set only for a system-issued loyalty reward (owner_customer_id on
+   * shop.discount, see 0025 migration) — never for an admin-created code.
+   * Surfaced so this list doesn't show an unexplained auto-generated code:
+   * it's still the same table/UI, just privately scoped to one customer.
+   */
+  ownerCustomerEmail: string | null;
 };
 
 function deriveState(d: {
@@ -55,10 +62,13 @@ export async function listDiscounts(): Promise<AdminDiscount[]> {
       id: string; code: string; description: string | null; type: "percentage" | "fixed";
       value: number; min_subtotal_cents: number; starts_at: Date | null; ends_at: Date | null;
       max_redemptions: number | null; redemption_count: number; is_active: boolean; created_at: Date;
+      owner_customer_email: string | null;
     }[]
-  >`SELECT id, code, description, type, value, min_subtotal_cents, starts_at, ends_at,
-           max_redemptions, redemption_count, is_active, created_at
-      FROM shop.discount ORDER BY is_active DESC, created_at DESC`;
+  >`SELECT d.id, d.code, d.description, d.type, d.value, d.min_subtotal_cents, d.starts_at, d.ends_at,
+           d.max_redemptions, d.redemption_count, d.is_active, d.created_at, c.email AS owner_customer_email
+      FROM shop.discount d
+      LEFT JOIN shop.customer c ON c.id = d.owner_customer_id
+     ORDER BY d.is_active DESC, d.created_at DESC`;
 
   return rows.map((r) => ({
     id: r.id,
@@ -74,6 +84,7 @@ export async function listDiscounts(): Promise<AdminDiscount[]> {
     isActive: r.is_active,
     createdAt: new Date(r.created_at).toISOString(),
     state: deriveState(r),
+    ownerCustomerEmail: r.owner_customer_email,
   }));
 }
 

@@ -308,6 +308,7 @@ export type Order = {
   courierName?: string;
   trackingCode?: string;
   trackingUrl?: string;
+  loyaltyReward?: { code: string; endsAt: string | null };
 };
 
 export type Customer = {

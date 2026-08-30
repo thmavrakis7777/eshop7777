@@ -33,7 +33,8 @@ export default async function OrderConfirmationPage({
   searchParams: Promise<{ order?: string }>;
 }) {
   const { order: orderId } = await searchParams;
-  const order = orderId ? await getOrder(orderId, await getCustomerId()) : null;
+  const customerId = await getCustomerId();
+  const order = orderId ? await getOrder(orderId, customerId) : null;
 
   if (!order) {
     return (
@@ -103,6 +104,20 @@ export default async function OrderConfirmationPage({
             </div>
           </div>
         </div>
+
+        {order.loyaltyReward && (
+          <div className="rounded-md border border-accent/30 bg-accent/5 p-4 text-center text-sm text-ink">
+            Κέρδισες ένα κουπόνι έκπτωσης 5€ για την επόμενη παραγγελία σου:{" "}
+            <code className="rounded-sm bg-surface-strong px-2 py-0.5 font-mono font-medium text-ink">
+              {order.loyaltyReward.code}
+            </code>
+            {order.loyaltyReward.endsAt && (
+              <span className="block text-xs text-ink-muted">
+                Ισχύει έως {new Intl.DateTimeFormat("el-GR", { dateStyle: "medium" }).format(new Date(order.loyaltyReward.endsAt))}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="flex flex-col gap-1">
@@ -211,10 +226,12 @@ export default async function OrderConfirmationPage({
           <p className="text-center text-sm text-ink-muted">
             Χρειάζεσαι βοήθεια; <Link href="/epikoinonia" className="text-accent hover:underline">Επικοινώνησε μαζί μας</Link>
           </p>
-          <p className="text-center text-xs text-ink-muted">
-            Θέλεις να δημιουργήσεις λογαριασμό για τις επόμενες παραγγελίες;{" "}
-            <Link href="/logariasmos" className="text-accent hover:underline">Δημιουργία λογαριασμού</Link>
-          </p>
+          {!customerId && (
+            <p className="text-center text-xs text-ink-muted">
+              Θέλεις να δημιουργήσεις λογαριασμό για τις επόμενες παραγγελίες;{" "}
+              <Link href="/logariasmos" className="text-accent hover:underline">Δημιουργία λογαριασμού</Link>
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -53,6 +53,13 @@ const toCents = (v: FormDataEntryValue | null): number | null => {
   return Number.isFinite(n) ? Math.round(n * 100) : null;
 };
 
+const toInt = (v: FormDataEntryValue | null): number | null => {
+  const raw = String(v ?? "").trim();
+  if (!raw) return null;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) ? n : null;
+};
+
 async function guard(): Promise<{ id: string } | null> {
   try {
     return await requireAdmin();
@@ -349,6 +356,11 @@ export async function saveSiteSettingsAction(formData: FormData): Promise<Action
     return { ok: false, error: "Ο συντελεστής ΦΠΑ πρέπει να είναι μεταξύ 0 και 100." };
   }
 
+  const loyaltyRewardExpiryDays = toInt(formData.get("loyaltyRewardExpiryDays"));
+  if (loyaltyRewardExpiryDays != null && loyaltyRewardExpiryDays < 1) {
+    return { ok: false, error: "Η διάρκεια ισχύος του κουπονιού πρέπει να είναι τουλάχιστον 1 ημέρα." };
+  }
+
   try {
     await saveSiteSettings({
       storeName: text(formData.get("storeName")),
@@ -374,6 +386,7 @@ export async function saveSiteSettingsAction(formData: FormData): Promise<Action
       legalCompanyName: text(formData.get("legalCompanyName")),
       vatNumber: text(formData.get("vatNumber")),
       gemiNumber: text(formData.get("gemiNumber")),
+      loyaltyRewardExpiryDays,
     });
     await auditLog(admin.id, "site_settings.update", "site_setting", "singleton");
   } catch {

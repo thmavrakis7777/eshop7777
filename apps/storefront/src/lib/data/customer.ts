@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { CUSTOMER_SESSION_COOKIE, resolveCustomerSession } from "@/lib/auth/session";
-import { getCustomerById, listCustomerAddresses } from "@/lib/db/customer";
+import { getCustomerById, listCustomerAddresses, listCustomerLoyaltyCoupons, type LoyaltyCoupon } from "@/lib/db/customer";
 import { listCustomerOrders } from "@/lib/db/orders";
 import type { Customer, CustomerAddress, Order } from "@/lib/types";
 
@@ -51,4 +51,10 @@ export async function getCustomerOrders(): Promise<Order[]> {
   const customerId = await getCustomerId();
   if (!customerId) return [];
   return listCustomerOrders(customerId);
+}
+
+export async function getCustomerLoyaltyCoupons(): Promise<LoyaltyCoupon[]> {
+  const customerId = await getCustomerId();
+  if (!customerId) return [];
+  return listCustomerLoyaltyCoupons(customerId);
 }

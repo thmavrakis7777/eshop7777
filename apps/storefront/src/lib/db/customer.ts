@@ -260,3 +260,35 @@ export async function updateCustomerAddress(
 export async function deleteCustomerAddress(customerId: string, addressId: string): Promise<void> {
   await sql`DELETE FROM shop.customer_address WHERE id = ${addressId} AND customer_id = ${customerId}`;
 }
+
+// ---------------------------------------------------------------------------
+// Loyalty coupons — read-only here; issuance happens inside completeOrder's
+// own transaction (lib/db/checkout.ts). owner_customer_id is the WHERE
+// clause, same IDOR-prevention shape as the address book above: a customer
+// can only ever see coupons issued to their own account.
+// ---------------------------------------------------------------------------
+
+export type LoyaltyCoupon = {
+  code: string;
+  valueCents: number;
+  isActive: boolean;
+  isRedeemed: boolean;
+  endsAt: string | null;
+};
+
+export async function listCustomerLoyaltyCoupons(customerId: string): Promise<LoyaltyCoupon[]> {
+  const rows = await sql<
+    { code: string; value: number; is_active: boolean; ends_at: Date | null; redemption_count: number }[]
+  >`SELECT code, value, is_active, ends_at, redemption_count
+      FROM shop.discount
+     WHERE owner_customer_id = ${customerId}
+     ORDER BY created_at DESC`;
+
+  return rows.map((r) => ({
+    code: r.code,
+    valueCents: r.value,
+    isActive: r.is_active,
+    isRedeemed: r.redemption_count > 0,
+    endsAt: r.ends_at ? new Date(r.ends_at).toISOString() : null,
+  }));
+}

@@ -446,8 +446,14 @@ export async function removeItem(cartId: string, itemId: string): Promise<void> 
  * Validates and applies a discount code. Every rule that could reject a code
  * is checked here rather than trusted from a stored flag: active, within its
  * date window, under its redemption cap, and above its minimum subtotal.
+ *
+ * `customerId` (the caller's own session, not anything client-supplied) gates
+ * a loyalty coupon (owner_customer_id set — see 0025 migration) to the
+ * customer it was issued to. A mismatch reads back as "unknown code", same
+ * as a code that doesn't exist at all — never confirms a private code's
+ * existence to anyone probing for one.
  */
-export async function applyDiscount(cartId: string, code: string): Promise<void> {
+export async function applyDiscount(cartId: string, code: string, customerId: string | null): Promise<void> {
   const [d] = await sql<
     {
       id: string;
@@ -457,12 +463,16 @@ export async function applyDiscount(cartId: string, code: string): Promise<void>
       ends_at: Date | null;
       max_redemptions: number | null;
       redemption_count: number;
+      owner_customer_id: string | null;
     }[]
   >`SELECT id, min_subtotal_cents, is_active, starts_at, ends_at,
-           max_redemptions, redemption_count
+           max_redemptions, redemption_count, owner_customer_id
       FROM shop.discount WHERE lower(code) = lower(${code.trim()})`;
 
   if (!d || !d.is_active) throw new CartError("Unknown code", "invalid_code");
+  if (d.owner_customer_id && d.owner_customer_id !== customerId) {
+    throw new CartError("Unknown code", "invalid_code");
+  }
 
   const now = Date.now();
   if (d.starts_at && new Date(d.starts_at).getTime() > now) throw new CartError("Not started", "invalid_code");

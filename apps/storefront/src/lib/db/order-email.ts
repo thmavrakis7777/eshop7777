@@ -48,9 +48,11 @@ export type OrderEmailData = {
   courierName: string | null;
   trackingCode: string | null;
   trackingUrl: string | null;
+  loyaltyReward: { code: string; endsAtFormatted: string | null } | null;
 };
 
 const dateFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short" });
+const dateOnlyFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium" });
 
 export async function getOrderForEmail(orderId: string): Promise<OrderEmailData | null> {
   const rows = await sql<
@@ -72,6 +74,8 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
       courier_name: string | null;
       tracking_code: string | null;
       tracking_url: string | null;
+      loyalty_reward_code: string | null;
+      loyalty_reward_ends_at: Date | null;
       items: Array<{
         title: string;
         variant_title: string | null;
@@ -88,6 +92,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
            o.shipping_cents, o.shipping_method_name,
            o.vat_cents, o.vat_rate, o.total_cents, o.payment_method,
            o.shipping_address, o.courier_name, o.tracking_code, o.tracking_url,
+           d.code AS loyalty_reward_code, d.ends_at AS loyalty_reward_ends_at,
            COALESCE((
              SELECT json_agg(json_build_object(
                'title', i.title, 'variant_title', i.variant_title, 'sku', i.sku,
@@ -104,6 +109,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
              WHERE i.order_id = o.id
            ), '[]'::json) AS items
       FROM shop.orders o
+      LEFT JOIN shop.discount d ON d.source_order_id = o.id
      WHERE o.id = ${orderId}`;
 
   const r = rows[0];
@@ -146,6 +152,12 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
     courierName: r.courier_name,
     trackingCode: r.tracking_code,
     trackingUrl: r.tracking_url,
+    loyaltyReward: r.loyalty_reward_code
+      ? {
+          code: r.loyalty_reward_code,
+          endsAtFormatted: r.loyalty_reward_ends_at ? dateOnlyFmt.format(new Date(r.loyalty_reward_ends_at)) : null,
+        }
+      : null,
   };
 }
 

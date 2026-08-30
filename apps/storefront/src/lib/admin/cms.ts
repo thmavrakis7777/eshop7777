@@ -2,6 +2,7 @@ import "server-only";
 import { sql, transaction } from "@/lib/db/client";
 import type { HomepageSectionConfig, HomepageSectionKind } from "@/lib/content-types";
 import { listCategoryTree } from "@/lib/admin/taxonomy";
+import { LOYALTY_REWARD_DEFAULT_EXPIRY_DAYS } from "@/lib/loyalty";
 
 /**
  * Storefront content management.
@@ -226,6 +227,11 @@ export type AdminSiteSettings = {
   legalCompanyName: string | null;
   vatNumber: string | null;
   gemiNumber: string | null;
+  // NULL = the €5 loyalty coupon never expires. Read by completeOrder
+  // (lib/db/checkout.ts) at issuance time — a later change here only
+  // affects coupons issued after the change, never rewrites one already
+  // credited to a customer.
+  loyaltyRewardExpiryDays: number | null;
 };
 
 export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
@@ -240,6 +246,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
       phone_orders_enabled: boolean | null; phone_orders_label: string | null;
       free_shipping_threshold_cents: number | null; default_vat_rate: number;
       legal_company_name: string | null; vat_number: string | null; gemi_number: string | null;
+      loyalty_reward_expiry_days: number | null;
     }[]
   >`SELECT store_name, logo_path, favicon_path, og_image_path,
            default_seo_title, default_seo_description,
@@ -247,7 +254,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
            contact_address, business_hours, facebook_url, instagram_url, tiktok_url,
            announcement_text, cart_message, phone_orders_enabled, phone_orders_label,
            free_shipping_threshold_cents, default_vat_rate,
-           legal_company_name, vat_number, gemi_number
+           legal_company_name, vat_number, gemi_number, loyalty_reward_expiry_days
       FROM shop.site_setting LIMIT 1`;
 
   const s = rows[0];
@@ -263,6 +270,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
       phoneOrdersEnabled: false, phoneOrdersLabel: null,
       freeShippingThresholdCents: null, defaultVatRate: 24,
       legalCompanyName: null, vatNumber: null, gemiNumber: null,
+      loyaltyRewardExpiryDays: LOYALTY_REWARD_DEFAULT_EXPIRY_DAYS,
     };
   }
 
@@ -280,6 +288,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
     freeShippingThresholdCents: s.free_shipping_threshold_cents,
     defaultVatRate: Number(s.default_vat_rate),
     legalCompanyName: s.legal_company_name, vatNumber: s.vat_number, gemiNumber: s.gemi_number,
+    loyaltyRewardExpiryDays: s.loyalty_reward_expiry_days,
   };
 }
 
@@ -292,7 +301,7 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       contact_address, business_hours, facebook_url, instagram_url, tiktok_url,
       announcement_text, cart_message, phone_orders_enabled, phone_orders_label,
       free_shipping_threshold_cents, default_vat_rate,
-      legal_company_name, vat_number, gemi_number, updated_at)
+      legal_company_name, vat_number, gemi_number, loyalty_reward_expiry_days, updated_at)
     VALUES (
       true, ${input.storeName}, ${input.logoPath}, ${input.faviconPath},
       ${input.ogImagePath}, ${input.defaultSeoTitle}, ${input.defaultSeoDescription},
@@ -301,7 +310,8 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       ${input.businessHours}, ${input.facebookUrl}, ${input.instagramUrl}, ${input.tiktokUrl},
       ${input.announcementText}, ${input.cartMessage}, ${input.phoneOrdersEnabled}, ${input.phoneOrdersLabel},
       ${input.freeShippingThresholdCents}, ${input.defaultVatRate},
-      ${input.legalCompanyName}, ${input.vatNumber}, ${input.gemiNumber}, now())
+      ${input.legalCompanyName}, ${input.vatNumber}, ${input.gemiNumber},
+      ${input.loyaltyRewardExpiryDays}, now())
     ON CONFLICT (id) DO UPDATE SET
       store_name = EXCLUDED.store_name, logo_path = EXCLUDED.logo_path,
       favicon_path = EXCLUDED.favicon_path, og_image_path = EXCLUDED.og_image_path,
@@ -317,7 +327,8 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       free_shipping_threshold_cents = EXCLUDED.free_shipping_threshold_cents,
       default_vat_rate = EXCLUDED.default_vat_rate,
       legal_company_name = EXCLUDED.legal_company_name, vat_number = EXCLUDED.vat_number,
-      gemi_number = EXCLUDED.gemi_number, updated_at = now()`;
+      gemi_number = EXCLUDED.gemi_number,
+      loyalty_reward_expiry_days = EXCLUDED.loyalty_reward_expiry_days, updated_at = now()`;
 }
 
 // ---------------------------------------------------------------------------

@@ -93,6 +93,11 @@ export function DiscountManager({ discounts }: { discounts: AdminDiscount[] }) {
                     </span>
                   </div>
                   {d.description && <div className="mt-0.5 text-xs text-ink-muted">{d.description}</div>}
+                  {d.ownerCustomerEmail && (
+                    <div className="mt-0.5 text-xs font-medium text-accent">
+                      Προσωπικό κουπόνι πιστότητας — {d.ownerCustomerEmail}
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-sm font-medium tabular-nums text-ink">

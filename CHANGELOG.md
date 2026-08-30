@@ -3,6 +3,35 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Full project audit (2026-08-30)
+
+Requested before a context clear, so `PROJECT_AUDIT.md` (new) is the real
+detail — this entry is the pointer. `tsc`/`eslint`/`next build` all clean
+before and after.
+
+**Three real bugs found and fixed:** (1) the product-variant editor could
+save negative stock (no lower-bound check, unlike price) — fixed with an
+action-level guard plus a new DB `CHECK (stock_quantity >= 0)`
+(`0026_variant_stock_nonneg.sql`), same defense-in-depth pattern as
+`0024`'s shipping-threshold fix. (2)/(3) product and category pages had no
+`twitter` metadata of their own (silently inherited the site-wide generic
+one on every share) and never fell back to the entity's own real photo for
+`og:image`/`twitter:image` when no admin override was set — both fixed by
+copying the pattern `journal/[slug]/page.tsx` already used correctly.
+
+**Everything else — categories (3-level depth + cycle prevention),
+checkout, shipping (heavy/oversized/mixed-cart), payments, dashboard CRUD,
+RLS, CSP, rate limiting, SQL-injection surface, env vars — audited and
+confirmed intact, no regressions, nothing changed.** Full findings in
+`PROJECT_AUDIT.md`.
+
+**Cleanup**: removed the checkout-page loyalty-coupon UI added earlier this
+session (per explicit follow-up request — the backend coupon-issuance
+system stays live, see `PROJECT_AUDIT.md` §13), its now-dead
+account-creation-during-checkout code path, and added `scratch/` to
+`.gitignore` (one-off SQL/preview files from prior sessions, never meant to
+be committed).
+
 ## Migrate email to Resend + automatic shipment-notification email (2026-08-23)
 
 Two pieces, done together because the second needed the first's transport.

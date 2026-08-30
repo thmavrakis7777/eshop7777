@@ -1,7 +1,13 @@
 import "server-only";
+import { randomBytes } from "node:crypto";
 import { sql } from "@/lib/db/client";
 import { computeTotals } from "@/lib/db/cart";
 import { isHeraklionAddress } from "@/lib/heraklion";
+import {
+  LOYALTY_REWARD_DEFAULT_EXPIRY_DAYS,
+  LOYALTY_REWARD_THRESHOLD_CENTS,
+  LOYALTY_REWARD_VALUE_CENTS,
+} from "@/lib/loyalty";
 
 /**
  * Order completion — the single most correctness-critical function in this
@@ -38,7 +44,20 @@ export type CompletedOrder = {
   email: string;
   totalCents: number;
   items: Array<{ title: string; quantity: number; lineTotalCents: number }>;
+  loyaltyReward: { code: string; endsAt: string | null } | null;
 };
+
+// No 0/O/1/I — avoids a code that reads ambiguously when handwritten or
+// read aloud (a real support-ticket source for the admin-created codes this
+// reuses the same table as).
+const LOYALTY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function randomLoyaltyCode(): string {
+  const bytes = randomBytes(6);
+  let suffix = "";
+  for (const b of bytes) suffix += LOYALTY_CODE_ALPHABET[b % LOYALTY_CODE_ALPHABET.length];
+  return `LOYAL-${suffix}`;
+}
 
 export async function completeOrder(
   cartId: string,
@@ -238,6 +257,55 @@ export async function completeOrder(
         VALUES (${discount.id}, ${order.id}, ${customerId ?? cart.customer_id})`;
     }
 
+    // Loyalty reward — €5 coupon, credited only once the order is real
+    // (this is the same transaction that just decremented stock and
+    // inserted the order row, so "order completed" and "reward issued" can
+    // never disagree). Requires an account: rewardCustomerId is null for a
+    // guest who did not create one during this checkout, in which case
+    // nothing is issued, matching the spec's "account creation is required"
+    // rule exactly. source_order_id's unique index (0025 migration) is the
+    // idempotency guard on top of completeOrder's own once-per-cart
+    // guarantee — a retried call for an already-completed cart never
+    // reaches this code at all (the `status = 'completed'` check above
+    // throws first).
+    const rewardCustomerId = customerId ?? cart.customer_id;
+    let loyaltyReward: { code: string; endsAt: Date | null } | null = null;
+    if (rewardCustomerId && totals.subtotalCents >= LOYALTY_REWARD_THRESHOLD_CENTS) {
+      const [settings] = await tx<{ loyalty_reward_expiry_days: number | null }[]>`
+        SELECT loyalty_reward_expiry_days FROM shop.site_setting LIMIT 1`;
+      const expiryDays = settings?.loyalty_reward_expiry_days ?? LOYALTY_REWARD_DEFAULT_EXPIRY_DAYS;
+      const endsAt = expiryDays != null ? new Date(Date.now() + expiryDays * 86_400_000) : null;
+
+      // Check-then-insert for code uniqueness, same pattern saveDiscount
+      // (lib/admin/discounts.ts) already uses for admin-created codes — not
+      // a new, weaker guarantee. A collision inside a 33^6 code space is
+      // astronomically unlikely for a shop that will never have anywhere
+      // near that many discount rows.
+      let code: string | null = null;
+      for (let attempt = 0; attempt < 5 && !code; attempt++) {
+        const candidate = randomLoyaltyCode();
+        const [clash] = await tx<{ id: string }[]>`
+          SELECT id FROM shop.discount WHERE lower(code) = lower(${candidate})`;
+        if (!clash) code = candidate;
+      }
+
+      if (code) {
+        const [reward] = await tx<{ code: string; ends_at: Date | null }[]>`
+          INSERT INTO shop.discount (
+            code, description, type, value, min_subtotal_cents,
+            ends_at, max_redemptions, is_active, owner_customer_id, source_order_id)
+          VALUES (
+            ${code}, ${`Ανταμοιβή πιστότητας — παραγγελία #${order.order_number}`}, 'fixed',
+            ${LOYALTY_REWARD_VALUE_CENTS}, 0, ${endsAt}, 1, true, ${rewardCustomerId}, ${order.id})
+          RETURNING code, ends_at`;
+        if (reward) loyaltyReward = { code: reward.code, endsAt: reward.ends_at };
+      }
+      // If code generation somehow exhausted its retries, the order still
+      // completes without a reward rather than failing the customer's
+      // purchase over it — same "never let a secondary concern block an
+      // already-valid order" principle as the confirmation email below.
+    }
+
     await tx`
       INSERT INTO shop.order_event (order_id, type, to_status, note)
       VALUES (${order.id}, 'created', 'pending', 'Order placed by customer')`;
@@ -256,6 +324,7 @@ export async function completeOrder(
         quantity: i.quantity,
         lineTotalCents: i.price_cents * i.quantity,
       })),
+      loyaltyReward: loyaltyReward ? { code: loyaltyReward.code, endsAt: loyaltyReward.endsAt?.toISOString() ?? null } : null,
     };
   });
 }

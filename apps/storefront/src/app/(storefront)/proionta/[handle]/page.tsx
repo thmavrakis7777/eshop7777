@@ -46,6 +46,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = seo?.seoTitle || product.title;
   const description = seo?.metaDescription || product.shortDescription || product.title;
   const canonicalPath = seo?.canonicalUrl || `/proionta/${product.handle}`;
+  // Falls back to the product's own real photo when no admin override is
+  // set — found missing in a full project audit (mirrors the pattern
+  // journal/[slug]/page.tsx already uses). Before real product photography
+  // existed this always resolved to nothing anyway; now that Supabase
+  // Storage uploads are live, sharing a product link with no override
+  // should still show that product's real image, not no image at all.
+  const image = seo?.socialImageUrl || product.imageUrl;
 
   return {
     // RootLayout's title template appends " | STIA" to every plain string
@@ -61,7 +68,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: seo?.ogTitle || title,
       description: seo?.ogDescription || description,
       url: `${siteUrl}${canonicalPath}`,
-      ...(seo?.socialImageUrl ? { images: [{ url: seo.socialImageUrl }] } : {}),
+      ...(image ? { images: [{ url: image, alt: product.title }] } : {}),
+    },
+    // Without its own `twitter` block, this page silently inherited the
+    // root layout's generic site-wide one (Next only replaces a parent
+    // metadata key when the child declares that same key) — found missing
+    // here and on every category route in the same audit.
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title: seo?.ogTitle || title,
+      description: seo?.ogDescription || description,
+      ...(image ? { images: [image] } : {}),
     },
     ...(seo?.keywords ? { keywords: seo.keywords } : {}),
   };

@@ -12,3 +12,6 @@ dist/
 
 # Database backups — contain customer PII, never commit
 backups/
+
+# One-off scratch scripts/exports/previews — never a deliverable
+scratch/

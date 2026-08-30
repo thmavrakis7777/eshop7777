@@ -13,6 +13,7 @@ import {
   updateItemQuantity,
 } from "@/lib/db/cart";
 import { CART_ID_COOKIE, getCart } from "@/lib/data/cart";
+import { getCustomerId } from "@/lib/data/customer";
 import { checkRateLimit, rateLimitKey } from "@/lib/auth/session";
 import type { Cart } from "@/lib/types";
 
@@ -128,7 +129,8 @@ export async function applyPromoCodeAction(code: string): Promise<CartActionResu
   if (!(await checkRateLimit(await rateLimitKey("promo-code"), 20, 300))) {
     return { ok: false, error: "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο.", cart: await getCart() };
   }
-  return resultFrom(() => applyDiscount(cartId, code));
+  const customerId = await getCustomerId();
+  return resultFrom(() => applyDiscount(cartId, code, customerId));
 }
 
 export async function removePromoCodeAction(code: string): Promise<CartActionResult> {

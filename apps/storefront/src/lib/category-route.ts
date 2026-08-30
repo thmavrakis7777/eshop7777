@@ -4,6 +4,7 @@ import { categoryPathHref, getCategoryPath } from "@/lib/data/categories";
 import { getSeoOverride } from "@/lib/data/seo";
 import { canonicalListingPath, hasAnyFilterParam, parsePage } from "@/lib/search-params";
 import { siteUrl } from "@/lib/site-config";
+import { publicImageUrl } from "@/lib/storage/urls";
 
 /**
  * Metadata for a category page at any depth.
@@ -49,6 +50,12 @@ export async function categoryMetadata(
   // admin-set noindex — or every filter combination becomes a duplicate URL
   // competing with the one real, canonical category page.
   const noindex = seo?.robots === "noindex" || hasAnyFilterParam(searchParams);
+  // Falls back to the category's own uploaded image when no admin override
+  // is set — found missing in a full project audit (mirrors the pattern
+  // journal/[slug]/page.tsx already uses; product pages just got the same
+  // fix). imagePath is a storage path, not a public URL, so it needs the
+  // same derivation every other image on this site goes through.
+  const image = seo?.socialImageUrl || publicImageUrl(category.imagePath) || undefined;
 
   return {
     title: seo?.seoTitle ? { absolute: seo.seoTitle } : title,
@@ -59,7 +66,16 @@ export async function categoryMetadata(
       title: seo?.ogTitle || title,
       description: seo?.ogDescription || description,
       url: `${siteUrl}${canonical}`,
-      ...(seo?.socialImageUrl ? { images: [{ url: seo.socialImageUrl }] } : {}),
+      ...(image ? { images: [{ url: image, alt: category.name }] } : {}),
+    },
+    // Without its own `twitter` block, every category-depth route silently
+    // inherited the root layout's generic site-wide one (Next only replaces
+    // a parent metadata key when the child declares that same key).
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title: seo?.ogTitle || title,
+      description: seo?.ogDescription || description,
+      ...(image ? { images: [image] } : {}),
     },
     ...(seo?.keywords ? { keywords: seo.keywords } : {}),
   };

@@ -42,6 +42,8 @@ type OrderRow = {
   courier_name: string | null;
   tracking_code: string | null;
   tracking_url: string | null;
+  loyalty_reward_code: string | null;
+  loyalty_reward_ends_at: Date | null;
   items: Array<{
     id: string;
     title: string;
@@ -65,6 +67,7 @@ const ORDER_FIELDS = sql`
   o.invoice_doy, o.invoice_activity, o.created_at,
   o.status, o.payment_status, o.payment_method,
   o.courier_name, o.tracking_code, o.tracking_url,
+  d.code AS loyalty_reward_code, d.ends_at AS loyalty_reward_ends_at,
   COALESCE((
     SELECT json_agg(json_build_object(
       'id', i.id, 'title', i.title, 'variant_title', i.variant_title, 'sku', i.sku,
@@ -126,6 +129,14 @@ export function toDomainOrder(o: OrderRow): Order {
     courierName: o.courier_name ?? undefined,
     trackingCode: o.tracking_code ?? undefined,
     trackingUrl: o.tracking_url ?? undefined,
+    ...(o.loyalty_reward_code
+      ? {
+          loyaltyReward: {
+            code: o.loyalty_reward_code,
+            endsAt: o.loyalty_reward_ends_at ? new Date(o.loyalty_reward_ends_at).toISOString() : null,
+          },
+        }
+      : {}),
   };
 }
 
@@ -148,7 +159,9 @@ export async function getOrderById(orderId: string, viewerCustomerId: string | n
   if (!/^[0-9a-f-]{36}$/i.test(orderId)) return null;
   try {
     const rows = await sql<OrderRow[]>`
-      SELECT ${ORDER_FIELDS} FROM shop.orders o WHERE o.id = ${orderId} LIMIT 1`;
+      SELECT ${ORDER_FIELDS} FROM shop.orders o
+      LEFT JOIN shop.discount d ON d.source_order_id = o.id
+      WHERE o.id = ${orderId} LIMIT 1`;
     const row = rows[0];
     if (!row) return null;
     if (row.customer_id && row.customer_id !== viewerCustomerId) return null;
@@ -161,6 +174,7 @@ export async function getOrderById(orderId: string, viewerCustomerId: string | n
 export async function listCustomerOrders(customerId: string): Promise<Order[]> {
   const rows = await sql<OrderRow[]>`
     SELECT ${ORDER_FIELDS} FROM shop.orders o
+    LEFT JOIN shop.discount d ON d.source_order_id = o.id
      WHERE o.customer_id = ${customerId}
      ORDER BY o.created_at DESC`;
   return rows.map(toDomainOrder);

@@ -131,6 +131,12 @@ export default async function AdminLayoutContentPage() {
                     hint: "Ο κανονικός ελληνικός συντελεστής είναι 24%. Οι τιμές περιλαμβάνουν ΦΠΑ.",
                   },
                   {
+                    name: "loyaltyRewardExpiryDays",
+                    label: "Διάρκεια ισχύος κουπονιού πιστότητας (ημέρες)",
+                    type: "number",
+                    hint: "Το κουπόνι 5€ που πιστώνεται σε λογαριασμό πελάτη μετά από παραγγελία άνω των 50€. Άφησέ το κενό για απεριόριστη ισχύ.",
+                  },
+                  {
                     name: "legalCompanyName",
                     label: "Επωνυμία επιχείρησης (νομική)",
                     type: "text",

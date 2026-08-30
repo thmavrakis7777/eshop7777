@@ -352,6 +352,15 @@ export async function saveVariantAction(productId: string, formData: FormData): 
     return { ok: false, error: "Η αρχική τιμή πρέπει να είναι μεγαλύτερη από την τιμή πώλησης." };
   }
 
+  // Same guard adjustStockAction/setStockAction already apply — this editor
+  // was the one path that didn't, so a typo like "-3" saved straight through
+  // (found in a full project audit; db/migrations/0026 adds the matching
+  // CHECK constraint as defense in depth).
+  const stockQuantity = Number(formData.get("stock") ?? 0) || 0;
+  if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
+    return { ok: false, error: "Το απόθεμα πρέπει να είναι μη αρνητικός ακέραιος." };
+  }
+
   try {
     await saveVariant(productId, {
       id: optionalText(formData.get("variantId")) ?? undefined,
@@ -359,7 +368,7 @@ export async function saveVariantAction(productId: string, formData: FormData): 
       title: optionalText(formData.get("variantTitle")) ?? "Default",
       priceCents,
       compareAtPriceCents: compareAt,
-      stockQuantity: Number(formData.get("stock") ?? 0) || 0,
+      stockQuantity,
       allowBackorder: formData.get("allowBackorder") === "on",
       isActive: formData.get("variantActive") !== "off",
     });

@@ -88,6 +88,19 @@ function summaryBlock(order: OrderEmailData): string {
   }
 }
 
+function loyaltyRewardBlock(reward: NonNullable<OrderEmailData["loyaltyReward"]>): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SURFACE};border-radius:10px;margin-top:20px">
+    <tr><td style="padding:18px 20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:8px">Ανταμοιβή πιστότητας</div>
+      <p style="margin:0;font-size:13px;color:${INK}">
+        Κέρδισες ένα κουπόνι έκπτωσης 5€ για την επόμενη παραγγελία σου:
+        <strong style="font-family:monospace">${escapeHtml(reward.code)}</strong>
+        ${reward.endsAtFormatted ? ` (ισχύει έως ${escapeHtml(reward.endsAtFormatted)})` : ""}
+      </p>
+    </td></tr>
+  </table>`;
+}
+
 const PAYMENT_METHOD_LABELS: Record<string, string> = { cod: "Αντικαταβολή", bank_transfer: "Τραπεζική κατάθεση" };
 function paymentMethodLabel(method: string): string {
   return PAYMENT_METHOD_LABELS[method] ?? method;
@@ -154,6 +167,7 @@ export function orderConfirmationHtml(
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemRows}</table>
     ${summaryBlock(order)}
+    ${order.loyaltyReward ? loyaltyRewardBlock(order.loyaltyReward) : ""}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px">
       <tr><td>
@@ -198,6 +212,10 @@ export function orderConfirmationText(order: OrderEmailData, ctx: { storeName: s
     ``,
     `Τρόπος πληρωμής: ${paymentMethodLabel(order.paymentMethod)}`,
     ``,
+    order.loyaltyReward
+      ? `Κέρδισες ένα κουπόνι έκπτωσης 5€ για την επόμενη παραγγελία σου: ${order.loyaltyReward.code}${order.loyaltyReward.endsAtFormatted ? ` (ισχύει έως ${order.loyaltyReward.endsAtFormatted})` : ""}`
+      : null,
+    order.loyaltyReward ? `` : null,
     `Δείτε την παραγγελία σας: ${ctx.orderUrl}`,
     ``,
     `Σας ευχαριστούμε θερμά που επιλέξατε το ${ctx.storeName}. Ετοιμάζουμε την παραγγελία σας και θα σας ενημερώσουμε μόλις αποσταλεί.`,
