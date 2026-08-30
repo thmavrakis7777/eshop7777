@@ -55,6 +55,24 @@ const KIND_HINTS: Record<HomepageSectionKind, string> = {
     "Η φόρμα εγγραφής. Τίτλος, κείμενο, κουμπί και προαιρετική εικόνα φόντου είναι δικά σου — η αποστολή email δεν είναι ακόμα συνδεδεμένη.",
 };
 
+// Hero and Promo render their image as a plain <img> with no server-side
+// resizing (Hero.tsx, EditorialBanner.tsx) — unlike product photos, the
+// exact file uploaded here is what every visitor downloads, so the source
+// size/weight matters directly to page speed. Only the two kinds asked
+// about get a hint; the others render through next/image (Content) or have
+// no size-sensitive image use case worth a specific number (Newsletter).
+const IMAGE_SIZE_HINTS: Partial<Record<HomepageSectionKind, { desktop: string; mobile?: string }>> = {
+  hero: {
+    desktop:
+      "Προτεινόμενο μέγεθος 1920×640px (JPEG/WebP, έως ~200KB) — χρησιμοποιείται σε desktop και tablet. Δεν αλλάζει μέγεθος αυτόματα.",
+    mobile: "Προτεινόμενο μέγεθος 900×1200px, έως ~120KB — μόνο για κινητό (προαιρετικό· χωρίς αυτό, εμφανίζεται η desktop εικόνα παντού).",
+  },
+  promo: {
+    desktop:
+      "Προτεινόμενο μέγεθος 1200×1200px (JPEG/WebP, έως ~150KB) — η ίδια εικόνα χρησιμοποιείται σε desktop, tablet και mobile (τετράγωνη περικοπή σε mobile). Δεν αλλάζει μέγεθος αυτόματα.",
+  },
+};
+
 const SOURCE_LABELS: Record<string, string> = {
   newest: "Νεότερα προϊόντα",
   featured: "Προτεινόμενα",
@@ -454,7 +472,13 @@ function SectionForm({
         <div className="grid gap-3 md:grid-cols-2">
           <div>
             <label className={label} htmlFor="imagePath">Εικόνα (desktop)</label>
-            <ImageUploadField id="imagePath" name="imagePath" defaultValue={section?.imagePath} folder="homepage" />
+            <ImageUploadField
+              id="imagePath"
+              name="imagePath"
+              defaultValue={section?.imagePath}
+              folder="homepage"
+              hint={IMAGE_SIZE_HINTS[kind]?.desktop}
+            />
           </div>
           <div>
             <label className={label} htmlFor="mobileImagePath">Εικόνα (mobile)</label>
@@ -464,6 +488,7 @@ function SectionForm({
               defaultValue={section?.mobileImagePath}
               folder="homepage"
               placeholder="Προαιρετικό — αλλιώς χρησιμοποιείται η desktop"
+              hint={IMAGE_SIZE_HINTS[kind]?.mobile}
             />
           </div>
           <div className="md:col-span-2">

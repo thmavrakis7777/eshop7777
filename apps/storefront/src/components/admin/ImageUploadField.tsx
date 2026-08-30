@@ -25,6 +25,7 @@ export function ImageUploadField({
   defaultValue,
   folder,
   placeholder = "https://… ή διαδρομή αρχείου",
+  hint,
 }: {
   id?: string;
   name: string;
@@ -33,6 +34,12 @@ export function ImageUploadField({
   // anything else is silently rewritten to "uploads" server-side.
   folder: "categories" | "homepage" | "branding" | "journal" | "pages";
   placeholder?: string;
+  // Recommended dimensions/file size for this specific slot. Most callers of
+  // this field render the uploaded file as a plain <img> with no server-side
+  // resizing (Hero, Promo banner, category cards) — unlike product photos,
+  // whatever gets uploaded here is what every visitor downloads, so getting
+  // this right before upload is the whole point of showing it.
+  hint?: string;
 }) {
   const [path, setPath] = useState(defaultValue ?? "");
   const [pending, startTransition] = useTransition();
@@ -82,6 +89,7 @@ export function ImageUploadField({
           />
         </label>
       </div>
+      {hint && <p className="mt-1.5 text-xs text-ink-muted">{hint}</p>}
       {error && <p className="mt-1.5 text-xs text-danger">{error}</p>}
       {previewUrl && (
         // eslint-disable-next-line @next/next/no-img-element -- live preview of an admin-entered/uploaded path, same rationale as CategoryLandingView's hero image.

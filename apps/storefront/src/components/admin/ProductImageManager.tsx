@@ -92,6 +92,9 @@ export function ProductImageManager({ productId, images }: { productId: string; 
           onChange={(e) => handleUpload(e.target.files?.[0])}
         />
       </label>
+      <p className={`mt-1.5 ${hint}`}>
+        Προτεινόμενο μέγεθος 1600×1600px (τετράγωνο) — αλλάζει μέγεθος και μορφή αυτόματα ανά συσκευή.
+      </p>
       {error && <p className="mt-1.5 text-xs text-danger">{error}</p>}
     </div>
   );

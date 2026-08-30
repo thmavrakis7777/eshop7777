@@ -408,7 +408,12 @@ function CategoryForm({
           needs it on an ordinary product category above all. */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-ink">Εικόνα (προαιρετικό)</label>
-        <ImageUploadField name="imagePath" defaultValue={category?.imagePath} folder="categories" />
+        <ImageUploadField
+          name="imagePath"
+          defaultValue={category?.imagePath}
+          folder="categories"
+          hint="Προτεινόμενο μέγεθος 1200×900px (4:3, JPEG/WebP, έως ~150KB) — η ίδια εικόνα χρησιμοποιείται σε desktop, tablet και mobile. Δεν αλλάζει μέγεθος αυτόματα."
+        />
         <p className="text-xs text-ink-muted">
           Ανέβασε αρχείο ή επικόλλησε URL. Χρησιμοποιείται στις κάρτες επιλογής κατηγορίας. Κενό = εμφανίζεται
           το αρχικό γράμμα της κατηγορίας.
