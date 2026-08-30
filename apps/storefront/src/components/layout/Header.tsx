@@ -251,44 +251,66 @@ export function Header({
                   nested tier turns the panel into the whole taxonomy. Anyone
                   who wants to go deeper does it on the category page, where
                   there is room to do it one level at a time. */}
-              <div className="col-span-2 grid grid-cols-3 gap-x-6 gap-y-5">
-                {/* displayChildren, not children: the canonical parent_id
-                    tree plus any category cross-listed here (shop.category_
-                    secondary_parent). Every link uses each node's own
-                    canonicalHref rather than concatenating this menu's
-                    handle with the child's — that concatenation assumes the
-                    child's URL lives under this exact category, which is
-                    false for a cross-listed one (its real URL is wherever
-                    its PRIMARY parent puts it). */}
-                {activeMegaMenu.displayChildren.map((child) => (
-                  <div key={child.handle} className="min-w-0">
-                    <Link
-                      href={child.canonicalHref}
-                      className="block rounded-sm px-2 py-1 text-sm font-medium text-ink hover:text-accent transition-colors"
-                      onClick={() => setOpenMenu(null)}
-                    >
-                      {child.name}
-                    </Link>
-                    {child.displayChildren.length > 0 && (
-                      <ul className="mt-1 flex flex-col">
-                        {child.displayChildren.map((grandchild) => (
-                          <li key={grandchild.handle}>
-                            <Link
-                              href={grandchild.canonicalHref}
-                              className="block rounded-sm px-2 py-1 text-xs text-ink-muted hover:text-ink transition-colors"
-                              onClick={() => setOpenMenu(null)}
-                            >
-                              {grandchild.name}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
+              <div className="col-span-2">
+                {/* CSS multi-column, not grid-cols-3: a row-based grid
+                    stretches every cell in a row to the tallest one, so one
+                    subcategory with many grandchildren (e.g. Καθαριότητα)
+                    forced its whole row — including short, childless
+                    neighbors — to match its height, leaving large empty gaps
+                    under everything else in that row. `columns-3` lets the
+                    browser balance real content height into independently-
+                    flowing columns instead, with no JS/ResizeObserver
+                    needed: each column fills from the top with only as much
+                    content as it actually has. `break-inside-avoid` keeps a
+                    single child+grandchildren group from being split across
+                    two columns mid-list. Order stays logical and lossless —
+                    displayChildren is walked in the same sequence either
+                    way; multi-column just reads top-to-bottom within a
+                    column before continuing into the next one, the same as
+                    a newspaper column, rather than left-to-right per row. */}
+                <div className="columns-3 gap-x-6">
+                  {/* displayChildren, not children: the canonical parent_id
+                      tree plus any category cross-listed here (shop.category_
+                      secondary_parent). Every link uses each node's own
+                      canonicalHref rather than concatenating this menu's
+                      handle with the child's — that concatenation assumes the
+                      child's URL lives under this exact category, which is
+                      false for a cross-listed one (its real URL is wherever
+                      its PRIMARY parent puts it). */}
+                  {activeMegaMenu.displayChildren.map((child) => (
+                    <div key={child.handle} className="mb-5 break-inside-avoid">
+                      <Link
+                        href={child.canonicalHref}
+                        className="block rounded-sm px-2 py-1 text-sm font-medium text-ink hover:text-accent transition-colors"
+                        onClick={() => setOpenMenu(null)}
+                      >
+                        {child.name}
+                      </Link>
+                      {child.displayChildren.length > 0 && (
+                        <ul className="mt-1 flex flex-col">
+                          {child.displayChildren.map((grandchild) => (
+                            <li key={grandchild.handle}>
+                              <Link
+                                href={grandchild.canonicalHref}
+                                className="block rounded-sm px-2 py-1 text-xs text-ink-muted hover:text-ink transition-colors"
+                                onClick={() => setOpenMenu(null)}
+                              >
+                                {grandchild.name}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* Outside the column flow on purpose — inside it, the
+                    balancing algorithm could drop this "view all" link
+                    partway down a column instead of it reading as a single
+                    consistent call-to-action under the category list. */}
                 <Link
                   href={activeMegaMenu.canonicalHref}
-                  className="self-start rounded-sm px-2 py-1 text-sm font-medium text-accent hover:underline"
+                  className="mt-1 inline-block rounded-sm px-2 py-1 text-sm font-medium text-accent hover:underline"
                   onClick={() => setOpenMenu(null)}
                 >
                   Όλα τα προϊόντα →
