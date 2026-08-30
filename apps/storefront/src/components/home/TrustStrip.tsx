@@ -84,32 +84,44 @@ export function TrustStrip({ section }: { section?: HomepageSection } = {}) {
 
   const heading = section?.heading?.trim();
 
+  // Not container-shell on the section itself — same reasoning as Hero/
+  // EditorialBanner/Newsletter: nothing between here and <body> constrains
+  // width, so the bg-surface band below can run edge to edge just by not
+  // opting into the constraint. Unlike those three, the actual badge row
+  // stays at the site's normal container-shell width (reused, not a new
+  // max-width value) so four badges don't end up scattered across an
+  // enormous 1920px+ screen — the colored band now only carries vertical
+  // padding (py-6/py-10); horizontal inset comes from container-shell,
+  // matching every other section's side margin exactly instead of stacking
+  // two different paddings.
   return (
-    <section className="container-shell mt-16 md:mt-24">
+    <section className="mt-16 md:mt-24">
       {heading && (
-        <h2 className="mb-4 font-display text-xl text-ink md:text-2xl">{heading}</h2>
+        <h2 className="container-shell mb-4 font-display text-xl text-ink md:text-2xl">{heading}</h2>
       )}
-      <div className={`grid grid-cols-2 gap-6 rounded-lg bg-surface p-6 md:p-10 ${MD_COLS[Math.min(items.length, 4)]}`}>
-        {items.map((item, i) => (
-          <div key={`${item.title}-${i}`} className="flex flex-col items-start gap-2">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-6 w-6 text-accent"
-              aria-hidden="true"
-            >
-              {ICON_PATHS[item.icon] ?? ICON_PATHS.truck}
-            </svg>
-            <span className="text-sm font-medium text-ink">{item.title}</span>
-            {item.description && (
-              <span className="text-xs text-ink-muted">{item.description}</span>
-            )}
-          </div>
-        ))}
+      <div className="bg-surface py-6 md:py-10">
+        <div className={`container-shell grid grid-cols-2 gap-6 ${MD_COLS[Math.min(items.length, 4)]}`}>
+          {items.map((item, i) => (
+            <div key={`${item.title}-${i}`} className="flex flex-col items-start gap-2">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-6 w-6 text-accent"
+                aria-hidden="true"
+              >
+                {ICON_PATHS[item.icon] ?? ICON_PATHS.truck}
+              </svg>
+              <span className="text-sm font-medium text-ink">{item.title}</span>
+              {item.description && (
+                <span className="text-xs text-ink-muted">{item.description}</span>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
