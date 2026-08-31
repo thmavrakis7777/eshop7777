@@ -157,7 +157,23 @@ function CartDrawerInner({
         onClick={handleClose}
       />
       <div
-        className={`absolute inset-y-0 right-0 flex w-full flex-col bg-bg shadow-xl transition-transform duration-300 ease-out motion-reduce:transition-none md:w-[440px] ${
+        // overflow-y-auto here (not just on the item list below) is the
+        // actual fix, confirmed by measuring real layout at 1280x480 with
+        // the coupon field expanded: the item list already shrinks and
+        // scrolls internally on its own (its own overflow-y-auto already
+        // floors its flex min-height to 0 per the flexbox spec — no bug
+        // there). The real gap was that the HEADER+FOOTER together (title
+        // bar, free-shipping line, coupon form, totals, checkout button) can
+        // be taller than a short window on their own, even with the item
+        // list squeezed to 0 — and neither they nor this outer panel could
+        // scroll, so the footer's bottom edge ran past the viewport with no
+        // way to reach it (measured: footer bottom at 486px in a 480px
+        // window). Letting the whole panel scroll as a fallback is what
+        // actually closes that gap, at any viewport height, without a
+        // guessed breakpoint. overscroll-contain stops that scroll from
+        // chaining to the page behind (matches the mega-menu panel's own
+        // overscroll-contain in Header.tsx).
+        className={`absolute inset-y-0 right-0 flex w-full flex-col overflow-y-auto overscroll-contain bg-bg shadow-xl transition-transform duration-300 ease-out motion-reduce:transition-none md:w-[440px] ${
           visible ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -168,7 +184,11 @@ function CartDrawerInner({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4">
+        {/* min-h-0 makes explicit what overflow-y-auto already implies (a
+            flex item with non-visible overflow floors its automatic
+            min-height to 0 per spec) — kept for clarity, not because it
+            changes behavior. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4">
           {!cart ? (
             <div className="flex flex-col gap-4 py-4" aria-hidden="true">
               {[0, 1].map((i) => (

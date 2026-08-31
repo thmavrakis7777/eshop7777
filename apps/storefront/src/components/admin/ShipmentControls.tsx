@@ -11,7 +11,14 @@ import { resendShipmentEmailAction, saveShipmentInfoAction } from "@/lib/admin/s
  * 0015_shipment_tracking.sql). The admin can type any name; a link only
  * ever appears if they also paste a real tracking URL themselves.
  */
-const COURIER_SUGGESTIONS = ["ACS", "Γενική Ταχυδρομική", "ΕΛΤΑ Courier", "Speedex", "Courier Center"];
+const COURIER_SUGGESTIONS = [
+  "ACS",
+  "Γενική Ταχυδρομική",
+  "ΕΛΤΑ Courier",
+  "Speedex",
+  "Courier Center",
+  "Μεταφορική Mavrakis Home",
+];
 
 const dateTimeFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short" });
 

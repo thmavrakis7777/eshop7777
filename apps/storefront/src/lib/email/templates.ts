@@ -144,9 +144,9 @@ function shell(opts: { previewText: string; bodyHtml: string; storeName: string;
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SURFACE};padding:32px 16px">
     <tr><td align="center">
       <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#fff;border-radius:14px;overflow:hidden">
-        <tr><td style="padding:32px 32px 8px;text-align:center">
+        <tr><td valign="middle" style="padding:20px 32px;text-align:center">
           <div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;letter-spacing:0.04em;color:${INK}">${escapeHtml(opts.storeName.toUpperCase())}</div>
-        </tr></td>
+        </td></tr>
         <tr><td style="padding:8px 32px 32px">${opts.bodyHtml}</td></tr>
         ${footer(opts.storeName, opts.contact)}
       </table>

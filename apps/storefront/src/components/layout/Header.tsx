@@ -172,10 +172,11 @@ export function Header({
             {navItems.map((item) => {
               // Only a category item can open a mega menu, and only if that
               // category actually has children — a SALES chip or a custom URL
-              // has nothing to expand.
-              const children = item.categorySlug
-                ? (navCategories.find((c) => c.handle === item.categorySlug)?.displayChildren ?? [])
-                : [];
+              // has nothing to expand. Keeping the whole category object (not
+              // just its children) is what lets the parent label itself link
+              // somewhere real below.
+              const category = item.categorySlug ? navCategories.find((c) => c.handle === item.categorySlug) : undefined;
+              const children = category?.displayChildren ?? [];
               const hasMenu = children.length > 0;
 
               // Only ever colour and padding, never arbitrary CSS: the values
@@ -193,24 +194,29 @@ export function Header({
 
               return (
                 <li key={item.id}>
-                  {hasMenu ? (
-                    <button
-                      type="button"
-                  className={base}
-                  style={style}
-                  aria-expanded={openMenu === item.categorySlug}
-                  onMouseEnter={() => setOpenMenu(item.categorySlug)}
-                  onFocus={() => setOpenMenu(item.categorySlug)}
-                  // Opens only, never toggles closed: a mouse click arrives
-                  // *after* mouseenter/focus have already opened the panel, so
-                  // a toggle would slam it shut under the cursor. Activation
-                  // still does something real (matching aria-expanded) for
-                  // anyone who reaches this without hover; Escape closes.
-                  onClick={() => setOpenMenu(item.categorySlug)}
-                >
-                  {item.label}
+                  {hasMenu && category ? (
+                    // A real link, same as any other nav item — clicking the
+                    // parent category name navigates to that category's own
+                    // page (category.canonicalHref, the exact same field the
+                    // mega menu's own "Όλα τα προϊόντα" link below uses, so
+                    // the destination can never drift from it). Hover/focus
+                    // still open the dropdown exactly as before; only the
+                    // click behavior changed — this used to be a <button>
+                    // with no href at all; onClick only ever set the same
+                    // state onMouseEnter/onFocus already set, so removing it
+                    // in favor of real navigation doesn't lose anything a
+                    // mouse or hover user could reach.
+                    <Link
+                      href={category.canonicalHref}
+                      className={base}
+                      style={style}
+                      aria-expanded={openMenu === item.categorySlug}
+                      onMouseEnter={() => setOpenMenu(item.categorySlug)}
+                      onFocus={() => setOpenMenu(item.categorySlug)}
+                    >
+                      {item.label}
                       <ChevronDownIcon />
-                    </button>
+                    </Link>
                   ) : (
                     <Link
                       href={item.href}
