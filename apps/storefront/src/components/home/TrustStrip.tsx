@@ -99,26 +99,35 @@ export function TrustStrip({ section }: { section?: HomepageSection } = {}) {
       {heading && (
         <h2 className="container-shell mb-4 font-display text-xl text-ink md:text-2xl">{heading}</h2>
       )}
-      <div className="bg-surface py-6 md:py-10">
-        <div className={`container-shell grid grid-cols-2 gap-6 ${MD_COLS[Math.min(items.length, 4)]}`}>
+      <div className="bg-surface py-8 md:py-12">
+        <div className={`container-shell grid grid-cols-2 gap-x-4 gap-y-7 sm:gap-x-6 ${MD_COLS[Math.min(items.length, 4)]}`}>
           {items.map((item, i) => (
-            <div key={`${item.title}-${i}`} className="flex flex-col items-start gap-2">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-6 w-6 text-accent"
-                aria-hidden="true"
-              >
-                {ICON_PATHS[item.icon] ?? ICON_PATHS.truck}
-              </svg>
-              <span className="text-sm font-medium text-ink">{item.title}</span>
-              {item.description && (
-                <span className="text-xs text-ink-muted">{item.description}</span>
-              )}
+            // Icon centered above the text block, both on the same centered
+            // axis — flex-col + items-center stacks and centers the badge,
+            // then text-center keeps the (possibly multi-line) title/
+            // description centered under it rather than left-aligned
+            // against a centered icon.
+            <div key={`${item.title}-${i}`} className="flex flex-col items-center gap-3 text-center sm:gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent/10 sm:h-14 sm:w-14">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-6 w-6 text-accent sm:h-7 sm:w-7"
+                  aria-hidden="true"
+                >
+                  {ICON_PATHS[item.icon] ?? ICON_PATHS.truck}
+                </svg>
+              </div>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-sm font-medium text-ink">{item.title}</span>
+                {item.description && (
+                  <span className="text-xs text-ink-muted">{item.description}</span>
+                )}
+              </div>
             </div>
           ))}
         </div>

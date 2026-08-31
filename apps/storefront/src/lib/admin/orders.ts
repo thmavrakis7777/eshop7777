@@ -303,6 +303,62 @@ export async function saveAdminNote(orderId: string, note: string | null): Promi
   await sql`UPDATE shop.orders SET admin_note = ${note} WHERE id = ${orderId}`;
 }
 
+/**
+ * Permanently deletes an order — a separate, more severe action than
+ * cancelling (which only flips status and is what customers/admins normally
+ * want; the record stays as history). This is for purging a mistaken, test,
+ * duplicate, or otherwise unwanted order record entirely.
+ *
+ * Dependent rows are handled by the schema itself (0001_init.sql), not
+ * re-implemented here: order_item/order_event/discount_redemption all
+ * CASCADE (they're this order's own data, nothing else references them),
+ * inventory_movement.order_id and shop.discount.source_order_id both SET
+ * NULL (the audit trail and any loyalty coupon a customer already earned
+ * survive — only the back-reference to this specific order is cleared).
+ * Nothing about a customer, product, other order, address, or coupon is
+ * touched.
+ *
+ * Stock is restored first, same as cancelling, but ONLY when the order
+ * never actually shipped (pending/confirmed/processing) — an order that's
+ * already shipped or delivered had its stock genuinely leave the building,
+ * so "restoring" it would be wrong; a cancelled order already had its stock
+ * returned by updateOrderStatus, so doing it again here would double it.
+ * Skipping this for unfulfilled orders would silently leak stock forever
+ * the moment the only record of the reservation disappears.
+ */
+const RESTORE_STOCK_STATUSES: OrderStatus[] = ["pending", "confirmed", "processing"];
+
+export async function deleteOrderPermanently(
+  orderId: string,
+  adminUserId: string
+): Promise<{ orderNumber: number; email: string; totalCents: number }> {
+  return transaction(async (tx) => {
+    const [order] = await tx<{ order_number: number; email: string; total_cents: number; status: OrderStatus }[]>`
+      SELECT order_number, email, total_cents, status FROM shop.orders WHERE id = ${orderId} FOR UPDATE`;
+    if (!order) throw new OrderError("Order not found", "not_found");
+
+    if (RESTORE_STOCK_STATUSES.includes(order.status)) {
+      const items = await tx<{ variant_id: string | null; quantity: number }[]>`
+        SELECT variant_id, quantity FROM shop.order_item WHERE order_id = ${orderId}`;
+      for (const item of items) {
+        if (!item.variant_id) continue; // product deleted since — nothing to restore
+        await tx`
+          UPDATE shop.product_variant
+             SET stock_quantity = stock_quantity + ${item.quantity}
+           WHERE id = ${item.variant_id}`;
+        await tx`
+          INSERT INTO shop.inventory_movement (variant_id, delta, reason, order_id, admin_user_id, note)
+          VALUES (${item.variant_id}, ${item.quantity}, 'correction', ${orderId}, ${adminUserId},
+                  'Επιστροφή αποθέματος από οριστική διαγραφή παραγγελίας')`;
+      }
+    }
+
+    await tx`DELETE FROM shop.orders WHERE id = ${orderId}`;
+
+    return { orderNumber: order.order_number, email: order.email, totalCents: order.total_cents };
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Shipment tracking + the automatic shipment-email trigger
 // ---------------------------------------------------------------------------

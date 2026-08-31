@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getAdminUser } from "@/lib/admin/auth";
 import { getOrderDetail } from "@/lib/admin/orders";
 import { OrderStatusControls } from "@/components/admin/OrderStatusControls";
 import { ShipmentControls } from "@/components/admin/ShipmentControls";
+import { DeleteOrderControls } from "@/components/admin/DeleteOrderControls";
 import {
   Card,
   PageHeader,
@@ -42,7 +44,7 @@ function Address({ address }: { address: Record<string, string | null> | null })
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const order = await getOrderDetail(id);
+  const [order, admin] = await Promise.all([getOrderDetail(id), getAdminUser()]);
   if (!order) notFound();
 
   const itemCount = order.items.reduce((sum, i) => sum + i.quantity, 0);
@@ -220,6 +222,17 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               shipmentEmailSentAt={order.shipmentEmailSentAt}
             />
           </Card>
+
+          {/* Owner-only, same tier as the other destructive/account-
+              management controls in this admin — hiding it from a staff-role
+              admin is UX only, deleteOrderPermanentlyAction re-checks this
+              independently server-side regardless of what this page renders. */}
+          {admin?.role === "owner" && (
+            <Card>
+              <SectionTitle>Οριστική διαγραφή</SectionTitle>
+              <DeleteOrderControls orderId={order.id} orderNumber={order.orderNumber} />
+            </Card>
+          )}
         </div>
       </div>
     </>

@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireAdmin, auditLog } from "@/lib/admin/auth";
+import { requireAdmin, requireOwner, auditLog } from "@/lib/admin/auth";
 import {
   OrderError,
+  deleteOrderPermanently,
   markShipmentEmailSent,
   saveAdminNote,
   saveShipmentInfo,
@@ -76,6 +77,49 @@ export async function setOrderStatusAction(
     revalidatePath("/", "layout");
   }
   return { ok: true, message: "Η κατάσταση ενημερώθηκε." };
+}
+
+/**
+ * Permanent, irreversible — separate from setOrderStatusAction("cancelled")
+ * and owner-only (requireOwner, not the plain-admin requireAdmin every other
+ * order action here uses), same tier as the other destructive/account-
+ * management actions in this codebase. The frontend also hides the button
+ * from a staff-role admin, but that is UX only — this check is the real
+ * access control, same as every other admin Server Action in this file.
+ */
+export async function deleteOrderPermanentlyAction(orderId: string): Promise<ActionResult> {
+  let user;
+  try {
+    user = await requireOwner();
+  } catch (err) {
+    if (err instanceof Error && err.message === "Insufficient permissions") {
+      return { ok: false, error: "Μόνο ο ιδιοκτήτης μπορεί να διαγράψει οριστικά μια παραγγελία." };
+    }
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+
+  let orderNumber: number;
+  try {
+    const deleted = await deleteOrderPermanently(orderId, user.id);
+    orderNumber = deleted.orderNumber;
+    // Logged before the row disappears from the audit trail's own diff, not
+    // after — entity_id has no foreign key to shop.orders (by design, so an
+    // audit entry always outlives the row it describes), but the order
+    // itself is gone the moment deleteOrderPermanently returns, so the
+    // identifying details go into the diff now while they're still at hand.
+    await auditLog(user.id, "order.delete", "order", orderId, {
+      orderNumber: deleted.orderNumber,
+      email: deleted.email,
+      totalCents: deleted.totalCents,
+    });
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
+
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin");
+  revalidatePath("/admin/inventory");
+  return { ok: true, message: `Η παραγγελία #${orderNumber} διαγράφηκε οριστικά.` };
 }
 
 export async function setPaymentStatusAction(orderId: string, status: PaymentStatus): Promise<ActionResult> {

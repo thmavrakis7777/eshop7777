@@ -15,6 +15,11 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
   const status = (one(sp.status) ?? "all") as OrderStatus | "all";
   const paymentStatus = (one(sp.payment) ?? "all") as PaymentStatus | "all";
   const page = Math.max(1, Number(one(sp.page) ?? 1) || 1);
+  // Set by DeleteOrderControls after a successful permanent deletion — the
+  // order itself is gone by the time we land here, so there's nothing left
+  // to refresh/link back to; this is purely a "here's what just happened"
+  // confirmation, the same role a toast would play if this codebase had one.
+  const deletedOrderNumber = one(sp.deleted);
 
   const { orders, total, perPage } = await listOrders({ q, status, paymentStatus, page });
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -23,6 +28,12 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
   return (
     <>
       <PageHeader title="Παραγγελίες" description={`${total} ${total === 1 ? "παραγγελία" : "παραγγελίες"}`} />
+
+      {deletedOrderNumber && (
+        <p role="status" className="mb-5 rounded-md border border-success/30 bg-success/5 px-4 py-2.5 text-sm text-success">
+          Η παραγγελία #{deletedOrderNumber} διαγράφηκε οριστικά.
+        </p>
+      )}
 
       <form method="get" className="mb-5 flex flex-wrap items-center gap-2">
         <input
