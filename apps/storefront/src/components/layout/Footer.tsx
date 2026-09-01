@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FacebookIcon, InstagramIcon, TikTokIcon } from "@/components/ui/Icons";
 import { StoreLogo } from "./StoreLogo";
 import { CookieSettingsLink } from "./CookieSettingsLink";
+import { FooterNewsletterForm } from "./FooterNewsletterForm";
 import type { SiteSettings } from "@/lib/data/site-settings";
 import type { NavCategory } from "@/lib/types";
 
@@ -115,12 +116,43 @@ export function Footer({
               ))}
             </div>
           )}
+
+          <div className="mt-5">
+            <h3 className="text-sm font-medium text-ink">Follow us</h3>
+            <p className="mt-1 text-xs text-ink-muted">Εγγράψου για νέα προϊόντα και προσφορές.</p>
+            <FooterNewsletterForm />
+            <p className="mt-2 max-w-xs text-[11px] text-ink-muted">
+              Με την εγγραφή αποδέχεσαι την{" "}
+              <Link href="/aporrito" className="underline hover:text-ink">
+                Πολιτική Απορρήτου
+              </Link>
+              .
+            </p>
+          </div>
         </div>
 
-        <FooterColumn title="Κατηγορίες" links={categories.map((c) => ({ label: c.name, href: `/${c.handle}` }))} />
-        <FooterColumn title="Βοήθεια" links={helpLinks} />
-        <FooterColumn title="Εταιρεία" links={companyLinks} />
-        <FooterColumn title="Νομικά" links={legalLinks} />
+        {/* Two independent mobile stacks (md:contents flattens the wrapper
+            back into the surrounding grid at md+, restoring the exact
+            current 4/6-col layout — md:order puts each column back in its
+            original K/B/E/N reading order once that happens). Below md,
+            grid-cols-2 alone would row-pair Κατηγορίες with Βοήθεια: since
+            row height is set by the taller cell, Κατηγορίες' 7 links forced
+            a tall row that left a large dead gap under Βοήθεια's 3 links
+            before Νομικά. Stacking Κατηγορίες+Εταιρεία and Βοήθεια+Νομικά in
+            their own flex-col instead makes each column's height depend
+            only on its own two lists, closing that gap. */}
+        <div className="flex flex-col gap-8 md:contents">
+          <FooterColumn
+            className="md:order-1"
+            title="Κατηγορίες"
+            links={categories.map((c) => ({ label: c.name, href: `/${c.handle}` }))}
+          />
+          <FooterColumn className="md:order-3" title="Εταιρεία" links={companyLinks} />
+        </div>
+        <div className="flex flex-col gap-8 md:contents">
+          <FooterColumn className="md:order-2" title="Βοήθεια" links={helpLinks} />
+          <FooterColumn className="md:order-4" title="Νομικά" links={legalLinks} />
+        </div>
       </div>
 
       <div className="border-t border-border">
@@ -146,9 +178,17 @@ export function Footer({
   );
 }
 
-function FooterColumn({ title, links }: { title: string; links: { label: string; href: string }[] }) {
+function FooterColumn({
+  title,
+  links,
+  className,
+}: {
+  title: string;
+  links: { label: string; href: string }[];
+  className?: string;
+}) {
   return (
-    <div>
+    <div className={className}>
       <h3 className="text-sm font-medium text-ink">{title}</h3>
       <ul className="mt-3 flex flex-col gap-2">
         {links.map((l) => (

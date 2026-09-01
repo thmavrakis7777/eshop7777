@@ -5,6 +5,7 @@ import { ProductRail } from "@/components/home/ProductRail";
 import { ProductRailSkeleton } from "@/components/home/ProductRailSkeleton";
 import { EditorialBanner } from "@/components/home/EditorialBanner";
 import { ContentSection } from "@/components/home/ContentSection";
+import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { TrustStrip } from "@/components/home/TrustStrip";
 import { Newsletter } from "@/components/home/Newsletter";
 import { resolveRailProducts } from "@/lib/data/homepage-sections";
@@ -62,10 +63,18 @@ export function HomepageSectionGroup({
     // Consecutive heroes arrive here as one group and become a carousel —
     // see groupSections() in lib/data/homepage-sections.ts.
     case "hero":
-      return <Hero slides={group} storeName={storeName} />;
+      return (
+        <ScrollReveal>
+          <Hero slides={group} storeName={storeName} />
+        </ScrollReveal>
+      );
 
     case "promo":
-      return <EditorialBanner blocks={group} />;
+      return (
+        <ScrollReveal>
+          <EditorialBanner blocks={group} />
+        </ScrollReveal>
+      );
 
     case "category_grid":
       return (
