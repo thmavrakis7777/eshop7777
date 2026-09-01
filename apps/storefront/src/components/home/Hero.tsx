@@ -43,20 +43,35 @@ export function HeroSlide({
   content,
   asH1 = true,
   storeName,
+  isFirstSection = false,
 }: {
   content: HomepageSection;
   asH1?: boolean;
   // Only ever rendered as the sr-only fallback <h1> when a slide has no
   // heading of its own — the page still needs exactly one real h1.
   storeName: string;
+  // True only for the homepage's very first Hero group (see Hero() below) —
+  // gives it the full-viewport-below-header treatment on mobile/tablet.
+  // Any other Hero an admin adds further down the page keeps the plain
+  // 26rem/32rem box, unaffected.
+  isFirstSection?: boolean;
 }) {
   const { eyebrow, heading, body, ctaLabel, ctaHref, imageUrl, mobileImageUrl, imageAlt } = content;
   const HeadingTag = asH1 ? "h1" : "p";
   // Optional by design: the same banner can be a plain image with no button.
   const showButton = content.config?.showButton !== false && Boolean(ctaLabel && ctaHref);
+  // The full-screen first Hero puts tablets (768–1023px) in the same tall,
+  // narrow box mobile gets, not the ~32rem box the desktop image was cropped
+  // for — so a set mobile image should cover tablet too here, not hand off
+  // to the wide desktop shot a whole breakpoint early.
+  const mobileBreakpoint = isFirstSection ? "(min-width: 1024px)" : "(min-width: 768px)";
 
   return (
-    <div className="relative flex min-h-[26rem] flex-col justify-end overflow-hidden bg-surface-strong p-8 md:min-h-[32rem] md:p-14">
+    <div
+      className={`relative flex flex-col justify-end overflow-hidden bg-surface-strong p-8 md:p-14 ${
+        isFirstSection ? "hero-viewport-fill lg:min-h-[32rem]" : "min-h-[26rem] md:min-h-[32rem]"
+      }`}
+    >
       {/* A real <img> rather than a CSS background-image: the latter is an
           inline `style="background-image:url(...)"` attribute, which a
           strict CSP without 'unsafe-inline' on style-src-elem blocks —
@@ -74,7 +89,7 @@ export function HeroSlide({
       )}
       {imageUrl && mobileImageUrl && (
         <picture>
-          <source media="(min-width: 768px)" srcSet={imageUrl} />
+          <source media={mobileBreakpoint} srcSet={imageUrl} />
           <img
             src={mobileImageUrl}
             alt={imageAlt ?? ""}
@@ -110,7 +125,19 @@ export function HeroSlide({
 // Phase E) — zero published slides falls back to the store's own default
 // copy, one slide renders statically, two or more become a swipeable
 // carousel (see HeroCarousel).
-export function Hero({ slides, storeName }: { slides: HomepageSection[]; storeName: string }) {
+export function Hero({
+  slides,
+  storeName,
+  // Set by the two homepage call sites only when this Hero is literally the
+  // page's first section — see HomepageSections.tsx and (storefront)/page.tsx.
+  // A second Hero an admin adds further down the page never gets this, so it
+  // keeps the original fixed-height box instead of also going full-screen.
+  isFirstSection = false,
+}: {
+  slides: HomepageSection[];
+  storeName: string;
+  isFirstSection?: boolean;
+}) {
   return (
     // Deliberately not container-shell: the hero is meant to run edge to
     // edge (no ancestor between here and <body> restricts width — see
@@ -118,11 +145,16 @@ export function Hero({ slides, storeName }: { slides: HomepageSection[]; storeNa
     // is the whole fix, no 100vw/negative-margin trick needed). The actual
     // heading/body/CTA inside HeroSlide keep their own max-w-xl, so text
     // never stretches just because the section now can.
-    <section className="pt-6 md:pt-10">
+    //
+    // The first Hero drops its own top padding below lg so the full-screen
+    // box sits flush under the sticky header (see hero-viewport-fill in
+    // globals.css, which already accounts for --header-height) — lg+ keeps
+    // the original pt-10 breathing room the desktop box has always had.
+    <section className={isFirstSection ? "lg:pt-10" : "pt-6 md:pt-10"}>
       {slides.length >= 2 ? (
-        <HeroCarousel slides={slides} storeName={storeName} />
+        <HeroCarousel slides={slides} storeName={storeName} isFirstSection={isFirstSection} />
       ) : (
-        <HeroSlide content={slides[0] ?? DEFAULT_HERO} storeName={storeName} />
+        <HeroSlide content={slides[0] ?? DEFAULT_HERO} storeName={storeName} isFirstSection={isFirstSection} />
       )}
     </section>
   );

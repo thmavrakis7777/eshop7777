@@ -66,18 +66,19 @@ export default async function HomePage() {
   return (
     <>
       {groups.length > 0 ? (
-        groups.map((group) => (
+        groups.map((group, index) => (
           <HomepageSectionGroup
             key={group[0].id}
             group={group}
             categories={categories}
             storeName={branding.storeName}
+            isFirstGroup={index === 0}
           />
         ))
       ) : (
         <>
           <ScrollReveal>
-            <Hero slides={[]} storeName={branding.storeName} />
+            <Hero slides={[]} storeName={branding.storeName} isFirstSection />
           </ScrollReveal>
           <CategoryGrid categories={categories} />
           <TrustStrip />

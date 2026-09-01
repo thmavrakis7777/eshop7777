@@ -52,10 +52,15 @@ export function HomepageSectionGroup({
   group,
   categories,
   storeName,
+  isFirstGroup = false,
 }: {
   group: HomepageSection[];
   categories: NavCategory[];
   storeName: string;
+  // Only true for groups[0] in the caller's map — see (storefront)/page.tsx.
+  // Gates Hero's full-viewport-on-mobile/tablet treatment to whichever Hero
+  // actually opens the page, not any later one an admin might add.
+  isFirstGroup?: boolean;
 }) {
   const first = group[0];
 
@@ -65,7 +70,7 @@ export function HomepageSectionGroup({
     case "hero":
       return (
         <ScrollReveal>
-          <Hero slides={group} storeName={storeName} />
+          <Hero slides={group} storeName={storeName} isFirstSection={isFirstGroup} />
         </ScrollReveal>
       );
 

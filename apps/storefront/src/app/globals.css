@@ -44,6 +44,22 @@
   --radius-lg: var(--radius-lg);
 }
 
+/*
+ * Fills the screen below the sticky header on the homepage's first Hero
+ * only (mobile/tablet — see Hero.tsx's isFirstSection), so header + hero
+ * together read as one initial screen. The three stacked min-height
+ * declarations are a progressive-enhancement fallback chain, not
+ * duplication: a browser uses the last one it understands, landing on dvh
+ * (which tracks the mobile address bar showing/hiding, avoiding the
+ * classic 100vh jump) where supported, svh where dvh isn't, and plain vh
+ * everywhere else.
+ */
+@utility hero-viewport-fill {
+  min-height: calc(100vh - var(--header-height));
+  min-height: calc(100svh - var(--header-height));
+  min-height: calc(100dvh - var(--header-height));
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
