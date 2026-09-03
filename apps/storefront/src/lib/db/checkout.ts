@@ -197,6 +197,7 @@ export async function completeOrder(
         price_cents: shipping.price_cents,
         free_over_cents: shipping.free_over_cents,
         is_pickup: shipping.is_pickup,
+        heraklion_only: shipping.heraklion_only,
       },
     });
 

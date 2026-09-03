@@ -13,8 +13,10 @@ import type { ShippingOption } from "@/lib/types";
 // "€2.50 charged" for a cart that was actually about to be charged nothing.
 // `qualifiesFree` mirrors that same comparison here, from data the option
 // already carries, purely for display — callers must pass `false` whenever
-// the cart has an oversized/heavy line (computeTotals's surcharge branch
-// takes priority over free_over_cents entirely; see cart.ts's
+// the cart has an oversized/heavy line UNLESS the option is Heraklion's own
+// method (computeTotals's surcharge branch takes priority over
+// free_over_cents for every other method; Heraklion's threshold is the one
+// deliberate exception and covers heavy/bulky items too — see cart.ts's
 // computeTotals), or this would show "Δωρεάν" on a cart that is actually
 // about to be charged a real heavy-item surcharge.
 function ShippingOptionPrice({ price, qualifiesFree }: { price: ShippingOption["price"]; qualifiesFree: boolean }) {
@@ -66,12 +68,14 @@ function FreeShippingHint({ options, selectedId, subtotalAfterDiscountEur, hasOv
   subtotalAfterDiscountEur: number;
   hasOversizedItems: boolean;
 }) {
-  // An oversized/heavy line always charges its own real cost, regardless of
-  // subtotal (see computeTotals) — never claim "free shipping" over that.
-  if (hasOversizedItems) return null;
-
   const relevant = options.find((o) => o.id === selectedId) ?? options.find((o) => !o.isPickup);
   if (!relevant || relevant.freeOverCents == null) return null;
+
+  // An oversized/heavy line always charges its own real cost regardless of
+  // subtotal (see computeTotals) — never claim "free shipping" over that.
+  // Heraklion's own method is the one exception: its threshold covers
+  // heavy/bulky items too, so this hint stays accurate for it.
+  if (hasOversizedItems && !relevant.heraklionOnly) return null;
 
   const thresholdEur = relevant.freeOverCents / 100;
   if (subtotalAfterDiscountEur >= thresholdEur) {
@@ -112,7 +116,8 @@ export function ShippingSection({
   // An oversized/heavy cart line always charges its own real shipping cost
   // (computeTotals in cart.ts) regardless of any free_over_cents threshold —
   // this suppresses every "Δωρεάν"/progress message in this section from
-  // claiming otherwise while that's true.
+  // claiming otherwise while that's true, except for Heraklion's own method
+  // (its threshold explicitly covers heavy/bulky items too).
   hasOversizedItems: boolean;
 }) {
   return (
@@ -191,7 +196,7 @@ export function ShippingSection({
                   price={option.price}
                   qualifiesFree={
                     !option.isPickup &&
-                    !hasOversizedItems &&
+                    (!hasOversizedItems || option.heraklionOnly) &&
                     option.freeOverCents != null &&
                     subtotalAfterDiscountEur >= option.freeOverCents / 100
                   }

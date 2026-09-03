@@ -36,8 +36,11 @@ export async function getShippingOptionsForCart(cartId?: string): Promise<Shippi
   }
 
   const rows = await sql<
-    { id: string; name: string; price_cents: number; free_over_cents: number | null; is_pickup: boolean }[]
-  >`SELECT id, name, price_cents, free_over_cents, is_pickup
+    {
+      id: string; name: string; price_cents: number; free_over_cents: number | null;
+      is_pickup: boolean; heraklion_only: boolean;
+    }[]
+  >`SELECT id, name, price_cents, free_over_cents, is_pickup, heraklion_only
       FROM shop.shipping_method
      WHERE is_active AND (is_pickup OR heraklion_only = ${isHeraklion})
      ORDER BY sort_order, name`;
@@ -49,6 +52,7 @@ export async function getShippingOptionsForCart(cartId?: string): Promise<Shippi
     deliveryEstimate: DELIVERY_ESTIMATES[o.name],
     isPickup: o.is_pickup,
     freeOverCents: o.free_over_cents,
+    heraklionOnly: o.heraklion_only,
   }));
 }
 

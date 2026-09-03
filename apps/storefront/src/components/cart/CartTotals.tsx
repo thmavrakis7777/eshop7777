@@ -14,8 +14,11 @@ export function CartTotals({ cart }: { cart: Cart }) {
   // The total is always correct either way (lib/db/cart.ts computes it
   // whether or not the UI explains it) — this only decides whether to show
   // *why* it's higher, per the compliance requirement that an oversized-item
-  // surcharge must be understandable, not just a bigger number.
-  const hasOversizedItem = cart.items.some((i) => i.hasExtraShipping);
+  // surcharge must be understandable, not just a bigger number. Gated on a
+  // real non-zero shippingTotal too: a Heraklion cart clearing that method's
+  // free-shipping threshold charges €0 even with a heavy/bulky item, and
+  // this note would otherwise wrongly claim a surcharge is included.
+  const hasOversizedItem = cart.items.some((i) => i.hasExtraShipping) && cart.shippingTotal.amount > 0;
 
   return (
     <div className="flex flex-col gap-2 text-sm">

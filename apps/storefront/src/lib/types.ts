@@ -260,6 +260,10 @@ export type ShippingOption = {
   // second round trip; it is not itself the eligibility check (the server
   // already only returns options the address actually qualifies for).
   freeOverCents: number | null;
+  // True for the Heraklion-only method. Its free-shipping threshold covers
+  // the whole order, heavy/bulky items included — the one exception to "an
+  // oversized line always charges its own real cost" (see ShippingSection).
+  heraklionOnly: boolean;
 };
 
 export type PaymentProvider = {

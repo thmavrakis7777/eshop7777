@@ -51,6 +51,7 @@ type CartRow = {
   shipping_price_cents: number | null;
   shipping_free_over_cents: number | null;
   shipping_is_pickup: boolean | null;
+  shipping_heraklion_only: boolean | null;
   discount_code: string | null;
   discount_type: "percentage" | "fixed" | null;
   discount_value: number | null;
@@ -110,7 +111,13 @@ export function computeTotals(input: {
     shipping_cost_cents?: number | null;
   }>;
   discount: { type: "percentage" | "fixed"; value: number; min_subtotal_cents: number } | null;
-  shipping: { price_cents: number; free_over_cents: number | null; is_pickup: boolean } | null;
+  shipping: {
+    price_cents: number;
+    free_over_cents: number | null;
+    is_pickup: boolean;
+    /** Heraklion's own free-shipping threshold overrides the oversized surcharge — see below. */
+    heraklion_only?: boolean;
+  } | null;
   vatRate?: number;
 }) {
   const subtotalCents = input.items.reduce((sum, i) => sum + i.unit_price_cents * i.quantity, 0);
@@ -138,22 +145,25 @@ export function computeTotals(input: {
   // So 1 normal = 3.50, 1 heavy + 1 normal = 8.00, 2 heavy + 1 normal = 16.00.
   // The last case is why this is not "the single highest cost wins".
   //
-  // The free-shipping threshold deliberately does NOT waive oversized costs:
-  // those exist because the parcel genuinely costs more to send, and a large
-  // order does not make a bathtub cheaper to ship. Store pickup skips all of
-  // it, oversized included — nothing is being sent.
+  // The free-shipping threshold deliberately does NOT waive oversized costs
+  // for the nationwide method: that parcel genuinely costs more to send, and
+  // a large order does not make a bathtub cheaper to ship. Heraklion's own
+  // method is the one deliberate exception — its threshold is a flat "free
+  // delivery in the city" promise that covers the whole order, heavy/bulky
+  // included, per the approved Heraklion free-shipping spec. Store pickup
+  // skips all of it either way, oversized included — nothing is being sent.
   let shippingCents = 0;
   if (input.shipping && !input.shipping.is_pickup) {
     const oversizedCents = input.items.reduce(
       (sum, i) => sum + Math.max(0, i.shipping_cost_cents ?? 0) * i.quantity,
       0
     );
+    const qualifiesFree =
+      input.shipping.free_over_cents != null && afterDiscount >= input.shipping.free_over_cents;
 
-    if (oversizedCents > 0) {
+    if (oversizedCents > 0 && !(input.shipping.heraklion_only && qualifiesFree)) {
       shippingCents = oversizedCents;
     } else {
-      const qualifiesFree =
-        input.shipping.free_over_cents != null && afterDiscount >= input.shipping.free_over_cents;
       shippingCents = qualifiesFree ? 0 : input.shipping.price_cents;
     }
   }
@@ -179,6 +189,7 @@ const cartQuery = (id: string) => sql<CartRow[]>`
          c.shipping_method_id,
          sm.name AS shipping_name, sm.price_cents AS shipping_price_cents,
          sm.free_over_cents AS shipping_free_over_cents, sm.is_pickup AS shipping_is_pickup,
+         sm.heraklion_only AS shipping_heraklion_only,
          d.code AS discount_code, d.type AS discount_type, d.value AS discount_value,
          d.min_subtotal_cents AS discount_min_subtotal_cents,
          COALESCE((
@@ -241,6 +252,7 @@ function toDomainCart(r: CartRow): Cart {
             price_cents: r.shipping_price_cents,
             free_over_cents: r.shipping_free_over_cents,
             is_pickup: r.shipping_is_pickup ?? false,
+            heraklion_only: r.shipping_heraklion_only ?? false,
           }
         : null,
   });
