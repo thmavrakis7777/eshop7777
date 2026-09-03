@@ -24,6 +24,7 @@ import { getAnalyticsSettings } from "@/lib/data/analytics-settings";
 import { getPublishedLegalPages } from "@/lib/data/content-pages";
 import { getCustomerId } from "@/lib/data/customer";
 import { getNationwideFreeShippingThresholdCents } from "@/lib/data/checkout";
+import { resolveStockInquiryContact } from "@/lib/whatsapp";
 
 /**
  * Everything the shop wears: announcement bar, promo banner, header, footer,
@@ -206,6 +207,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
           <CartDrawer
             cartMessage={settings?.cartMessage ?? null}
             freeShippingThresholdCents={nationwideFreeShippingThresholdCents}
+            stockInquiry={resolveStockInquiryContact(settings)}
           />
           <AddToCartToast />
         </CartUIProvider>

@@ -10,6 +10,8 @@ import { CouponForm } from "@/components/cart/CouponForm";
 import { FreeShippingProgress } from "@/components/cart/FreeShippingProgress";
 import { CartTotals } from "@/components/cart/CartTotals";
 import { EmptyCartState } from "@/components/cart/EmptyCartState";
+import { isLineItemOverstocked } from "@/lib/stock";
+import type { StockInquiryContact } from "@/lib/whatsapp";
 
 // Desktop (lg+): a true 5-column table, header included (CartTableHeader +
 // CartLineItemTableRow). Below lg: the labeled-card layout (CartLineItemRow)
@@ -20,10 +22,12 @@ export function CartPageView({
   initialCart,
   cartMessage,
   freeShippingThresholdCents,
+  stockInquiry,
 }: {
   initialCart: Cart;
   cartMessage: string | null;
   freeShippingThresholdCents: number | null;
+  stockInquiry: StockInquiryContact;
 }) {
   const controller = useCartController(initialCart);
   const cart = controller.cart;
@@ -36,7 +40,13 @@ export function CartPageView({
   const rowProps = (itemId: string) => ({
     pending: controller.pendingLineId === itemId,
     error: controller.errorLineId === itemId ? (controller.error ?? undefined) : undefined,
+    stockInquiry,
   });
+
+  // Blocks proceeding to checkout while a stale line (stock reduced after
+  // it was added) still exceeds what's actually in stock — the per-line
+  // StockInquiryNotice above already explains why and offers WhatsApp/Call.
+  const hasOverstockedItem = cart.items.some(isLineItemOverstocked);
 
   return (
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px]">
@@ -94,12 +104,26 @@ export function CartPageView({
 
         <CartTotals cart={cart} />
 
-        <Link
-          href="/checkout"
-          className="rounded-sm bg-ink px-6 py-3.5 text-center text-sm font-medium tracking-wide text-white transition-colors hover:bg-accent"
-        >
-          ΟΛΟΚΛΗΡΩΣΗ ΑΓΟΡΑΣ
-        </Link>
+        {hasOverstockedItem ? (
+          <div className="flex flex-col gap-1.5">
+            <span
+              aria-disabled="true"
+              className="cursor-not-allowed rounded-sm bg-ink/50 px-6 py-3.5 text-center text-sm font-medium tracking-wide text-white/80"
+            >
+              ΟΛΟΚΛΗΡΩΣΗ ΑΓΟΡΑΣ
+            </span>
+            <p className="text-center text-xs text-ink-muted">
+              Διόρθωσε την ποσότητα στο καλάθι για να συνεχίσεις στην ολοκλήρωση παραγγελίας.
+            </p>
+          </div>
+        ) : (
+          <Link
+            href="/checkout"
+            className="rounded-sm bg-ink px-6 py-3.5 text-center text-sm font-medium tracking-wide text-white transition-colors hover:bg-accent"
+          >
+            ΟΛΟΚΛΗΡΩΣΗ ΑΓΟΡΑΣ
+          </Link>
+        )}
         <Link href="/" className="text-center text-sm text-ink-muted hover:text-ink hover:underline">
           Συνέχεια αγορών
         </Link>

@@ -5,6 +5,9 @@ import type { CartLineItem } from "@/lib/types";
 import { formatPrice, discountPercent } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { QuantityStepper } from "@/components/cart/QuantityStepper";
+import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
+import { isLineItemOverstocked } from "@/lib/stock";
+import type { StockInquiryContact } from "@/lib/whatsapp";
 
 // The labeled-card layout — used by the drawer at every width (it's a
 // fixed, narrow panel, so a 5-column table would force tiny text) and by
@@ -16,16 +19,19 @@ export function CartLineItemRow({
   item,
   pending,
   error,
+  stockInquiry,
   onQuantityChange,
   onRemove,
 }: {
   item: CartLineItem;
   pending: boolean;
   error?: string;
+  stockInquiry: StockInquiryContact;
   onQuantityChange: (quantity: number) => void;
   onRemove: () => void;
 }) {
   const pct = discountPercent(item.unitPrice, item.compareAtUnitPrice);
+  const overstocked = isLineItemOverstocked(item);
 
   return (
     <div className="flex gap-4 py-5">
@@ -63,6 +69,7 @@ export function CartLineItemRow({
             quantity={item.quantity}
             productTitle={item.title}
             disabled={pending}
+            max={item.allowBackorder ? undefined : item.stockQuantity}
             onChange={onQuantityChange}
             onRemove={onRemove}
           />
@@ -86,6 +93,15 @@ export function CartLineItemRow({
           <p role="alert" className="text-xs text-danger">
             {error}
           </p>
+        )}
+        {overstocked && (
+          <StockInquiryNotice
+            message={stockInquiry.message}
+            productTitle={item.title}
+            productCode={item.code}
+            whatsappPhone={stockInquiry.whatsappPhone}
+            contactPhone={stockInquiry.contactPhone}
+          />
         )}
       </div>
     </div>

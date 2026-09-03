@@ -21,6 +21,7 @@ import type { Product } from "@/lib/types";
 import { getProductExtra } from "@/lib/data/product-extras";
 import { getSiteSettings } from "@/lib/data/site-settings";
 import { getSeoOverride } from "@/lib/data/seo";
+import { resolveStockInquiryContact } from "@/lib/whatsapp";
 import { formatPrice, formatPriceFrom } from "@/lib/format";
 import { siteUrl } from "@/lib/site-config";
 import { safeJsonLd } from "@/lib/json-ld";
@@ -113,6 +114,7 @@ export default async function ProductPage({ params }: Props) {
   const deliveryText = extra?.deliveryTextOverride || siteSettings?.pdpDeliveryText || "2-3 εργάσιμες σε όλη την Ελλάδα";
   const returnsText = extra?.returnsTextOverride || siteSettings?.pdpReturnsText || "Δωρεάν εντός 30 ημερών";
   const paymentText = extra?.paymentTextOverride || siteSettings?.pdpPaymentText || "Αντικαταβολή κατά την παράδοση";
+  const stockInquiry = resolveStockInquiryContact(siteSettings);
 
   const productJsonLd = {
     "@context": "https://schema.org",
@@ -229,6 +231,7 @@ export default async function ProductPage({ params }: Props) {
           <div className="mt-3">
             <AddToCartButton
               product={product}
+              stockInquiry={stockInquiry}
               className="w-full rounded-sm bg-ink px-6 py-4 text-sm font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 md:w-auto md:px-10"
             />
           </div>

@@ -13,6 +13,8 @@ import { FreeShippingProgress } from "@/components/cart/FreeShippingProgress";
 import { CartTotals } from "@/components/cart/CartTotals";
 import { EmptyCartState } from "@/components/cart/EmptyCartState";
 import { CloseIcon } from "@/components/ui/Icons";
+import { isLineItemOverstocked } from "@/lib/stock";
+import type { StockInquiryContact } from "@/lib/whatsapp";
 
 const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 // Matches the duration/easing on the panel's transition-transform below —
@@ -24,9 +26,11 @@ const EXIT_TRANSITION_MS = 300;
 export function CartDrawer({
   cartMessage,
   freeShippingThresholdCents,
+  stockInquiry,
 }: {
   cartMessage: string | null;
   freeShippingThresholdCents: number | null;
+  stockInquiry: StockInquiryContact;
 }) {
   const { isDrawerOpen, closeDrawer } = useCartUI();
   // Stays mounted for EXIT_TRANSITION_MS after isDrawerOpen goes false so the
@@ -49,6 +53,7 @@ export function CartDrawer({
       onClosed={() => setMounted(false)}
       cartMessage={cartMessage}
       freeShippingThresholdCents={freeShippingThresholdCents}
+      stockInquiry={stockInquiry}
     />
   );
 }
@@ -59,12 +64,14 @@ function CartDrawerInner({
   onClosed,
   cartMessage,
   freeShippingThresholdCents,
+  stockInquiry,
 }: {
   open: boolean;
   onRequestClose: () => void;
   onClosed: () => void;
   cartMessage: string | null;
   freeShippingThresholdCents: number | null;
+  stockInquiry: StockInquiryContact;
 }) {
   const controller = useCartController(null);
   const router = useRouter();
@@ -211,6 +218,7 @@ function CartDrawerInner({
                   item={item}
                   pending={controller.pendingLineId === item.id}
                   error={controller.errorLineId === item.id ? (controller.error ?? undefined) : undefined}
+                  stockInquiry={stockInquiry}
                   onQuantityChange={(q) => controller.updateQuantity(item.id, q)}
                   onRemove={() => controller.removeItem(item.id)}
                 />
@@ -242,13 +250,27 @@ function CartDrawerInner({
                 doesn't unmount it — without this it stays open on top of
                 /checkout with `body { overflow: hidden }` still applied,
                 covering the page entirely. Confirmed live. */}
-            <Link
-              href="/checkout"
-              onClick={handleClose}
-              className="rounded-sm bg-ink px-6 py-3.5 text-center text-sm font-medium tracking-wide text-white transition-colors hover:bg-accent"
-            >
-              ΟΛΟΚΛΗΡΩΣΗ ΑΓΟΡΑΣ
-            </Link>
+            {cart.items.some(isLineItemOverstocked) ? (
+              <div className="flex flex-col gap-1.5">
+                <span
+                  aria-disabled="true"
+                  className="cursor-not-allowed rounded-sm bg-ink/50 px-6 py-3.5 text-center text-sm font-medium tracking-wide text-white/80"
+                >
+                  ΟΛΟΚΛΗΡΩΣΗ ΑΓΟΡΑΣ
+                </span>
+                <p className="text-center text-xs text-ink-muted">
+                  Διόρθωσε την ποσότητα για να συνεχίσεις στην ολοκλήρωση παραγγελίας.
+                </p>
+              </div>
+            ) : (
+              <Link
+                href="/checkout"
+                onClick={handleClose}
+                className="rounded-sm bg-ink px-6 py-3.5 text-center text-sm font-medium tracking-wide text-white transition-colors hover:bg-accent"
+              >
+                ΟΛΟΚΛΗΡΩΣΗ ΑΓΟΡΑΣ
+              </Link>
+            )}
             <div className="flex items-center justify-between text-sm">
               <button
                 type="button"

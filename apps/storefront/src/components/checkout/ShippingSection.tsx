@@ -19,11 +19,30 @@ import type { ShippingOption } from "@/lib/types";
 // deliberate exception and covers heavy/bulky items too — see cart.ts's
 // computeTotals), or this would show "Δωρεάν" on a cart that is actually
 // about to be charged a real heavy-item surcharge.
-function ShippingOptionPrice({ price, qualifiesFree }: { price: ShippingOption["price"]; qualifiesFree: boolean }) {
+//
+// `price` is likewise only the method's static rate, not necessarily what
+// this cart would actually pay: an oversized cart's real charge is the
+// highest single item's own cost (lib/shipping.ts), which can be higher
+// than the flat rate — a real, previously-shipped bug where the row kept
+// showing e.g. "3,00 €" for a method that would actually charge "12,00 €"
+// the moment it was selected. Callers pass the real amount as
+// `overrideAmount` whenever `qualifiesFree` is false and the cart has an
+// oversized item, so the row always shows what selecting it would actually
+// charge.
+function ShippingOptionPrice({
+  price,
+  qualifiesFree,
+  overrideAmount,
+}: {
+  price: ShippingOption["price"];
+  qualifiesFree: boolean;
+  overrideAmount?: number;
+}) {
   // A pickup/free option showing "0,00 €" reads like a pricing glitch, not
   // an intentional free method — "Δωρεάν" is the honest, deliberate label.
   if (price.amount === 0 || qualifiesFree) return <span className="font-medium text-success">Δωρεάν</span>;
-  return <span className="font-medium text-ink tabular-nums">{formatPrice(price)}</span>;
+  const shown = overrideAmount != null ? { amount: overrideAmount, currencyCode: price.currencyCode } : price;
+  return <span className="font-medium text-ink tabular-nums">{formatPrice(shown)}</span>;
 }
 
 // Store Pickup has no address form, no locker search — just a location, its
@@ -99,6 +118,7 @@ export function ShippingSection({
   saving,
   subtotalAfterDiscountEur,
   hasOversizedItems,
+  oversizedFeeEur,
 }: {
   // "error" is distinct from "pending-address" on purpose: the address was
   // complete and valid, the save to the server just failed (a transient
@@ -119,6 +139,11 @@ export function ShippingSection({
   // claiming otherwise while that's true, except for Heraklion's own method
   // (its threshold explicitly covers heavy/bulky items too).
   hasOversizedItems: boolean;
+  // The real amount an oversized cart would be charged (lib/shipping.ts's
+  // highestOversizedFeeCents) — 0 when hasOversizedItems is false. Passed
+  // through to each option row so it never shows the method's flat rate
+  // when the actual charge is higher.
+  oversizedFeeEur: number;
 }) {
   return (
     <section className="flex flex-col gap-3">
@@ -169,42 +194,46 @@ export function ShippingSection({
 
       {status === "ready" && (
         <div className="flex flex-col gap-2">
-          {options.map((option) => (
-            <div key={option.id} className="flex flex-col gap-2">
-              <label
-                className={`flex cursor-pointer items-center justify-between gap-3 rounded-sm border px-4 py-3.5 text-sm transition-colors ${
-                  selectedId === option.id ? "border-ink" : "border-border"
-                } ${saving ? "opacity-60" : ""}`}
-              >
-                <span className="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    name="shipping-option"
-                    checked={selectedId === option.id}
-                    onChange={() => onSelect(option)}
-                    disabled={saving}
-                    className="h-4 w-4 accent-accent"
-                  />
-                  <span className="flex flex-col">
-                    <span className="font-medium text-ink">{option.name}</span>
-                    {option.deliveryEstimate && (
-                      <span className="text-xs text-ink-muted">{option.deliveryEstimate}</span>
-                    )}
+          {options.map((option) => {
+            const qualifiesFree =
+              !option.isPickup &&
+              (!hasOversizedItems || option.heraklionOnly) &&
+              option.freeOverCents != null &&
+              subtotalAfterDiscountEur >= option.freeOverCents / 100;
+            // Mirrors computeTotals exactly: an oversized cart charges the
+            // real oversized fee on every non-pickup option that doesn't
+            // qualify free — including a below-threshold Heraklion option,
+            // which still charges it (see cart.ts).
+            const overrideAmount = !option.isPickup && hasOversizedItems && !qualifiesFree ? oversizedFeeEur : undefined;
+            return (
+              <div key={option.id} className="flex flex-col gap-2">
+                <label
+                  className={`flex cursor-pointer items-center justify-between gap-3 rounded-sm border px-4 py-3.5 text-sm transition-colors ${
+                    selectedId === option.id ? "border-ink" : "border-border"
+                  } ${saving ? "opacity-60" : ""}`}
+                >
+                  <span className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="shipping-option"
+                      checked={selectedId === option.id}
+                      onChange={() => onSelect(option)}
+                      disabled={saving}
+                      className="h-4 w-4 accent-accent"
+                    />
+                    <span className="flex flex-col">
+                      <span className="font-medium text-ink">{option.name}</span>
+                      {option.deliveryEstimate && (
+                        <span className="text-xs text-ink-muted">{option.deliveryEstimate}</span>
+                      )}
+                    </span>
                   </span>
-                </span>
-                <ShippingOptionPrice
-                  price={option.price}
-                  qualifiesFree={
-                    !option.isPickup &&
-                    (!hasOversizedItems || option.heraklionOnly) &&
-                    option.freeOverCents != null &&
-                    subtotalAfterDiscountEur >= option.freeOverCents / 100
-                  }
-                />
-              </label>
-              {option.isPickup && selectedId === option.id && <PickupLocationInfo />}
-            </div>
-          ))}
+                  <ShippingOptionPrice price={option.price} qualifiesFree={qualifiesFree} overrideAmount={overrideAmount} />
+                </label>
+                {option.isPickup && selectedId === option.id && <PickupLocationInfo />}
+              </div>
+            );
+          })}
         </div>
       )}
     </section>

@@ -47,6 +47,12 @@ export type ProductVariant = {
   // lib/data/products.ts) so every consumer (ProductCard, PDP) checks the
   // same rule instead of re-deriving it and risking drift.
   isAvailable: boolean;
+  // Raw backorder flag behind `isAvailable` — the Product Page's quantity
+  // selector needs this directly (not just the yes/no `isAvailable`) to know
+  // whether `inventoryQuantity` is a real ceiling or unlimited. See
+  // lib/stock.ts's isQuantityAvailable, the single rule this and the
+  // server-side cart mutations both implement.
+  allowBackorder: boolean;
 };
 
 // Medusa's native product attribute fields, mapped through only when
@@ -160,6 +166,18 @@ export type CartLineItem = {
   // price. Exists so the UI can explain *why* shipping costs more, not just
   // show the number — see CartTotals.tsx.
   hasExtraShipping: boolean;
+  // The raw per-product oversized cost behind hasExtraShipping (null/0 for a
+  // standard item) — checkout's ShippingSection needs the actual number, not
+  // just the yes/no flag, to preview the real charge for each shipping
+  // option (see lib/shipping.ts's highestOversizedFeeCents, the same
+  // function computeTotals itself uses for the actual charge).
+  shippingCostCents: number | null;
+  // Live variant stock (joined fresh on every cart read, never snapshotted —
+  // same rationale as shipping_cost_cents above), for the global stock-limit
+  // feature: lets the Cart Page/Mini-Cart/Checkout detect a line that was
+  // valid when added but exceeds stock now (see lib/stock.ts).
+  stockQuantity: number;
+  allowBackorder: boolean;
 };
 
 export type AppliedPromotion = {

@@ -3,6 +3,133 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Shipping audit: highest-single-fee rule + checkout display fix (2026-09-04)
+
+Targeted patch, not a rebuild — full audit first confirmed the shipping
+architecture is already in good shape: product-level shipping type is the
+existing `shop.product.shipping_class` (standard/heavy/large/custom) +
+`shipping_cost_cents` pair (migration `0008_product_shipping.sql`, unchanged
+schema); Heraklion-vs-nationwide detection, both free-shipping thresholds,
+and the Heraklion-above-threshold-overrides-heavy rule were all already
+correct from the two prior shipping sessions (`034ddd1`, `ce48bc0`) and are
+untouched. **Two real, narrow bugs found and fixed:**
+
+1. **Mixed-cart oversized calculation summed every oversized line's cost ×
+   its own quantity** (`computeTotals`, `lib/db/cart.ts`) — a deliberate
+   design from `0008_product_shipping.sql` ("two bathtubs need two
+   parcels"), explicitly reversed now by later business requirement: a cart
+   with a €7 item and a €12 item must pay €12 once, not €19, and three of a
+   €7 item must still pay €7, not €21. New shared rule:
+   `lib/shipping.ts`'s `highestOversizedFeeCents` — the highest single
+   oversized cost in the cart, quantity-independent, imported by both the
+   real charge (`computeTotals`, and therefore `completeOrder`'s stored
+   order total too, unchanged code path) and its checkout-UI preview, so the
+   two literally cannot disagree.
+2. **Checkout's per-option shipping price row showed the courier's flat
+   label rate even when the cart's real charge was the (now-fixed) higher
+   oversized fee** — e.g. an ACS row would say "3,00 €" for a cart that
+   would actually be charged "12,00 €" the moment it was selected.
+   `CartLineItem` gained the raw `shippingCostCents` value (previously only
+   the `hasExtraShipping` boolean was exposed), `CheckoutForm` computes the
+   real fee via the same `highestOversizedFeeCents` and passes it to
+   `ShippingSection`, which now shows that real amount on every non-pickup,
+   non-qualifying-free row instead of the static rate.
+
+**No new admin settings were added.** The task asked for a configurable
+"Default Normal Shipping Fee," "Heraklion Threshold," and "Greece
+Threshold" — all three already exist and are already admin-editable without
+developer help: they're `price_cents`/`free_over_cents` on the existing
+`shop.shipping_method` rows (Dashboard → Ρυθμίσεις → Αποστολές), currently
+€3.00/€79.00 (the three nationwide couriers) and €2.50/€30.00 (Heraklion) —
+matching the task's own stated defaults exactly. Adding a second, separate
+global setting for the same values would have created the duplicate-config
+problem the task explicitly warned against, so the existing per-method
+fields were reused as-is.
+
+**Threshold eligibility is evaluated against the post-discount subtotal**
+(`afterDiscount = subtotal − discount`, pre-existing, unchanged) — documented
+here since the task asked which amount is authoritative, not because it
+changed.
+
+**Also fixed**: `ShippingFields.tsx`'s admin help text (Product Editor →
+Τύπος αποστολής) still described the old sum-and-multiply behavior with a
+worked example ("2 βαριά (8€) + 1 κανονικό = 16€") — updated to describe the
+new highest-single-fee, no-quantity-multiplication rule so the admin UI
+doesn't contradict how shipping actually calculates now.
+
+**Verified live** (Athens/non-Heraklion address, real catalog data — a €8
+heavy pot and a €7 heavy pan are the only two oversized products that
+exist): mixed cart of both → checkout shows **8,00 €** on every courier row
+(not 15,00 €, not the old flat 3,00 €), order summary and grand total agree,
+confirmed via a fresh server round-trip. Same cart with the pot's quantity
+raised to 3 → shipping stays **8,00 €** (not 24,00 €). Normal-only cart
+under €79 → charged the flat rate; raised above €79 → free on every
+non-pickup option. Heraklion-above-threshold-overrides-heavy was already
+re-confirmed live in the prior session and is untouched by this patch.
+**Not live-tested**: Heraklion *below* its own €30 threshold with a heavy
+item — both real oversized products individually exceed €30, so this exact
+combination can't be built from real catalog data without fabricating a
+product or applying a discount mid-test; verified instead by code symmetry
+with the live-tested Athens-above-€79-with-heavy case, since both share the
+identical `oversizedCents > 0 && !(heraklion_only && qualifiesFree)` branch.
+`tsc`/`eslint`/`next build` all clean.
+
+## Global stock quantity limit + WhatsApp/phone inquiry (2026-09-03)
+
+Additive feature: a requested quantity can never exceed a variant's real
+stock (`allow_backorder` still means unlimited, unchanged), and whenever it
+does, the same shared notice — configurable message + WhatsApp + Call
+actions — appears on the Product Page, Cart Page, Mini-Cart and Checkout.
+
+**Where enforcement happens**: server-side, nothing changed — `addItem`/
+`updateItemQuantity` (`lib/db/cart.ts`) and `completeOrder`'s atomic
+transaction (`lib/db/checkout.ts`) already rejected an over-stock quantity
+before this feature existed; this work is the client-facing detection/notice
+layer plus a pre-flight UI guard, not a new server rule. The one new shared
+rule, `lib/stock.ts`'s `isQuantityAvailable`/`isLineItemOverstocked`, mirrors
+that same existing server check so every surface agrees with it.
+
+**New shared pieces** (reused everywhere, never duplicated): `lib/stock.ts`
+(the availability check above), `lib/whatsapp.ts` (WhatsApp URL/message
+builder, the default notice text, and `resolveStockInquiryContact` which
+turns `SiteSettings` into the `{message, whatsappPhone, contactPhone}` bundle
+every surface takes as a prop), and `components/ui/StockInquiryNotice.tsx`
+(the notice itself). `contactPhone` is the *existing* site-wide phone
+setting reused for the Call action — WhatsApp gets its own new
+`whatsapp_phone` column since it needs full international format, a
+different shape than the existing local-format number.
+
+**Where it shows up**: Product Page gets a real quantity selector for the
+first time (`AddToCartButton.tsx` — previously always added exactly 1),
+capped by `QuantityStepper`'s new optional `max`/`editable` props (cart's
+own stepper is unchanged — same component, `editable` defaults off). Cart
+Page and Mini-Cart show the notice per line and replace "ΟΛΟΚΛΗΡΩΣΗ ΑΓΟΡΑΣ"
+with a disabled span while any line is over stock (the realistic case: an
+item added while in stock, then reduced by the owner or another order).
+Checkout's order summary shows the same per-line notice and folds the same
+check into the existing `canSubmit` gate — `completeOrder`'s own atomic
+transaction remains the final safety net for the rare race after that.
+
+**Admin**: two new fields on the existing Dashboard → Content → Header &
+Footer form (`shop.site_setting`, migration `0027_stock_inquiry_whatsapp.sql`)
+— no new settings system. Both optional; an empty message falls back to a
+sensible Greek default, an empty WhatsApp number just hides that action.
+Owner-only, same gate as the rest of that form's revenue-adjacent fields.
+
+**Verified live**: Product Page — quantity at/under stock (100) adds
+correctly with the real chosen quantity (not hardcoded 1); typing 101
+disables Add to Cart, shows the notice with the Call action (WhatsApp
+correctly hidden — no number configured yet), and reducing back to 100
+clears the notice and re-enables the button instantly. `tsc`/`eslint`/
+`next build` all clean. Cart Page/Mini-Cart/Checkout guards and the two new
+admin fields share the exact same functions and component already verified
+above, but were reviewed rather than click-tested this session — the live
+catalog has no product below 100 units in stock, and creating a test admin
+account or lowering one's stock to force the scenario both require a
+database write this session's permission classifier declined even with
+explicit approval; a real admin session can verify these directly next time
+someone is signed in.
+
 ## Full project audit (2026-08-30)
 
 Requested before a context clear, so `PROJECT_AUDIT.md` (new) is the real

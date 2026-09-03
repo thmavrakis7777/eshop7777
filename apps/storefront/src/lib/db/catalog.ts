@@ -142,6 +142,7 @@ export function toDomainProduct(r: ProductRow): Product {
     inventoryQuantity: v.stock_quantity,
     code: v.sku,
     isAvailable: isVariantAvailable(v),
+    allowBackorder: v.allow_backorder,
   }));
 
   const first = r.variants[0];

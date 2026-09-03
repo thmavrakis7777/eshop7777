@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCart } from "@/lib/data/cart";
 import { getPaymentProviders, getShippingOptionsForCart } from "@/lib/data/checkout";
+import { getSiteSettings } from "@/lib/data/site-settings";
+import { resolveStockInquiryContact } from "@/lib/whatsapp";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import type { ShippingOption } from "@/lib/types";
 
@@ -22,7 +24,8 @@ export default async function CheckoutPage() {
   // The cart already carries its own region — no need to resolve "the"
   // default region separately, which was both an extra request and wrong
   // the moment a second region exists.
-  const paymentProviders = await getPaymentProviders();
+  const [paymentProviders, siteSettings] = await Promise.all([getPaymentProviders(), getSiteSettings()]);
+  const stockInquiry = resolveStockInquiryContact(siteSettings);
 
   // If the address (and possibly a shipping method) was already saved on an
   // earlier visit — a refresh, or navigating back into checkout — resolve
@@ -57,7 +60,12 @@ export default async function CheckoutPage() {
   return (
     <div className="container-shell py-8 md:py-12">
       <h1 className="mb-8 font-display text-2xl md:text-3xl">Ολοκλήρωση παραγγελίας</h1>
-      <CheckoutForm initialCart={cart} paymentProviders={paymentProviders} initialShippingOptions={initialShippingOptions} />
+      <CheckoutForm
+        initialCart={cart}
+        paymentProviders={paymentProviders}
+        initialShippingOptions={initialShippingOptions}
+        stockInquiry={stockInquiry}
+      />
     </div>
   );
 }

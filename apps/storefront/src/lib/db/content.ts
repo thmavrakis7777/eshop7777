@@ -98,6 +98,8 @@ export const getSiteSettings = unstable_cache(
           newsletter_button_text: string | null;
           newsletter_button_url: string | null;
           newsletter_footer: string | null;
+          stock_inquiry_message: string | null;
+          whatsapp_phone: string | null;
         }[]
       >`SELECT footer_tagline, contact_phone, contact_email, contact_address,
                business_hours, facebook_url, instagram_url, tiktok_url,
@@ -108,7 +110,8 @@ export const getSiteSettings = unstable_cache(
                phone_orders_enabled, phone_orders_label,
                owner_notification_email, newsletter_notification_email, newsletter_from_email,
                newsletter_subject, newsletter_heading, newsletter_body,
-               newsletter_button_text, newsletter_button_url, newsletter_footer
+               newsletter_button_text, newsletter_button_url, newsletter_footer,
+               stock_inquiry_message, whatsapp_phone
           FROM shop.site_setting LIMIT 1`;
       const s = rows[0];
       if (!s) return null;
@@ -143,6 +146,8 @@ export const getSiteSettings = unstable_cache(
         newsletterButtonText: s.newsletter_button_text,
         newsletterButtonUrl: s.newsletter_button_url,
         newsletterFooter: s.newsletter_footer,
+        stockInquiryMessage: s.stock_inquiry_message,
+        whatsappPhone: s.whatsapp_phone,
       };
     } catch {
       return null;

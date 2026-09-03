@@ -60,6 +60,14 @@ export type SiteSettings = {
   newsletterButtonText: string | null;
   newsletterButtonUrl: string | null;
   newsletterFooter: string | null;
+  // Global stock-quantity-limit + direct-inquiry feature. Both nullable —
+  // an unset message falls back to a hardcoded default (see
+  // lib/whatsapp.ts's resolveStockInquiryMessage); an unset WhatsApp number
+  // simply hides the WhatsApp action wherever the notice renders. Separate
+  // from contactPhone on purpose — WhatsApp needs full international format,
+  // contactPhone stays local display format for tel: links.
+  stockInquiryMessage: string | null;
+  whatsappPhone: string | null;
 };
 
 export type PromoBanner = {

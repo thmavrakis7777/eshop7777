@@ -3,6 +3,7 @@ import { sql, type Tx } from "@/lib/db/client";
 import { toneFor } from "@/lib/db/catalog";
 import { publicImageUrl } from "@/lib/storage/urls";
 import { isHeraklionAddress } from "@/lib/heraklion";
+import { highestOversizedFeeCents } from "@/lib/shipping";
 import type { Cart, CartLineItem, Money } from "@/lib/types";
 
 /**
@@ -74,6 +75,9 @@ type ItemRow = {
   // Also joined live (not snapshotted) — a newly uploaded photo should show up
   // in an already-open cart without the customer re-adding the item.
   image_path: string | null;
+  // Live variant stock — see CartLineItem.stockQuantity in lib/types.ts.
+  stock_quantity: number;
+  allow_backorder: boolean;
 };
 
 export type AddressJson = {
@@ -138,12 +142,18 @@ export function computeTotals(input: {
   //
   //   * All-standard cart  → the chosen method's price, once, waived above
   //     the free-shipping threshold.
-  //   * Any oversized item → each oversized LINE pays its own cost × its
-  //     quantity (two bathtubs are two parcels), and standard items in the
-  //     same cart ride along free rather than adding the method price on top.
+  //   * Any oversized item → shipping is the HIGHEST single oversized item's
+  //     own cost (see lib/shipping.ts's highestOversizedFeeCents, shared
+  //     with ShippingSection's checkout-UI preview so the two can never
+  //     disagree) — never summed across multiple oversized lines, never
+  //     multiplied by quantity. Standard items in the same cart ride along
+  //     free rather than adding the method price on top.
   //
-  // So 1 normal = 3.50, 1 heavy + 1 normal = 8.00, 2 heavy + 1 normal = 16.00.
-  // The last case is why this is not "the single highest cost wins".
+  // So 1 normal = 3.50, 1 heavy (€8) + 1 normal = 8.00, 2 heavy (€8 each) +
+  // 1 normal = 8.00 (not 16.00), a €7 item + a €12 item = 12.00 (not 19.00).
+  // Reversed from an earlier "sum every oversized line × its quantity"
+  // design per an explicit later business decision — see git history for
+  // that rule if it's ever needed again.
   //
   // The free-shipping threshold deliberately does NOT waive oversized costs
   // for the nationwide method: that parcel genuinely costs more to send, and
@@ -154,10 +164,7 @@ export function computeTotals(input: {
   // skips all of it either way, oversized included — nothing is being sent.
   let shippingCents = 0;
   if (input.shipping && !input.shipping.is_pickup) {
-    const oversizedCents = input.items.reduce(
-      (sum, i) => sum + Math.max(0, i.shipping_cost_cents ?? 0) * i.quantity,
-      0
-    );
+    const oversizedCents = highestOversizedFeeCents(input.items.map((i) => i.shipping_cost_cents));
     const qualifiesFree =
       input.shipping.free_over_cents != null && afterDiscount >= input.shipping.free_over_cents;
 
@@ -199,7 +206,9 @@ const cartQuery = (id: string) => sql<CartRow[]>`
              'unit_price_cents', i.unit_price_cents,
              'compare_at_price_cents', i.compare_at_price_cents,
              'shipping_cost_cents', p.shipping_cost_cents,
-             'image_path', img.storage_path
+             'image_path', img.storage_path,
+             'stock_quantity', v.stock_quantity,
+             'allow_backorder', v.allow_backorder
            ) ORDER BY i.created_at)
            FROM shop.cart_item i
            LEFT JOIN shop.product_variant v ON v.id = i.variant_id
@@ -234,6 +243,9 @@ function toDomainCart(r: CartRow): Cart {
     placeholderTone: toneFor(i.product_slug),
     imageUrl: publicImageUrl(i.image_path),
     hasExtraShipping: (i.shipping_cost_cents ?? 0) > 0,
+    shippingCostCents: i.shipping_cost_cents,
+    stockQuantity: i.stock_quantity,
+    allowBackorder: i.allow_backorder,
   }));
 
   const totals = computeTotals({

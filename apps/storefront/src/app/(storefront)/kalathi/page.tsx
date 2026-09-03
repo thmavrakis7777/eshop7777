@@ -3,6 +3,7 @@ import { getCart } from "@/lib/data/cart";
 import { getCartCrossSell } from "@/lib/data/products";
 import { getSiteSettings } from "@/lib/data/site-settings";
 import { getNationwideFreeShippingThresholdCents } from "@/lib/data/checkout";
+import { resolveStockInquiryContact } from "@/lib/whatsapp";
 import { CartPageView } from "@/components/cart/CartPageView";
 import { EmptyCartState } from "@/components/cart/EmptyCartState";
 import { ProductRail } from "@/components/home/ProductRail";
@@ -38,6 +39,7 @@ export default async function CartPage() {
         initialCart={cart}
         cartMessage={settings?.cartMessage ?? null}
         freeShippingThresholdCents={freeShippingThresholdCents}
+        stockInquiry={resolveStockInquiryContact(settings)}
       />
       <ProductRail title="Ταιριάζει καλά με ό,τι έχεις στο καλάθι" products={crossSell} />
     </div>

@@ -148,3 +148,20 @@ export function PhoneIcon({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function WhatsAppIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden="true">
+      <path
+        d="M4 20l1.2-3.9A8 8 0 1112 20a8 8 0 01-3.9-1L4 20z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 9.3c0-.5.4-1 .9-1h.5c.3 0 .5.1.6.4l.6 1.4c.1.2 0 .5-.1.7l-.5.6c-.1.2-.1.3 0 .5.4.8 1.2 1.6 2 2 .2.1.3.1.5 0l.6-.5c.2-.1.5-.2.7-.1l1.4.6c.3.1.4.3.4.6v.5c0 .5-.5.9-1 .9-2.9 0-6.6-3.7-6.6-6.6z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

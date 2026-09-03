@@ -26,6 +26,9 @@ import {
 } from "@/lib/actions/checkout";
 import { removeLineItemAction } from "@/lib/actions/cart";
 import { lookupCompanyByAfm } from "@/lib/actions/afm-lookup";
+import { isLineItemOverstocked } from "@/lib/stock";
+import { highestOversizedFeeCents } from "@/lib/shipping";
+import type { StockInquiryContact } from "@/lib/whatsapp";
 import { EmailSection } from "@/components/checkout/EmailSection";
 import { ContactSection } from "@/components/checkout/ContactSection";
 import { AddressSection } from "@/components/checkout/AddressSection";
@@ -66,6 +69,7 @@ export function CheckoutForm({
   initialCart,
   paymentProviders,
   initialShippingOptions,
+  stockInquiry,
 }: {
   initialCart: Cart;
   paymentProviders: PaymentProvider[];
@@ -73,6 +77,7 @@ export function CheckoutForm({
   // saved address — a refresh or a return visit to checkout should not make
   // the shipping section forget an address that's already on the cart.
   initialShippingOptions: ShippingOption[];
+  stockInquiry: StockInquiryContact;
 }) {
   const router = useRouter();
   const [cart, setCart] = useState(initialCart);
@@ -475,6 +480,13 @@ export function CheckoutForm({
 
   const taxDocumentReady =
     taxDocumentType === "receipt" || Object.keys(validateInvoiceFields(invoiceFields)).length === 0;
+  // Blocks order completion while a stale line (stock reduced after it was
+  // added to the cart) still exceeds what's actually in stock — see
+  // CheckoutOrderSummary's per-line StockInquiryNotice for the customer-
+  // facing explanation and WhatsApp/Call actions. completeOrder's own
+  // transaction (lib/db/checkout.ts) is still the final, atomic guard for
+  // the rare race where stock changes in the seconds after this check.
+  const hasOverstockedItem = cart.items.some(isLineItemOverstocked);
   const canSubmit =
     cart.items.length > 0 &&
     Boolean(cart.email) &&
@@ -482,6 +494,7 @@ export function CheckoutForm({
     cart.hasShippingMethod &&
     taxDocumentReady &&
     Boolean(selectedPaymentId) &&
+    !hasOverstockedItem &&
     !isSubmitting;
 
   // Removing the last item mid-checkout must not leave an unusable form
@@ -543,6 +556,12 @@ export function CheckoutForm({
             // second calculation of what "the subtotal" means.
             subtotalAfterDiscountEur={cart.subtotal.amount - cart.discountTotal.amount}
             hasOversizedItems={cart.items.some((item) => item.hasExtraShipping)}
+            // The actual amount an oversized cart would be charged — the
+            // same highestOversizedFeeCents rule computeTotals itself uses
+            // (lib/db/cart.ts), so a per-option row never shows a courier's
+            // flat label price when the real charge is higher. See
+            // ShippingSection's ShippingOptionPrice.
+            oversizedFeeEur={highestOversizedFeeCents(cart.items.map((item) => item.shippingCostCents)) / 100}
           />
           <TaxDocumentSection
             type={taxDocumentType}
@@ -569,7 +588,12 @@ export function CheckoutForm({
       </div>
 
       <div className="order-first lg:order-none">
-        <CheckoutOrderSummary cart={cart} onRemove={handleRemoveItem} pendingLineId={pendingLineId} />
+        <CheckoutOrderSummary
+          cart={cart}
+          onRemove={handleRemoveItem}
+          pendingLineId={pendingLineId}
+          stockInquiry={stockInquiry}
+        />
       </div>
     </div>
   );

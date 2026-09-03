@@ -232,6 +232,11 @@ export type AdminSiteSettings = {
   // affects coupons issued after the change, never rewrites one already
   // credited to a customer.
   loyaltyRewardExpiryDays: number | null;
+  // Global stock-quantity-limit + direct-inquiry feature — see
+  // lib/content-types.ts's SiteSettings for the same two fields on the
+  // public read side.
+  stockInquiryMessage: string | null;
+  whatsappPhone: string | null;
 };
 
 export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
@@ -247,6 +252,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
       free_shipping_threshold_cents: number | null; default_vat_rate: number;
       legal_company_name: string | null; vat_number: string | null; gemi_number: string | null;
       loyalty_reward_expiry_days: number | null;
+      stock_inquiry_message: string | null; whatsapp_phone: string | null;
     }[]
   >`SELECT store_name, logo_path, favicon_path, og_image_path,
            default_seo_title, default_seo_description,
@@ -254,7 +260,8 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
            contact_address, business_hours, facebook_url, instagram_url, tiktok_url,
            announcement_text, cart_message, phone_orders_enabled, phone_orders_label,
            free_shipping_threshold_cents, default_vat_rate,
-           legal_company_name, vat_number, gemi_number, loyalty_reward_expiry_days
+           legal_company_name, vat_number, gemi_number, loyalty_reward_expiry_days,
+           stock_inquiry_message, whatsapp_phone
       FROM shop.site_setting LIMIT 1`;
 
   const s = rows[0];
@@ -271,6 +278,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
       freeShippingThresholdCents: null, defaultVatRate: 24,
       legalCompanyName: null, vatNumber: null, gemiNumber: null,
       loyaltyRewardExpiryDays: LOYALTY_REWARD_DEFAULT_EXPIRY_DAYS,
+      stockInquiryMessage: null, whatsappPhone: null,
     };
   }
 
@@ -289,6 +297,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
     defaultVatRate: Number(s.default_vat_rate),
     legalCompanyName: s.legal_company_name, vatNumber: s.vat_number, gemiNumber: s.gemi_number,
     loyaltyRewardExpiryDays: s.loyalty_reward_expiry_days,
+    stockInquiryMessage: s.stock_inquiry_message, whatsappPhone: s.whatsapp_phone,
   };
 }
 
@@ -301,7 +310,8 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       contact_address, business_hours, facebook_url, instagram_url, tiktok_url,
       announcement_text, cart_message, phone_orders_enabled, phone_orders_label,
       free_shipping_threshold_cents, default_vat_rate,
-      legal_company_name, vat_number, gemi_number, loyalty_reward_expiry_days, updated_at)
+      legal_company_name, vat_number, gemi_number, loyalty_reward_expiry_days,
+      stock_inquiry_message, whatsapp_phone, updated_at)
     VALUES (
       true, ${input.storeName}, ${input.logoPath}, ${input.faviconPath},
       ${input.ogImagePath}, ${input.defaultSeoTitle}, ${input.defaultSeoDescription},
@@ -311,7 +321,8 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       ${input.announcementText}, ${input.cartMessage}, ${input.phoneOrdersEnabled}, ${input.phoneOrdersLabel},
       ${input.freeShippingThresholdCents}, ${input.defaultVatRate},
       ${input.legalCompanyName}, ${input.vatNumber}, ${input.gemiNumber},
-      ${input.loyaltyRewardExpiryDays}, now())
+      ${input.loyaltyRewardExpiryDays},
+      ${input.stockInquiryMessage}, ${input.whatsappPhone}, now())
     ON CONFLICT (id) DO UPDATE SET
       store_name = EXCLUDED.store_name, logo_path = EXCLUDED.logo_path,
       favicon_path = EXCLUDED.favicon_path, og_image_path = EXCLUDED.og_image_path,
@@ -328,7 +339,9 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       default_vat_rate = EXCLUDED.default_vat_rate,
       legal_company_name = EXCLUDED.legal_company_name, vat_number = EXCLUDED.vat_number,
       gemi_number = EXCLUDED.gemi_number,
-      loyalty_reward_expiry_days = EXCLUDED.loyalty_reward_expiry_days, updated_at = now()`;
+      loyalty_reward_expiry_days = EXCLUDED.loyalty_reward_expiry_days,
+      stock_inquiry_message = EXCLUDED.stock_inquiry_message,
+      whatsapp_phone = EXCLUDED.whatsapp_phone, updated_at = now()`;
 }
 
 // ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin, requireOwner, auditLog } from "@/lib/admin/auth";
 import { isValidEmail } from "@/lib/checkout-validation";
+import { isValidWhatsappPhone } from "@/lib/whatsapp";
 import { CACHE_TAGS } from "@/lib/db/content";
 import { CATEGORY_CACHE_TAG } from "@/lib/data/categories";
 import { updateCategoryDescription } from "@/lib/admin/taxonomy";
@@ -361,6 +362,11 @@ export async function saveSiteSettingsAction(formData: FormData): Promise<Action
     return { ok: false, error: "Η διάρκεια ισχύος του κουπονιού πρέπει να είναι τουλάχιστον 1 ημέρα." };
   }
 
+  const whatsappPhone = text(formData.get("whatsappPhone"));
+  if (whatsappPhone && !isValidWhatsappPhone(whatsappPhone)) {
+    return { ok: false, error: "Ο αριθμός WhatsApp δεν είναι έγκυρος. Χρησιμοποίησε διεθνή μορφή, π.χ. 306912345678." };
+  }
+
   try {
     await saveSiteSettings({
       storeName: text(formData.get("storeName")),
@@ -387,6 +393,8 @@ export async function saveSiteSettingsAction(formData: FormData): Promise<Action
       vatNumber: text(formData.get("vatNumber")),
       gemiNumber: text(formData.get("gemiNumber")),
       loyaltyRewardExpiryDays,
+      stockInquiryMessage: text(formData.get("stockInquiryMessage")),
+      whatsappPhone,
     });
     await auditLog(admin.id, "site_settings.update", "site_setting", "singleton");
   } catch {
