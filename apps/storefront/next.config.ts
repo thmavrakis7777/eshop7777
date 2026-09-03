@@ -73,7 +73,12 @@ const nextConfig: NextConfig = {
       { source: "/ergaleia/fotismos", destination: "/ergaleia/ilektrologika", permanent: true },
     ];
   },
-  images: { remotePatterns },
+  // AVIF first, WebP as the fallback modern format — next/image already
+  // negotiates via the request's Accept header, this only adds AVIF to what
+  // it's allowed to serve (WebP was already the framework default; AVIF was
+  // not). Every `next/image` call site across the app gets this for free,
+  // no per-component change needed.
+  images: { remotePatterns, formats: ["image/avif", "image/webp"] },
 };
 
 export default nextConfig;

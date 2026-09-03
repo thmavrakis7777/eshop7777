@@ -127,7 +127,18 @@ const RAIL_SOURCE_TYPES = [
   "category",
   "collection",
   "manual",
+  "best_sellers",
 ] as const;
+
+// Reuses the exact same "one slug per line or comma" wire format ProductPicker
+// already writes for a manual rail's productSlugs — not a second format.
+function parseSlugList(raw: FormDataEntryValue | null, max: number): string[] {
+  return String(raw ?? "")
+    .split(/[\n,]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, max);
+}
 
 /**
  * Validates the per-kind `config` before it reaches the jsonb column.
@@ -194,19 +205,49 @@ function parseConfig(kind: HomepageSectionKind, formData: FormData): HomepageSec
         };
         break;
       case "manual":
-        config.source = {
-          type,
-          productSlugs: String(formData.get("productSlugs") ?? "")
-            .split(/[\n,]/)
-            .map((s) => s.trim())
-            .filter(Boolean)
-            .slice(0, 24),
-        };
+        config.source = { type, productSlugs: parseSlugList(formData.get("productSlugs"), 24) };
         break;
+      case "best_sellers": {
+        const fallback = parseSlugList(formData.get("fallbackProductSlugs"), 24);
+        config.source = { type, limit, ...(fallback.length ? { fallbackProductSlugs: fallback } : {}) };
+        break;
+      }
       default:
         config.source = { type, limit };
     }
     config.viewAllHref = text(formData.get("viewAllHref"));
+  }
+
+  if (kind === "promo") {
+    const banner2Heading = text(formData.get("banner2Heading"));
+    const banner2Body = text(formData.get("banner2Body"));
+    const banner2CtaLabel = text(formData.get("banner2CtaLabel"));
+    const banner2CtaHref = text(formData.get("banner2CtaHref"));
+    const banner2DesktopImagePath = text(formData.get("banner2DesktopImagePath"));
+    const banner2TabletImagePath = text(formData.get("banner2TabletImagePath"));
+    const banner2MobileImagePath = text(formData.get("banner2MobileImagePath"));
+    const banner2ImageAlt = text(formData.get("banner2ImageAlt"));
+
+    // Absent (not an empty object) whenever the owner hasn't touched Banner 2
+    // at all — a promo block saved before this existed, or one where Banner 2
+    // was simply never filled in, keeps rendering as a single banner exactly
+    // as before (see EditorialBanner.tsx's hasBanner2 check).
+    const hasAnyBanner2Content = Boolean(
+      banner2Heading || banner2Body || banner2CtaLabel || banner2CtaHref ||
+        banner2DesktopImagePath || banner2TabletImagePath || banner2MobileImagePath
+    );
+    if (hasAnyBanner2Content) {
+      config.banner2 = {
+        desktopImagePath: banner2DesktopImagePath,
+        tabletImagePath: banner2TabletImagePath,
+        mobileImagePath: banner2MobileImagePath,
+        imageAlt: banner2ImageAlt,
+        heading: banner2Heading,
+        body: banner2Body,
+        ctaLabel: banner2CtaLabel,
+        ctaHref: banner2CtaHref,
+      };
+    }
   }
 
   return config;
@@ -260,6 +301,7 @@ export async function saveHomepageBlockAction(formData: FormData): Promise<Actio
       ctaLabel: text(formData.get("ctaLabel")),
       ctaHref: text(formData.get("ctaHref")),
       imagePath: text(formData.get("imagePath")),
+      tabletImagePath: text(formData.get("tabletImagePath")),
       mobileImagePath: text(formData.get("mobileImagePath")),
       imageAlt: text(formData.get("imageAlt")),
       config,

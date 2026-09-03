@@ -18,6 +18,7 @@ const DEFAULT_HERO: HomepageSection = {
   ctaLabel: "Ανακάλυψε τη συλλογή",
   ctaHref: "/kouzina",
   imageUrl: null,
+  tabletImageUrl: null,
   mobileImageUrl: null,
   imageAlt: null,
   config: {},

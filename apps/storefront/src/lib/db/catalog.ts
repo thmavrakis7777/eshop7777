@@ -527,6 +527,48 @@ export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
 }
 
 /**
+ * Best Sellers, ranked by real completed sales — used by the homepage's
+ * "best_sellers" product-rail source (lib/data/homepage-sections.ts).
+ *
+ * "Completed sale" mirrors the one exclusion rule already established for
+ * every other real-sales figure in this codebase (lib/admin/dashboard.ts's
+ * `LIVE = status <> 'cancelled'`): no separate notion of "failed" exists on
+ * shop.orders, and payment_status/fulfillment_status are never part of that
+ * definition anywhere else either, so this doesn't invent a second one.
+ * Never views/favourites/clicks/stock/manual popularity — only actual sold
+ * quantity from shop.order_item.
+ *
+ * All-time, not the admin dashboard's 90-day trend window (lib/admin/
+ * dashboard.ts's getBestSellers): a brand-new or low-traffic store is
+ * exactly the case this homepage section's fallback exists for, and a
+ * rolling window would only make "not enough data yet" more likely, not
+ * less. Joins to product_id (indexed — order_item_product_idx) rather than
+ * grouping by the unindexed product_slug column, and filters p.is_active
+ * directly so a since-deactivated product never occupies one of the
+ * requested `limit` slots.
+ *
+ * Cached: a live GROUP BY on every homepage request is unnecessary for a
+ * ranking that only needs to be a few minutes fresh (no new infrastructure —
+ * the same unstable_cache pattern lib/db/content.ts already uses elsewhere).
+ */
+export const getBestSellingProductSlugs = unstable_cache(
+  async (limit: number): Promise<string[]> => {
+    const rows = await sql<{ slug: string }[]>`
+      SELECT p.slug AS slug
+        FROM shop.order_item i
+        JOIN shop.orders o ON o.id = i.order_id
+        JOIN shop.product p ON p.id = i.product_id
+       WHERE o.status <> 'cancelled' AND p.is_active
+       GROUP BY p.id, p.slug
+       ORDER BY SUM(i.quantity) DESC
+       LIMIT ${limit}`;
+    return rows.map((r) => r.slug);
+  },
+  ["best-selling-product-slugs"],
+  { revalidate: 300 }
+);
+
+/**
  * Related products. Same-category is a real, honest signal; "customers also
  * bought" would be a fabricated one until order data exists (see CART_UX_SPEC
  * §12 and the identical reasoning already applied on the PDP).

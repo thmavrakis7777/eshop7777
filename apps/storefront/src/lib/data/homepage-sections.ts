@@ -1,4 +1,5 @@
 import { getHomepageSections } from "@/lib/db/content";
+import { getBestSellingProductSlugs } from "@/lib/db/catalog";
 import {
   getFeaturedProducts,
   getFeaturedProductsPaged,
@@ -72,6 +73,19 @@ export async function resolveRailProducts(source: ProductRailSource | undefined)
         return source.productSlugs?.length
           ? await getProductsByHandles(source.productSlugs.slice(0, MAX_LIMIT))
           : [];
+
+      case "best_sellers": {
+        const slugs = await getBestSellingProductSlugs(clampLimit(source.limit));
+        if (slugs.length > 0) return await getProductsByHandles(slugs);
+        // Not enough real sales yet (a new store, or simply no completed
+        // orders today) — fall back to the owner's manually curated list
+        // rather than an error or a fabricated ranking. No fallback
+        // configured either => empty array => RailSection already renders
+        // nothing for an empty rail, exactly like a deleted category would.
+        return source.fallbackProductSlugs?.length
+          ? await getProductsByHandles(source.fallbackProductSlugs.slice(0, MAX_LIMIT))
+          : [];
+      }
     }
   } catch (err) {
     // A rail that can't resolve must not break the homepage, but swallowing

@@ -61,6 +61,7 @@ export type AdminHomepageBlock = {
   ctaLabel: string | null;
   ctaHref: string | null;
   imagePath: string | null;
+  tabletImagePath: string | null;
   mobileImagePath: string | null;
   imageAlt: string | null;
   config: HomepageSectionConfig;
@@ -71,13 +72,15 @@ export type AdminHomepageBlock = {
 type BlockRow = {
   id: string; kind: HomepageSectionKind; eyebrow: string | null; heading: string | null;
   body: string | null; cta_label: string | null; cta_href: string | null;
-  image_path: string | null; mobile_image_path: string | null; image_alt: string | null;
+  image_path: string | null; tablet_image_path: string | null; mobile_image_path: string | null;
+  image_alt: string | null;
   config: HomepageSectionConfig | null; sort_order: number; is_published: boolean;
 };
 
 const toAdminBlock = (r: BlockRow): AdminHomepageBlock => ({
   id: r.id, kind: r.kind, eyebrow: r.eyebrow, heading: r.heading, body: r.body,
   ctaLabel: r.cta_label, ctaHref: r.cta_href, imagePath: r.image_path,
+  tabletImagePath: r.tablet_image_path,
   mobileImagePath: r.mobile_image_path, imageAlt: r.image_alt, config: r.config ?? {},
   sortOrder: r.sort_order, isPublished: r.is_published,
 });
@@ -87,7 +90,7 @@ const toAdminBlock = (r: BlockRow): AdminHomepageBlock => ({
 export async function listHomepageBlocks(): Promise<AdminHomepageBlock[]> {
   const rows = await sql<BlockRow[]>`
     SELECT id, kind, eyebrow, heading, body, cta_label, cta_href, image_path,
-           mobile_image_path, image_alt, config, sort_order, is_published
+           tablet_image_path, mobile_image_path, image_alt, config, sort_order, is_published
       FROM shop.homepage_block ORDER BY sort_order, created_at`;
   return rows.map(toAdminBlock);
 }
@@ -101,6 +104,7 @@ export type SaveHomepageBlockInput = {
   ctaLabel: string | null;
   ctaHref: string | null;
   imagePath: string | null;
+  tabletImagePath: string | null;
   mobileImagePath: string | null;
   imageAlt: string | null;
   config: HomepageSectionConfig;
@@ -117,7 +121,8 @@ export async function saveHomepageBlock(input: SaveHomepageBlockInput): Promise<
       UPDATE shop.homepage_block SET
         kind = ${input.kind}, eyebrow = ${input.eyebrow}, heading = ${input.heading},
         body = ${input.body}, cta_label = ${input.ctaLabel}, cta_href = ${input.ctaHref},
-        image_path = ${input.imagePath}, mobile_image_path = ${input.mobileImagePath},
+        image_path = ${input.imagePath}, tablet_image_path = ${input.tabletImagePath},
+        mobile_image_path = ${input.mobileImagePath},
         image_alt = ${input.imageAlt}, config = ${config},
         sort_order = ${input.sortOrder}, is_published = ${input.isPublished},
         updated_at = now()
@@ -126,10 +131,10 @@ export async function saveHomepageBlock(input: SaveHomepageBlockInput): Promise<
   }
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO shop.homepage_block (kind, eyebrow, heading, body, cta_label, cta_href,
-                                     image_path, mobile_image_path, image_alt, config,
+                                     image_path, tablet_image_path, mobile_image_path, image_alt, config,
                                      sort_order, is_published)
     VALUES (${input.kind}, ${input.eyebrow}, ${input.heading}, ${input.body},
-            ${input.ctaLabel}, ${input.ctaHref}, ${input.imagePath},
+            ${input.ctaLabel}, ${input.ctaHref}, ${input.imagePath}, ${input.tabletImagePath},
             ${input.mobileImagePath}, ${input.imageAlt}, ${config},
             ${input.sortOrder}, ${input.isPublished})
     RETURNING id`;
@@ -191,9 +196,9 @@ export async function duplicateHomepageBlock(id: string): Promise<string | null>
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO shop.homepage_block (
       kind, eyebrow, heading, body, cta_label, cta_href, image_path,
-      mobile_image_path, image_alt, config, sort_order, is_published)
+      tablet_image_path, mobile_image_path, image_alt, config, sort_order, is_published)
     SELECT kind, eyebrow, heading, body, cta_label, cta_href, image_path,
-           mobile_image_path, image_alt, config, sort_order + 1, false
+           tablet_image_path, mobile_image_path, image_alt, config, sort_order + 1, false
       FROM shop.homepage_block WHERE id = ${id}
     RETURNING id`;
   return row?.id ?? null;

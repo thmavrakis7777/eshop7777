@@ -3,6 +3,88 @@
 Notable changes, newest first. Written for whoever (human or agent) picks this up
 next — focus on *why*, not just *what*.
 
+## Homepage: two-banner Promotional Banner, AVIF delivery, Best Sellers (2026-09-04)
+
+Additive, on top of the existing homepage section system (`shop.homepage_block`,
+one ordered list of sections the owner composes in Dashboard → Content →
+Homepage) — no new section-management system, no new carousel, no new
+product picker. Full audit first; two real, narrow gaps found and fixed
+along the way.
+
+**Promotional Banner now supports two independently-configured banners.**
+The "Προωθητικό banner" section (kind `"promo"`) is what this refers to —
+distinct from the separate site-wide countdown strip (`shop.promo_banner`,
+edited at Content → Header & Footer), which is untouched. Banner 1 keeps
+using the block's own existing columns (heading/body/ctaLabel/ctaHref/
+imageUrl/mobileImageUrl) exactly as before; Banner 2 is entirely new and
+lives in the block's existing `config` jsonb (`PromoBanner2Config` in
+content-types.ts) rather than new columns, since it's specific to the promo
+kind only — the same reasoning `product_rail`'s `source` and `trust`'s
+`items` already use `config` for. A promo block saved before this existed,
+or one where the owner never touches Banner 2, keeps rendering as a single
+full-width banner, pixel-identical to before
+(`EditorialBanner.tsx`'s `hasBanner2Content` check) — verified live against
+a real published promo block. Once Banner 2 has content, the same block
+renders as two cards side by side on desktop/tablet and stacked on mobile.
+
+**Desktop/tablet/mobile images, with automatic fallback**, via a new shared
+`components/home/DeviceImage.tsx` (plain `<picture>`/`<source>`, not
+`next/image` — the same choice already made for Hero.tsx and the reasons
+documented there: the production CSP blocks inline `background-image`, and
+`next/image` can't swap `src` per breakpoint). Tablet falls back to desktop
+when empty, mobile falls back to desktop when empty — always renders the
+same three `<picture>` elements, so the browser downloads exactly one image,
+never all three hidden by CSS. New `tablet_image_path` column on
+`shop.homepage_block` (migration `0028_homepage_tablet_image.sql`, nullable,
+every existing row unaffected). **Also fixed in passing**: Promo's existing
+`mobileImageUrl` field — already in the admin form, already saveable — was
+silently never rendered (`EditorialBanner.tsx` only ever read `imageUrl`).
+It's real now, via the same `DeviceImage` component.
+
+**AVIF delivery**: `next.config.ts`'s `images.formats` was unset, meaning
+Next 16's default of WebP-only (no AVIF). One line (`formats: ["image/avif",
+"image/webp"]`) turns AVIF on for every existing `next/image` call site —
+product cards, PDP, category grid, mega-menu — no per-component change
+needed. Confirmed via audit that responsive `sizes`/multi-resolution
+delivery was already correct everywhere `next/image` is used; the admin-
+uploaded hero/promo/category images that render as a plain `<img>` (documented,
+deliberate — see `HomepageSectionBuilder.tsx`'s own comments) are unaffected
+either way, same as before.
+
+**Best Sellers**: a new `"best_sellers"` source on the *existing*
+`product_rail` section — reuses `ProductRail`, `ProductRailSkeleton`,
+`ProductPicker`, and the section's existing editable `heading` for the
+title (no new field needed). Manual selection needed zero new code: it's
+already `product_rail`'s `"manual"` source, fully built. Automatic ranking
+is `lib/db/catalog.ts`'s new `getBestSellingProductSlugs(limit)` — real
+`SUM(order_item.quantity)` grouped by product, `orders.status <> 'cancelled'`
+excluded (the one exclusion rule already used everywhere else in this
+codebase for "real sales," see `lib/admin/dashboard.ts`'s `LIVE` — no second
+definition invented). All-time, not the admin dashboard's 90-day trend
+window: a low-traffic store is exactly the case the fallback exists for, and
+a rolling window only makes "not enough data" more likely. Cached 5 minutes
+(`unstable_cache`, no new infrastructure) since a live `GROUP BY` on every
+homepage request isn't needed for a ranking that only needs to be a few
+minutes fresh. **Fallback**: an optional `fallbackProductSlugs` list (same
+`ProductPicker`) shows whenever the real ranking comes back empty — a launch-
+day store with no completed sales yet. No fallback configured either →
+the rail hides itself, exactly like a rail pointing at a deleted category
+already does (`RailSection`'s existing `products.length === 0` check —
+unchanged). **Verified against real data**: every order in the live
+database is currently `cancelled` (8/8) — confirmed live that the ranking
+query correctly returns nothing for that data, and confirmed separately
+(same query, status filter removed, read-only) that the `SUM(quantity) DESC`
+ranking itself is correct once orders do count.
+
+**Not live-tested**: the new admin dashboard controls (Banner 2's fields,
+Best Sellers' mode picker) — verified by code review and the production
+build/typecheck, not by clicking through them, since this session has no
+admin login and creating one requires a database write outside this
+session's permission. Storefront rendering, backward compatibility, and the
+sales-ranking SQL were all verified directly against the live database.
+
+`tsc`/`eslint`/`next build` all clean.
+
 ## Shipping audit: highest-single-fee rule + checkout display fix (2026-09-04)
 
 Targeted patch, not a rebuild — full audit first confirmed the shipping

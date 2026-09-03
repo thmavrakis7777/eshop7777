@@ -93,6 +93,9 @@ export type HomepageBlock = {
   ctaLabel: string | null;
   ctaHref: string | null;
   imageUrl: string | null;
+  // Falls back to imageUrl when empty — see DeviceImage.tsx, the one place
+  // that interprets this fallback for rendering.
+  tabletImageUrl: string | null;
   mobileImageUrl: string | null;
   imageAlt: string | null;
 };
@@ -146,7 +149,36 @@ export type ProductRailSource =
   | { type: "collection"; collectionSlug: string; limit: number }
   // Exact products, in the order the owner arranged them — the "Summer
   // Essentials, and I pick precisely these" case.
-  | { type: "manual"; productSlugs: string[] };
+  | { type: "manual"; productSlugs: string[] }
+  // Ranked by real sold quantity (lib/db/catalog.ts's getBestSellingProductSlugs
+  // — completed order_item rows only, cancelled orders excluded). Launch-day
+  // reality: a brand-new store has no sales yet, so `fallbackProductSlugs`
+  // (optional, same picker as "manual") stands in whenever the ranking
+  // comes back empty — see resolveRailProducts's "best_sellers" case.
+  | { type: "best_sellers"; limit: number; fallbackProductSlugs?: string[] };
+
+/**
+ * The Promotional Banner's optional second banner. Lives in `config`
+ * because it's specific to the "promo" kind only — Banner 1 keeps using
+ * the block's own shared columns (heading/body/ctaLabel/ctaHref/imageUrl/
+ * tabletImageUrl/mobileImageUrl) exactly as before, so a promo block saved
+ * before this existed renders identically until an owner actually fills
+ * Banner 2 in. Image fields are raw storage paths (like every other path in
+ * this config), resolved to public URLs at render time in EditorialBanner.tsx
+ * — not pre-resolved here, since HomepageSectionConfig is generic JSON that
+ * different kinds interpret differently (same reason `source` above isn't
+ * pre-resolved into real Product objects).
+ */
+export type PromoBanner2Config = {
+  desktopImagePath: string | null;
+  tabletImagePath: string | null;
+  mobileImagePath: string | null;
+  imageAlt: string | null;
+  heading: string | null;
+  body: string | null;
+  ctaLabel: string | null;
+  ctaHref: string | null;
+};
 
 export type HomepageSectionConfig = {
   /** category_grid: which categories, in which order. Empty = every top-level category, nav order. */
@@ -159,6 +191,8 @@ export type HomepageSectionConfig = {
   showButton?: boolean;
   /** trust: the guarantee tiles, in order. Absent = the built-in defaults. */
   items?: TrustItem[];
+  /** promo only: the second, independently-configured banner. Absent/undefined = single-banner layout, unchanged. */
+  banner2?: PromoBanner2Config;
 };
 
 export type HomepageSection = HomepageBlock & {

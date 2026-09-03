@@ -271,6 +271,7 @@ type HomepageSectionRow = {
   cta_label: string | null;
   cta_href: string | null;
   image_path: string | null;
+  tablet_image_path: string | null;
   mobile_image_path: string | null;
   image_alt: string | null;
   config: HomepageSectionConfig | null;
@@ -278,7 +279,7 @@ type HomepageSectionRow = {
 
 const SECTION_FIELDS = sql`
   id, kind, eyebrow, heading, body, cta_label, cta_href,
-  image_path, mobile_image_path, image_alt, config`;
+  image_path, tablet_image_path, mobile_image_path, image_alt, config`;
 
 function toSection(b: HomepageSectionRow): HomepageSection {
   return {
@@ -290,6 +291,7 @@ function toSection(b: HomepageSectionRow): HomepageSection {
     ctaLabel: b.cta_label,
     ctaHref: b.cta_href,
     imageUrl: publicImageUrl(b.image_path),
+    tabletImageUrl: publicImageUrl(b.tablet_image_path),
     mobileImageUrl: publicImageUrl(b.mobile_image_path),
     imageAlt: b.image_alt,
     // NOT NULL DEFAULT '{}' in the schema, but a hand-edited row could still

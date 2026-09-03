@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
-import type { HomepageSection } from "@/lib/content-types";
+import { DeviceImage } from "@/components/home/DeviceImage";
+import { publicImageUrl } from "@/lib/storage/urls";
+import type { HomepageSection, PromoBanner2Config } from "@/lib/content-types";
 
 const DEFAULT_BLOCK: HomepageSection = {
   id: "default",
@@ -11,12 +12,119 @@ const DEFAULT_BLOCK: HomepageSection = {
   ctaLabel: "Διάβασε τον οδηγό",
   ctaHref: "/odigoi-agoron/tigania",
   imageUrl: null,
+  tabletImageUrl: null,
   mobileImageUrl: null,
   imageAlt: null,
   config: {},
 };
 
+// True only once the owner has actually put something into Banner 2 — an
+// absent/all-empty banner2 must render exactly like a promo block saved
+// before Banner 2 existed (see parseConfig in cms-actions.ts, which only
+// ever writes `config.banner2` under this same condition).
+function hasBanner2Content(banner2: PromoBanner2Config | undefined): banner2 is PromoBanner2Config {
+  if (!banner2) return false;
+  return Boolean(
+    banner2.desktopImagePath || banner2.tabletImagePath || banner2.mobileImagePath ||
+      banner2.heading || banner2.body || banner2.ctaLabel || banner2.ctaHref
+  );
+}
+
+/**
+ * One banner's worth of content for the two-banner (side-by-side/stacked)
+ * layout — image on top, copy below. Deliberately a different shape from
+ * the single-banner layout's half-text/half-image split below: two of the
+ * latter side by side would leave each banner's own text too cramped, so a
+ * stacked card is the two-banner design instead of two half-width copies of
+ * the existing single-banner layout.
+ */
+function PromoBannerCard({
+  heading,
+  body,
+  ctaLabel,
+  ctaHref,
+  desktopUrl,
+  tabletUrl,
+  mobileUrl,
+  imageAlt,
+}: {
+  heading: string | null;
+  body: string | null;
+  ctaLabel: string | null;
+  ctaHref: string | null;
+  desktopUrl: string | null;
+  tabletUrl: string | null;
+  mobileUrl: string | null;
+  imageAlt: string | null;
+}) {
+  // Both text and URL are required for the CTA — a label with no
+  // destination (or vice versa) is not a usable link, so neither renders.
+  const showCta = Boolean(ctaLabel && ctaHref);
+  const hasCopy = Boolean(heading || body || showCta);
+
+  return (
+    <div className="flex flex-col overflow-hidden rounded-md bg-surface">
+      <DeviceImage
+        desktopUrl={desktopUrl}
+        tabletUrl={tabletUrl}
+        mobileUrl={mobileUrl}
+        alt={imageAlt ?? ""}
+        placeholderLabel={heading || "Banner"}
+        className="aspect-[4/3] w-full object-cover"
+      />
+      {hasCopy && (
+        <div className="flex flex-col gap-2 p-6">
+          {heading && <h3 className="text-xl text-ink md:text-2xl">{heading}</h3>}
+          {body && <p className="text-sm text-ink-muted">{body}</p>}
+          {showCta && (
+            <Link href={ctaHref!} className="mt-2 w-fit text-sm font-medium text-ink underline underline-offset-4">
+              {ctaLabel}
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PromoSection({ block, imageFirst }: { block: HomepageSection; imageFirst: boolean }) {
+  const banner2 = hasBanner2Content(block.config.banner2) ? block.config.banner2 : null;
+
+  // Two independently-configured banners, side by side on desktop/tablet
+  // and stacked on mobile — only once Banner 2 actually has content.
+  if (banner2) {
+    return (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+        <PromoBannerCard
+          heading={block.heading}
+          body={block.body}
+          ctaLabel={block.ctaLabel}
+          ctaHref={block.ctaHref}
+          desktopUrl={block.imageUrl}
+          tabletUrl={block.tabletImageUrl}
+          mobileUrl={block.mobileImageUrl}
+          imageAlt={block.imageAlt}
+        />
+        <PromoBannerCard
+          heading={banner2.heading}
+          body={banner2.body}
+          ctaLabel={banner2.ctaLabel}
+          ctaHref={banner2.ctaHref}
+          desktopUrl={publicImageUrl(banner2.desktopImagePath)}
+          tabletUrl={publicImageUrl(banner2.tabletImagePath)}
+          mobileUrl={publicImageUrl(banner2.mobileImagePath)}
+          imageAlt={banner2.imageAlt}
+        />
+      </div>
+    );
+  }
+
+  // The original single-banner layout — unchanged for every block that
+  // predates Banner 2 (or simply never uses it): half-width copy panel,
+  // half-width image, alternating side. Now goes through DeviceImage
+  // instead of a plain <img src={imageUrl}>, so the mobile/tablet image
+  // fields (already present in the admin form) actually take effect —
+  // previously mobileImageUrl was silently ignored here.
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
       <div
@@ -34,22 +142,14 @@ function PromoSection({ block, imageFirst }: { block: HomepageSection; imageFirs
         )}
       </div>
       <div className={imageFirst ? "order-1 md:order-2" : "order-1"}>
-        {block.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- admin-supplied external URL, not part of the optimized product-image pipeline
-          <img
-            src={block.imageUrl}
-            alt={block.imageAlt ?? ""}
-            loading="lazy"
-            decoding="async"
-            className="aspect-square w-full object-cover md:aspect-auto md:h-full"
-          />
-        ) : (
-          <PlaceholderTile
-            label={block.heading || "Διαφημιστική ενότητα"}
-            tone="sage"
-            className="aspect-square md:aspect-auto md:h-full"
-          />
-        )}
+        <DeviceImage
+          desktopUrl={block.imageUrl}
+          tabletUrl={block.tabletImageUrl}
+          mobileUrl={block.mobileImageUrl}
+          alt={block.imageAlt ?? ""}
+          placeholderLabel={block.heading || "Διαφημιστική ενότητα"}
+          className="aspect-square w-full object-cover md:aspect-auto md:h-full"
+        />
       </div>
     </div>
   );

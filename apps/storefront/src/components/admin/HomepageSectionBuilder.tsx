@@ -14,7 +14,7 @@ import { TrustItemsEditor } from "@/components/admin/TrustItemsEditor";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { DEFAULT_TRUST_ITEMS } from "@/components/home/TrustStrip";
 import type { AdminHomepageBlock } from "@/lib/admin/cms";
-import type { HomepageSectionKind } from "@/lib/content-types";
+import type { HomepageSectionKind, PromoBanner2Config } from "@/lib/content-types";
 
 /**
  * The homepage, as an ordered list of sections the owner composes.
@@ -61,7 +61,7 @@ const KIND_HINTS: Record<HomepageSectionKind, string> = {
 // size/weight matters directly to page speed. Only the two kinds asked
 // about get a hint; the others render through next/image (Content) or have
 // no size-sensitive image use case worth a specific number (Newsletter).
-const IMAGE_SIZE_HINTS: Partial<Record<HomepageSectionKind, { desktop: string; mobile?: string }>> = {
+const IMAGE_SIZE_HINTS: Partial<Record<HomepageSectionKind, { desktop: string; tablet?: string; mobile?: string }>> = {
   hero: {
     desktop:
       "Προτεινόμενο μέγεθος 1920×640px (JPEG/WebP, έως ~200KB) — χρησιμοποιείται σε desktop και tablet. Δεν αλλάζει μέγεθος αυτόματα.",
@@ -69,7 +69,9 @@ const IMAGE_SIZE_HINTS: Partial<Record<HomepageSectionKind, { desktop: string; m
   },
   promo: {
     desktop:
-      "Προτεινόμενο μέγεθος 1200×1200px (JPEG/WebP, έως ~150KB) — η ίδια εικόνα χρησιμοποιείται σε desktop, tablet και mobile (τετράγωνη περικοπή σε mobile). Δεν αλλάζει μέγεθος αυτόματα.",
+      "Προτεινόμενο μέγεθος 1200×1200px (JPEG/WebP, έως ~150KB). Δεν αλλάζει μέγεθος αυτόματα.",
+    tablet: "Προαιρετικό — χωρίς αυτό, εμφανίζεται η desktop εικόνα σε tablet.",
+    mobile: "Προτεινόμενο μέγεθος 900×900px — προαιρετικό· χωρίς αυτό, εμφανίζεται η desktop εικόνα σε κινητό.",
   },
 };
 
@@ -80,6 +82,7 @@ const SOURCE_LABELS: Record<string, string> = {
   category: "Από κατηγορία",
   collection: "Από συλλογή",
   manual: "Χειροκίνητη επιλογή",
+  best_sellers: "Best Sellers (αυτόματα, με βάση τις πωλήσεις)",
 };
 
 export type PickerOption = { slug: string; label: string };
@@ -480,8 +483,24 @@ function SectionForm({
               hint={IMAGE_SIZE_HINTS[kind]?.desktop}
             />
           </div>
+          {/* Tablet is currently Promo-only (Banner 1) — Hero/Content/Newsletter
+              keep their existing desktop+mobile pair unchanged, out of scope
+              for this feature. */}
+          {kind === "promo" && (
+            <div>
+              <label className={label} htmlFor="tabletImagePath">Εικόνα (tablet — προαιρετικό)</label>
+              <ImageUploadField
+                id="tabletImagePath"
+                name="tabletImagePath"
+                defaultValue={section?.tabletImagePath}
+                folder="homepage"
+                placeholder="Προαιρετικό — αλλιώς χρησιμοποιείται η desktop"
+                hint={IMAGE_SIZE_HINTS[kind]?.tablet}
+              />
+            </div>
+          )}
           <div>
-            <label className={label} htmlFor="mobileImagePath">Εικόνα (mobile)</label>
+            <label className={label} htmlFor="mobileImagePath">Εικόνα (mobile — προαιρετικό)</label>
             <ImageUploadField
               id="mobileImagePath"
               name="mobileImagePath"
@@ -531,6 +550,17 @@ function SectionForm({
             </div>
           </div>
         </div>
+      )}
+
+      {/* After Banner 1's own fields (copy/image/button above) so the form
+          reads as "Banner 1 in full, then optional Banner 2" rather than
+          interleaving the two. */}
+      {kind === "promo" && (
+        <Banner2Fields
+          config={section?.config}
+          categories={categories}
+          collections={collections}
+        />
       )}
 
       {kind === "category_grid" && (
@@ -634,6 +664,20 @@ function SectionForm({
             </div>
           )}
 
+          {sourceType === "best_sellers" && (
+            <div className="mt-3">
+              <p className={label}>Εφεδρικά προϊόντα (προαιρετικό)</p>
+              <p className="mb-2 text-xs text-ink-muted">
+                Εμφανίζονται μόνο όσο δεν υπάρχουν ακόμα αρκετές πωλήσεις για αυτόματη κατάταξη — π.χ. σε ένα νέο
+                κατάστημα. Μόλις υπάρξουν πραγματικές πωλήσεις, εμφανίζονται αυτές αντί για τα εφεδρικά.
+              </p>
+              <ProductPicker
+                name="fallbackProductSlugs"
+                defaultSlugs={src?.type === "best_sellers" ? (src.fallbackProductSlugs ?? []) : []}
+              />
+            </div>
+          )}
+
           <div className="mt-3">
             <label className={label} htmlFor="viewAllHref">Σύνδεσμος «Δες όλα» (προαιρετικό)</label>
             <LinkPicker
@@ -676,6 +720,100 @@ function SectionForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * The Promotional Banner's second, independently-configurable banner.
+ * Entirely optional — every field starts empty for a promo block saved
+ * before this existed, and leaving all of them empty keeps that block
+ * rendering as a single banner (see EditorialBanner.tsx's hasBanner2 check
+ * and cms-actions.ts's parseConfig, which only writes `config.banner2` at
+ * all when at least one of these fields is non-empty).
+ */
+function Banner2Fields({
+  config,
+  categories,
+  collections,
+}: {
+  config?: { banner2?: PromoBanner2Config };
+  categories: PickerOption[];
+  collections: PickerOption[];
+}) {
+  const banner2 = config?.banner2;
+  return (
+    <div className="rounded-md border border-border p-3">
+      <p className="mb-3 text-sm font-medium text-ink">Banner 2 (προαιρετικό)</p>
+      <p className="mb-3 text-xs text-ink-muted">
+        Αν συμπληρωθεί, το «Banner 2» εμφανίζεται δίπλα στο πρώτο banner σε desktop/tablet και από κάτω του σε
+        κινητό. Αν μείνει κενό, εμφανίζεται μόνο το πρώτο banner, όπως και σήμερα.
+      </p>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div>
+          <label className={label} htmlFor="banner2DesktopImagePath">Εικόνα (desktop)</label>
+          <ImageUploadField
+            id="banner2DesktopImagePath"
+            name="banner2DesktopImagePath"
+            defaultValue={banner2?.desktopImagePath}
+            folder="homepage"
+            hint={IMAGE_SIZE_HINTS.promo?.desktop}
+          />
+        </div>
+        <div>
+          <label className={label} htmlFor="banner2TabletImagePath">Εικόνα (tablet — προαιρετικό)</label>
+          <ImageUploadField
+            id="banner2TabletImagePath"
+            name="banner2TabletImagePath"
+            defaultValue={banner2?.tabletImagePath}
+            folder="homepage"
+            placeholder="Προαιρετικό — αλλιώς χρησιμοποιείται η desktop"
+            hint={IMAGE_SIZE_HINTS.promo?.tablet}
+          />
+        </div>
+        <div>
+          <label className={label} htmlFor="banner2MobileImagePath">Εικόνα (mobile — προαιρετικό)</label>
+          <ImageUploadField
+            id="banner2MobileImagePath"
+            name="banner2MobileImagePath"
+            defaultValue={banner2?.mobileImagePath}
+            folder="homepage"
+            placeholder="Προαιρετικό — αλλιώς χρησιμοποιείται η desktop"
+            hint={IMAGE_SIZE_HINTS.promo?.mobile}
+          />
+        </div>
+        <div>
+          <label className={label} htmlFor="banner2ImageAlt">Εναλλακτικό κείμενο εικόνας (alt)</label>
+          <input
+            id="banner2ImageAlt"
+            name="banner2ImageAlt"
+            defaultValue={banner2?.imageAlt ?? ""}
+            placeholder="Τι δείχνει η εικόνα"
+            className={field}
+          />
+        </div>
+        <div>
+          <label className={label} htmlFor="banner2Heading">Τίτλος</label>
+          <input id="banner2Heading" name="banner2Heading" defaultValue={banner2?.heading ?? ""} className={field} />
+        </div>
+        <div>
+          <label className={label} htmlFor="banner2CtaLabel">Κείμενο κουμπιού</label>
+          <input id="banner2CtaLabel" name="banner2CtaLabel" defaultValue={banner2?.ctaLabel ?? ""} className={field} />
+        </div>
+        <div className="md:col-span-2">
+          <label className={label} htmlFor="banner2Body">Υπότιτλος / Περιγραφή</label>
+          <textarea id="banner2Body" name="banner2Body" rows={2} defaultValue={banner2?.body ?? ""} className={field} />
+        </div>
+        <div className="md:col-span-2">
+          <label className={label} htmlFor="banner2CtaHref">Προορισμός κουμπιού</label>
+          <LinkPicker
+            name="banner2CtaHref"
+            defaultValue={banner2?.ctaHref ?? ""}
+            categories={categories}
+            collections={collections}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
