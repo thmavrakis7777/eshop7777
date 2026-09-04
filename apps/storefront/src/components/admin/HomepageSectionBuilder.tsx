@@ -65,14 +65,44 @@ const IMAGE_SIZE_HINTS: Partial<Record<HomepageSectionKind, { desktop: string; t
   hero: {
     desktop:
       "Προτεινόμενο μέγεθος 1920×640px (JPEG/WebP, έως ~200KB) — χρησιμοποιείται σε desktop και tablet. Δεν αλλάζει μέγεθος αυτόματα.",
-    mobile: "Προτεινόμενο μέγεθος 900×1200px, έως ~120KB — μόνο για κινητό (προαιρετικό· χωρίς αυτό, εμφανίζεται η desktop εικόνα παντού).",
+    // The 900×1200 (portrait) recommendation is calibrated for the
+    // homepage's OPENING Hero specifically — that one alone gets the
+    // full-screen-height treatment on mobile/tablet (hero-viewport-fill in
+    // Hero.tsx). A second/later Hero an admin adds further down the page
+    // is a fixed, much shorter box on every device (26rem/416px on mobile),
+    // where a tall portrait source gets cropped hard — a shorter, more
+    // landscape image works better there.
+    mobile:
+      "Προτεινόμενο μέγεθος 900×1200px, έως ~120KB — μόνο για κινητό (προαιρετικό· χωρίς αυτό, εμφανίζεται η desktop εικόνα παντού). Ισχύει για το πρώτο/κύριο Hero της αρχικής, που καλύπτει όλη την οθόνη σε κινητό. Ένα δεύτερο Hero πιο κάτω στη σελίδα είναι πάντα ένα κοντύτερο, σταθερού ύψους πλαίσιο — εκεί μια λιγότερο ψηλή (πιο οριζόντια) εικόνα ταιριάζει καλύτερα.",
   },
+  // Banner 1's own field — see BANNER2_IMAGE_HINTS just below for Banner 2,
+  // which is a genuinely different target shape (always a fixed-ratio card,
+  // never the auto-height layout Banner 1 alone uses).
   promo: {
+    // Banner 1 alone (no Banner 2 filled in) has NO single fixed ratio: on
+    // mobile it's a square crop, but on desktop/tablet it stretches to
+    // match the text panel's own height (EditorialBanner.tsx's
+    // `md:aspect-auto md:h-full`), which varies with how much copy is in
+    // the banner — a square-ish, centered source crops reasonably in both
+    // cases. The MOMENT Banner 2 is also filled in, both banners switch to
+    // the fixed 4:3 card layout instead (see PromoBannerCard) — a
+    // different target shape, so a square Banner 1 image chosen for the
+    // solo layout will crop top/bottom once Banner 2 makes it a 4:3 card.
     desktop:
-      "Προτεινόμενο μέγεθος 1200×1200px (JPEG/WebP, έως ~150KB). Δεν αλλάζει μέγεθος αυτόματα.",
+      "Προτεινόμενο μέγεθος 1200×1200px (τετράγωνο, JPEG/WebP, έως ~150KB) αν χρησιμοποιείς ΜΟΝΟ αυτό το banner (χωρίς Banner 2 πιο κάτω) — έτσι γεμίζει καλά είτε σε τετράγωνη περικοπή (κινητό) είτε στο πλάτος της στήλης (desktop/tablet). Αν συμπληρώσεις και το Banner 2, αλλάζει layout σε κάρτα σταθερής αναλογίας 4:3 — τότε προτίμησε πλατύτερη εικόνα, π.χ. 1600×1200px, όπως στο Banner 2 πιο κάτω. Δεν αλλάζει μέγεθος αυτόματα.",
     tablet: "Προαιρετικό — χωρίς αυτό, εμφανίζεται η desktop εικόνα σε tablet.",
     mobile: "Προτεινόμενο μέγεθος 900×900px — προαιρετικό· χωρίς αυτό, εμφανίζεται η desktop εικόνα σε κινητό.",
   },
+};
+
+// Banner 2 only ever renders inside PromoBannerCard (EditorialBanner.tsx),
+// which is a fixed 4:3 `aspect-[4/3]` box on every breakpoint — unlike
+// Banner 1 above, there is exactly one target shape here, not two, so a
+// 4:3 source crops to nothing at all instead of being a compromise.
+const BANNER2_IMAGE_HINTS = {
+  desktop: "Προτεινόμενο μέγεθος 1600×1200px (αναλογία 4:3, JPEG/WebP, έως ~150KB) — εμφανίζεται πάντα σε κάρτα αυτής της αναλογίας, σε desktop, tablet και κινητό. Δεν αλλάζει μέγεθος αυτόματα.",
+  tablet: "Προαιρετικό — χωρίς αυτό, εμφανίζεται η desktop εικόνα σε tablet.",
+  mobile: "Προαιρετικό — χωρίς αυτό, εμφανίζεται η desktop εικόνα σε κινητό. Ίδια αναλογία 4:3 αν το ανεβάσεις ξεχωριστά.",
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -756,7 +786,7 @@ function Banner2Fields({
             name="banner2DesktopImagePath"
             defaultValue={banner2?.desktopImagePath}
             folder="homepage"
-            hint={IMAGE_SIZE_HINTS.promo?.desktop}
+            hint={BANNER2_IMAGE_HINTS.desktop}
           />
         </div>
         <div>
@@ -767,7 +797,7 @@ function Banner2Fields({
             defaultValue={banner2?.tabletImagePath}
             folder="homepage"
             placeholder="Προαιρετικό — αλλιώς χρησιμοποιείται η desktop"
-            hint={IMAGE_SIZE_HINTS.promo?.tablet}
+            hint={BANNER2_IMAGE_HINTS.tablet}
           />
         </div>
         <div>
@@ -778,7 +808,7 @@ function Banner2Fields({
             defaultValue={banner2?.mobileImagePath}
             folder="homepage"
             placeholder="Προαιρετικό — αλλιώς χρησιμοποιείται η desktop"
-            hint={IMAGE_SIZE_HINTS.promo?.mobile}
+            hint={BANNER2_IMAGE_HINTS.mobile}
           />
         </div>
         <div>
