@@ -1,13 +1,21 @@
 # Project Audit — MAVRAKIS HOME
 
-**Written 2026-08-30, end of the "custom-dashboard-migration" line of sessions.**
-This is the entry point for a new session that starts cold after a context
-clear. Read this file first — it explains how the system works today and
-lists exactly what a full audit found and fixed. `MIGRATION_PLAN.md` is the
-detailed history of *how* the app got here (Medusa → direct SQL); this file
-is the current, audited state. `PROJECT_MEMORY.md`/`CURRENT_STATE.md`/
-`TASKS.md`/`NEXT_STEPS.md`/`ADMIN_GUIDE.md` describe the old Medusa v2
-architecture and are historical only — do not use them for current facts.
+**First written 2026-08-30; refreshed 2026-09-04 with a second, independent
+full production-readiness audit (score, category table, and a checkable task
+list — see §21).** This is the entry point for a new session that starts
+cold after a context clear. Read this file first — it explains how the
+system works today and lists exactly what each audit found and fixed.
+`MIGRATION_PLAN.md` is the detailed history of *how* the app got here
+(Medusa → direct SQL); this file is the current, audited state.
+`PROJECT_MEMORY.md`/`CURRENT_STATE.md`/`TASKS.md`/`NEXT_STEPS.md`/
+`ADMIN_GUIDE.md` describe the old Medusa v2 architecture and are historical
+only — do not use them for current facts.
+
+Sections 1–20 below are the 2026-08-30 audit, kept as written except where a
+2026-09-04 correction is noted inline (§4 shipping was rewritten — the
+underlying code has changed since; everything else held up unchanged on
+re-verification). §21 is the 2026-09-04 audit's own findings, additive to
+everything above it.
 
 ---
 
@@ -98,29 +106,47 @@ correctness-critical function in the codebase:
 
 ## 4. Shipping
 
+*(Rewritten 2026-09-04 — the code below changed since the 2026-08-30 audit;
+this describes the current, live implementation.)*
+
 Custom system, not a carrier integration. `computeTotals` (`src/lib/db/cart.ts`)
 is the single source of truth, imported (never reimplemented) everywhere a
-total is shown or charged, including inside `completeOrder`:
+total is shown or charged, including inside `completeOrder`. The
+heavy/oversized-item rule itself lives in one shared, five-line function —
+`highestOversizedFeeCents` (`src/lib/shipping.ts`) — imported by both
+`computeTotals` (server-only) and `ShippingSection.tsx`'s checkout-UI preview
+(a Client Component, which can't import server-only code), so the charged
+total and the preview shown before payment can never disagree:
 
 - Shipping methods are admin-managed rows (`shop.shipping_method`): price,
   optional `free_over_cents` threshold, `is_pickup`, `heraklion_only`.
-- **Heavy/oversized items**: a product's own `shipping_cost_cents` is a
-  per-item surcharge added on top of the method's base price — multiple
-  standard products combine under one flat method price; a heavy item adds
-  its own surcharge regardless of how many other items are in the cart; a
-  mixed cart combines both correctly (this is the exact logic covered by the
-  "Heraklion + heavy product" test matrix mentioned in code comments).
+- **Heavy/oversized items**: when the cart contains one or more oversized
+  items, shipping is the **highest single oversized item's own cost** — never
+  summed across multiple oversized lines, never multiplied by quantity, and
+  it *replaces* the method's base price rather than adding to it. A cart of a
+  €7 item and a €12 item pays €12 once, not €19; three of the €7 item still
+  pays €7, not €21. An all-standard cart pays the method's own price instead.
+- **The free-shipping threshold behaves differently by method, on purpose**:
+  the nationwide method's `free_over_cents` never waives an oversized cost —
+  a large order doesn't make a bathtub cheaper to ship. Heraklion's own
+  method is the deliberate exception: once its threshold is met, the flat
+  "free delivery in the city" promise covers the whole order, heavy/bulky
+  items included. Store pickup skips shipping entirely either way.
 - **Heraklion-only methods** are gated twice: once when the shipping option
   list is built (`getShippingOptionsForCart`) and again, authoritatively,
-  inside `completeOrder` against the cart's *actual saved address* — a
-  Heraklion-priced method can never be charged against a non-Heraklion
-  address no matter what the client sent.
+  inside `setShippingMethod`/`completeOrder` against the cart's *actual saved
+  address* — a Heraklion-priced method can never be charged against a
+  non-Heraklion address no matter what the client sent. Changing the
+  shipping address away from Heraklion also clears an already-selected
+  Heraklion-only method server-side, so the cart can't keep showing a stale
+  Heraklion price it would no longer be allowed to charge.
 - `free_over_cents` and shipping method `price_cents` both carry a
-  non-negative DB `CHECK` (migration `0024`) plus an action-level check —
-  verified intact this audit, not touched.
+  non-negative DB `CHECK` (migration `0024`) plus an action-level check.
 
-**Not modified this audit** — re-verified against the live code, no
-regression found, no business rule changed.
+**2026-09-04 re-verification**: live-checked the byte-identical-function claim
+(one shared `highestOversizedFeeCents`, not two reimplementations) and the
+Heraklion free-shipping-covers-oversized exception directly in the source —
+both hold as described above.
 
 ## 5. Payments
 
@@ -415,9 +441,91 @@ API: `/api/meta/product-feed` (token-gated), `/sitemap.xml`, `/robots.txt`.
   (`journal/[slug]/page.tsx`'s, or the now-fixed product/category pages)
   once a real collection exists.
 
+## 21. 2026-09-04 audit — score, category breakdown, and open items
+
+A second, independent full audit (five parallel research passes covering
+Security, Correctness, Reliability, Performance, Testing, Maintainability,
+Observability, Deployment, Accessibility, SEO — plus direct live-database
+queries and live-browser checks run by the auditing session itself, not
+taken on the research agents' word alone). Nothing in §§1–20 was assumed;
+each claim there was re-checked against the current code before being
+trusted, and only §4 needed a rewrite.
+
+**Score: 76/100 — 🟡 LIVE WITH CONDITIONS.** No critical or high-severity
+*blocker* was found in any of this store's actually-live paths (checkout,
+payment recording, stock, RLS, admin auth). The score is held down by
+operational-maturity gaps — test coverage, error tracking, staging — not by
+a defect in what's shipped. A live, interactive, checkable version of the
+task list below is published at
+https://claude.ai/code/artifact/efe12a01-fb8a-41b4-954b-8f09d224c282 — check
+items off there as they're done; the underlying data (severities, file
+locations, fixes) is the same as this table.
+
+| Category | Score | Note |
+|---|---|---|
+| Correctness | 93 | 0 arithmetic mismatches / 0 orphans across every live order |
+| Security | 91 | RLS 44/44 locked, 0 policies; `pnpm audit` clean |
+| Accessibility | 85 | one real contrast gap, §21b #13 |
+| Maintainability | 83 | a handful of repeated business rules, not yet centralized |
+| Deployment | 81 | no health-check endpoint |
+| Reliability | 79 | no `error.tsx`, no staging DB |
+| SEO | 79 | Organization schema only, no LocalBusiness |
+| Performance | 73 | one uncached query, one oversized-image case in rails |
+| Observability | 48 | no error tracker/APM anywhere |
+| Testing | 18 | no test framework installed; ~0 coverage of business rules |
+
+**Re-verified live, not just read** (in addition to what §§1–20 already
+covered): the checkout `SELECT ... FOR UPDATE` lock genuinely blocks a
+double-submitted order end to end; a live concurrency test against the last
+unit of stock confirms two simultaneous checkouts can't both succeed; a live
+`<script>` payload submitted through a public form field round-trips as
+inert text, not executed markup; the admin login form returns the same
+generic failure message for a wrong password and a nonexistent email
+(no account enumeration); `pnpm audit` reports zero vulnerabilities at any
+severity; `tsc --noEmit` is clean with zero `any`/`@ts-ignore` anywhere in
+`src/`.
+
+### 21a. Newly found — no code changed, audit only
+
+No new *bugs* (data corruption, security holes, incorrect charges) were
+found this round — the 17 items below are gaps, not defects: things the
+store does not yet do, rather than things it does wrong. Full detail
+(why, exact file/line, and the fix) lives in the published task-list
+artifact linked above; this table is the same 17 items for a version that
+survives without that link.
+
+| # | Severity | Category | Issue | Where |
+|---|---|---|---|---|
+| 5 | High | Reliability | No `error.tsx` anywhere in the app | `src/app/` |
+| 11 | High | Testing | Effectively zero automated test coverage | whole repo |
+| 15 | High | Observability | No error-tracking/APM service at all | app-wide |
+| 3 | Medium | Correctness | No DB `CHECK` on order-total arithmetic | new migration |
+| 6 | Medium | Reliability | No staging database | infrastructure |
+| 8 | Medium | Performance | Category filter facets query is uncached | `src/lib/db/catalog.ts` |
+| 9 | Medium | Performance | `ProductCard` over-fetches image size inside rails | `ProductCard.tsx`, `ProductRail.tsx` |
+| 13 | Medium | Accessibility | Hero banner text has no contrast guarantee | `Hero.tsx` |
+| 14 | Medium | SEO | No `LocalBusiness` schema for a real physical store | `layout.tsx` |
+| 1 | Medium | Security | No rate limiting on cart quantity actions | `src/lib/actions/cart.ts` |
+| 2 | Low | Security | Image upload trusts the client's declared file type | `src/lib/storage/upload.ts` |
+| 4 | Low | Correctness | Postal code validated client-side only | `src/lib/actions/checkout.ts` |
+| 7 | Low | Deployment | No health-check endpoint | `src/app/api/` |
+| 10 | Low | Performance | Every storefront page is fully dynamic, nothing static/edge-cached | `layout.tsx` |
+| 12 | Low | Testing | The one real test doesn't exercise production code | `db/concurrency-test.mjs` |
+| 16 | Low | Observability | Image-upload failures are never logged | `media-actions.ts`, `catalog-actions.ts` |
+| 17 | Low | Maintainability | Same business rule typed out in several places | several files |
+
+### 21b. What this means for §20's "known intentional decisions"
+
+Nothing in §20 was invalidated — every item there is still a deliberate,
+correct trade-off. This round adds one more to track alongside it: item #5
+above (no `error.tsx`) was *also* flagged by the 2026-08-30 audit and is
+still open a full cycle later — worth prioritizing before it becomes a third
+audit's repeat finding.
+
 ---
 
 *Maintained by whichever session last ran a full audit. Update the "Bugs
-found and fixed" and "known intentional decisions" sections rather than
-letting them go stale — the whole point of this file is that the next
-session shouldn't have to re-derive any of this from scratch.*
+found and fixed" (§12) and "known intentional decisions" (§20) sections for
+the 2026-08-30 line of work, and §21 for anything newer, rather than letting
+either go stale — the whole point of this file is that the next session
+shouldn't have to re-derive any of this from scratch.*
