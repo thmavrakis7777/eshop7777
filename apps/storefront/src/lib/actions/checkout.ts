@@ -16,7 +16,7 @@ import { getCustomerId } from "@/lib/data/customer";
 import { getShippingOptionsForCart } from "@/lib/data/checkout";
 import { sendOrderConfirmationEmail, sendOwnerOrderNotificationEmail } from "@/lib/email/send";
 import { getOrderForEmail, markConfirmationEmailSent } from "@/lib/db/order-email";
-import { isValidEmail } from "@/lib/checkout-validation";
+import { isValidEmail, isValidPostalCode } from "@/lib/checkout-validation";
 import type { Cart, ShippingOption } from "@/lib/types";
 
 // Maps real failure codes to the Greek copy table in CHECKOUT_UX_SPEC.md §12.
@@ -103,6 +103,16 @@ export type CheckoutDetailsResult =
 export async function updateCheckoutDetailsAction(details: CheckoutDetails): Promise<CheckoutDetailsResult> {
   const cartId = await requireCartId();
   if (!cartId) return { ok: false, error: EXPIRED, cart: null };
+
+  // Server-side format check, not just the client's (checkout-form-state.ts)
+  // — a Server Action is a public endpoint the browser's own validation
+  // never protects. Checked before setCartAddresses persists anything and
+  // before getShippingOptionsForCart below decides Heraklion vs nationwide
+  // shipping from this same address.
+  const postalCodes = [details.postalCode, ...(details.billingDiffers && details.billing ? [details.billing.postalCode] : [])];
+  if (postalCodes.some((code) => !isValidPostalCode(code))) {
+    return { ok: false, error: "Ο ταχυδρομικός κώδικας δεν είναι έγκυρος.", cart: await getCart() };
+  }
 
   const shippingAddress = {
     first_name: details.firstName,
