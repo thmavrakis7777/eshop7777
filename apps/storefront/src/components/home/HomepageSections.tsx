@@ -43,9 +43,18 @@ function pickCategories(all: NavCategory[], slugs: string[] | undefined): NavCat
   // No explicit picks = every top-level category in nav order, which is what
   // the hardcoded grid did before this was configurable.
   if (!slugs?.length) return all;
-  // Ordered by the owner's arrangement, not nav order — and silently skips a
-  // category that has since been deleted or deactivated.
-  return slugs.flatMap((slug) => all.find((c) => c.handle === slug) ?? []);
+  // The admin field (HomepageSectionBuilder's "Κατηγορίες" textarea) is free
+  // text, one slug per line, with no autocomplete — and every category link
+  // elsewhere on the site renders as "/{handle}", so typing "/kouzina"
+  // instead of "kouzina" here is an easy, understandable mistake. Without
+  // this normalization a stray leading slash silently drops that category
+  // from the grid entirely (confirmed live: a section with 7 configured
+  // slugs, all prefixed with "/", rendered zero tiles). Ordered by the
+  // owner's arrangement, not nav order — and still silently skips a
+  // category that's genuinely been deleted or deactivated.
+  return slugs
+    .map((slug) => slug.trim().replace(/^\/+/, ""))
+    .flatMap((slug) => all.find((c) => c.handle === slug) ?? []);
 }
 
 export function HomepageSectionGroup({
