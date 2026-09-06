@@ -39,7 +39,37 @@ import { resolveStockInquiryContact } from "@/lib/whatsapp";
 // freeze the pre-rename brand into structured data. `logo`/`sameAs` are still
 // omitted when there's nothing real to point at — a broken logo URL in
 // JSON-LD is worse for SEO than omitting it.
-function buildOrganizationJsonLd(
+//
+// "Store" (a LocalBusiness subtype, itself an Organization) rather than the
+// generic Organization this used to emit — this is a real, visitable
+// Heraklion store, not a web-only business, and Store is the accurate
+// schema.org type for it. Every field the old Organization emitted
+// (name/url/logo/sameAs/contactPoint) is preserved unchanged; this only adds
+// to it.
+//
+// `address` and `businessHours` deliberately stop short of full structured
+// data:
+//
+// - `contactAddress` (content-types.ts) is one free-text admin field — see
+//   its "type: text" input in admin/content/layout and the footer's own
+//   `whitespace-pre-line` rendering of it verbatim (Footer.tsx). Nothing in
+//   the data model marks where the street ends and the locality/region
+//   begins, so splitting it into PostalAddress's streetAddress/
+//   addressLocality/addressRegion/postalCode would mean guessing that
+//   boundary — a wrong guess publishes a wrong address to search engines,
+//   which is worse than an accurate but less-decomposed one. The whole
+//   string goes into `streetAddress` instead (normalizing any line breaks
+//   to keep it one line); `addressCountry` is the one part that's a safe,
+//   already-established constant (checkout hardcodes the same "GR" for
+//   every order — lib/db/checkout.ts).
+// - `businessHours` is the same kind of single free-text field (and unset
+//   in production today), with no per-day structure at all. Schema.org's
+//   openingHoursSpecification needs real dayOfWeek/opens/closes values, which
+//   this field has never captured, so it's intentionally omitted rather than
+//   parsed — reflects the real limit of the current settings model
+//   (adding structured day/time fields would be a data-model change, out of
+//   scope here), not an oversight.
+function buildLocalBusinessJsonLd(
   storeName: string,
   logoUrl: string | null,
   settings: SiteSettings | null
@@ -47,13 +77,19 @@ function buildOrganizationJsonLd(
   const sameAs = [settings?.facebookUrl, settings?.instagramUrl, settings?.tiktokUrl].filter(
     (url): url is string => Boolean(url)
   );
+  const streetAddress = settings?.contactAddress?.replace(/\s*\n+\s*/g, ", ").trim() || null;
   return {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    "@type": "Store",
     name: storeName,
     url: siteUrl,
     ...(logoUrl ? { logo: logoUrl } : {}),
     ...(sameAs.length > 0 ? { sameAs } : {}),
+    ...(settings?.contactPhone ? { telephone: settings.contactPhone } : {}),
+    ...(settings?.contactEmail ? { email: settings.contactEmail } : {}),
+    ...(streetAddress
+      ? { address: { "@type": "PostalAddress", streetAddress, addressCountry: "GR" } }
+      : {}),
     contactPoint: [
       {
         "@type": "ContactPoint",
@@ -164,7 +200,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
         nonce={nonce}
         dangerouslySetInnerHTML={{
           __html: safeJsonLd(
-            buildOrganizationJsonLd(branding.storeName, branding.logoUrl, settings)
+            buildLocalBusinessJsonLd(branding.storeName, branding.logoUrl, settings)
           ),
         }}
       />
