@@ -83,7 +83,11 @@ export function CartLineItemRow({
 
         <button
           type="button"
-          className="w-fit text-sm text-ink-muted hover:text-ink hover:underline disabled:opacity-50"
+          // -my-3 py-3 grows the tap target to ~44px (matching QuantityStepper's
+          // own buttons above) without pushing this row's visible spacing —
+          // the negative margin cancels the padding's contribution to layout,
+          // so only the invisible hit area grows, not the text's position.
+          className="-my-3 w-fit py-3 text-sm text-ink-muted hover:text-ink hover:underline disabled:opacity-50"
           disabled={pending}
           onClick={onRemove}
         >
