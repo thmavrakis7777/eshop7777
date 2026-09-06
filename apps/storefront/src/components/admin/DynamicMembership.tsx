@@ -15,10 +15,9 @@ import { money } from "@/components/admin/ui/primitives";
  * The rules mirror SALE_PREDICATE and NEW_ARRIVAL_PREDICATE in
  * lib/db/catalog.ts. They are evaluated here only to EXPLAIN the state after
  * a save; the database remains the source of truth for what actually shows.
+ * The window itself (`newArrivalWindowDays`) is passed in rather than
+ * hardcoded, since it's admin-configurable — see AdminProductDetail.newArrivalWindowDays.
  */
-
-const NEW_ARRIVAL_WINDOW_DAYS = 30;
-
 
 function Row({
   active,
@@ -54,10 +53,12 @@ export function DynamicMembership({
   variants,
   ageDays,
   isNewOverride,
+  newArrivalWindowDays,
 }: {
   variants: AdminVariant[];
   ageDays: number;
   isNewOverride: boolean;
+  newArrivalWindowDays: number;
 }) {
   // Strictly greater: an equal compare-at price is a price that was never
   // reduced, not a 0% discount, and must not count as a sale.
@@ -72,7 +73,7 @@ export function DynamicMembership({
     return acc && acc.pct >= pct ? acc : { pct, from, to: v.priceCents };
   }, null);
 
-  const withinWindow = ageDays <= NEW_ARRIVAL_WINDOW_DAYS;
+  const withinWindow = ageDays <= newArrivalWindowDays;
   const isNew = isNewOverride || withinWindow;
 
   return (
@@ -93,8 +94,8 @@ export function DynamicMembership({
           isNewOverride
             ? "Σημασμένο χειροκίνητα ως «Νέο»."
             : withinWindow
-              ? `Δημιουργήθηκε πριν ${ageDays} ${ageDays === 1 ? "ημέρα" : "ημέρες"} (όριο ${NEW_ARRIVAL_WINDOW_DAYS}).`
-              : `Δημιουργήθηκε πριν ${ageDays} ημέρες — πάνω από το όριο των ${NEW_ARRIVAL_WINDOW_DAYS}.`
+              ? `Δημιουργήθηκε πριν ${ageDays} ${ageDays === 1 ? "ημέρα" : "ημέρες"} (όριο ${newArrivalWindowDays}).`
+              : `Δημιουργήθηκε πριν ${ageDays} ημέρες — πάνω από το όριο των ${newArrivalWindowDays}.`
         }
       />
 

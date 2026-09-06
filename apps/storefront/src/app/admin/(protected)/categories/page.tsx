@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { countDynamicCollections } from "@/lib/admin/products";
 import { listCategoryTree } from "@/lib/admin/taxonomy";
+import { getNewArrivalWindowDays } from "@/lib/db/catalog";
 import { CategoryManager } from "@/components/admin/CategoryManager";
 import { DynamicCollections } from "@/components/admin/DynamicCollections";
 import { PageHeader } from "@/components/admin/ui/primitives";
@@ -8,9 +9,10 @@ import { PageHeader } from "@/components/admin/ui/primitives";
 export const metadata = { title: "Κατηγορίες" };
 
 export default async function AdminCategoriesPage() {
-  const [categories, dynamicCounts] = await Promise.all([
+  const [categories, dynamicCounts, newArrivalWindowDays] = await Promise.all([
     listCategoryTree(),
     countDynamicCollections(),
+    getNewArrivalWindowDays(),
   ]);
   const topLevel = categories.filter((c) => c.depth === 0).length;
 
@@ -30,7 +32,7 @@ export default async function AdminCategoriesPage() {
           </>
         }
       />
-      <DynamicCollections counts={dynamicCounts} />
+      <DynamicCollections counts={dynamicCounts} newArrivalWindowDays={newArrivalWindowDays} />
       <section>
         <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink">
           Κατηγορίες προϊόντων

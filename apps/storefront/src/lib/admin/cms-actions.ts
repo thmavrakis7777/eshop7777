@@ -404,6 +404,14 @@ export async function saveSiteSettingsAction(formData: FormData): Promise<Action
     return { ok: false, error: "Η διάρκεια ισχύος του κουπονιού πρέπει να είναι τουλάχιστον 1 ημέρα." };
   }
 
+  // Unlike loyaltyRewardExpiryDays, an empty field here doesn't mean "no
+  // limit" — there's no such state for NEW ARRIVALS — so this is validated
+  // like defaultVatRate above: required, rejected outright if invalid.
+  const newArrivalWindowDays = Number.parseInt(String(formData.get("newArrivalWindowDays") ?? "").trim(), 10);
+  if (!Number.isFinite(newArrivalWindowDays) || newArrivalWindowDays < 1) {
+    return { ok: false, error: "Το όριο ημερών για τις Νέες Αφίξεις πρέπει να είναι τουλάχιστον 1." };
+  }
+
   const whatsappPhone = text(formData.get("whatsappPhone"));
   if (whatsappPhone && !isValidWhatsappPhone(whatsappPhone)) {
     return { ok: false, error: "Ο αριθμός WhatsApp δεν είναι έγκυρος. Χρησιμοποίησε διεθνή μορφή, π.χ. 306912345678." };
@@ -435,6 +443,7 @@ export async function saveSiteSettingsAction(formData: FormData): Promise<Action
       vatNumber: text(formData.get("vatNumber")),
       gemiNumber: text(formData.get("gemiNumber")),
       loyaltyRewardExpiryDays,
+      newArrivalWindowDays,
       stockInquiryMessage: text(formData.get("stockInquiryMessage")),
       whatsappPhone,
     });

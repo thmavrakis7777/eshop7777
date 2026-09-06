@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getCustomer } from "@/lib/data/customer";
 import { AccountNav } from "@/components/account/AccountNav";
 
@@ -9,7 +10,17 @@ import { AccountNav } from "@/components/account/AccountNav";
 // token reads as "not logged in" here, not a crash.
 export default async function AccountDashboardLayout({ children }: { children: React.ReactNode }) {
   const customer = await getCustomer();
-  if (!customer) redirect("/logariasmos/eisodos?redirectTo=/logariasmos");
+  if (!customer) {
+    // A layout has no searchParams/pathname prop — x-pathname is proxy.ts's
+    // middleware-injected current path (same read-side convention as
+    // x-nonce). Without this, every deep link under this group (e.g.
+    // /logariasmos/parangelies) redirected to login and then landed back on
+    // the generic /logariasmos overview instead of the page actually
+    // requested. Always same-origin (derived from the request's own URL,
+    // never attacker-controlled) so it doesn't need isSafeRedirectPath.
+    const currentPath = (await headers()).get("x-pathname") || "/logariasmos";
+    redirect(`/logariasmos/eisodos?redirectTo=${encodeURIComponent(currentPath)}`);
+  }
 
   return (
     <div className="container-shell grid grid-cols-1 gap-8 py-8 md:grid-cols-[220px_1fr] md:py-12">

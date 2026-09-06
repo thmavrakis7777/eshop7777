@@ -2,6 +2,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { sql } from "@/lib/db/client";
 import { publicImageUrl } from "@/lib/storage/urls";
+import { CACHE_TAGS } from "@/lib/db/content";
 import type { Product, ProductCharacteristics, Tone } from "@/lib/types";
 
 // Invalidated by product saves/deletes (catalog-actions.ts) and search
@@ -20,7 +21,26 @@ export const SEARCH_CACHE_TAG = "search-catalog";
  */
 
 const TONES: Tone[] = ["clay", "sage", "stone", "linen"];
-const NEW_ARRIVAL_WINDOW_DAYS = 30;
+
+// Admin-configurable (Settings → Content → Γενικά, "new_arrival_window_days"
+// on shop.site_setting) — this default only covers a fresh/missing settings
+// row, matching the hardcoded value this setting replaced. Exported so
+// lib/admin/cms.ts's getAdminSiteSettings falls back to the same number
+// instead of re-typing "30" a second time.
+export const NEW_ARRIVAL_WINDOW_DAYS_DEFAULT = 30;
+
+// Cached like getSiteSettings (same tag, so a settings save invalidates both
+// together): a live singleton-row read on every catalog query would be
+// unnecessary for a value that only changes when an admin edits it.
+export const getNewArrivalWindowDays = unstable_cache(
+  async (): Promise<number> => {
+    const rows = await sql<{ new_arrival_window_days: number }[]>`
+      SELECT new_arrival_window_days FROM shop.site_setting LIMIT 1`;
+    return rows[0]?.new_arrival_window_days ?? NEW_ARRIVAL_WINDOW_DAYS_DEFAULT;
+  },
+  ["new-arrival-window-days"],
+  { revalidate: 60, tags: [CACHE_TAGS.siteSettings] }
+);
 
 /**
  * The two dynamic-collection membership rules, defined ONCE.
@@ -52,10 +72,16 @@ export const SALE_PREDICATE = sql`
  * past the automatic window (a slow-moving line, a delayed launch). It can
  * only ever ADD a product, never remove one that genuinely is new, so it
  * cannot contradict the date logic.
+ *
+ * The window itself is read live from shop.site_setting (subquery, not a JS
+ * parameter) so every caller — including the two in lib/admin/products.ts —
+ * gets the admin-configured value with no change on their end.
  */
 export const NEW_ARRIVAL_PREDICATE = sql`
   (p.is_new_override
-   OR p.created_at >= now() - ${`${NEW_ARRIVAL_WINDOW_DAYS} days`}::interval)`;
+   OR p.created_at >= now() - make_interval(days =>
+        COALESCE((SELECT new_arrival_window_days FROM shop.site_setting LIMIT 1),
+                  ${NEW_ARRIVAL_WINDOW_DAYS_DEFAULT})))`;
 
 /**
  * A variant is purchasable right now, ignoring any specific requested
@@ -154,13 +180,19 @@ function toCharacteristics(r: ProductRow): ProductCharacteristics | null {
 // the UI-layer prediction of it, not a replacement for it.
 const isVariantAvailable = (v: VariantRow) => v.allow_backorder || v.stock_quantity > 0;
 
-function isNewArrival(r: ProductRow): boolean {
+function isNewArrival(r: ProductRow, windowDays: number): boolean {
   if (r.is_new_override) return true;
+  // Fractional comparison, not daysSince()'s clamped whole-day floor: this
+  // decides a boolean "new" badge (never displays a day count, so the -1
+  // display bug this file's daysSince() exists for cannot occur here), and
+  // must keep matching NEW_ARRIVAL_PREDICATE's SQL boundary exactly
+  // (`created_at >= now() - N days`, a continuous cutoff) rather than
+  // widening it by rounding down to whole days.
   const ageDays = (Date.now() - new Date(r.created_at).getTime()) / 86_400_000;
-  return ageDays <= NEW_ARRIVAL_WINDOW_DAYS;
+  return ageDays <= windowDays;
 }
 
-export function toDomainProduct(r: ProductRow): Product {
+export function toDomainProduct(r: ProductRow, newArrivalWindowDays: number): Product {
   const variants = r.variants.map((v) => ({
     id: v.id,
     title: v.title,
@@ -197,7 +229,7 @@ export function toDomainProduct(r: ProductRow): Product {
     priceRange,
     badges: [
       ...(onSale ? (["sale"] as const) : []),
-      ...(isNewArrival(r) ? (["new"] as const) : []),
+      ...(isNewArrival(r, newArrivalWindowDays) ? (["new"] as const) : []),
     ],
     variants,
     placeholderTone: toneFor(r.slug),
@@ -352,8 +384,9 @@ export async function getProductsByCategorySlug(
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;
 
+  const newArrivalWindowDays = await getNewArrivalWindowDays();
   return {
-    products: rows.map(toDomainProduct),
+    products: rows.map((r) => toDomainProduct(r, newArrivalWindowDays)),
     count: rows.length > 0 ? Number(rows[0].total_count) : 0,
   };
 }
@@ -483,8 +516,9 @@ export async function getProductsByCollectionSlug(
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;
 
+  const newArrivalWindowDays = await getNewArrivalWindowDays();
   return {
-    products: rows.map(toDomainProduct),
+    products: rows.map((r) => toDomainProduct(r, newArrivalWindowDays)),
     count: rows.length > 0 ? Number(rows[0].total_count) : 0,
   };
 }
@@ -503,7 +537,8 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
      WHERE p.slug = ${slug} AND p.is_active
      LIMIT 1
   `) as unknown as ProductRow[];
-  return rows[0] ? toDomainProduct(rows[0]) : undefined;
+  if (!rows[0]) return undefined;
+  return toDomainProduct(rows[0], await getNewArrivalWindowDays());
 }
 
 /**
@@ -526,8 +561,9 @@ export async function getNewArrivalsPaged(
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;
 
+  const newArrivalWindowDays = await getNewArrivalWindowDays();
   return {
-    products: rows.map(toDomainProduct),
+    products: rows.map((r) => toDomainProduct(r, newArrivalWindowDays)),
     count: rows.length > 0 ? Number(rows[0].total_count) : 0,
   };
 }
@@ -552,8 +588,9 @@ export async function getFeaturedProductsPaged(
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;
 
+  const newArrivalWindowDays = await getNewArrivalWindowDays();
   return {
-    products: rows.map(toDomainProduct),
+    products: rows.map((r) => toDomainProduct(r, newArrivalWindowDays)),
     count: rows.length > 0 ? Number(rows[0].total_count) : 0,
   };
 }
@@ -568,11 +605,12 @@ export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
      WHERE p.is_active AND p.slug = ANY(${slugs})
   `) as unknown as ProductRow[];
 
+  const newArrivalWindowDays = await getNewArrivalWindowDays();
   // Callers (recently-viewed) rely on the requested order being preserved.
   const bySlug = new Map(rows.map((r) => [r.slug, r]));
   return slugs.flatMap((s) => {
     const r = bySlug.get(s);
-    return r ? [toDomainProduct(r)] : [];
+    return r ? [toDomainProduct(r, newArrivalWindowDays)] : [];
   });
 }
 
@@ -661,7 +699,8 @@ export async function getRelatedProducts(product: Product, limit = 8): Promise<P
      LIMIT ${limit}
   `) as unknown as ProductRow[];
 
-  return rows.map(toDomainProduct);
+  const newArrivalWindowDays = await getNewArrivalWindowDays();
+  return rows.map((r) => toDomainProduct(r, newArrivalWindowDays));
 }
 
 /**
@@ -686,7 +725,8 @@ export async function getCartCrossSell(cartProductSlugs: string[], limit = 4): P
      LIMIT ${limit}
   `) as unknown as ProductRow[];
 
-  return rows.map(toDomainProduct);
+  const newArrivalWindowDays = await getNewArrivalWindowDays();
+  return rows.map((r) => toDomainProduct(r, newArrivalWindowDays));
 }
 
 /**
@@ -725,7 +765,12 @@ const getCachedSearchCatalog = unstable_cache(
       if (r.is_search_boosted) boostedIds.push(r.id);
     }
 
-    return { products: rows.map(toDomainProduct), categoryNames, boostedIds };
+    const newArrivalWindowDays = await getNewArrivalWindowDays();
+    return {
+      products: rows.map((r) => toDomainProduct(r, newArrivalWindowDays)),
+      categoryNames,
+      boostedIds,
+    };
   },
   ["search-catalog"],
   { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
@@ -789,8 +834,9 @@ export async function getSaleProductsPaged(
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;
 
+  const newArrivalWindowDays = await getNewArrivalWindowDays();
   return {
-    products: rows.map(toDomainProduct),
+    products: rows.map((r) => toDomainProduct(r, newArrivalWindowDays)),
     count: rows.length > 0 ? Number(rows[0].total_count) : 0,
   };
 }

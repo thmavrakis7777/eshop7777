@@ -298,7 +298,7 @@ export function ProductEditor({
               name="isNewOverride"
               defaultChecked={product.isNewOverride}
               label="Σήμανση ως «Νέο»"
-              hint="Τα προϊόντα εμφανίζονται αυτόματα ως νέα για 30 ημέρες."
+              hint={`Τα προϊόντα εμφανίζονται αυτόματα ως νέα για ${product.newArrivalWindowDays} ημέρες.`}
             />
           </Panel>
 
@@ -307,6 +307,7 @@ export function ProductEditor({
               variants={product.variants}
               ageDays={product.ageDays}
               isNewOverride={product.isNewOverride}
+              newArrivalWindowDays={product.newArrivalWindowDays}
             />
           </Panel>
 

@@ -152,6 +152,12 @@ export default async function AdminLayoutContentPage() {
                     hint: "Το κουπόνι 5€ που πιστώνεται σε λογαριασμό πελάτη μετά από παραγγελία άνω των 50€. Άφησέ το κενό για απεριόριστη ισχύ.",
                   },
                   {
+                    name: "newArrivalWindowDays",
+                    label: "Όριο ημερών για «Νέες αφίξεις»",
+                    type: "number",
+                    hint: "Πόσες ημέρες μετά τη δημιουργία ένα προϊόν εμφανίζεται αυτόματα ως νέο (ΝΕΕΣ ΑΦΙΞΕΙΣ).",
+                  },
+                  {
                     name: "legalCompanyName",
                     label: "Επωνυμία επιχείρησης (νομική)",
                     type: "text",

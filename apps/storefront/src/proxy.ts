@@ -99,6 +99,13 @@ export function proxy(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  // The current path (+ query), for Server Components that need it — a
+  // layout has no other way to know the URL it's rendering under. Same
+  // read-side convention as x-nonce above: `(await headers()).get(...)`.
+  // Used by the account area (QA-013) to preserve a deep link (e.g.
+  // /logariasmos/parangelies) through the login redirect instead of always
+  // bouncing to the generic account overview.
+  requestHeaders.set("x-pathname", pathname + request.nextUrl.search);
   requestHeaders.set("Content-Security-Policy", contentSecurityPolicyHeaderValue);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });

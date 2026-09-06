@@ -16,30 +16,32 @@ import Link from "next/link";
  * to the normal product screen to change it.
  */
 
-const DYNAMIC = [
-  {
-    key: "sale" as const,
-    title: "ΠΡΟΣΦΟΡΕΣ",
-    rule: "Αυτόματο • Με βάση την τιμή προσφοράς",
-    detail:
-      "Μπαίνει αυτόματα κάθε προϊόν με τιμή προσφοράς χαμηλότερη από την κανονική. Βγαίνει μόλις αφαιρεθεί η προσφορά.",
-    storefront: "/prosfores",
-  },
-  {
-    key: "new" as const,
-    title: "ΝΕΕΣ ΑΦΙΞΕΙΣ",
-    rule: "Αυτόματο • Με βάση την ημερομηνία δημιουργίας",
-    detail:
-      "Μπαίνει αυτόματα κάθε νέο προϊόν των τελευταίων 30 ημερών, με τα νεότερα πρώτα. Μπορείς να κρατήσεις ένα προϊόν εδώ για περισσότερο με τη σήμανση «Νέο» στη σελίδα του.",
-    storefront: "/nea-afiksi",
-  },
-];
-
 export function DynamicCollections({
   counts,
+  newArrivalWindowDays,
 }: {
   counts: { sale: number; newArrivals: number };
+  newArrivalWindowDays: number;
 }) {
+  const DYNAMIC = [
+    {
+      key: "sale" as const,
+      title: "ΠΡΟΣΦΟΡΕΣ",
+      rule: "Αυτόματο • Με βάση την τιμή προσφοράς",
+      detail:
+        "Μπαίνει αυτόματα κάθε προϊόν με τιμή προσφοράς χαμηλότερη από την κανονική. Βγαίνει μόλις αφαιρεθεί η προσφορά.",
+      storefront: "/prosfores",
+    },
+    {
+      key: "new" as const,
+      title: "ΝΕΕΣ ΑΦΙΞΕΙΣ",
+      rule: "Αυτόματο • Με βάση την ημερομηνία δημιουργίας",
+      detail:
+        `Μπαίνει αυτόματα κάθε νέο προϊόν των τελευταίων ${newArrivalWindowDays} ημερών, με τα νεότερα πρώτα. Μπορείς να κρατήσεις ένα προϊόν εδώ για περισσότερο με τη σήμανση «Νέο» στη σελίδα του.`,
+      storefront: "/nea-afiksi",
+    },
+  ];
+
   return (
     <section className="mb-8">
       <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink">

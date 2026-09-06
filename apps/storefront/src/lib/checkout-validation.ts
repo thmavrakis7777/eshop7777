@@ -31,6 +31,17 @@ export function isValidPassword(value: string): boolean {
 // 11, mod 10. Checksum only — this does NOT verify the ΑΦΜ is a real,
 // registered business (that needs a live lookup, CHECKOUT_PREMIUM_SPEC.md
 // §4.3, a later phase), only that it's a structurally valid number.
+// A same-site path only — validates a `?redirectTo=` query param before it's
+// ever handed to redirect()/router.push(). Rejects an absolute URL (another
+// origin) AND a protocol-relative "//evil.com" (which also starts with "/"
+// but browsers resolve it as an absolute URL to a different origin) — same
+// distinction lib/admin/nav-actions.ts's safeCustomHref draws for admin nav
+// links, minus that function's extra allowance for legitimate external URLs,
+// which a post-login redirect must never follow.
+export function isSafeRedirectPath(value: string | null | undefined): value is string {
+  return !!value && value.startsWith("/") && !value.startsWith("//");
+}
+
 export function isValidAFM(value: string): boolean {
   const digits = value.trim();
   if (!/^\d{9}$/.test(digits) || digits === "000000000") return false;

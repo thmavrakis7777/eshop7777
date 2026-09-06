@@ -1,7 +1,13 @@
 import "server-only";
 import { sql, transaction } from "@/lib/db/client";
 import { normalizeSearchText } from "@/lib/search";
-import { NEW_ARRIVAL_PREDICATE, SALE_PREDICATE, VARIANT_AVAILABLE_PREDICATE } from "@/lib/db/catalog";
+import { daysSince } from "@/lib/dates";
+import {
+  NEW_ARRIVAL_PREDICATE,
+  SALE_PREDICATE,
+  VARIANT_AVAILABLE_PREDICATE,
+  getNewArrivalWindowDays,
+} from "@/lib/db/catalog";
 
 /**
  * Admin catalog queries and mutations.
@@ -204,6 +210,9 @@ export type AdminProductDetail = {
    *  time is impure and would hydrate inconsistently (caught by
    *  react-hooks/purity). Feeds the NEW ARRIVALS explanation only. */
   ageDays: number;
+  /** Admin-configured NEW ARRIVALS window (shop.site_setting.new_arrival_window_days),
+   *  fed to the same explanation — see DynamicMembership.tsx. */
+  newArrivalWindowDays: number;
   updatedAt: string;
   variants: AdminVariant[];
   images: AdminProductImage[];
@@ -254,6 +263,8 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
   const r = rows[0];
   if (!r) return null;
 
+  const newArrivalWindowDays = await getNewArrivalWindowDays();
+
   return {
     id: r.id as string,
     slug: r.slug as string,
@@ -282,7 +293,8 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
     hideFromSearch: r.hide_from_search as boolean,
     isSearchBoosted: r.is_search_boosted as boolean,
     createdAt: new Date(r.created_at as string).toISOString(),
-    ageDays: Math.floor((Date.now() - new Date(r.created_at as string).getTime()) / 86_400_000),
+    ageDays: daysSince(r.created_at as string),
+    newArrivalWindowDays,
     updatedAt: new Date(r.updated_at as string).toISOString(),
     variants: r.variants,
     images: r.images,

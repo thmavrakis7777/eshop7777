@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LoginForm } from "@/components/account/LoginForm";
+import { isSafeRedirectPath } from "@/lib/checkout-validation";
 
 export const metadata: Metadata = {
   title: "Σύνδεση",
@@ -22,7 +23,7 @@ export default async function LoginPage({
           Ο κωδικός σου ενημερώθηκε. Συνδέσου με τον νέο σου κωδικό.
         </p>
       )}
-      <LoginForm redirectTo={redirectTo && redirectTo.startsWith("/") ? redirectTo : "/logariasmos"} />
+      <LoginForm redirectTo={isSafeRedirectPath(redirectTo) ? redirectTo : "/logariasmos"} />
     </div>
   );
 }

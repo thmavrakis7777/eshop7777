@@ -3,6 +3,7 @@ import { sql, transaction } from "@/lib/db/client";
 import type { HomepageSectionConfig, HomepageSectionKind } from "@/lib/content-types";
 import { listCategoryTree } from "@/lib/admin/taxonomy";
 import { LOYALTY_REWARD_DEFAULT_EXPIRY_DAYS } from "@/lib/loyalty";
+import { NEW_ARRIVAL_WINDOW_DAYS_DEFAULT } from "@/lib/db/catalog";
 
 /**
  * Storefront content management.
@@ -237,6 +238,11 @@ export type AdminSiteSettings = {
   // affects coupons issued after the change, never rewrites one already
   // credited to a customer.
   loyaltyRewardExpiryDays: number | null;
+  // How many days a product counts as "new" (ΝΕΕΣ ΑΦΙΞΕΙΣ) — see
+  // NEW_ARRIVAL_PREDICATE/getNewArrivalWindowDays in lib/db/catalog.ts, the
+  // one place that actually applies this rule. Unlike loyaltyRewardExpiryDays,
+  // null has no meaningful reading here, so this is never null.
+  newArrivalWindowDays: number;
   // Global stock-quantity-limit + direct-inquiry feature — see
   // lib/content-types.ts's SiteSettings for the same two fields on the
   // public read side.
@@ -257,6 +263,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
       free_shipping_threshold_cents: number | null; default_vat_rate: number;
       legal_company_name: string | null; vat_number: string | null; gemi_number: string | null;
       loyalty_reward_expiry_days: number | null;
+      new_arrival_window_days: number;
       stock_inquiry_message: string | null; whatsapp_phone: string | null;
     }[]
   >`SELECT store_name, logo_path, favicon_path, og_image_path,
@@ -266,6 +273,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
            announcement_text, cart_message, phone_orders_enabled, phone_orders_label,
            free_shipping_threshold_cents, default_vat_rate,
            legal_company_name, vat_number, gemi_number, loyalty_reward_expiry_days,
+           new_arrival_window_days,
            stock_inquiry_message, whatsapp_phone
       FROM shop.site_setting LIMIT 1`;
 
@@ -283,6 +291,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
       freeShippingThresholdCents: null, defaultVatRate: 24,
       legalCompanyName: null, vatNumber: null, gemiNumber: null,
       loyaltyRewardExpiryDays: LOYALTY_REWARD_DEFAULT_EXPIRY_DAYS,
+      newArrivalWindowDays: NEW_ARRIVAL_WINDOW_DAYS_DEFAULT,
       stockInquiryMessage: null, whatsappPhone: null,
     };
   }
@@ -302,6 +311,7 @@ export async function getAdminSiteSettings(): Promise<AdminSiteSettings> {
     defaultVatRate: Number(s.default_vat_rate),
     legalCompanyName: s.legal_company_name, vatNumber: s.vat_number, gemiNumber: s.gemi_number,
     loyaltyRewardExpiryDays: s.loyalty_reward_expiry_days,
+    newArrivalWindowDays: s.new_arrival_window_days,
     stockInquiryMessage: s.stock_inquiry_message, whatsappPhone: s.whatsapp_phone,
   };
 }
@@ -316,6 +326,7 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       announcement_text, cart_message, phone_orders_enabled, phone_orders_label,
       free_shipping_threshold_cents, default_vat_rate,
       legal_company_name, vat_number, gemi_number, loyalty_reward_expiry_days,
+      new_arrival_window_days,
       stock_inquiry_message, whatsapp_phone, updated_at)
     VALUES (
       true, ${input.storeName}, ${input.logoPath}, ${input.faviconPath},
@@ -327,6 +338,7 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       ${input.freeShippingThresholdCents}, ${input.defaultVatRate},
       ${input.legalCompanyName}, ${input.vatNumber}, ${input.gemiNumber},
       ${input.loyaltyRewardExpiryDays},
+      ${input.newArrivalWindowDays},
       ${input.stockInquiryMessage}, ${input.whatsappPhone}, now())
     ON CONFLICT (id) DO UPDATE SET
       store_name = EXCLUDED.store_name, logo_path = EXCLUDED.logo_path,
@@ -345,6 +357,7 @@ export async function saveSiteSettings(input: AdminSiteSettings): Promise<void> 
       legal_company_name = EXCLUDED.legal_company_name, vat_number = EXCLUDED.vat_number,
       gemi_number = EXCLUDED.gemi_number,
       loyalty_reward_expiry_days = EXCLUDED.loyalty_reward_expiry_days,
+      new_arrival_window_days = EXCLUDED.new_arrival_window_days,
       stock_inquiry_message = EXCLUDED.stock_inquiry_message,
       whatsapp_phone = EXCLUDED.whatsapp_phone, updated_at = now()`;
 }
