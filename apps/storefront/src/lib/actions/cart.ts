@@ -69,6 +69,8 @@ function mapCartError(err: unknown): string {
         return "Το καλάθι σου δεν φτάνει το ελάχιστο ποσό για αυτόν τον κωδικό.";
       case "not_found":
         return "Αυτό το προϊόν δεν είναι πλέον διαθέσιμο.";
+      case "invalid_quantity":
+        return "Μη έγκυρη ποσότητα.";
     }
   }
   return "Κάτι πήγε στραβά. Δοκίμασε ξανά.";

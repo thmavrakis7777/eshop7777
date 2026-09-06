@@ -219,7 +219,7 @@ function CartDrawerInner({
                   pending={controller.pendingLineId === item.id}
                   error={controller.errorLineId === item.id ? (controller.error ?? undefined) : undefined}
                   stockInquiry={stockInquiry}
-                  onQuantityChange={(q) => controller.updateQuantity(item.id, q)}
+                  onQuantityChange={(q) => controller.updateQuantity(item.id, q, item)}
                   onRemove={() => controller.removeItem(item.id)}
                 />
               ))}

@@ -54,7 +54,12 @@ export function AddToCartButton({
       !isOutOfStock &&
       !isQuantityAvailable(quantity, selectedVariant.inventoryQuantity, selectedVariant.allowBackorder)
   );
-  const canAdd = Boolean(selectedVariant) && !isOutOfStock && !exceedsStock;
+  // QuantityStepper reports whatever was actually typed, including 0 or a
+  // negative number (native min/max attributes don't stop manual keyboard
+  // entry) — never assume it's >= 1 just because that's the field's usual
+  // range.
+  const isQuantityValid = Number.isInteger(quantity) && quantity >= 1;
+  const canAdd = Boolean(selectedVariant) && !isOutOfStock && !exceedsStock && isQuantityValid;
 
   function handleClick() {
     if (!selectedVariantId || !canAdd) return;

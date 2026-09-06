@@ -8,6 +8,7 @@ import {
   applyPromoCodeAction,
   removePromoCodeAction,
 } from "@/lib/actions/cart";
+import { isQuantityAvailable } from "@/lib/stock";
 
 // Optimistically patches only the touched line's quantity/line-total for
 // instant feedback (CART_UX_SPEC.md §10) — cart-level subtotal/discount/tax
@@ -53,8 +54,28 @@ export function useCartController(initialCart: Cart | null) {
     setErrorLineId(null);
   }
 
-  function updateQuantity(lineId: string, quantity: number) {
+  // `stock` is the line's own current ceiling (Product Page's AddToCartButton
+  // checks the identical rule from lib/stock.ts before ever hitting the
+  // server — this mirrors that here, for the cart/mini-cart). A quantity
+  // that can't be fulfilled is never sent to the server at all: no wasted
+  // round-trip, no risk of the optimistic value being confused for accepted,
+  // and no invalid state reaches the cart's stored row. Reflecting it
+  // locally is enough — isLineItemOverstocked/StockInquiryNotice already
+  // treat quantity > stockQuantity as the signal to show the same bulk-order
+  // notice used for the unrelated stale-stock case, so nothing new is needed
+  // to surface it; it also means "-" can still walk a stale-overstocked line
+  // down one unit at a time instead of every intermediate step being
+  // rejected by the server for still exceeding stock.
+  function updateQuantity(
+    lineId: string,
+    quantity: number,
+    stock: { stockQuantity: number; allowBackorder: boolean }
+  ) {
     clearError();
+    if (!isQuantityAvailable(quantity, stock.stockQuantity, stock.allowBackorder)) {
+      setCart((prev) => (prev ? withOptimisticQuantity(prev, lineId, quantity) : prev));
+      return;
+    }
     setPendingLineId(lineId);
     setCart((prev) => (prev ? withOptimisticQuantity(prev, lineId, quantity) : prev));
     startTransition(async () => {

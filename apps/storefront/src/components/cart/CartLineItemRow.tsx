@@ -68,6 +68,7 @@ export function CartLineItemRow({
           <QuantityStepper
             quantity={item.quantity}
             productTitle={item.title}
+            editable
             disabled={pending}
             max={item.allowBackorder ? undefined : item.stockQuantity}
             onChange={onQuantityChange}

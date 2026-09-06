@@ -384,7 +384,8 @@ export type CartErrorCode =
   | "not_found"
   | "invalid_code"
   | "expired_code"
-  | "min_subtotal";
+  | "min_subtotal"
+  | "invalid_quantity";
 
 /**
  * Adds a variant to the cart, or increases the quantity if it is already
@@ -396,6 +397,16 @@ export type CartErrorCode =
  * variant again, so a stale snapshot can never be what is charged.
  */
 export async function addItem(cartId: string, variantId: string, quantity: number): Promise<void> {
+  // The browser is never trusted for this: a Server Action's arguments can be
+  // called directly (devtools, a hand-built request) with anything, bypassing
+  // whatever the UI would have allowed. addItem only ever means "add N more",
+  // so 0/negative/decimal/NaN/Infinity are all rejected here, before the
+  // transaction — the one authoritative point every add-to-cart path (PDP,
+  // quick-add) funnels through.
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new CartError("Invalid quantity", "invalid_quantity");
+  }
+
   await sql.begin(async (tx: Tx) => {
     const [v] = await tx<
       {
@@ -443,6 +454,14 @@ export async function addItem(cartId: string, variantId: string, quantity: numbe
 }
 
 export async function updateItemQuantity(cartId: string, itemId: string, quantity: number): Promise<void> {
+  // Same authoritative boundary as addItem — a manually-typed quantity
+  // reaches this function's argument directly, and a hand-built request
+  // could send anything. Reject non-integers outright (NaN, Infinity, and
+  // decimals like 2.5, which `quantity <= 0` would let straight through)
+  // before applying the existing 0-or-negative-means-remove rule.
+  if (!Number.isInteger(quantity)) {
+    throw new CartError("Invalid quantity", "invalid_quantity");
+  }
   if (quantity <= 0) return removeItem(cartId, itemId);
 
   await sql.begin(async (tx: Tx) => {

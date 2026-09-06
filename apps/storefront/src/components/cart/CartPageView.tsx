@@ -68,7 +68,7 @@ export function CartPageView({
                 key={item.id}
                 item={item}
                 {...rowProps(item.id)}
-                onQuantityChange={(q) => controller.updateQuantity(item.id, q)}
+                onQuantityChange={(q) => controller.updateQuantity(item.id, q, item)}
                 onRemove={() => controller.removeItem(item.id)}
               />
             ))}
@@ -80,7 +80,7 @@ export function CartPageView({
               key={item.id}
               item={item}
               {...rowProps(item.id)}
-              onQuantityChange={(q) => controller.updateQuantity(item.id, q)}
+              onQuantityChange={(q) => controller.updateQuantity(item.id, q, item)}
               onRemove={() => controller.removeItem(item.id)}
             />
           ))}
