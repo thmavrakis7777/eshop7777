@@ -60,6 +60,35 @@
   min-height: calc(100dvh - var(--header-height));
 }
 
+/*
+ * hero-viewport-fill assumes the sticky header (--header-height) is the only
+ * thing sitting above the Hero at initial scroll position — but the
+ * announcement bar and/or promo banner (both admin-configurable, both
+ * un-sticky, both variable height) also occupy real space there whenever
+ * present, which the calc()s above can't know about. Confirmed live: with a
+ * two-line announcement bar, the Hero's own CTA rendered ~17px below the
+ * first viewport's fold at 375x812 — the calc() sized the Hero as if that
+ * bar didn't exist. `.has-top-bars` is set server-side on <main> in
+ * (storefront)/layout.tsx from the same data AnnouncementBar/PromoBannerBar
+ * already use to decide whether to render at all, so this only ever
+ * shortens the Hero when a bar is actually showing, never when both are off.
+ * The 5rem allowance comfortably covers one bar at up to two wrapped lines
+ * (measured live: 48px single-line mobile, 56px two-line tablet); both bars
+ * active and both wrapping at once is only partially covered by a static
+ * margin — an accepted trade-off over a JS-measured height, which would risk
+ * a visible post-hydration layout shift (CLS) on every load to fix a case
+ * that, unfixed, only costs a short scroll to reach the CTA. Scoped to below
+ * `lg` (Tailwind's 1024px) so it never touches the desktop Hero, which uses
+ * a fixed `lg:min-h-[32rem]` instead of this calc().
+ */
+@media (max-width: 1023.98px) {
+  .has-top-bars .hero-viewport-fill {
+    min-height: calc(100vh - var(--header-height) - 5rem);
+    min-height: calc(100svh - var(--header-height) - 5rem);
+    min-height: calc(100dvh - var(--header-height) - 5rem);
+  }
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
