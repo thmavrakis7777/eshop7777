@@ -105,6 +105,12 @@ export async function getCartAction(): Promise<Cart | null> {
 }
 
 export async function addLineItemAction(variantId: string, quantity = 1): Promise<CartActionResult> {
+  // Unauthenticated, DB-writing action — same reasoning as promo-code below.
+  // A generous per-add budget: browsing and adding several products in a row
+  // is normal use; a scripted loop hammering this to spam cart rows is not.
+  if (!(await checkRateLimit(await rateLimitKey("add-to-cart"), 30, 300))) {
+    return { ok: false, error: "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο.", cart: await getCart() };
+  }
   return resultFrom(async () => {
     const cartId = await getOrCreateCartId();
     await addItem(cartId, variantId, quantity);
@@ -114,6 +120,13 @@ export async function addLineItemAction(variantId: string, quantity = 1): Promis
 export async function updateLineItemQuantityAction(lineItemId: string, quantity: number): Promise<CartActionResult> {
   const cartId = await requireCartId();
   if (!cartId) return EXPIRED;
+  // Higher budget than add-to-cart: typing a quantity directly (see
+  // QuantityStepper) fires one call per keystroke, and a customer reviewing
+  // several cart lines can easily rack up more of these than adds in the
+  // same window. Still a hard ceiling against a scripted loop.
+  if (!(await checkRateLimit(await rateLimitKey("update-cart-quantity"), 60, 300))) {
+    return { ok: false, error: "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο.", cart: await getCart() };
+  }
   return resultFrom(() => updateItemQuantity(cartId, lineItemId, quantity));
 }
 
