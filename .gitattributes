@@ -1,0 +1,6 @@
+# db/migrate.mjs checksums a migration file's exact bytes to detect edits
+# after it has run. Without this, Windows' core.autocrlf rewrites every
+# .sql file to CRLF on checkout, changing its checksum with no real content
+# change and making every already-applied migration falsely report as
+# "modified after being applied" on every run.
+*.sql text eol=lf
