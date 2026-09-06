@@ -522,10 +522,145 @@ above (no `error.tsx`) was *also* flagged by the 2026-08-30 audit and is
 still open a full cycle later — worth prioritizing before it becomes a third
 audit's repeat finding.
 
+## 22. 2026-09-06 remediation pass — findings #7–#17
+
+A targeted remediation pass against §21a's roadmap (#1, #4, #14 were already
+closed in earlier sessions between the audit and this one). Every finding
+was re-verified against the current code before being touched — none were
+assumed still open just because the audit said so.
+
+| # | Finding | Status | Files |
+|---|---|---|---|
+| 7 | No health-check endpoint | **Fixed** | `src/app/api/health/route.ts` (new) |
+| 8 | Category filter facets query uncached | **Fixed** | `lib/db/catalog.ts` |
+| 9 | `ProductCard` over-fetches image size in rails | **Fixed** | `ProductCard.tsx`, `ProductRail.tsx` |
+| 10 | Storefront fully dynamic | **Deferred** — see below | none |
+| 11 | Zero automated test coverage | **Fixed** (baseline) | `vitest.config.ts` (new), 3 test files (36 tests) |
+| 12 | Concurrency test doesn't exercise production code | **Fixed** | `db/concurrency-test.ts` (replaces `.mjs`) |
+| 13 | Hero banner text has no contrast guarantee | **Fixed** | `Hero.tsx` |
+| 15 | No error tracking / APM | **Partially fixed** — see below | `instrumentation.ts` (new), `app/layout.tsx` |
+| 16 | Image-upload failures never logged | **Fixed** | `media-actions.ts`, `catalog-actions.ts` |
+| 17 | Duplicated business rules | **Fixed** (3 rules) | `catalog.ts`, `dashboard.ts`, `customers.ts`, `products.ts`, `ui/primitives.tsx`, 5 admin components |
+
+**#8 — cache strategy**: `getCategoryFilterFacets` now uses the same
+`unstable_cache` convention as `getBestSellingProductSlugs`/
+`getCachedSearchCatalog` in the same file — 60s revalidate, tagged with the
+existing `SEARCH_CACHE_TAG` (not a new tag) since product/variant
+save/delete already invalidate it. One accepted gap: `adjustStockAction`
+(the inventory screen's quick stock edit) only invalidates the Meta feed
+tag today, so a stock-only change there can leave `hasOutOfStock` stale for
+up to 60s. Deliberately not "fixed" further — this cache only feeds
+filter-UI bounds, never stock/checkout authorization (always re-checked
+live in `lib/stock.ts` and `completeOrder`), and widening `SEARCH_CACHE_TAG`
+to cover it would invalidate the (expensive) full search-catalog cache on
+every stock tweak for no benefit to search itself.
+
+**#10 — deferred, not fixed.** The nonce (`headers()`) and cart badge
+(`cookies()`) are both genuinely request-specific — the nonce cannot be
+static without weakening the CSP it exists to enforce, and this app has no
+staging/edge-cache layer to make a stale cart badge acceptable. In Next.js
+16, the audit's "Partial Prerendering" suggestion **is** the `cacheComponents`
+config flag — PPR is no longer a separate opt-in. Enabling it also fully
+replaces `unstable_cache`'s revalidate/tag model with the `"use cache"`
+directive, requires the Node.js runtime everywhere, and has its own
+dedicated "migrating to Cache Components" upgrade guide — i.e. it is a
+project-wide rendering-model migration, not a scoped fix to one layout file.
+The audit's other suggestion — "move the reads into smaller leaf
+components" — does not by itself achieve static rendering either: without
+`cacheComponents` enabled, a dynamic API call anywhere in a route's render
+tree makes the whole route dynamic (this is a per-route property, not
+per-component), so isolating the nonce/cart reads into leaf components
+changes nothing about the resulting render mode on its own. **Recommended
+next step**: a dedicated follow-up to adopt Cache Components deliberately,
+starting from a fresh audit of every existing `unstable_cache` call site
+(this file documents several) against the new `"use cache"` model, with its
+own regression pass — not something to fold into an unrelated remediation
+pass.
+
+**#15 — partially fixed, by design.** Implemented the safe baseline that
+needs no external account: `instrumentation.ts`'s native `onRequestError`
+hook (stable since Next 15, zero dependencies, zero CSP change) logs every
+unhandled server error in the project's existing `console.error("[scope]
+EVENT", {...})` shape — deliberately never logging `request.headers`, which
+can carry session cookies. `@vercel/speed-insights` is installed and
+mounted once in the root layout (covers `/admin` too), and no-ops with zero
+network requests anywhere except a real Vercel deployment — verified live,
+no requests fired in local dev. **External setup still required, outside
+this repo**: Speed Insights must be turned on for this project in the
+Vercel dashboard (Project → Speed Insights → Enable) before it collects
+anything. Neither of these is a full error *tracker* — no dashboard, no
+alerting, no history beyond log retention. If genuine alerting is wanted
+later, that means an external service (Sentry or similar), which needs its
+own account/DSN this session has no way to create — noted here rather than
+built with placeholder credentials.
+
+**#17 — rules extracted (genuinely identical semantics only)**:
+- *"Real sale" status* (`status <> 'cancelled'`) — was already a named,
+  unexported `LIVE` constant in `dashboard.ts`, but re-typed independently
+  in `customers.ts` and `catalog.ts`'s best-sellers query (and even
+  un-used by two of `dashboard.ts`'s own queries). Now one exported
+  `LIVE_ORDER_PREDICATE` in `catalog.ts` (alongside the existing
+  `SALE_PREDICATE`/`NEW_ARRIVAL_PREDICATE`), imported by all three files.
+- *Variant-available predicate* (`allow_backorder OR stock_quantity > 0`) —
+  three identical occurrences (`catalog.ts`'s in-stock filter, its own
+  out-of-stock facet, `admin/products.ts`'s "out of stock" filter) merged
+  into `VARIANT_AVAILABLE_PREDICATE`, same file. Deliberately **not** merged
+  with `checkout.ts`'s stock-decrement guard (`allow_backorder OR
+  stock_quantity >= quantity`) — that checks a specific requested quantity
+  as an atomic concurrency control, a different rule that happens to look
+  similar.
+- *Admin price formatting* — `ui/primitives.tsx` already had one `money()`
+  display helper with a comment saying exactly this ("one implementation,
+  so money reads the same everywhere"), but `DiscountManager.tsx`,
+  `ProductEditor.tsx`, `ProductListTable.tsx`, `ShippingManager.tsx`, and
+  `DynamicMembership.tsx` each defined their own `Intl.NumberFormat`/
+  `toLocaleString` copy instead of importing it. Consolidated onto the
+  existing helper, plus a new `centsToPriceInput()` (also in
+  `ui/primitives.tsx`) for the comma-decimal editable-field case, replacing
+  four separate `.toFixed(2).replace(".", ",")` copies. Fixed as a natural
+  side effect: `ShippingFields.tsx`'s cost field was the one outlier still
+  showing a period ("8.00") instead of the comma every other price field in
+  the admin uses.
+- **Not merged**: the "low stock" filter (`admin/products.ts`) is a bounded
+  range check (`stock_quantity > 0 AND <= 5`), not the same rule as
+  "available/unavailable" — left alone.
+
+**Testing baseline (#11/#12)**: Vitest chosen (already the audit's own
+recommendation; no test runner existed in any form). 36 tests across
+`computeTotals`, `lib/stock.ts`, and `lib/shipping.ts` — all real
+production functions, imported directly, not reimplemented. Deliberately
+scoped to pure, dependency-free business logic per the project's own
+existing pattern (`lib/stock.ts`/`lib/shipping.ts` are already written this
+way, explicitly to work identically in a Server Action and a Client
+Component) — discount *code* validation (expiry, redemption caps) lives
+inside `applyDiscount`'s live DB query and isn't a pure function, so it
+isn't unit-tested here; `computeTotals`'s discount *math* (percentage vs.
+fixed, the minimum-subtotal boundary, never-below-zero) is. The concurrency
+test (`db/concurrency-test.ts`) now imports and calls the real
+`completeOrder` — see #12 below — and stays a separate,
+manually-run integration test (`pnpm db:test-concurrency`) against the live
+database (no staging DB exists), never part of `pnpm test`/CI.
+
+**#12 — how the `server-only` blocker was actually resolved**: the original
+`db/concurrency-test.mjs` hand-copied `completeOrder`'s SQL because it
+couldn't resolve the `@/` path alias or transpile TypeScript as a plain Node
+script. Vitest solves both. The remaining blocker — `import "server-only"`
+throwing outside Next's bundler — turned out to be solvable without
+touching the guard: `server-only`'s package.json only no-ops under the
+`"react-server"` export condition, which Vite/Vitest's resolver can be told
+to set too (`resolve.conditions`/`ssr.resolve.conditions` in
+`vitest.concurrency.config.ts`) — this matches, rather than bypasses, the
+real environment this code runs in production. Verified live against the
+real database: exactly 3 of 8 simultaneous checkouts for 3 units of stock
+succeeded, the other 5 correctly rejected as `insufficient_inventory`, final
+stock landed at exactly 0, order numbers unique, and the test's own cleanup
+left zero trace afterward.
+
 ---
 
 *Maintained by whichever session last ran a full audit. Update the "Bugs
 found and fixed" (§12) and "known intentional decisions" (§20) sections for
-the 2026-08-30 line of work, and §21 for anything newer, rather than letting
-either go stale — the whole point of this file is that the next session
-shouldn't have to re-derive any of this from scratch.*
+the 2026-08-30 line of work, §21 for the 2026-09-04 audit, and §22 for
+anything newer, rather than letting any of them go stale — the whole point
+of this file is that the next session shouldn't have to re-derive any of
+this from scratch.*

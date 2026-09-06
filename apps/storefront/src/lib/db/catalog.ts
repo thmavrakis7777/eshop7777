@@ -57,6 +57,32 @@ export const NEW_ARRIVAL_PREDICATE = sql`
   (p.is_new_override
    OR p.created_at >= now() - ${`${NEW_ARRIVAL_WINDOW_DAYS} days`}::interval)`;
 
+/**
+ * A variant is purchasable right now, ignoring any specific requested
+ * quantity — same rule as isVariantAvailable() above, expressed in SQL for
+ * the three queries that need it as a WHERE/aggregate condition rather than
+ * a JS boolean: the category "in stock" filter, this file's own
+ * out-of-stock facet, and the admin product list's "out of stock"/"low
+ * stock" filters. Always assumes the variant table is aliased `v`.
+ *
+ * Deliberately NOT the same rule completeOrder's stock decrement uses
+ * (lib/db/checkout.ts: `allow_backorder OR stock_quantity >= quantity`) —
+ * that one checks against a specific cart quantity as an atomic concurrency
+ * guard, not a general "is this in stock" yes/no, and merging the two would
+ * change what each one means.
+ */
+export const VARIANT_AVAILABLE_PREDICATE = sql`(v.allow_backorder OR v.stock_quantity > 0)`;
+
+/**
+ * A "real" (non-cancelled) order — the one exclusion every revenue/order-count
+ * figure in the codebase already applies, now in one place instead of
+ * independently re-typed in lib/admin/dashboard.ts, lib/admin/customers.ts,
+ * and this file's own getBestSellingProductSlugs. No table prefix: every
+ * current use has exactly one table with a `status` column in scope
+ * (shop.orders, aliased or not), so it resolves correctly either way.
+ */
+export const LIVE_ORDER_PREDICATE = sql`status <> 'cancelled'`;
+
 function hash(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i);
@@ -254,7 +280,7 @@ function whereFilters(f: CategoryFilters | undefined) {
     ${filters.inStockOnly
       ? sql`AND EXISTS (SELECT 1 FROM shop.product_variant v
                           WHERE v.product_id = p.id AND v.is_active
-                            AND (v.allow_backorder OR v.stock_quantity > 0))`
+                            AND ${VARIANT_AVAILABLE_PREDICATE})`
       : sql``}
     ${filters.material && filters.material.length > 0
       ? sql`AND p.material = ANY(${filters.material})`
@@ -337,7 +363,28 @@ export async function getProductsByCategorySlug(
  * right now — computed from real product/variant data, not a fixed list. See
  * CategoryFacets for the "only if it can actually narrow something" rule.
  */
-export async function getCategoryFilterFacets(slug: string): Promise<CategoryFacets> {
+// Cached like getBestSellingProductSlugs/getCachedSearchCatalog above: a
+// live recursive-category-walk + aggregate on every category-page view is
+// unnecessary for filter bounds that only need to be a few seconds fresh.
+// `slug` is part of the cache key automatically (unstable_cache keys on the
+// wrapped function's own arguments in addition to the string below), so
+// different categories never share a result. No cookies/auth/cart state is
+// read here, so nothing request-specific ends up cached.
+//
+// Tagged with SEARCH_CACHE_TAG (not a new tag): every mutation that can
+// change a facet's answer — product save/delete, variant save/delete —
+// already calls updateTag(SEARCH_CACHE_TAG) for the search index, so this
+// piggybacks on invalidation that already fires at the right times instead
+// of wiring a second tag through the same call sites. The one gap is
+// adjustStockAction (the inventory screen's quick stock edit), which today
+// only invalidates the Meta feed tag — a stock-only change there can leave
+// `hasOutOfStock` stale for up to the revalidate window below. Acceptable:
+// this cache only feeds filter-UI bounds (never stock/checkout
+// authorization, which is always re-checked live in lib/stock.ts and
+// completeOrder), and 60s is the same staleness budget getCachedSearchCatalog
+// already accepts for comparable browse-time aggregate data.
+export const getCategoryFilterFacets = unstable_cache(
+  async (slug: string): Promise<CategoryFacets> => {
   const rows = (await sql`
     WITH RECURSIVE tree AS (
       SELECT id FROM shop.category WHERE slug = ${slug} AND is_active
@@ -357,7 +404,7 @@ export async function getCategoryFilterFacets(slug: string): Promise<CategoryFac
     SELECT
       MIN(v.price_cents) AS price_min_cents,
       MAX(v.price_cents) AS price_max_cents,
-      bool_or(NOT (v.allow_backorder OR v.stock_quantity > 0)) AS has_out_of_stock,
+      bool_or(NOT ${VARIANT_AVAILABLE_PREDICATE}) AS has_out_of_stock,
       array_agg(DISTINCT p.material)
         FILTER (WHERE p.material IS NOT NULL AND p.material <> '') AS materials,
       array_agg(DISTINCT p.origin_country)
@@ -392,7 +439,10 @@ export async function getCategoryFilterFacets(slug: string): Promise<CategoryFac
             .sort((a, b) => a.label.localeCompare(b.label, "el"))
         : [],
   };
-}
+  },
+  ["category-filter-facets"],
+  { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
+);
 
 export type Collection = {
   id: string;
@@ -531,10 +581,11 @@ export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
  * "best_sellers" product-rail source (lib/data/homepage-sections.ts).
  *
  * "Completed sale" mirrors the one exclusion rule already established for
- * every other real-sales figure in this codebase (lib/admin/dashboard.ts's
- * `LIVE = status <> 'cancelled'`): no separate notion of "failed" exists on
- * shop.orders, and payment_status/fulfillment_status are never part of that
- * definition anywhere else either, so this doesn't invent a second one.
+ * every other real-sales figure in this codebase (LIVE_ORDER_PREDICATE
+ * above, shared with lib/admin/dashboard.ts and lib/admin/customers.ts): no
+ * separate notion of "failed" exists on shop.orders, and payment_status/
+ * fulfillment_status are never part of that definition anywhere else
+ * either, so this doesn't invent a second one.
  * Never views/favourites/clicks/stock/manual popularity — only actual sold
  * quantity from shop.order_item.
  *
@@ -558,7 +609,7 @@ export const getBestSellingProductSlugs = unstable_cache(
         FROM shop.order_item i
         JOIN shop.orders o ON o.id = i.order_id
         JOIN shop.product p ON p.id = i.product_id
-       WHERE o.status <> 'cancelled' AND p.is_active
+       WHERE ${LIVE_ORDER_PREDICATE} AND p.is_active
        GROUP BY p.id, p.slug
        ORDER BY SUM(i.quantity) DESC
        LIMIT ${limit}`;

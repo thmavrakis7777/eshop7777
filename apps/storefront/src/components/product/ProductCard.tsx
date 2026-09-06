@@ -21,7 +21,19 @@ const BADGE_LABEL: Record<NonNullable<Product["badges"]>[number], string> = {
 // absolutely-positioned overlay — which also removes the old
 // hover-to-reveal/mobile-always-visible split entirely (Phase 5's fix for
 // that is now moot, not reintroduced).
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({
+  product,
+  // Matches the listing grid's real column count (4/3/2 columns at
+  // lg/sm/base — see the grid this card renders in on category/search
+  // pages). ProductRail passes its own value below: the rail's cards are
+  // narrower than a grid column at the same breakpoint, and requesting the
+  // grid's larger size there over-fetches image resolution for no visible
+  // gain.
+  sizes = "(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw",
+}: {
+  product: Product;
+  sizes?: string;
+}) {
   const { hasSingleVariant, isOutOfStock, isPending, error, quickAdd } = useQuickAdd(product);
 
   return (
@@ -49,7 +61,7 @@ export function ProductCard({ product }: { product: Product }) {
               imageUrl={product.imageUrl}
               label={product.title}
               tone={product.placeholderTone}
-              sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+              sizes={sizes}
             />
           </div>
         </Link>

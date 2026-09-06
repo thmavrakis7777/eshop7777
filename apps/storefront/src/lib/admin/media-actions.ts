@@ -41,7 +41,14 @@ export async function uploadMediaAction(formData: FormData): Promise<ActionResul
     await auditLog(admin.id, "media.upload", "media_asset", path);
     return { ok: true, path };
   } catch (err) {
+    // UploadError is a known, already-actionable rejection (wrong type, too
+    // large, storage not configured) whose message goes straight to the
+    // admin — nothing silent to log there. The generic fallback below is the
+    // actual gap this closes: an unexpected failure (network, Supabase
+    // outage) previously returned a generic error with zero server-side
+    // trace of what happened or to which upload.
     if (err instanceof UploadError) return { ok: false, error: err.message };
+    console.error("[admin] IMAGE_UPLOAD_FAILED", { folder, fileName: file.name, error: String(err) });
     return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
   }
 }

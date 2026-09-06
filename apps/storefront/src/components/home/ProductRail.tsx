@@ -11,6 +11,14 @@ import { ChevronDownIcon } from "@/components/ui/Icons";
 // track; mobile relies on native touch/swipe (the track itself stays
 // natively focusable/scrollable via keyboard too). Reuses ProductCard
 // unchanged — no second card design.
+
+// Derived directly from the track item's own width classes below
+// (w-[45%] sm:w-[31%] md:w-[23%] lg:w-[18.5%]), the same way ProductCard's
+// own default `sizes` mirrors its 2/3/4-column grid fractions — not a
+// guess. A rail card is narrower than a grid column at every breakpoint, so
+// requesting the grid's sizes here would fetch a larger image than the
+// rail ever displays.
+const RAIL_CARD_SIZES = "(min-width: 1024px) 18.5vw, (min-width: 768px) 23vw, (min-width: 640px) 31vw, 45vw";
 export function ProductRail({
   title,
   viewAllHref,
@@ -77,7 +85,7 @@ export function ProductRail({
         >
           {products.map((p) => (
             <div key={p.id} className="w-[45%] flex-none snap-start sm:w-[31%] md:w-[23%] lg:w-[18.5%]">
-              <ProductCard product={p} />
+              <ProductCard product={p} sizes={RAIL_CARD_SIZES} />
             </div>
           ))}
           {viewAllHref && (

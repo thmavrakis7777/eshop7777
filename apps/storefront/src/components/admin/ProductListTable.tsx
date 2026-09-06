@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { bulkProductAction, type BulkOperation } from "@/lib/admin/catalog-actions";
 import type { AdminProductRow } from "@/lib/admin/products";
+import { money } from "@/components/admin/ui/primitives";
 
 /**
  * The product list, with bulk selection.
@@ -19,13 +20,11 @@ import type { AdminProductRow } from "@/lib/admin/products";
  * the action can rewrite 200 prices, so the count has to be typed back.
  */
 
-const money = new Intl.NumberFormat("el-GR", { style: "currency", currency: "EUR" });
-const fmt = (cents: number) => money.format(cents / 100);
 
 function priceRange(row: AdminProductRow): string {
   if (row.minPriceCents == null) return "—";
-  if (row.maxPriceCents == null || row.minPriceCents === row.maxPriceCents) return fmt(row.minPriceCents);
-  return `${fmt(row.minPriceCents)} – ${fmt(row.maxPriceCents)}`;
+  if (row.maxPriceCents == null || row.minPriceCents === row.maxPriceCents) return money(row.minPriceCents);
+  return `${money(row.minPriceCents)} – ${money(row.maxPriceCents)}`;
 }
 
 type Option = { id: string; name?: string; title?: string; depth?: number };

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Literata } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { siteDefaultDescription, siteDefaultTitle, siteName, siteUrl } from "@/lib/site-config";
 
@@ -50,7 +51,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       data-scroll-behavior="smooth"
       className={`${inter.variable} ${literata.variable} antialiased`}
     >
-      <body className="flex min-h-screen flex-col">{children}</body>
+      <body className="flex min-h-screen flex-col">
+        {children}
+        {/* Real-user Core Web Vitals — a no-op with zero network requests
+            everywhere except a real Vercel deployment (Speed Insights must
+            still be turned on for this project in the Vercel dashboard —
+            see DEPLOYMENT.md). Covers /admin too: one addition here, not a
+            second one in (storefront)/layout.tsx. */}
+        <SpeedInsights />
+      </body>
     </html>
   );
 }

@@ -11,6 +11,7 @@ import { ShippingFields } from "@/components/admin/ShippingFields";
 import { ProductImageManager } from "@/components/admin/ProductImageManager";
 import { InternalCodeField } from "@/components/admin/InternalCodeField";
 import { AiSeoGenerator } from "@/components/admin/AiSeoGenerator";
+import { money, centsToPriceInput } from "@/components/admin/ui/primitives";
 
 /**
  * The product editor — the screen the store owner spends most of their time in.
@@ -23,8 +24,6 @@ import { AiSeoGenerator } from "@/components/admin/AiSeoGenerator";
  * editor is uncertainty about whether something saved. Here it is explicit.
  */
 
-const money = new Intl.NumberFormat("el-GR", { style: "currency", currency: "EUR" });
-const toInput = (cents: number | null) => (cents == null ? "" : (cents / 100).toFixed(2).replace(".", ","));
 
 const field =
   "w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-ink";
@@ -496,11 +495,11 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
                 <div className={hint}>{v.sku}</div>
               </div>
               <div className="text-sm tabular-nums">
-                {money.format(v.priceCents / 100)}
+                {money(v.priceCents)}
                 {discount != null && (
                   <>
                     <span className="ml-2 text-ink-muted line-through">
-                      {money.format((v.compareAtPriceCents ?? 0) / 100)}
+                      {money(v.compareAtPriceCents ?? 0)}
                     </span>
                     <span className="ml-1.5 text-accent">−{discount}%</span>
                   </>
@@ -557,8 +556,8 @@ function VariantForm({
 }) {
   const [sku, setSku] = useState(variant?.sku ?? "");
   const [title, setTitle] = useState(variant?.title ?? "Default");
-  const [price, setPrice] = useState(toInput(variant?.priceCents ?? null));
-  const [compareAt, setCompareAt] = useState(toInput(variant?.compareAtPriceCents ?? null));
+  const [price, setPrice] = useState(centsToPriceInput(variant?.priceCents ?? null));
+  const [compareAt, setCompareAt] = useState(centsToPriceInput(variant?.compareAtPriceCents ?? null));
   const [stock, setStock] = useState(String(variant?.stockQuantity ?? 0));
   const [backorder, setBackorder] = useState(variant?.allowBackorder ?? false);
 

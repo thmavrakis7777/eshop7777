@@ -1,7 +1,7 @@
 import "server-only";
 import { sql, transaction } from "@/lib/db/client";
 import { normalizeSearchText } from "@/lib/search";
-import { NEW_ARRIVAL_PREDICATE, SALE_PREDICATE } from "@/lib/db/catalog";
+import { NEW_ARRIVAL_PREDICATE, SALE_PREDICATE, VARIANT_AVAILABLE_PREDICATE } from "@/lib/db/catalog";
 
 /**
  * Admin catalog queries and mutations.
@@ -97,7 +97,7 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
          : sql``}
        ${filters.stock === "out"
          ? sql`AND NOT EXISTS (SELECT 1 FROM shop.product_variant v
-                                WHERE v.product_id = p.id AND (v.allow_backorder OR v.stock_quantity > 0))`
+                                WHERE v.product_id = p.id AND ${VARIANT_AVAILABLE_PREDICATE})`
          : sql``}
        ${filters.stock === "low"
          ? sql`AND EXISTS (SELECT 1 FROM shop.product_variant v

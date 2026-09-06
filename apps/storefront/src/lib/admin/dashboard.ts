@@ -1,5 +1,6 @@
 import "server-only";
 import { sql } from "@/lib/db/client";
+import { LIVE_ORDER_PREDICATE } from "@/lib/db/catalog";
 
 /**
  * Dashboard metrics.
@@ -34,8 +35,9 @@ export type DashboardMetrics = {
 
 // Cancelled orders are excluded from every money figure — counting revenue
 // the store will never receive is the kind of flattering-but-wrong number a
-// dashboard exists to avoid.
-const LIVE = sql`status <> 'cancelled'`;
+// dashboard exists to avoid. Shared with lib/admin/customers.ts and
+// lib/db/catalog.ts's best-sellers query — see LIVE_ORDER_PREDICATE there.
+const LIVE = LIVE_ORDER_PREDICATE;
 
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const [m] = await sql<
@@ -70,7 +72,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
         WHERE ${LIVE} AND created_at >= now() - interval '30 days')        AS aov,
       (SELECT COALESCE(SUM(i.quantity), 0) FROM shop.order_item i
          JOIN shop.orders o ON o.id = i.order_id
-        WHERE o.status <> 'cancelled' AND o.created_at >= date_trunc('month', now())) AS units_this_month,
+        WHERE ${LIVE} AND o.created_at >= date_trunc('month', now())) AS units_this_month,
       (SELECT COUNT(*) FROM shop.orders WHERE status = 'pending')          AS pending_orders,
       (SELECT COUNT(*) FROM shop.product_variant
         WHERE is_active AND NOT allow_backorder
@@ -150,7 +152,7 @@ export async function getBestSellers(limit = 5): Promise<BestSeller[]> {
            SUM(i.quantity)::text AS units, SUM(i.line_total_cents)::text AS revenue
       FROM shop.order_item i
       JOIN shop.orders o ON o.id = i.order_id
-     WHERE o.status <> 'cancelled' AND o.created_at >= now() - interval '90 days'
+     WHERE ${LIVE} AND o.created_at >= now() - interval '90 days'
      GROUP BY i.product_slug, i.title
      ORDER BY SUM(i.quantity) DESC
      LIMIT ${limit}`;

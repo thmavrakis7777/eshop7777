@@ -430,7 +430,11 @@ export async function addProductImageAction(productId: string, formData: FormDat
     await addProductImage(productId, path);
     await auditLog(admin.id, "product.image_add", "product", productId, { path });
   } catch (err) {
+    // Same split as uploadMediaAction (media-actions.ts): UploadError is
+    // already a specific, admin-facing message — the silent gap was the
+    // generic fallback below, which previously logged nothing.
     if (err instanceof UploadError) return { ok: false, error: err.message };
+    console.error("[admin] IMAGE_UPLOAD_FAILED", { productId, fileName: file.name, error: String(err) });
     return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
   }
 

@@ -1,5 +1,6 @@
 import "server-only";
 import { sql } from "@/lib/db/client";
+import { LIVE_ORDER_PREDICATE } from "@/lib/db/catalog";
 
 /**
  * Customer management.
@@ -45,9 +46,9 @@ export async function listCustomers(filters: { q?: string; page?: number; perPag
            (c.password_hash IS NOT NULL) AS has_account,
            c.marketing_consent, c.is_active, c.created_at,
            (SELECT COUNT(*) FROM shop.orders o
-             WHERE o.customer_id = c.id AND o.status <> 'cancelled')::int AS order_count,
+             WHERE o.customer_id = c.id AND ${LIVE_ORDER_PREDICATE})::int AS order_count,
            COALESCE((SELECT SUM(o.total_cents) FROM shop.orders o
-             WHERE o.customer_id = c.id AND o.status <> 'cancelled'), 0)::int AS total_spent,
+             WHERE o.customer_id = c.id AND ${LIVE_ORDER_PREDICATE}), 0)::int AS total_spent,
            (SELECT MAX(o.created_at) FROM shop.orders o WHERE o.customer_id = c.id) AS last_order_at,
            COUNT(*) OVER () AS total_count
       FROM shop.customer c
@@ -117,9 +118,9 @@ export async function getCustomerDetail(id: string): Promise<AdminCustomerDetail
            (c.password_hash IS NOT NULL) AS has_account,
            c.marketing_consent, c.is_active, c.created_at,
            (SELECT COUNT(*) FROM shop.orders o
-             WHERE o.customer_id = c.id AND o.status <> 'cancelled')::int AS order_count,
+             WHERE o.customer_id = c.id AND ${LIVE_ORDER_PREDICATE})::int AS order_count,
            COALESCE((SELECT SUM(o.total_cents) FROM shop.orders o
-             WHERE o.customer_id = c.id AND o.status <> 'cancelled'), 0)::int AS total_spent,
+             WHERE o.customer_id = c.id AND ${LIVE_ORDER_PREDICATE}), 0)::int AS total_spent,
            (SELECT MAX(o.created_at) FROM shop.orders o WHERE o.customer_id = c.id) AS last_order_at,
            COALESCE((
              SELECT json_agg(json_build_object(

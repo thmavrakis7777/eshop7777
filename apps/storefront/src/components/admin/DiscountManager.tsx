@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteDiscountAction, saveDiscountAction } from "@/lib/admin/sales-actions";
 import type { AdminDiscount } from "@/lib/admin/discounts";
+import { money, centsToPriceInput } from "@/components/admin/ui/primitives";
 
 const field =
   "w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-ink";
 
-const money = new Intl.NumberFormat("el-GR", { style: "currency", currency: "EUR" });
 const date = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium" });
 
 // State is derived from the dates and counters, never stored — so the badge
@@ -101,11 +101,11 @@ export function DiscountManager({ discounts }: { discounts: AdminDiscount[] }) {
                 </div>
 
                 <div className="text-sm font-medium tabular-nums text-ink">
-                  {d.type === "percentage" ? `−${d.value}%` : `−${money.format(d.value / 100)}`}
+                  {d.type === "percentage" ? `−${d.value}%` : `−${money(d.value)}`}
                 </div>
 
                 <div className="text-xs text-ink-muted">
-                  {d.minSubtotalCents > 0 && <>Ελάχ. {money.format(d.minSubtotalCents / 100)} · </>}
+                  {d.minSubtotalCents > 0 && <>Ελάχ. {money(d.minSubtotalCents)} · </>}
                   {d.maxRedemptions != null
                     ? `${d.redemptionCount}/${d.maxRedemptions} χρήσεις`
                     : `${d.redemptionCount} χρήσεις`}
@@ -251,7 +251,7 @@ function DiscountForm({
           <input
             name="value"
             defaultValue={
-              discount ? (discount.type === "percentage" ? discount.value : (discount.value / 100).toFixed(2).replace(".", ",")) : ""
+              discount ? (discount.type === "percentage" ? discount.value : centsToPriceInput(discount.value)) : ""
             }
             inputMode="decimal"
             required
@@ -262,7 +262,7 @@ function DiscountForm({
           <label className="text-sm font-medium text-ink">Ελάχιστο καλάθι (€)</label>
           <input
             name="minSubtotal"
-            defaultValue={discount && discount.minSubtotalCents > 0 ? (discount.minSubtotalCents / 100).toFixed(2).replace(".", ",") : ""}
+            defaultValue={discount && discount.minSubtotalCents > 0 ? centsToPriceInput(discount.minSubtotalCents) : ""}
             inputMode="decimal"
             placeholder="0,00"
             className={field}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { centsToPriceInput } from "@/components/admin/ui/primitives";
 
 /**
  * Per-product shipping override.
@@ -73,7 +74,7 @@ export function ShippingFields({
           type="text"
           inputMode="decimal"
           disabled={isStandard}
-          defaultValue={defaultCostCents != null ? (defaultCostCents / 100).toFixed(2) : ""}
+          defaultValue={centsToPriceInput(defaultCostCents)}
           placeholder={isStandard ? "Κανονικά μεταφορικά" : "8.00"}
           className={`${field} disabled:opacity-50`}
         />

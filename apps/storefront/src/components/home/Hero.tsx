@@ -101,14 +101,32 @@ export function HeroSlide({
         </picture>
       )}
       {!imageUrl && <div className="pointer-events-none absolute inset-0" style={DIAGONAL_PATTERN} aria-hidden="true" />}
+      {/* Same gradient recipe as the mega-menu promo tile (Header.tsx) — text
+          sits at the bottom of this box, so a bottom-heavy scrim guarantees
+          contrast regardless of what an admin uploads, rather than relying
+          on them picking a suitably dark photo. Only applied when there's a
+          photo behind the text; the diagonal-pattern fallback above is
+          already light and legible with dark text on its own. */}
+      {imageUrl && (
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/10 to-transparent"
+          aria-hidden="true"
+        />
+      )}
       <div className="relative max-w-xl">
-        {eyebrow && <p className="text-xs font-medium uppercase tracking-[0.15em] text-accent">{eyebrow}</p>}
+        {eyebrow && (
+          <p className={`text-xs font-medium uppercase tracking-[0.15em] ${imageUrl ? "text-white/90" : "text-accent"}`}>
+            {eyebrow}
+          </p>
+        )}
         {heading ? (
-          <HeadingTag className="mt-3 text-4xl text-ink md:text-6xl">{heading}</HeadingTag>
+          <HeadingTag className={`mt-3 text-4xl md:text-6xl ${imageUrl ? "text-white" : "text-ink"}`}>{heading}</HeadingTag>
         ) : (
           asH1 && <h1 className="sr-only">{storeName}</h1>
         )}
-        {body && <p className="mt-4 max-w-md text-base text-ink-muted md:text-lg">{body}</p>}
+        {body && (
+          <p className={`mt-4 max-w-md text-base md:text-lg ${imageUrl ? "text-white/90" : "text-ink-muted"}`}>{body}</p>
+        )}
         {showButton && (
           <Link
             href={ctaHref!}

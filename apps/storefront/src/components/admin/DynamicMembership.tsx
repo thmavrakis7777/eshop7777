@@ -1,6 +1,7 @@
 "use client";
 
 import type { AdminVariant } from "@/lib/admin/products";
+import { money } from "@/components/admin/ui/primitives";
 
 /**
  * Explains WHY this product is (or is not) in SALES and NEW ARRIVALS.
@@ -18,8 +19,6 @@ import type { AdminVariant } from "@/lib/admin/products";
 
 const NEW_ARRIVAL_WINDOW_DAYS = 30;
 
-const euro = (cents: number) =>
-  (cents / 100).toLocaleString("el-GR", { style: "currency", currency: "EUR" });
 
 function Row({
   active,
@@ -83,7 +82,7 @@ export function DynamicMembership({
         title="ΠΡΟΣΦΟΡΕΣ"
         reason={
           onSale && best
-            ? `${euro(best.from)} → ${euro(best.to)} (−${best.pct}%)`
+            ? `${money(best.from)} → ${money(best.to)} (−${best.pct}%)`
             : "Καμία παραλλαγή δεν έχει τιμή προσφοράς χαμηλότερη από την κανονική."
         }
       />

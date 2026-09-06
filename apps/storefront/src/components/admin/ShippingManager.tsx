@@ -4,12 +4,11 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteShippingMethodAction, saveShippingMethodAction } from "@/lib/admin/settings-actions";
 import type { AdminShippingMethod } from "@/lib/admin/settings";
+import { money, centsToPriceInput } from "@/components/admin/ui/primitives";
 
 const field =
   "w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-ink";
 
-const money = new Intl.NumberFormat("el-GR", { style: "currency", currency: "EUR" });
-const euros = (cents: number | null) => (cents == null ? "" : (cents / 100).toFixed(2).replace(".", ","));
 
 export function ShippingManager({ methods }: { methods: AdminShippingMethod[] }) {
   const router = useRouter();
@@ -77,10 +76,10 @@ export function ShippingManager({ methods }: { methods: AdminShippingMethod[] })
                 {m.description && <div className="text-xs text-ink-muted">{m.description}</div>}
               </div>
               <div className="text-sm tabular-nums text-ink">
-                {m.priceCents === 0 ? "Δωρεάν" : money.format(m.priceCents / 100)}
+                {m.priceCents === 0 ? "Δωρεάν" : money(m.priceCents)}
               </div>
               {m.freeOverCents != null && (
-                <div className="text-xs text-ink-muted">δωρεάν άνω των {money.format(m.freeOverCents / 100)}</div>
+                <div className="text-xs text-ink-muted">δωρεάν άνω των {money(m.freeOverCents)}</div>
               )}
               <div className="flex gap-1">
                 <button
@@ -149,13 +148,13 @@ function MethodForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-ink">Κόστος (€)</label>
-          <input name="price" defaultValue={euros(method?.priceCents ?? 0)} inputMode="decimal" className={field} />
+          <input name="price" defaultValue={centsToPriceInput(method?.priceCents ?? 0)} inputMode="decimal" className={field} />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-ink">Δωρεάν άνω των (€)</label>
           <input
             name="freeOver"
-            defaultValue={euros(method?.freeOverCents ?? null)}
+            defaultValue={centsToPriceInput(method?.freeOverCents ?? null)}
             inputMode="decimal"
             placeholder="Ποτέ δωρεάν"
             className={field}

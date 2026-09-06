@@ -305,5 +305,11 @@ const dateTime = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeSty
 const dateOnly = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium" });
 
 export const money = (cents: number) => currency.format(cents / 100);
+// For an editable price field's defaultValue — comma decimal, no currency
+// symbol or thousands separator, matching how a Greek admin types a price
+// back in (and what priceToCents/optionalPriceToCents in catalog-actions.ts
+// expect on submit). null/undefined renders as an empty field, not "0,00".
+export const centsToPriceInput = (cents: number | null | undefined) =>
+  cents == null ? "" : (cents / 100).toFixed(2).replace(".", ",");
 export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));
 export const formatDate = (iso: string) => dateOnly.format(new Date(iso));
