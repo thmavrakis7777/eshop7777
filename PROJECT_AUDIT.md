@@ -656,6 +656,25 @@ succeeded, the other 5 correctly rejected as `insufficient_inventory`, final
 stock landed at exactly 0, order numbers unique, and the test's own cleanup
 left zero trace afterward.
 
+**Rescored after this pass** (the checklist artifact linked from §21 was
+refreshed the same way — this is not a new independent audit, just this
+pass's fixes reflected in the existing scores):
+
+| Category | Before | After | Why |
+|---|---|---|---|
+| Deployment | 81 | 92 | #7 was the category's only open item |
+| Accessibility | 85 | 93 | #13 was the category's only open item |
+| Maintainability | 83 | 90 | #17 fixed |
+| Performance | 73 | 85 | #8, #9 fixed; #10 still open |
+| Observability | 48 | 62 | #16 fixed; #15 only partial (logging + perf monitoring, no real alerting) |
+| Testing | 18 | 55 | #11, #12 fixed — a real, passing baseline now exists against production code, but coverage is still far from comprehensive (no discount/checkout/admin-auth tests yet) |
+| Security, Correctness, Reliability, SEO | unchanged | unchanged | no item in these categories was touched this pass |
+
+Overall: **76 → 85/100**, status unchanged at 🟡 LIVE WITH CONDITIONS —
+genuinely improved, not yet "no conditions": #6 (staging database) and #10
+(dynamic rendering) remain fully open, and Testing/Observability, while
+better, are still the two weakest categories.
+
 ---
 
 *Maintained by whichever session last ran a full audit. Update the "Bugs
