@@ -52,7 +52,7 @@ export function HeroSlide({
   // heading of its own — the page still needs exactly one real h1.
   storeName: string;
   // True only for the homepage's very first Hero group (see Hero() below) —
-  // gives it the full-viewport-below-header treatment on mobile/tablet.
+  // gives it the full-viewport-below-header treatment at every breakpoint.
   // Any other Hero an admin adds further down the page keeps the plain
   // 26rem/32rem box, unaffected.
   isFirstSection?: boolean;
@@ -70,7 +70,7 @@ export function HeroSlide({
   return (
     <div
       className={`relative flex flex-col justify-end overflow-hidden bg-surface-strong p-8 md:p-14 ${
-        isFirstSection ? "hero-viewport-fill lg:min-h-[32rem]" : "min-h-[26rem] md:min-h-[32rem]"
+        isFirstSection ? "hero-viewport-fill" : "min-h-[26rem] md:min-h-[32rem]"
       }`}
     >
       {/* A real <img> rather than a CSS background-image: the latter is an

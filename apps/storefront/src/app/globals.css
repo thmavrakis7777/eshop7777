@@ -73,20 +73,20 @@
  * already use to decide whether to render at all, so this only ever
  * shortens the Hero when a bar is actually showing, never when both are off.
  * The 5rem allowance comfortably covers one bar at up to two wrapped lines
- * (measured live: 48px single-line mobile, 56px two-line tablet); both bars
- * active and both wrapping at once is only partially covered by a static
- * margin — an accepted trade-off over a JS-measured height, which would risk
- * a visible post-hydration layout shift (CLS) on every load to fix a case
- * that, unfixed, only costs a short scroll to reach the CTA. Scoped to below
- * `lg` (Tailwind's 1024px) so it never touches the desktop Hero, which uses
- * a fixed `lg:min-h-[32rem]` instead of this calc().
+ * (measured live: 48px single-line mobile, 56px two-line tablet; desktop's
+ * own single-line xl: layout is shorter still, so the same allowance stays
+ * safe there too); both bars active and both wrapping at once is only
+ * partially covered by a static margin — an accepted trade-off over a
+ * JS-measured height, which would risk a visible post-hydration layout
+ * shift (CLS) on every load to fix a case that, unfixed, only costs a short
+ * scroll to reach the CTA. Applies at every width now that the Hero itself
+ * uses hero-viewport-fill everywhere (the desktop Hero no longer has its own
+ * fixed `lg:min-h-[32rem]` carve-out).
  */
-@media (max-width: 1023.98px) {
-  .has-top-bars .hero-viewport-fill {
-    min-height: calc(100vh - var(--header-height) - 5rem);
-    min-height: calc(100svh - var(--header-height) - 5rem);
-    min-height: calc(100dvh - var(--header-height) - 5rem);
-  }
+.has-top-bars .hero-viewport-fill {
+  min-height: calc(100vh - var(--header-height) - 5rem);
+  min-height: calc(100svh - var(--header-height) - 5rem);
+  min-height: calc(100dvh - var(--header-height) - 5rem);
 }
 
 @layer base {
