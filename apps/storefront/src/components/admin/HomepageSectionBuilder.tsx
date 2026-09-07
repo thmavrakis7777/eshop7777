@@ -63,8 +63,19 @@ const KIND_HINTS: Record<HomepageSectionKind, string> = {
 // no size-sensitive image use case worth a specific number (Newsletter).
 const IMAGE_SIZE_HINTS: Partial<Record<HomepageSectionKind, { desktop: string; tablet?: string; mobile?: string }>> = {
   hero: {
+    // 1920×1080 (16:9), not the old 1920×640 — that ratio was calibrated
+    // for a fixed, short desktop box. The homepage's OPENING Hero now gets
+    // the full-screen-height treatment at every breakpoint, not just
+    // mobile/tablet (hero-viewport-fill in Hero.tsx, and see globals.css —
+    // it fills exactly what's left of the viewport below the announcement/
+    // promo bars), so a short 3:1 source now gets cropped hard on the
+    // sides on an ordinary 16:9 monitor instead of comfortably covering
+    // it. A second/later Hero an admin adds further down the page is still
+    // a fixed 32rem (512px) box on desktop/tablet regardless — a shorter,
+    // more landscape image (close to the old 1920×640) still fits that one
+    // better than a 16:9 source would.
     desktop:
-      "Προτεινόμενο μέγεθος 1920×640px (JPEG/WebP, έως ~200KB) — χρησιμοποιείται σε desktop και tablet. Δεν αλλάζει μέγεθος αυτόματα.",
+      "Προτεινόμενο μέγεθος 1920×1080px (JPEG/WebP, έως ~250KB) — για το πρώτο/κύριο Hero της αρχικής, που καλύπτει όλη την οθόνη σε desktop/tablet. Για ένα δεύτερο Hero πιο κάτω στη σελίδα, που είναι πάντα ένα σταθερού ύψους πλαίσιο (32rem), ταιριάζει καλύτερα μια πιο οριζόντια εικόνα, π.χ. 1920×640px. Δεν αλλάζει μέγεθος αυτόματα.",
     // The 900×1200 (portrait) recommendation is calibrated for the
     // homepage's OPENING Hero specifically — that one alone gets the
     // full-screen-height treatment on mobile/tablet (hero-viewport-fill in
