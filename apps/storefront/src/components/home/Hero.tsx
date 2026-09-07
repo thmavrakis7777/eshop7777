@@ -113,6 +113,19 @@ export function HeroSlide({
           aria-hidden="true"
         />
       )}
+      {/* Only the page's very first Hero has the header floating transparently
+          over it (see Hero() below) — that overlaid logo/nav needs its own
+          contrast independent of whatever this slide's own image looks like
+          at the very top, which the bottom-heavy gradient above doesn't
+          cover. Renders regardless of imageUrl so the diagonal-pattern
+          fallback (no image configured yet) still gives the overlaid header
+          text something dark enough to read against. */}
+      {isFirstSection && (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-ink/45 to-transparent md:h-36"
+          aria-hidden="true"
+        />
+      )}
       <div className="relative max-w-xl">
         {eyebrow && (
           <p className={`text-xs font-medium uppercase tracking-[0.15em] ${imageUrl ? "text-white/90" : "text-accent"}`}>
@@ -165,11 +178,16 @@ export function Hero({
     // heading/body/CTA inside HeroSlide keep their own max-w-xl, so text
     // never stretches just because the section now can.
     //
-    // The first Hero drops its own top padding below lg so the full-screen
-    // box sits flush under the sticky header (see hero-viewport-fill in
-    // globals.css, which already accounts for --header-height) — lg+ keeps
-    // the original pt-10 breathing room the desktop box has always had.
-    <section className={isFirstSection ? "lg:pt-10" : "pt-6 md:pt-10"}>
+    // The first Hero pulls itself up by exactly the sticky header's own
+    // height (the same --header-height hero-viewport-fill already
+    // subtracts, so the two stay in sync automatically) so it renders
+    // underneath the header instead of below it — that's what lets the
+    // header go transparent over it at the top of the page. The header
+    // itself never leaves `sticky`/its normal flow position; this is what
+    // makes the hero ride up behind it rather than the other way around.
+    <section
+      className={isFirstSection ? "mt-[calc(var(--header-height)*-1)]" : "pt-6 md:pt-10"}
+    >
       {slides.length >= 2 ? (
         <HeroCarousel slides={slides} storeName={storeName} isFirstSection={isFirstSection} />
       ) : (

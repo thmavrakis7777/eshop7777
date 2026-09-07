@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
 import type { Money, NavCategory } from "@/lib/types";
 import type { NavItem } from "@/lib/data/navigation";
@@ -22,6 +23,33 @@ import { StoreLogo } from "./StoreLogo";
 import { useCartUI } from "@/components/cart/CartUIProvider";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 
+// Below this, the header sits at the very top of the page (no meaningful
+// scroll yet) and stays in its transparent, hero-overlay look; past it, it
+// switches to the solid scrolled look. Small on purpose — the transition
+// should read as "now you've scrolled", not track the scroll position.
+const HEADER_SOLID_SCROLL_THRESHOLD = 20;
+
+// Only the homepage lays its first section out as a full-bleed Hero the
+// header is meant to float over (see Hero.tsx's `isFirstSection`) — every
+// other route keeps the header's plain always-solid look, so this is the
+// only page where the transparent/overlay state can ever apply.
+function useHeaderOverlay() {
+  const pathname = usePathname();
+  const [scrolledPastThreshold, setScrolledPastThreshold] = useState(false);
+
+  useEffect(() => {
+    if (pathname !== "/") return;
+    function update() {
+      setScrolledPastThreshold(window.scrollY > HEADER_SOLID_SCROLL_THRESHOLD);
+    }
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, [pathname]);
+
+  return pathname === "/" && !scrolledPastThreshold;
+}
+
 export function Header({
   categories: navCategories,
   navItems,
@@ -40,6 +68,7 @@ export function Header({
 }) {
   const { openDrawer } = useCartUI();
   const { count: wishlistCount } = useWishlist();
+  const overlay = useHeaderOverlay();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -68,9 +97,37 @@ export function Header({
     return () => window.removeEventListener("resize", recompute);
   }, [openMenu]);
 
+  // --header-height (globals.css) is what Hero.tsx pulls its first section
+  // up by to sit underneath this header — but the real header height isn't
+  // one fixed number: the category sub-nav row below the logo only exists
+  // at `lg:` (1024px+), so the header is taller there than the static
+  // fallback accounts for. Below `lg` the two already match (icon row
+  // only), which is why this only ever showed up as a desktop bug. Measured
+  // off headerRowRef (the icon row + sub-nav row container) rather than the
+  // outer <header> itself, since the outer element also wraps the
+  // conditionally-rendered search flyout below — including that would make
+  // the hero jump every time search opens/closes. A ResizeObserver, not a
+  // resize listener, because the height also changes from the nav
+  // wrapping to a second line, which isn't a viewport-resize event.
+  useLayoutEffect(() => {
+    const el = headerRowRef.current;
+    if (!el) return;
+    function update() {
+      document.documentElement.style.setProperty("--header-height", `${el!.getBoundingClientRect().height}px`);
+    }
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <header
-      className="sticky top-0 z-40 border-b border-border bg-bg/95 backdrop-blur"
+      className={`sticky top-0 z-40 border-b transition-colors duration-300 motion-reduce:transition-none ${
+        overlay
+          ? "border-transparent bg-transparent text-white"
+          : "border-border bg-bg/95 text-ink backdrop-blur"
+      }`}
       onKeyDown={(e) => {
         if (e.key === "Escape") setOpenMenu(null);
       }}
@@ -83,7 +140,15 @@ export function Header({
             a wider action cluster on the right would push the brand left.
             Grid over margins/padding for the same reason — no magic number
             to re-tune when an icon is added or removed. */}
-        <div className="grid h-(--header-height) grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 sm:gap-4">
+        {/* Fixed literal, not h-(--header-height): that var is now written
+            by the ResizeObserver below FROM this row's own rendered height,
+            so sizing this row off the same var it feeds would be circular —
+            the row grows, the observer measures the growth, writes a larger
+            var, which grows the row again. 4.5rem is the row's real,
+            never-changing intended height; only the *total* header height
+            (this row plus the lg:-only sub-nav row beneath it) varies by
+            breakpoint, which is exactly what the var needs to capture. */}
+        <div className="grid h-[4.5rem] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 sm:gap-4">
           <button
             ref={mobileTriggerRef}
             type="button"
@@ -92,7 +157,7 @@ export function Header({
             // cluster would slide into the centre column, shoving the brand
             // aside. Explicit placement pins each child to its own column
             // whatever else is displayed.
-            className="col-start-1 justify-self-start p-2 -ml-2 lg:hidden"
+            className="col-start-1 justify-self-start p-2 -ml-2 lg:hidden transition-colors motion-reduce:transition-none"
             aria-label="Άνοιγμα μενού"
             onClick={() => setMobileOpen(true)}
           >
@@ -104,7 +169,9 @@ export function Header({
           <StoreLogo
             storeName={storeName}
             logoUrl={logoUrl}
-            className="font-display text-[clamp(0.84375rem,4vw,1.5rem)] tracking-tight text-ink whitespace-nowrap col-start-2 justify-self-center"
+            className={`font-display text-[clamp(0.84375rem,4vw,1.5rem)] tracking-tight whitespace-nowrap col-start-2 justify-self-center transition-colors duration-300 motion-reduce:transition-none ${
+              overlay ? "text-white" : "text-ink"
+            }`}
           />
 
 
@@ -150,7 +217,11 @@ export function Header({
                 )}
               </span>
               {cartItemCount > 0 && (
-                <span className="hidden text-xs font-medium tabular-nums text-ink sm:inline">
+                <span
+                  className={`hidden text-xs font-medium tabular-nums sm:inline transition-colors duration-300 motion-reduce:transition-none ${
+                    overlay ? "text-white" : "text-ink"
+                  }`}
+                >
                   {formatPrice(cartTotal)}
                 </span>
               )}
@@ -165,7 +236,9 @@ export function Header({
             container width, and `flex-wrap` means a very long list becomes a
             second line rather than an overflow. */}
         <nav
-          className="hidden border-t border-border/60 lg:block"
+          className={`hidden border-t lg:block transition-colors duration-300 motion-reduce:transition-none ${
+            overlay ? "border-transparent" : "border-border/60"
+          }`}
           aria-label="Κύρια πλοήγηση"
         >
           <ul className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 py-1.5">
@@ -188,8 +261,12 @@ export function Header({
                 ...(item.backgroundColor ? { backgroundColor: item.backgroundColor } : {}),
               };
               const chip = item.backgroundColor ? "rounded-sm" : "";
-              const base = `flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors ${chip} ${
-                item.textColor || item.backgroundColor ? "" : "text-ink hover:text-accent"
+              const base = `flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none ${chip} ${
+                item.textColor || item.backgroundColor
+                  ? ""
+                  : overlay
+                    ? "text-white hover:text-white/80"
+                    : "text-ink hover:text-accent"
               }`;
 
               return (
