@@ -132,7 +132,7 @@ export function Header({
         if (e.key === "Escape") setOpenMenu(null);
       }}
     >
-      <div ref={headerRowRef} className="container-shell relative" onMouseLeave={() => setOpenMenu(null)}>
+      <div ref={headerRowRef} className="container-shell relative">
         {/* Three columns with FORCED-equal outer widths, so the brand sits at
             the true centre of the header rather than centred in whatever
             space the icons happen to leave. minmax(0,1fr) is what makes the
@@ -235,6 +235,20 @@ export function Header({
             type past readable — giving the nav its own line buys the whole
             container width, and `flex-wrap` means a very long list becomes a
             second line rather than an overflow. */}
+        {/*
+            Scopes the "close on mouse-leave" behavior to just the category
+            nav + its mega-menu panel, not the whole header row above
+            (headerRowRef, which also contains the logo/search/wishlist/
+            account/cart icons and used to own this handler). With it on the
+            wider row, moving from an open category towards e.g. the cart
+            icon never left that row, so the menu stayed open until the
+            cursor reached page content below the header entirely. Scoped
+            here, leaving this nav+panel area for ANY other header element —
+            logo, search, wishlist, account, cart, announcement bar — closes
+            it immediately, while moving from a category trigger down into
+            its own mega-menu panel stays inside this wrapper and keeps it
+            open. */}
+        <div onMouseLeave={() => setOpenMenu(null)}>
         <nav
           className={`hidden border-t lg:block transition-colors duration-300 motion-reduce:transition-none ${
             overlay ? "border-transparent" : "border-border/60"
@@ -290,6 +304,13 @@ export function Header({
                       aria-expanded={openMenu === item.categorySlug}
                       onMouseEnter={() => setOpenMenu(item.categorySlug)}
                       onFocus={() => setOpenMenu(item.categorySlug)}
+                      // Closes the mega-menu immediately on click, before the
+                      // navigation's own transition — otherwise Header (in
+                      // the layout, not this page) stays mounted across the
+                      // client-side navigation and the panel keeps showing
+                      // over the destination category page until a later
+                      // hover/mouse-leave happens to clear it.
+                      onClick={() => setOpenMenu(null)}
                     >
                       {item.label}
                       <ChevronDownIcon />
@@ -452,6 +473,7 @@ export function Header({
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {searchOpen && (

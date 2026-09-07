@@ -209,7 +209,7 @@ function CartDrawerInner({
               ))}
             </div>
           ) : !hasItems ? (
-            <EmptyCartState compact />
+            <EmptyCartState compact onContinueShopping={handleContinueShopping} />
           ) : (
             <div className="divide-y divide-border">
               {cart.items.map((item) => (

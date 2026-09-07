@@ -120,10 +120,10 @@ export async function addLineItemAction(variantId: string, quantity = 1): Promis
 export async function updateLineItemQuantityAction(lineItemId: string, quantity: number): Promise<CartActionResult> {
   const cartId = await requireCartId();
   if (!cartId) return EXPIRED;
-  // Higher budget than add-to-cart: typing a quantity directly (see
-  // QuantityStepper) fires one call per keystroke, and a customer reviewing
-  // several cart lines can easily rack up more of these than adds in the
-  // same window. Still a hard ceiling against a scripted loop.
+  // Higher budget than add-to-cart: a customer reviewing several cart lines
+  // (+/- clicks, typed quantities committed on blur/Enter — see
+  // QuantityStepper) can easily rack up more of these than adds in the same
+  // window. Still a hard ceiling against a scripted loop.
   if (!(await checkRateLimit(await rateLimitKey("update-cart-quantity"), 60, 300))) {
     return { ok: false, error: "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο.", cart: await getCart() };
   }

@@ -78,26 +78,48 @@ export function QuantityStepper({
           aria-label={`Ποσότητα για ${productTitle}`}
           className="h-11 w-14 border-x border-border bg-transparent text-center text-sm tabular-nums text-ink outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           onChange={(e) => {
+            // Editing buffer only — never commits mid-keystroke. Typing
+            // "150" digit-by-digit used to call `onChange` (and, for the
+            // cart's stepper, a server action) after every single digit; the
+            // committed value now only moves on blur/Enter below, so a
+            // customer typing a multi-digit quantity does it once, not N
+            // times over.
             setDraft(e.target.value);
-            // Whole units only (CART_UX_SPEC's products are all sold that
-            // way) — parseInt both rejects letters/empty (NaN) and truncates
-            // an accidental decimal rather than erroring on it. Propagates
-            // 0/negative too, same as an excessive number: the caller (not
-            // this component) decides what "0" or "1000" means for it —
-            // AddToCartButton disables Add; the cart commits 0/negative as a
-            // removal, matching "-" at quantity 1. Never clamped to `max`
-            // either, for the same reason: the global stock-limit feature
-            // needs the caller to see the real typed number, not a swallowed
-            // one.
-            const next = Number.parseInt(e.target.value, 10);
-            if (Number.isFinite(next)) onChange(next);
+          }}
+          onKeyDown={(e) => {
+            // Funnels through the same commit path as blur rather than
+            // duplicating it — Enter is just "commit now" instead of
+            // "commit when focus leaves".
+            if (e.key === "Enter") {
+              e.preventDefault();
+              inputRef.current?.blur();
+            }
           }}
           onBlur={() => {
-            // Leftover invalid text (emptied the field, pasted letters) with
-            // nothing valid ever having been typed after it — snap back to
-            // the last real quantity instead of leaving the field blank.
+            // The one commit point for typed input. Whole units only
+            // (CART_UX_SPEC's products are all sold that way) — parseInt
+            // both rejects letters/empty (NaN) and truncates an accidental
+            // decimal rather than erroring on it.
             const next = Number.parseInt(draft, 10);
-            if (!Number.isFinite(next) || next < 1) setDraft(String(quantity));
+            if (!Number.isFinite(next)) {
+              // Leftover invalid text (emptied the field, pasted letters)
+              // with nothing valid ever having been typed — snap back to
+              // the last real quantity instead of leaving the field blank.
+              setDraft(String(quantity));
+              return;
+            }
+            // Normalize the display (e.g. a typed "007" -> "7") independent
+            // of whether the value actually changed.
+            setDraft(String(next));
+            if (next === quantity) return;
+            // Propagates 0/negative too, same as an excessive number: the
+            // caller (not this component) decides what "0" or "1000" means
+            // for it — AddToCartButton disables Add; the cart commits
+            // 0/negative as a removal, matching "-" at quantity 1. Never
+            // clamped to `max` either, for the same reason: the global
+            // stock-limit feature needs the caller to see the real typed
+            // number, not a swallowed one.
+            onChange(next);
           }}
         />
       ) : (
