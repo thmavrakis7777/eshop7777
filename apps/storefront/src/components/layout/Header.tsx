@@ -275,7 +275,7 @@ export function Header({
                 ...(item.backgroundColor ? { backgroundColor: item.backgroundColor } : {}),
               };
               const chip = item.backgroundColor ? "rounded-sm" : "";
-              const base = `flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none ${chip} ${
+              const base = `flex items-center gap-1 px-3 py-2 text-sm 2xl:text-[0.9375rem] font-medium transition-colors motion-reduce:transition-none ${chip} ${
                 item.textColor || item.backgroundColor
                   ? ""
                   : overlay

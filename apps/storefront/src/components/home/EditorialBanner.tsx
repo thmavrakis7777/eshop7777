@@ -74,10 +74,10 @@ function PromoBannerCard({
       />
       {hasCopy && (
         <div className="flex flex-col gap-2 p-6">
-          {heading && <h3 className="text-xl text-ink md:text-2xl">{heading}</h3>}
-          {body && <p className="text-sm text-ink-muted">{body}</p>}
+          {heading && <h3 className="text-xl text-ink md:text-2xl lg:text-[1.75rem]">{heading}</h3>}
+          {body && <p className="text-sm text-ink-muted md:text-base">{body}</p>}
           {showCta && (
-            <Link href={ctaHref!} className="mt-2 w-fit text-sm font-medium text-ink underline underline-offset-4">
+            <Link href={ctaHref!} className="mt-2 w-fit text-sm md:text-[0.9375rem] font-semibold text-ink underline underline-offset-4">
               {ctaLabel}
             </Link>
           )}
@@ -133,10 +133,10 @@ function PromoSection({ block, imageFirst }: { block: HomepageSection; imageFirs
         }`}
       >
         {block.eyebrow && <p className="text-xs font-medium uppercase tracking-[0.15em] text-accent">{block.eyebrow}</p>}
-        {block.heading && <h2 className="mt-3 text-2xl text-ink md:text-3xl">{block.heading}</h2>}
+        {block.heading && <h2 className="mt-3 text-[clamp(1.5rem,1.15rem+1.6vw,2.25rem)] text-ink">{block.heading}</h2>}
         {block.body && <p className="mt-3 text-sm text-ink-muted md:text-base">{block.body}</p>}
         {block.ctaLabel && block.ctaHref && (
-          <Link href={block.ctaHref} className="mt-6 text-sm font-medium text-ink underline underline-offset-4">
+          <Link href={block.ctaHref} className="mt-6 text-sm md:text-[0.9375rem] font-semibold text-ink underline underline-offset-4">
             {block.ctaLabel}
           </Link>
         )}

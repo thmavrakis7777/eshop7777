@@ -133,17 +133,17 @@ export function HeroSlide({
           </p>
         )}
         {heading ? (
-          <HeadingTag className={`mt-3 text-4xl md:text-6xl ${imageUrl ? "text-white" : "text-ink"}`}>{heading}</HeadingTag>
+          <HeadingTag className={`mt-3 text-[clamp(1.875rem,1.4rem+2.2vw,3.75rem)] font-semibold ${imageUrl ? "text-white" : "text-ink"}`}>{heading}</HeadingTag>
         ) : (
           asH1 && <h1 className="sr-only">{storeName}</h1>
         )}
         {body && (
-          <p className={`mt-4 max-w-md text-base md:text-lg ${imageUrl ? "text-white/90" : "text-ink-muted"}`}>{body}</p>
+          <p className={`mt-4 max-w-md text-[clamp(1rem,0.95rem+0.3vw,1.125rem)] ${imageUrl ? "text-white/90" : "text-ink-muted"}`}>{body}</p>
         )}
         {showButton && (
           <Link
             href={ctaHref!}
-            className="mt-8 inline-flex items-center rounded-sm bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent"
+            className="mt-8 inline-flex items-center rounded-sm bg-ink px-6 py-3 text-sm sm:text-base font-semibold text-white transition-colors hover:bg-accent"
           >
             {ctaLabel}
           </Link>
