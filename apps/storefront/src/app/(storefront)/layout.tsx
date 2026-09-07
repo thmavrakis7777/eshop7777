@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { PromoBannerBar } from "@/components/layout/PromoBannerBar";
+import { TopBars } from "@/components/layout/TopBars";
 import { ConsentBanner } from "@/components/layout/ConsentBanner";
 import { AnalyticsScripts } from "@/components/layout/AnalyticsScripts";
 import { Header } from "@/components/layout/Header";
@@ -179,13 +180,6 @@ export default async function StorefrontLayout({ children }: { children: React.R
   // Permanent fallback, not a migration step: a shop that has never opened
   // the navigation screen still gets a working menu of its top-level
   // categories, exactly as before this feature existed.
-  // See globals.css's `.has-top-bars` rule: the Hero's viewport-fill height
-  // needs to know whether either bar is actually rendering, using the exact
-  // same data AnnouncementBar/PromoBannerBar themselves check.
-  const hasTopBars = Boolean(
-    settings?.announcementText || resolvePhoneOrders(settings) || promoBanner
-  );
-
   const navItems: NavItem[] =
     configuredNav.length > 0
       ? configuredNav
@@ -224,11 +218,13 @@ export default async function StorefrontLayout({ children }: { children: React.R
       </a>
       <WishlistProvider isLoggedIn={customerId !== null}>
         <CartUIProvider>
-          <AnnouncementBar
-            text={settings?.announcementText ?? null}
-            phoneOrders={resolvePhoneOrders(settings)}
-          />
-          {promoBanner && <PromoBannerBar banner={promoBanner} />}
+          <TopBars>
+            <AnnouncementBar
+              text={settings?.announcementText ?? null}
+              phoneOrders={resolvePhoneOrders(settings)}
+            />
+            {promoBanner && <PromoBannerBar banner={promoBanner} />}
+          </TopBars>
           <Header
             categories={categories}
             navItems={navItems}
@@ -237,7 +233,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
             storeName={branding.storeName}
             logoUrl={branding.logoUrl}
           />
-          <main id="main-content" className={hasTopBars ? "flex-1 has-top-bars" : "flex-1"}>
+          <main id="main-content" className="flex-1">
             {children}
           </main>
           <Footer

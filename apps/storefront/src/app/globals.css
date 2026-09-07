@@ -23,6 +23,13 @@
   --radius-lg: 0.75rem;
 
   --header-height: 4.5rem;
+  /* Real height fed by TopBars.tsx's ResizeObserver once mounted (same
+     pattern Header.tsx uses for --header-height above). 3rem is a sane
+     first-paint guess — the shorter, single-line regime the announcement
+     bar most commonly renders in — corrected the instant JS measures the
+     real thing; see hero-viewport-fill below for why this needs to be a
+     real measurement rather than another flat guess. */
+  --topbars-height: 3rem;
 }
 
 @theme inline {
@@ -45,9 +52,31 @@
 }
 
 /*
- * Fills the screen below the sticky header on the homepage's first Hero
- * only (mobile/tablet — see Hero.tsx's isFirstSection), so header + hero
- * together read as one initial screen. The three stacked min-height
+ * Fills exactly what's left of the first viewport below the announcement/
+ * promo bars above it (see TopBars.tsx) — so bars + header + this Hero
+ * together always read as one full initial screen, at every breakpoint,
+ * with nothing from the next section peeking in and no leftover white gap
+ * either.
+ *
+ * Deliberately does NOT also subtract --header-height here, even though the
+ * header visually sits above the Hero: the Hero's own wrapping <section>
+ * already carries `margin-top: calc(var(--header-height) * -1)` (Hero.tsx)
+ * so it renders pulled up underneath the sticky header rather than below
+ * it — that negative margin is what makes the header's height "disappear"
+ * from the flow. Subtracting header-height a second time here as well
+ * double-counted it: the Hero ended up exactly one header-height short of
+ * the true viewport bottom, every time, at every breakpoint — confirmed
+ * live (a 72px shortfall against a 72px --header-height, to the pixel).
+ * Only --topbars-height still needs subtracting, since nothing pulls the
+ * Hero up past the announcement/promo bars the way the margin does for the
+ * header.
+ *
+ * --topbars-height is a REAL measurement (ResizeObserver, not a guessed
+ * constant) fed in by TopBars.tsx, the same pattern Header.tsx uses for
+ * --header-height — a flat guess is wrong the moment real content wraps to
+ * a different number of lines than the guess assumed. --topbars-height
+ * defaults to a sane 3rem before JS measures it (see :root) so there's
+ * still something reasonable on first paint. The three stacked min-height
  * declarations are a progressive-enhancement fallback chain, not
  * duplication: a browser uses the last one it understands, landing on dvh
  * (which tracks the mobile address bar showing/hiding, avoiding the
@@ -55,38 +84,9 @@
  * everywhere else.
  */
 @utility hero-viewport-fill {
-  min-height: calc(100vh - var(--header-height));
-  min-height: calc(100svh - var(--header-height));
-  min-height: calc(100dvh - var(--header-height));
-}
-
-/*
- * hero-viewport-fill assumes the sticky header (--header-height) is the only
- * thing sitting above the Hero at initial scroll position — but the
- * announcement bar and/or promo banner (both admin-configurable, both
- * un-sticky, both variable height) also occupy real space there whenever
- * present, which the calc()s above can't know about. Confirmed live: with a
- * two-line announcement bar, the Hero's own CTA rendered ~17px below the
- * first viewport's fold at 375x812 — the calc() sized the Hero as if that
- * bar didn't exist. `.has-top-bars` is set server-side on <main> in
- * (storefront)/layout.tsx from the same data AnnouncementBar/PromoBannerBar
- * already use to decide whether to render at all, so this only ever
- * shortens the Hero when a bar is actually showing, never when both are off.
- * The 5rem allowance comfortably covers one bar at up to two wrapped lines
- * (measured live: 48px single-line mobile, 56px two-line tablet; desktop's
- * own single-line xl: layout is shorter still, so the same allowance stays
- * safe there too); both bars active and both wrapping at once is only
- * partially covered by a static margin — an accepted trade-off over a
- * JS-measured height, which would risk a visible post-hydration layout
- * shift (CLS) on every load to fix a case that, unfixed, only costs a short
- * scroll to reach the CTA. Applies at every width now that the Hero itself
- * uses hero-viewport-fill everywhere (the desktop Hero no longer has its own
- * fixed `lg:min-h-[32rem]` carve-out).
- */
-.has-top-bars .hero-viewport-fill {
-  min-height: calc(100vh - var(--header-height) - 5rem);
-  min-height: calc(100svh - var(--header-height) - 5rem);
-  min-height: calc(100dvh - var(--header-height) - 5rem);
+  min-height: calc(100vh - var(--topbars-height));
+  min-height: calc(100svh - var(--topbars-height));
+  min-height: calc(100dvh - var(--topbars-height));
 }
 
 @layer base {
