@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type ToastState = { message: string } | null;
 
@@ -35,6 +36,27 @@ export function CartUIProvider({ children }: { children: React.ReactNode }) {
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
+
+  // Every link inside CartDrawer already closes the drawer on click, because
+  // this provider lives in RootLayout and a client-side navigation never
+  // unmounts it (see the note on the drawer's checkout button). Browser
+  // Back/Forward was the hole in that: it is a route change nothing clicked,
+  // so the drawer rode along onto the destination page with `body { overflow:
+  // hidden }` still applied — measured on /kouzina with the drawer open,
+  // history.back() landed on / still covered and still unscrollable, which is
+  // a page the shopper cannot use at all.
+  //
+  // Watching the pathname covers both cases at once — a clicked link and a
+  // history entry are the same signal here — and it is the same render-time
+  // reset Header uses for its own overlays, rather than a second, differently
+  // -shaped route watcher. Add-to-cart still opens the drawer: that path
+  // (useQuickAdd → openDrawer/showAddedToast) changes no route.
+  const pathname = usePathname();
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (lastPathname !== pathname) {
+    setLastPathname(pathname);
+    if (isDrawerOpen) setIsDrawerOpen(false);
+  }
 
   return (
     <CartUIContext.Provider

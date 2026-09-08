@@ -23,6 +23,13 @@ export type ProductSource =
   | { type: "featured" }
   | { type: "search"; query: string };
 
+// The grid below is 2 / 3 / 4 columns (base / md / lg), and which of those is
+// on screen is not knowable when the HTML is generated — so this is the
+// widest of the three. On a phone it reaches one row further than the fold,
+// which is the cheap side of the trade: two extra 50vw images preloaded,
+// versus a desktop first row left lazy.
+const FIRST_ROW_CARDS = 4;
+
 function sourceKeyOf(source: ProductSource): string {
   if (source.type === "category") return `category:${source.categoryHandle}`;
   if (source.type === "collection") return `collection:${source.collectionHandle}`;
@@ -167,8 +174,16 @@ export function InfiniteProductGrid({
   return (
     <>
       <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
-        {state.products.map((p) => (
-          <ProductCard key={p.id} product={p} />
+        {state.products.map((p, i) => (
+          // The LCP element on a listing page is one of these first-row
+          // images, and next/image lazy-loads every one of them by default —
+          // Next's own dev overlay flagged it on /kouzina. Eagerly preloading
+          // the first row fixes that; preloading more would just push the
+          // real LCP image further down the queue, which is why the count is
+          // the widest first row (lg: 4 columns) and not a screenful.
+          // Page 1 only: on page 2+ the shopper has scrolled, so nothing here
+          // is the first paint the metric measures.
+          <ProductCard key={p.id} product={p} priority={page === 1 && i < FIRST_ROW_CARDS} />
         ))}
       </div>
 

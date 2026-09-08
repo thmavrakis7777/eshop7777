@@ -75,6 +75,8 @@ export function Header({
   const activeMegaMenu = navCategories.find((c) => c.handle === openMenu) ?? null;
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const headerRowRef = useRef<HTMLDivElement>(null);
+  const searchToggleRef = useRef<HTMLButtonElement>(null);
+  const searchPanelRef = useRef<HTMLDivElement>(null);
   // The mega menu panel sits at `top-full` of this whole row (logo/icon row
   // + the category nav line beneath it), and that combined height isn't a
   // fixed design-token value — it flexes with the logo's clamp()ed font
@@ -121,6 +123,63 @@ export function Header({
     return () => observer.disconnect();
   }, []);
 
+  // This header lives in the layout, so a client-side navigation never
+  // unmounts it — an open search panel, and whatever was typed into it,
+  // otherwise rides along onto the destination page (confirmed live: / →
+  // /kouzina left the panel open with its query intact), including on
+  // browser Back/Forward, which are ordinary pathname changes here too.
+  // The router's own pathname is already this file's route signal
+  // (useHeaderOverlay above reads the same value), so this needs no extra
+  // listener, no global state and no route watcher of its own. Closing is
+  // also what RESETS the search: query, results and active option all live
+  // inside SearchBox, which unmounts with the panel.
+  //
+  // Every overlay this header owns is reset here, not just the search panel.
+  // The mobile menu was the worst of them: it survived Back/Forward with
+  // `body { overflow: hidden }` still applied (measured: menu open on /,
+  // history.forward() → /kouzina with the drawer still covering the page and
+  // the page still locked). The mega-menu survived the same way — no scroll
+  // lock, so milder, but it has its own dismissal only on mouse-leave, which
+  // a keyboard or touch user never triggers. Both are the same bug as the
+  // search panel's, so they get the same one-line answer rather than three
+  // different route watchers.
+  //
+  // Adjusted during render against the previous pathname — React's
+  // documented "reset state when a value changes" pattern, the same one
+  // SearchBox uses for its below-min-length reset and CartDrawer for its
+  // mount/exit flags — rather than an effect. It re-renders before the
+  // browser paints, so the destination page never shows a frame with the
+  // old panel still on it, and it costs no extra commit.
+  const pathname = usePathname();
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (lastPathname !== pathname) {
+    setLastPathname(pathname);
+    if (searchOpen) setSearchOpen(false);
+    if (mobileOpen) setMobileOpen(false);
+    if (openMenu) setOpenMenu(null);
+  }
+
+  // Dismiss-on-outside-click for the whole panel. Deliberately the same
+  // `mousedown` + `contains` shape SearchBox (and AddressAutocomplete before
+  // it) already uses rather than a second, differently-behaving utility —
+  // one level up: SearchBox's own handler closes just its results dropdown,
+  // this one closes the panel that contains it. Bound only while the panel
+  // is open, so there is no always-on document listener, and `mousedown`
+  // (not `click`) is what makes a tap outside dismiss on touch too.
+  // The toggle button is excluded on purpose: without that, its own onClick
+  // would immediately re-open what this had just closed.
+  useEffect(() => {
+    if (!searchOpen) return;
+    function handlePointerDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (searchPanelRef.current?.contains(target)) return;
+      if (searchToggleRef.current?.contains(target)) return;
+      setSearchOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [searchOpen]);
+
   return (
     <header
       className={`sticky top-0 z-40 border-b transition-colors duration-300 motion-reduce:transition-none ${
@@ -129,7 +188,13 @@ export function Header({
           : "border-border bg-bg/95 text-ink backdrop-blur"
       }`}
       onKeyDown={(e) => {
-        if (e.key === "Escape") setOpenMenu(null);
+        if (e.key !== "Escape") return;
+        setOpenMenu(null);
+        // SearchBox's input handler calls preventDefault() only when it
+        // actually consumed the Escape to close its own results dropdown, so
+        // this reads as: first Escape closes the dropdown, the next closes
+        // the whole panel — rather than one keypress collapsing both at once.
+        if (!e.defaultPrevented) setSearchOpen(false);
       }}
     >
       <div ref={headerRowRef} className="container-shell relative">
@@ -175,19 +240,40 @@ export function Header({
           />
 
 
+          {/* The overlay state's hover colour, shared by all four action
+              controls below. They used a flat `hover:text-accent` while the
+              category nav beneath them already switched to `hover:text-white/
+              80` over the Hero — so on the homepage at the top, hovering any
+              of these icons turned it terracotta over a photo, which reads as
+              noticeably harder to see than the white it replaces (the close X
+              in particular, while search is open). Same treatment as the nav,
+              so the whole header now behaves as one thing in overlay state. */}
           <div className="col-start-3 flex items-center justify-self-end gap-1 sm:gap-2">
             <button
+              ref={searchToggleRef}
               type="button"
-              className="p-2 hover:text-accent transition-colors"
+              className={`p-2 transition-colors ${overlay ? "hover:text-white/80" : "hover:text-accent"}`}
               aria-label="Αναζήτηση"
               aria-expanded={searchOpen}
-              onClick={() => setSearchOpen((v) => !v)}
+              // Both panels hang off the same `top-full` edge and cover the
+              // same strip of page, so two of them open at once is just one
+              // painted on top of the other. Opening search dismisses the
+              // mega-menu here; the other direction is handled on the nav
+              // triggers themselves, which decline to open over an open
+              // search panel rather than yanking it (and a half-typed query)
+              // away on a mouse that merely passed across the nav.
+              onClick={() => {
+                setOpenMenu(null);
+                setSearchOpen((v) => !v);
+              }}
             >
               {searchOpen ? <CloseIcon /> : <SearchIcon />}
             </button>
             <Link
               href="/lista-epithymion"
-              className="relative hidden p-2 hover:text-accent transition-colors sm:block"
+              className={`relative hidden p-2 transition-colors sm:block ${
+                overlay ? "hover:text-white/80" : "hover:text-accent"
+              }`}
               aria-label={`Λίστα επιθυμιών, ${wishlistCount} προϊόντα`}
             >
               <HeartIcon filled={wishlistCount > 0} />
@@ -197,12 +283,20 @@ export function Header({
                 </span>
               )}
             </Link>
-            <Link href="/logariasmos" className="hidden sm:block p-2 hover:text-accent transition-colors" aria-label="Λογαριασμός">
+            <Link
+              href="/logariasmos"
+              className={`hidden sm:block p-2 transition-colors ${
+                overlay ? "hover:text-white/80" : "hover:text-accent"
+              }`}
+              aria-label="Λογαριασμός"
+            >
               <UserIcon />
             </Link>
             <button
               type="button"
-              className="flex items-center gap-1.5 rounded-sm px-2 py-2 hover:text-accent transition-colors"
+              className={`flex items-center gap-1.5 rounded-sm px-2 py-2 transition-colors ${
+                overlay ? "hover:text-white/80" : "hover:text-accent"
+              }`}
               aria-label={`Καλάθι, ${cartItemCount} προϊόντα${
                 cartItemCount > 0 ? `, σύνολο ${formatPrice(cartTotal)}` : ""
               }`}
@@ -302,8 +396,15 @@ export function Header({
                       className={base}
                       style={style}
                       aria-expanded={openMenu === item.categorySlug}
-                      onMouseEnter={() => setOpenMenu(item.categorySlug)}
-                      onFocus={() => setOpenMenu(item.categorySlug)}
+                      // Not while the search panel is open — the two overlap
+                      // exactly (see the search toggle above). Hover is not
+                      // intent, so this suppresses the menu rather than
+                      // closing search: the shopper's typed query survives,
+                      // and actually pressing on a category still closes the
+                      // panel via its outside-mousedown handler and
+                      // navigates.
+                      onMouseEnter={() => !searchOpen && setOpenMenu(item.categorySlug)}
+                      onFocus={() => !searchOpen && setOpenMenu(item.categorySlug)}
                       // Closes the mega-menu immediately on click, before the
                       // navigation's own transition — otherwise Header (in
                       // the layout, not this page) stays mounted across the
@@ -477,7 +578,43 @@ export function Header({
       </div>
 
       {searchOpen && (
-        <div className="border-t border-border bg-bg">
+        <div
+          ref={searchPanelRef}
+          // `absolute`, NOT in the header's flow — this is the actual fix for
+          // the search-contrast bug, and it deliberately leaves the
+          // transparent/overlay header itself completely untouched.
+          //
+          // In flow, this panel added its own height to the <header>, which
+          // pushed everything after the header down by that much — including
+          // the homepage Hero, whose `mt-[calc(var(--header-height)*-1)]`
+          // only ever cancels the ROW's height (--header-height is measured
+          // off headerRowRef, which excludes this panel, and must stay that
+          // way or the Hero would jump on every open/close). The Hero is the
+          // only thing behind the transparent header, so the instant search
+          // opened the Hero slid out from under it and the whole icon row —
+          // white logo, white close X, wishlist, account, cart, category nav
+          // — was left as white-on-white over the page background. Measured
+          // live before the fix: Hero top moved 55.98px → 131.18px, exactly
+          // this panel's own height. Out of flow, nothing after the header
+          // moves at all, the Hero stays put behind the transparent row, and
+          // every overlay-white element keeps the image it was designed to
+          // read against. It also removes a real layout shift on open.
+          //
+          // The sticky <header> is a positioned element, so it is already
+          // this panel's containing block: `top-full` lands exactly on the
+          // row's bottom edge, the same `absolute inset-x-0 top-full` +
+          // `shadow-lg` overlay shape the mega-menu panel above uses. No
+          // z-index on purpose — adding one would make this a stacking
+          // context and trap SearchBox's own z-50 results dropdown inside it,
+          // underneath the mega-menu panel.
+          //
+          // text-ink is the other half: this panel is its own solid bg-bg
+          // surface, so its contents must not inherit the header's
+          // overlay-state `text-white`. Without it the typed query rendered
+          // white on white — invisible (measured: computed colour
+          // rgb(255,255,255) on #ffffff), which is the bug as reported.
+          className="absolute inset-x-0 top-full border-t border-border bg-bg text-ink shadow-lg"
+        >
           <div className="container-shell py-4">
             <SearchBox onNavigate={() => setSearchOpen(false)} />
           </div>

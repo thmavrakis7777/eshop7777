@@ -172,13 +172,37 @@ export function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
       {showDropdown && (
         <div
           id={LISTBOX_ID}
-          className="absolute inset-x-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-md border border-border bg-bg shadow-lg"
+          // overscroll-contain, matching the mega-menu panel and the cart
+          // drawer: the rows are tall enough now that a full six-result list
+          // really does overflow the cap on a phone, and without this a
+          // wheel/touch scroll that reaches the end of the list chains
+          // straight into scrolling the page behind it instead — page-level
+          // scrolling silently taking over from the list's own is exactly
+          // what makes results feel unreachable. It matters more here than
+          // it used to precisely because the list now actually scrolls.
+          //
+          // svh, not vh, for the cap. This panel hangs off a sticky header,
+          // so the page cannot be scrolled to bring its bottom edge into
+          // view — whatever falls below the fold is unreachable, full stop.
+          // `vh` is the LARGE viewport (mobile browser chrome retracted), so
+          // sizing against it overhangs the actually-visible area by roughly
+          // the toolbar height on a phone; measured at 375x812 the list's
+          // bottom edge sat at 755px, past where a real Safari toolbar
+          // leaves off. `svh` is the small viewport — the one that is always
+          // visible — which is the conservative choice a never-clip cap
+          // wants. Deliberately not `dvh` (globals.css's hero preference):
+          // dvh tracks the bar and so can still exceed what is on screen
+          // mid-retraction. Desktop is unaffected: with no dynamic toolbar,
+          // svh and vh are the same number there.
+          className="absolute inset-x-0 top-full z-50 mt-2 max-h-[70svh] overflow-y-auto overscroll-contain rounded-md border border-border bg-bg shadow-lg"
         >
           {showSkeleton ? (
-            <div className="flex flex-col gap-1 px-3 py-2" aria-hidden="true">
+            <div className="flex flex-col px-3 py-1 sm:px-4" aria-hidden="true">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="flex items-center gap-3 py-1.5">
-                  <div className="h-11 w-11 shrink-0 animate-pulse rounded-md bg-surface" />
+                // Same box the real row now uses, so the list does not
+                // visibly resize under the shopper when results land.
+                <div key={i} className="flex items-center gap-3 py-3">
+                  <div className="h-14 w-14 shrink-0 animate-pulse rounded-md bg-surface sm:h-20 sm:w-20" />
                   <div className="flex flex-1 flex-col gap-2">
                     <div className="h-3 w-2/3 animate-pulse rounded-sm bg-surface" />
                     <div className="h-2.5 w-1/3 animate-pulse rounded-sm bg-surface" />

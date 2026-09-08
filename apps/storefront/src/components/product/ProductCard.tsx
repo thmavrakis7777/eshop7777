@@ -30,9 +30,15 @@ export function ProductCard({
   // grid's larger size there over-fetches image resolution for no visible
   // gain.
   sizes = "(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw",
+  // Straight through to ProductImage — see the note there. Only the listing
+  // grid sets it, and only for its first row on the first page; every other
+  // caller (rail, wishlist, journal) renders below the fold and keeps the
+  // lazy default.
+  priority = false,
 }: {
   product: Product;
   sizes?: string;
+  priority?: boolean;
 }) {
   const { hasSingleVariant, isOutOfStock, isPending, error, quickAdd } = useQuickAdd(product);
 
@@ -62,6 +68,7 @@ export function ProductCard({
               label={product.title}
               tone={product.placeholderTone}
               sizes={sizes}
+              priority={priority}
             />
           </div>
         </Link>

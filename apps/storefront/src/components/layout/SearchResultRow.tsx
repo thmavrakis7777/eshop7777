@@ -32,29 +32,49 @@ export function SearchResultRow({
 
   return (
     <li id={optionId} role="option" aria-selected={active}>
-      <div className={`flex items-center gap-3 px-3 py-2 transition-colors ${active ? "bg-surface" : ""}`}>
+      <div className={`flex items-center gap-3 px-3 py-3 transition-colors sm:px-4 ${active ? "bg-surface" : ""}`}>
         <Link
           href={`/proionta/${product.handle}`}
           className="flex min-w-0 flex-1 items-center gap-3"
           onClick={onNavigate}
           tabIndex={-1}
         >
-          <div className="h-11 w-11 shrink-0">
+          {/* 44px was too small to actually recognise a product by — a
+              thumbnail that size shows little more than the dominant colour,
+              and PlaceholderTile's initials had to fight for room in it too.
+              80px is what makes the photo the thing you scan the list by.
+              Two tiers rather than one flat size because this row is
+              [image][name][price][add] all on one line: below `sm` the width
+              is genuinely scarce and the NAME needs those pixels more than
+              the thumbnail does. Measured at 320px, a flat 80/64px box left
+              the name column at 66px — narrower than the 44px thumbnail had
+              left it, which would have made this a regression on the
+              narrowest phone the shop supports rather than a fix. 56px there
+              keeps the name column at its previous width while still being a
+              third larger than before. `sizes` tracks the same two widths —
+              a stale hint would have next/image serving a 44px-wide source
+              into an 80px box. */}
+          <div className="h-14 w-14 shrink-0 sm:h-20 sm:w-20">
             <ProductImage
               imageUrl={product.imageUrl}
               label={product.title}
               tone={product.placeholderTone}
-              sizes="44px"
+              sizes="(min-width: 640px) 80px, 56px"
             />
           </div>
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate text-sm text-ink">{product.title}</span>
+          <span className="flex min-w-0 flex-col gap-0.5">
+            {/* line-clamp-2, not truncate: the taller row now has space for a
+                second line, and a long Greek product name cut off after one
+                was routinely losing the words that distinguish it from its
+                neighbours (size, material, set count). Still bounded, so one
+                verbose title cannot stretch the row without limit. */}
+            <span className="line-clamp-2 text-sm text-ink">{product.title}</span>
             {error ? (
-              <span role="alert" className="truncate text-[11px] text-danger">
+              <span role="alert" className="truncate text-xs text-danger">
                 {error}
               </span>
             ) : (
-              <span className="truncate text-[11px] text-ink-muted">
+              <span className="truncate text-xs text-ink-muted">
                 {product.code && `Κωδικός: ${product.code}`}
                 {product.code && isOutOfStock && " · "}
                 {isOutOfStock && <span className="text-danger">Εξαντλήθηκε</span>}
@@ -69,7 +89,7 @@ export function SearchResultRow({
               {formatPrice(product.price)}
             </span>
             {product.compareAtPrice && (
-              <span className="whitespace-nowrap text-[11px] text-ink-muted line-through">
+              <span className="whitespace-nowrap text-xs text-ink-muted line-through">
                 {formatPrice(product.compareAtPrice)}
               </span>
             )}

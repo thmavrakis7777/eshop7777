@@ -174,7 +174,18 @@ function FilterSheet({
         onClick={requestClose}
       />
       <div
-        className={`absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-lg bg-bg shadow-xl transition-transform duration-300 ease-out motion-reduce:transition-none ${
+        // svh, not vh, for the same reason as the search dropdown's cap: `vh`
+        // is the LARGE viewport — the one with the mobile browser's chrome
+        // retracted — so a cap written against it can exceed what is actually
+        // on screen while the toolbar is showing. `svh` is the small
+        // viewport, the part that is always visible, which is the
+        // conservative number a "never taller than" cap wants. Identical on
+        // desktop, where there is no dynamic toolbar for the two to differ
+        // by. Note this bounds the sheet's HEIGHT; it is still anchored
+        // bottom-0 to the fixed layer, so whether the Καθαρισμός/Εφαρμογή row
+        // can ever sit under an iOS toolbar is a separate question that only
+        // a real device can answer.
+        className={`absolute inset-x-0 bottom-0 flex max-h-[85svh] flex-col rounded-t-lg bg-bg shadow-xl transition-transform duration-300 ease-out motion-reduce:transition-none ${
           visible ? "translate-y-0" : "translate-y-full"
         }`}
       >

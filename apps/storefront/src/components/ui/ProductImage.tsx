@@ -11,11 +11,23 @@ export function ProductImage({
   label,
   tone,
   sizes,
+  // Opt-in, defaulting to next/image's own lazy loading, because that is the
+  // right behaviour for all but a handful of images on any page: this
+  // component renders in listing grids, the cart drawer, the checkout summary
+  // and the search dropdown, none of which are above the fold. It exists for
+  // the ones that are — Next's dev overlay flagged the first listing card as
+  // the Largest Contentful Paint element and asked for exactly this — and
+  // priority is a preload, so it is only ever a win while it stays scarce:
+  // marking a whole grid would put every card ahead of the one image the
+  // shopper is actually waiting for. Callers pass it for a first row, never
+  // for a page.
+  priority = false,
 }: {
   imageUrl: string | null;
   label: string;
   tone: Tone;
   sizes: string;
+  priority?: boolean;
 }) {
   if (!imageUrl) {
     return <PlaceholderTile label={label} tone={tone} />;
@@ -23,7 +35,7 @@ export function ProductImage({
 
   return (
     <div className="relative aspect-square w-full overflow-hidden rounded-md">
-      <Image src={imageUrl} alt={label} fill sizes={sizes} className="object-cover" />
+      <Image src={imageUrl} alt={label} fill sizes={sizes} priority={priority} className="object-cover" />
     </div>
   );
 }
