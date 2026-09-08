@@ -1,18 +1,24 @@
 import type { Instrumentation } from "next";
+import { sendErrorAlert } from "@/lib/observability/alert";
 
 /**
- * The safe, zero-dependency baseline for #15 of the production audit ("no
+ * The zero-dependency error pipeline for #15 of the production audit ("no
  * error tracking / APM"). `onRequestError` is a native, stable (since Next
  * 15) hook — no new dependency, no external account, no CSP change, and no
  * PII risk beyond what's already in a server log line.
  *
- * This does not replace a real error-tracking service (Sentry or similar):
- * it has no dashboard, no alerting, and no history beyond whatever log
- * retention the deployment platform keeps. It gives genuine, immediate
- * visibility today — every unhandled server-side error already reaches
- * Vercel's function logs, just without this consistent, greppable shape —
- * without requiring credentials this session cannot create. See
- * PROJECT_AUDIT.md for the external setup a full tracker would need.
+ * Two sinks, deliberately separate:
+ *
+ *   1. A structured console.error — always on, and the durable record. Every
+ *      unhandled server error already reached Vercel's function logs; this
+ *      just gives it the consistent, greppable shape used everywhere else.
+ *   2. An outbound alert (lib/observability/alert.ts) — off until
+ *      ERROR_ALERT_WEBHOOK_URL is set, and the part that actually pages
+ *      someone rather than waiting to be discovered.
+ *
+ * This still is not a full error *tracker*: no dashboard, no grouping, no
+ * history beyond log retention. That part genuinely needs a vendor account,
+ * and adding @sentry/nextjs later is additive — this hook keeps its shape.
  *
  * Same structured-log convention already used for checkout/email/upload
  * failures (`console.error("[scope] EVENT", {...})`) — no new logging
@@ -35,5 +41,18 @@ export const onRequestError: Instrumentation.onRequestError = async (error, requ
     routerKind: context.routerKind,
     routePath: context.routePath,
     routeType: context.routeType,
+  });
+
+  // Awaited, not fire-and-forget: on a serverless platform the instance can
+  // be frozen the moment the response is sent, and an un-awaited fetch is
+  // simply never delivered. sendErrorAlert is a no-op without a configured
+  // webhook, bounded by a 2s timeout, and never throws — so awaiting it
+  // cannot turn an error into a worse one or hang the handler.
+  await sendErrorAlert({
+    message,
+    digest,
+    path: request.path,
+    method: request.method,
+    routePath: context.routePath,
   });
 };

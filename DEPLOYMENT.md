@@ -56,6 +56,7 @@ the full list with explanations:
 | `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | optional, together | required for image upload — see `MIGRATION_PLAN.md`'s "Image upload (blocked on credentials)" section |
 | `GOOGLE_PLACES_API_KEY` | optional | address autocomplete degrades to manual entry if unset |
 | `GEMI_API_KEY` | optional | ΓΕΜΗ company lookup degrades to manual entry if unset |
+| `ERROR_ALERT_WEBHOOK_URL` | optional, recommended | Slack/Discord/Teams incoming webhook. Unhandled server errors are posted to it by `instrumentation.ts` (deduplicated per error for 5 min). Unset = errors are still logged, just never announced — this is the difference between finding out from a log and finding out when it happens. |
 
 **Use the session-mode pooler (port 5432). This is a measured decision.**
 
