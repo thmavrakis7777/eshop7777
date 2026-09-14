@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { captureBoundaryError } from "@/lib/observability/capture-boundary-error";
 
 /**
  * The admin's error boundary — the sibling of (storefront)/error.tsx, kept
@@ -34,6 +35,7 @@ export default function AdminError({
       message: error.message,
       digest: error.digest,
     });
+    captureBoundaryError(error, "admin");
   }, [error]);
 
   return (

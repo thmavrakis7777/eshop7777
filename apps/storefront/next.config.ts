@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 // Baseline security headers. Content-Security-Policy is deliberately not
 // here — it needs a fresh nonce per request, which a static header list
@@ -79,6 +80,70 @@ const nextConfig: NextConfig = {
   // not). Every `next/image` call site across the app gets this for free,
   // no per-component change needed.
   images: { remotePatterns, formats: ["image/avif", "image/webp"] },
+  // Sentry's documented tree-shaking flags. @sentry/nextjs only sets them for
+  // webpack builds, so under Turbopack the SDK shipped its whole tracing
+  // stack (web-vitals, page-load spans, trace propagation) and its debug
+  // logger to every visitor — ~23 KB gzip of the ~50 KB it added, for
+  // features that are switched off anyway (performance monitoring is not
+  // used; see lib/observability/sentry-client-options.ts). Error capture code
+  // is not gated by either flag.
+  //
+  // Booleans, not "false": Next JSON-stringifies these values into the code,
+  // so the string "false" would become a truthy string literal and remove
+  // nothing.
+  compiler: {
+    define: {
+      __SENTRY_TRACING__: false,
+      __SENTRY_DEBUG__: false,
+    },
+  },
 };
 
-export default nextConfig;
+// Sentry — browser error tracking (src/instrumentation-client.ts). This
+// wrapper is what runs Sentry's build step: it injects the SDK's build-time
+// values into instrumentation-client.ts and, when credentials exist, uploads
+// source maps so stack traces read as real file/line/function names.
+//
+// Source maps are the part that could go wrong silently, so the relevant
+// defaults are set explicitly instead of trusted:
+//   - `disable` unless all three upload credentials exist. On a Turbopack
+//     build the SDK otherwise turns productionBrowserSourceMaps on by itself,
+//     and without a successful upload-and-delete those .map files would ship
+//     in .next/static — the app's full original source, publicly downloadable.
+//   - `deleteSourcemapsAfterUpload: true`. Documented as the default, but
+//     @sentry/nextjs 10.74's code falls back to false when it is omitted.
+// An upload that fails (Sentry outage, revoked token) is logged and the build
+// carries on — a monitoring hiccup must never block deploying the shop.
+//
+// Server-side instrumentation is off explicitly: server errors stay with
+// instrumentation.ts (log line + ERROR_ALERT_WEBHOOK_URL), and there is no
+// server Sentry.init. These wrappers only exist for webpack builds — Turbopack
+// ignores them — but a future `next build --webpack` must not quietly start
+// wrapping every route.
+const hasSentryUploadCredentials = Boolean(
+  process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
+);
+
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Upload maps for every client chunk, dependencies and Next internals
+  // included, so no frame of a browser stack trace stays minified.
+  widenClientFileUpload: true,
+  sourcemaps: {
+    disable: !hasSentryUploadCredentials,
+    deleteSourcemapsAfterUpload: true,
+  },
+  // Don't send Sentry anonymous usage data about this project's builds.
+  telemetry: false,
+  // The route manifest only names performance-tracing transactions, which
+  // are not used. Left on, it ships every route pattern (/admin ones
+  // included) to every visitor in the client bundle for nothing.
+  routeManifestInjection: false,
+  webpack: {
+    autoInstrumentServerFunctions: false,
+    autoInstrumentMiddleware: false,
+    autoInstrumentAppDirectory: false,
+  },
+});

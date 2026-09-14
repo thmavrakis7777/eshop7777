@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { captureBoundaryError } from "@/lib/observability/capture-boundary-error";
 import "./globals.css";
 
 /**
@@ -41,6 +42,10 @@ export default function GlobalError({
       message: error.message,
       digest: error.digest,
     });
+    // The SDK is initialised by instrumentation-client.ts before hydration,
+    // independently of the root layout — so it is still there to report to
+    // even when that layout is what failed.
+    captureBoundaryError(error, "root");
   }, [error]);
 
   return (

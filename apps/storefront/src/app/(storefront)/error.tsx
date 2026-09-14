@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { captureBoundaryError } from "@/lib/observability/capture-boundary-error";
 
 /**
  * The storefront's error boundary — audit finding #5, open across three
@@ -34,13 +35,14 @@ export default function StorefrontError({
     // Server-rendered errors already reach the logs through
     // instrumentation.ts's onRequestError hook, which records the same
     // `digest`. Errors thrown during client-side rendering never touch the
-    // server at all, so this is their only record — same structured shape
-    // as every other log line in the codebase, so both are greppable
-    // together and correlate on digest.
+    // server at all: this console line only lands in the visitor's own
+    // browser, so captureBoundaryError is what actually reports them, to
+    // Sentry. It skips digest errors itself — those are the server ones.
     console.error("[storefront] RENDER_ERROR", {
       message: error.message,
       digest: error.digest,
     });
+    captureBoundaryError(error, "storefront");
   }, [error]);
 
   return (

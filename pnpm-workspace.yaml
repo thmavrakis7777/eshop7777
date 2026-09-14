@@ -2,6 +2,11 @@ packages:
   - "apps/*"
   - "packages/*"
 allowBuilds:
+  # Blocked deliberately. Its postinstall only downloads a sentry-cli binary
+  # from Sentry's CDN as a fallback; the platform binary already arrives via
+  # its optionalDependencies (@sentry/cli-linux-x64 on Vercel). Verified:
+  # `sentry-cli --version` runs with this script never executed.
+  '@sentry/cli': false
   unrs-resolver: true
 overrides:
   # GHSA-2v37-7h3g-55p8 (CWE-835): fixed in 3.3.18+. Transitive via

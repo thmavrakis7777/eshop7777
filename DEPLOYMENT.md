@@ -57,6 +57,8 @@ the full list with explanations:
 | `GOOGLE_PLACES_API_KEY` | optional | address autocomplete degrades to manual entry if unset |
 | `GEMI_API_KEY` | optional | ΓΕΜΗ company lookup degrades to manual entry if unset |
 | `ERROR_ALERT_WEBHOOK_URL` | optional, recommended | Slack/Discord/Teams incoming webhook. Unhandled server errors are posted to it by `instrumentation.ts` (deduplicated per error for 5 min). Unset = errors are still logged, just never announced — this is the difference between finding out from a log and finding out when it happens. |
+| `NEXT_PUBLIC_SENTRY_DSN` | optional — **Production** scope only | Browser error tracking (Sentry, `src/instrumentation-client.ts`). Inlined at build time: **redeploy after adding or changing it**. Scoping it to Production keeps preview deployments from reporting. Unset = Sentry never initialises and the CSP gains no Sentry origin. |
+| `SENTRY_AUTH_TOKEN` / `SENTRY_ORG` / `SENTRY_PROJECT` | optional, all three together — **Production** scope | Build-time source-map upload, so Sentry stack traces show real file/line/function names. The token is a **secret** (Sentry → Settings → Auth Tokens, organization token). If any one is missing, no source maps are generated at all (none can leak publicly) and stack traces stay minified. |
 
 **Use the session-mode pooler (port 5432). This is a measured decision.**
 

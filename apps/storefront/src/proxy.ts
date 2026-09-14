@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { sentryIngestOrigin } from "@/lib/observability/sentry-csp";
 
 // Real CSP with per-request nonces — the baseline headers in next.config.ts
 // (nosniff, X-Frame-Options, etc.) don't vary per request, but a nonce must
@@ -65,6 +66,16 @@ const supabaseImageOrigin = (() => {
   }
 })();
 
+// Sentry's browser SDK (src/instrumentation-client.ts) posts error reports to
+// one ingest host, which connect-src must allow. Derived from the same public
+// DSN the SDK initialises with (lib/observability/sentry-csp.ts), so the
+// policy names exactly this project's ingest origin — never a *.sentry.io
+// wildcard — and gains nothing at all while NEXT_PUBLIC_SENTRY_DSN is unset.
+// That is Sentry's entire CSP footprint: the SDK ships inside the app's own
+// nonce'd bundles (no script-src change) and loads no remote scripts, workers
+// or frames.
+const sentryConnectOrigin = sentryIngestOrigin(process.env.NEXT_PUBLIC_SENTRY_DSN);
+
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
@@ -87,7 +98,7 @@ export function proxy(request: NextRequest) {
     style-src 'self' 'unsafe-inline';
     style-src-elem 'self'${isDev ? " 'unsafe-inline'" : ` 'nonce-${nonce}'`};
     img-src 'self' blob: data: https://www.google-analytics.com https://www.facebook.com${supabaseImageOrigin ? ` ${supabaseImageOrigin}` : ""};
-    connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://connect.facebook.net https://www.facebook.com https://www.clarity.ms https://c.clarity.ms;
+    connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://connect.facebook.net https://www.facebook.com https://www.clarity.ms https://c.clarity.ms${sentryConnectOrigin ? ` ${sentryConnectOrigin}` : ""};
     font-src 'self';
     object-src 'none';
     base-uri 'self';
