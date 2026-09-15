@@ -111,15 +111,31 @@ export function Header({
   // the hero jump every time search opens/closes. A ResizeObserver, not a
   // resize listener, because the height also changes from the nav
   // wrapping to a second line, which isn't a viewport-resize event.
+  //
+  // Plus the <header>'s own border-b, which sits below the row and is part
+  // of the header's real height. Leaving it out pulled the Hero up one
+  // border-width too little, so a hairline of page background showed
+  // between the announcement bar and the photo through the transparent
+  // overlay header (measured live: Hero top 0.8px below the bar at 125%
+  // display scaling, where the 1px border renders as 0.8 CSS px). Read
+  // from the computed style rather than hardcoded for exactly that reason,
+  // and the header's border box is observed too, so a zoom change that
+  // re-snaps the border width re-measures.
   useLayoutEffect(() => {
     const el = headerRowRef.current;
     if (!el) return;
+    const header = el.closest("header");
     function update() {
-      document.documentElement.style.setProperty("--header-height", `${el!.getBoundingClientRect().height}px`);
+      const borderBottom = header ? parseFloat(getComputedStyle(header).borderBottomWidth) || 0 : 0;
+      document.documentElement.style.setProperty(
+        "--header-height",
+        `${el!.getBoundingClientRect().height + borderBottom}px`
+      );
     }
     update();
     const observer = new ResizeObserver(update);
     observer.observe(el);
+    if (header) observer.observe(header, { box: "border-box" });
     return () => observer.disconnect();
   }, []);
 
@@ -587,8 +603,9 @@ export function Header({
           // In flow, this panel added its own height to the <header>, which
           // pushed everything after the header down by that much — including
           // the homepage Hero, whose `mt-[calc(var(--header-height)*-1)]`
-          // only ever cancels the ROW's height (--header-height is measured
-          // off headerRowRef, which excludes this panel, and must stay that
+          // only ever cancels the ROW's height plus the header's own bottom
+          // border (--header-height is measured off headerRowRef, which
+          // excludes this panel, and must stay that
           // way or the Hero would jump on every open/close). The Hero is the
           // only thing behind the transparent header, so the instant search
           // opened the Hero slid out from under it and the whole icon row —
