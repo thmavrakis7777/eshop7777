@@ -274,3 +274,27 @@ export async function sendShipmentNotificationEmail(order: OrderEmailData): Prom
     text: shipmentNotificationText(order, { storeName, orderUrl }),
   });
 }
+
+/**
+ * «Ενημέρωσέ με όταν παραληφθεί» — sent once per request when a sold-out
+ * variant the customer asked about has stock again. lib/stock-notifications.ts
+ * decides when; this only sends. Returns whether it went out, so a failed
+ * send is released back into the queue instead of silently lost.
+ */
+export async function sendBackInStockEmail(to: string, product: { title: string; url: string }): Promise<boolean> {
+  const { storeName } = await getBranding();
+  return send({
+    to,
+    subject: `Ξανά διαθέσιμο: ${product.title} | ${storeName}`,
+    text:
+      `Γεια σου,\n\nΤο προϊόν «${product.title}», για το οποίο ζήτησες ενημέρωση, είναι ξανά διαθέσιμο στο ${storeName}.\n\n` +
+      `${product.url}\n\nΛαμβάνεις αυτό το email μία φορά, επειδή ζήτησες ειδοποίηση για αυτό το προϊόν.`,
+    html: simpleShell(
+      "Ξανά διαθέσιμο",
+      `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Το προϊόν <strong>${escapeHtml(product.title)}</strong>, για το οποίο ζήτησες ενημέρωση, είναι ξανά διαθέσιμο.</p>
+       <p style="margin:0 0 24px"><a href="${escapeHtml(product.url)}" style="display:inline-block;background:#1c1b19;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px">Δες το προϊόν</a></p>
+       <p style="margin:0;font-size:12px;line-height:1.6;color:#6b6862">Λαμβάνεις αυτό το email μία φορά, επειδή ζήτησες ειδοποίηση για αυτό το προϊόν.</p>`,
+      storeName
+    ),
+  });
+}

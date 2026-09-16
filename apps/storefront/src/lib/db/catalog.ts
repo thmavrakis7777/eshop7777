@@ -338,6 +338,18 @@ function orderBy(sort: ProductSort) {
   }
 }
 
+// Category listings' default order: newest first, but with sold-out products
+// (no active variant that can be bought — VARIANT_AVAILABLE_PREDICATE, the
+// same rule as the storefront's isAvailable) after everything that can be
+// bought. They stay listed and indexable — just not ahead of what a shopper
+// can actually order. Default sort only: a price/title sort the shopper
+// picked is honored exactly as chosen.
+const SOLD_OUT_LAST_NEWEST = sql`
+  ORDER BY NOT EXISTS (
+    SELECT 1 FROM shop.product_variant v
+     WHERE v.product_id = p.id AND v.is_active AND ${VARIANT_AVAILABLE_PREDICATE}
+  ), p.created_at DESC`;
+
 /**
  * Products in a category, including its descendants — browsing "Κουζίνα"
  * must show everything filed under its subcategories too. A recursive CTE
@@ -382,7 +394,7 @@ export async function getProductsByCategorySlug(
      -- selects each real product row exactly once.
      WHERE p.is_active AND p.category_id IN (SELECT id FROM tree)
      ${whereFilters(filters)}
-     ${orderBy(sort)}
+     ${sort === "newest" ? SOLD_OUT_LAST_NEWEST : orderBy(sort)}
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;
 

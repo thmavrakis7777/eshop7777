@@ -19,6 +19,7 @@ import { CATEGORY_CACHE_TAG } from "@/lib/data/categories";
 import { CACHE_TAGS } from "@/lib/db/content";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
 import type { FaqItem } from "@/lib/types";
+import { scheduleRestockNotifications } from "@/lib/stock-notifications";
 
 function mapError(err: unknown): string {
   if (err instanceof TaxonomyError) {
@@ -277,5 +278,6 @@ export async function setStockAction(variantId: string, quantity: number, note?:
   revalidatePath("/admin/inventory");
   revalidatePath("/admin/products");
   revalidateStorefront();
+  scheduleRestockNotifications();
   return { ok: true, message: "Το απόθεμα ενημερώθηκε." };
 }

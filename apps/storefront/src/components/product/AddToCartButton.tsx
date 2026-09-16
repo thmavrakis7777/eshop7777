@@ -7,6 +7,7 @@ import { useCartUI } from "@/components/cart/CartUIProvider";
 import { trackAddToCart } from "@/lib/analytics/track";
 import { QuantityStepper } from "@/components/cart/QuantityStepper";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
+import { NotifyWhenAvailableForm } from "@/components/product/NotifyWhenAvailableForm";
 import { isQuantityAvailable } from "@/lib/stock";
 import type { StockInquiryContact } from "@/lib/whatsapp";
 
@@ -155,6 +156,11 @@ export function AddToCartButton({
             whatsappPhone={stockInquiry.whatsappPhone}
             contactPhone={stockInquiry.contactPhone}
           />
+        )}
+        {/* Sold out (stock 0): the button above is already disabled and reads
+            «Εξαντλήθηκε»; this lets the shopper ask to be told when it's back. */}
+        {selectedVariant && isOutOfStock && (
+          <NotifyWhenAvailableForm key={selectedVariant.id} variantId={selectedVariant.id} />
         )}
       </div>
     </div>

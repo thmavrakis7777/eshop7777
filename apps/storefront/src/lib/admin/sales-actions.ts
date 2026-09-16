@@ -21,6 +21,7 @@ import { sendShipmentNotificationEmail } from "@/lib/email/send";
 import { setCustomerActive, withdrawMarketingConsent } from "@/lib/admin/customers";
 import { DiscountError, deleteDiscount, saveDiscount } from "@/lib/admin/discounts";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
+import { scheduleRestockNotifications } from "@/lib/stock-notifications";
 
 async function admin() {
   return requireAdmin();
@@ -73,6 +74,7 @@ export async function setOrderStatusAction(
   revalidatePath("/admin");
   // Cancelling restores stock, so inventory views must reflect it too.
   if (status === "cancelled") {
+    scheduleRestockNotifications();
     revalidatePath("/admin/inventory");
     revalidatePath("/", "layout");
   }
@@ -119,6 +121,7 @@ export async function deleteOrderPermanentlyAction(orderId: string): Promise<Act
   revalidatePath("/admin/orders");
   revalidatePath("/admin");
   revalidatePath("/admin/inventory");
+  scheduleRestockNotifications();
   return { ok: true, message: `Η παραγγελία #${orderNumber} διαγράφηκε οριστικά.` };
 }
 

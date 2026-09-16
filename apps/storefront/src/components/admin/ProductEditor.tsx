@@ -567,7 +567,6 @@ function VariantForm({
   const [price, setPrice] = useState(centsToPriceInput(variant?.priceCents ?? null));
   const [compareAt, setCompareAt] = useState(centsToPriceInput(variant?.compareAtPriceCents ?? null));
   const [stock, setStock] = useState(String(variant?.stockQuantity ?? 0));
-  const [backorder, setBackorder] = useState(variant?.allowBackorder ?? false);
 
   function buildFormData(): FormData {
     const data = new FormData();
@@ -576,7 +575,6 @@ function VariantForm({
     data.set("price", price);
     data.set("compareAtPrice", compareAt);
     data.set("stock", stock);
-    if (backorder) data.set("allowBackorder", "on");
     return data;
   }
 
@@ -626,17 +624,6 @@ function VariantForm({
         <div className="flex flex-col gap-1.5">
           <label className={labelCls}>Απόθεμα</label>
           <input value={stock} onChange={(e) => setStock(e.target.value)} inputMode="numeric" className={field} />
-        </div>
-        <div className="flex flex-col justify-end gap-2 pb-1">
-          <label className="flex items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={backorder}
-              onChange={(e) => setBackorder(e.target.checked)}
-              className="h-4 w-4 accent-ink"
-            />
-            Πώληση χωρίς απόθεμα
-          </label>
         </div>
       </div>
 

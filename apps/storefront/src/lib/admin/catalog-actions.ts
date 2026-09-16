@@ -28,6 +28,7 @@ import { createMediaAsset } from "@/lib/admin/cms";
 import { uploadImage, UploadError } from "@/lib/storage/upload";
 import { SEARCH_CACHE_TAG } from "@/lib/db/catalog";
 import { META_FEED_CACHE_TAG } from "@/lib/db/meta-feed";
+import { scheduleRestockNotifications } from "@/lib/stock-notifications";
 
 /**
  * Every action here calls requireAdmin() FIRST, before reading its arguments.
@@ -376,7 +377,10 @@ export async function saveVariantAction(productId: string, formData: FormData): 
       priceCents,
       compareAtPriceCents: compareAt,
       stockQuantity,
-      allowBackorder: formData.get("allowBackorder") === "on",
+      // The store sells only what is on the shelf — no backorders. Forced
+      // here rather than read from the form, so no request can switch it on;
+      // migration 0033 enforces the same rule in the database.
+      allowBackorder: false,
       isActive: formData.get("variantActive") !== "off",
     });
     await auditLog(admin.id, "variant.save", "product", productId, { sku });
@@ -390,6 +394,7 @@ export async function saveVariantAction(productId: string, formData: FormData): 
   updateTag(SEARCH_CACHE_TAG);
   // Price/stock/SKU here all feed the Meta feed too, not just search.
   updateTag(META_FEED_CACHE_TAG);
+  scheduleRestockNotifications();
   return { ok: true, message: "Η παραλλαγή αποθηκεύτηκε." };
 }
 
@@ -488,6 +493,7 @@ export async function adjustStockAction(variantId: string, quantity: number): Pr
   // availability field — a stock change must invalidate the feed even
   // though it has never needed to touch SEARCH_CACHE_TAG.
   updateTag(META_FEED_CACHE_TAG);
+  scheduleRestockNotifications();
   return { ok: true, message: "Το απόθεμα ενημερώθηκε." };
 }
 
@@ -544,6 +550,7 @@ export async function bulkProductAction(ids: string[], op: BulkOperation): Promi
       case "stock": {
         const { affected } = await bulkSetStock(ids, op.quantity, admin.id);
         message = `Ενημερώθηκε το απόθεμα σε ${affected} παραλλαγές.`;
+        scheduleRestockNotifications();
         break;
       }
       case "archive": {
