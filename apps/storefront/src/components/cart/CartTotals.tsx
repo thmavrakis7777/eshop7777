@@ -10,7 +10,17 @@ import { formatPrice } from "@/lib/format";
 // stance for the same principle applied elsewhere). Once checkout adds a
 // real shipping method to the cart (`cart.hasShippingMethod`), this shows
 // the real amount and total instead — same component, no fork needed.
-export function CartTotals({ cart }: { cart: Cart }) {
+//
+// `shippingAtCheckout` (the drawer) always shows "Υπολογίζεται στο checkout",
+// even if checkout already stored a method on the cart — so the total and
+// VAT shown must exclude shipping too, or the numbers wouldn't add up.
+export function CartTotals({ cart, shippingAtCheckout = false }: { cart: Cart; shippingAtCheckout?: boolean }) {
+  const showShipping = cart.hasShippingMethod && !shippingAtCheckout;
+  const total = showShipping ? cart.total : { ...cart.total, amount: cart.subtotal.amount - cart.discountTotal.amount };
+  const vatTotal = showShipping
+    ? cart.vatTotal
+    : { ...cart.vatTotal, amount: Math.round((total.amount * 100 * cart.vatRate) / (100 + cart.vatRate)) / 100 };
+
   // The total is always correct either way (lib/db/cart.ts computes it
   // whether or not the UI explains it) — this only decides whether to show
   // *why* it's higher, per the compliance requirement that an oversized-item
@@ -34,13 +44,13 @@ export function CartTotals({ cart }: { cart: Cart }) {
       )}
       <div className="flex justify-between">
         <span className="text-ink-muted">Μεταφορικά</span>
-        {cart.hasShippingMethod ? (
+        {showShipping ? (
           <span className="text-ink tabular-nums">{formatPrice(cart.shippingTotal)}</span>
         ) : (
           <span className="text-ink-muted">Υπολογίζεται στο checkout</span>
         )}
       </div>
-      {cart.hasShippingMethod && hasOversizedItem && (
+      {showShipping && hasOversizedItem && (
         <p className="text-xs text-ink-muted">
           Περιλαμβάνει πρόσθετη χρέωση μεταφορικών για ογκώδες/βαρύ προϊόν στο καλάθι σου — δείτε τη{" "}
           <Link href="/apostoles" className="underline underline-offset-2 hover:text-ink">
@@ -51,14 +61,14 @@ export function CartTotals({ cart }: { cart: Cart }) {
       )}
       <div className="flex items-baseline justify-between border-t border-border pt-2.5">
         <span className="text-base font-semibold text-ink">Σύνολο</span>
-        <span className="text-lg font-semibold text-ink tabular-nums">{formatPrice(cart.total)}</span>
+        <span className="text-lg font-semibold text-ink tabular-nums">{formatPrice(total)}</span>
       </div>
       {/* Greek retail prices are VAT-inclusive by law, so this is a breakdown
           of the total above — never an amount added to it. */}
       <p className="text-xs text-ink-muted">
-        Στην τιμή περιλαμβάνεται ΦΠΑ {cart.vatRate}% ({formatPrice(cart.vatTotal)})
+        Στην τιμή περιλαμβάνεται ΦΠΑ {cart.vatRate}% ({formatPrice(vatTotal)})
       </p>
-      {!cart.hasShippingMethod && (
+      {!showShipping && !shippingAtCheckout && (
         <p className="text-xs text-ink-muted">Τα μεταφορικά υπολογίζονται στο επόμενο βήμα.</p>
       )}
     </div>

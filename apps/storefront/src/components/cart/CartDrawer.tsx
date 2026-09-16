@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCartUI } from "@/components/cart/CartUIProvider";
 import { useCartController } from "@/lib/hooks/use-cart-controller";
 import { getCartAction } from "@/lib/actions/cart";
-import { CartLineItemRow } from "@/components/cart/CartLineItemRow";
+import { CartDrawerLineItem } from "@/components/cart/CartDrawerLineItem";
 import { CouponForm } from "@/components/cart/CouponForm";
 import { FreeShippingProgress } from "@/components/cart/FreeShippingProgress";
 import { CartTotals } from "@/components/cart/CartTotals";
@@ -213,7 +213,7 @@ function CartDrawerInner({
           ) : (
             <div className="divide-y divide-border">
               {cart.items.map((item) => (
-                <CartLineItemRow
+                <CartDrawerLineItem
                   key={item.id}
                   item={item}
                   pending={controller.pendingLineId === item.id}
@@ -228,7 +228,7 @@ function CartDrawerInner({
         </div>
 
         {cart && hasItems && (
-          <div className="flex flex-col gap-3 border-t border-border p-4">
+          <div className="flex flex-col gap-2.5 border-t border-border px-4 py-3">
             {cartMessage && <p className="text-xs text-ink-muted">{cartMessage}</p>}
             <FreeShippingProgress
               subtotalEur={cart.subtotal.amount - cart.discountTotal.amount}
@@ -243,7 +243,7 @@ function CartDrawerInner({
               onRemove={controller.removeCoupon}
             />
 
-            <CartTotals cart={cart} />
+            <CartTotals cart={cart} shippingAtCheckout />
 
             {/* Must close the drawer like every other link in here: the
                 drawer lives in RootLayout, so a client-side navigation
