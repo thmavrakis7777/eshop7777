@@ -144,6 +144,13 @@ export function ProductEditor({
 
           <Panel title="Χαρακτηριστικά" hint="Εμφανίζονται στη σελίδα προϊόντος μόνο όσα συμπληρώσεις.">
             <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Μάρκα"
+                htmlFor="brand"
+                hint="Ο κατασκευαστής, π.χ. Tefal. Άφησέ το κενό αν το προϊόν δεν έχει μάρκα."
+              >
+                <input id="brand" name="brand" defaultValue={product.brand ?? ""} className={field} />
+              </Field>
               <Field label="Υλικό" htmlFor="material">
                 <input id="material" name="material" defaultValue={product.material ?? ""} className={field} />
               </Field>

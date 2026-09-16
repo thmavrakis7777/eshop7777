@@ -68,6 +68,9 @@ export type SiteSettings = {
   // contactPhone stays local display format for tel: links.
   stockInquiryMessage: string | null;
   whatsappPhone: string | null;
+  // ΑΦΜ — read by the storefront only for the Store JSON-LD's vatID (see
+  // buildLocalBusinessJsonLd). Edited in Content → Header & Footer (ΑΦΜ).
+  vatNumber: string | null;
 };
 
 export type PromoBanner = {

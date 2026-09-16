@@ -55,6 +55,7 @@ type FeedQueryRow = {
   slug: string;
   title: string;
   description: string | null;
+  brand: string | null;
   category_name: string | null;
   parent_category_name: string | null;
   image_paths: string[];
@@ -67,7 +68,7 @@ async function queryFeedRows(): Promise<FeedQueryRow[]> {
       v.stock_quantity, v.allow_backorder,
       (SELECT COUNT(*) FROM shop.product_variant v2
         WHERE v2.product_id = p.id AND v2.is_active)::int AS active_variant_count,
-      p.slug, p.title, p.description,
+      p.slug, p.title, p.description, p.brand,
       c.name AS category_name, pc.name AS parent_category_name,
       COALESCE((
         SELECT json_agg(i.storage_path ORDER BY i.position)
@@ -116,7 +117,10 @@ export async function getMetaFeedRows(): Promise<MetaFeedRow[]> {
       link: `${siteUrl}/proionta/${r.slug}`,
       imageLink: images[0] ?? null,
       additionalImageLinks: images.slice(1, 11), // Meta's own cap is 10 additional images
-      brand: branding.storeName,
+      // Meta rejects an item with no brand, so an unbranded product keeps the
+      // store name here as before (the retailer is a valid brand value for
+      // Meta's catalog). Product JSON-LD is stricter and omits it instead.
+      brand: r.brand || branding.storeName,
       productType,
       sku: r.sku,
     };

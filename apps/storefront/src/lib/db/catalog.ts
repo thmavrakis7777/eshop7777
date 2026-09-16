@@ -145,6 +145,7 @@ type ProductRow = {
   description: string | null;
   created_at: Date;
   is_new_override: boolean;
+  brand: string | null;
   material: string | null;
   weight_grams: number | null;
   length_cm: number | null;
@@ -237,6 +238,7 @@ export function toDomainProduct(r: ProductRow, newArrivalWindowDays: number): Pr
     code: variants[0]?.code ?? null,
     isAvailable: variants.some((v) => v.isAvailable),
     characteristics: toCharacteristics(r),
+    ...(r.brand ? { brand: r.brand } : {}),
   };
 }
 
@@ -245,7 +247,7 @@ export function toDomainProduct(r: ProductRow, newArrivalWindowDays: number): Pr
 // three variants is one row, not three — no client-side de-duplication.
 const productFields = sql`
   p.id, p.slug, p.title, p.description, p.created_at, p.is_new_override,
-  p.material, p.weight_grams, p.length_cm, p.width_cm, p.height_cm, p.origin_country,
+  p.brand, p.material, p.weight_grams, p.length_cm, p.width_cm, p.height_cm, p.origin_country,
   c.slug AS category_slug,
   (SELECT i.storage_path FROM shop.product_image i
     WHERE i.product_id = p.id ORDER BY i.position LIMIT 1) AS image_path,

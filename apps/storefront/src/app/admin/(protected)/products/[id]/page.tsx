@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getProductForEdit, listCategoryOptions, listCollectionOptions } from "@/lib/admin/products";
 import { getPdpContentDefaults } from "@/lib/admin/cms";
 import { ProductEditor } from "@/components/admin/ProductEditor";
+import { DeleteProductPanel } from "@/components/admin/DeleteProductPanel";
 import { PageHeader } from "@/components/admin/ui/primitives";
 
 export const metadata = { title: "Επεξεργασία προϊόντος" };
@@ -26,6 +27,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         breadcrumb={[{ label: "Προϊόντα", href: "/admin/products" }, { label: product.title }]}
       />
       <ProductEditor product={product} categories={categories} collections={collections} pdpDefaults={pdpDefaults} />
+      <DeleteProductPanel productId={product.id} productTitle={product.title} />
     </>
   );
 }

@@ -26,6 +26,7 @@ import { getPublishedLegalPages } from "@/lib/data/content-pages";
 import { getCustomerId } from "@/lib/data/customer";
 import { getNationwideFreeShippingThresholdCents } from "@/lib/data/checkout";
 import { resolveStockInquiryContact } from "@/lib/whatsapp";
+import { parseOpeningHours } from "@/lib/opening-hours";
 
 /**
  * Everything the shop wears: announcement bar, promo banner, header, footer,
@@ -63,13 +64,17 @@ import { resolveStockInquiryContact } from "@/lib/whatsapp";
 //   to keep it one line); `addressCountry` is the one part that's a safe,
 //   already-established constant (checkout hardcodes the same "GR" for
 //   every order — lib/db/checkout.ts).
-// - `businessHours` is the same kind of single free-text field (and unset
-//   in production today), with no per-day structure at all. Schema.org's
-//   openingHoursSpecification needs real dayOfWeek/opens/closes values, which
-//   this field has never captured, so it's intentionally omitted rather than
-//   parsed — reflects the real limit of the current settings model
-//   (adding structured day/time fields would be a data-model change, out of
-//   scope here), not an oversight.
+// - `businessHours` is the same kind of single free-text field, with no
+//   per-day structure. openingHoursSpecification needs real dayOfWeek/opens/
+//   closes values, so it's emitted only when parseOpeningHours()
+//   (lib/opening-hours.ts) can read the whole text unambiguously — e.g.
+//   "Δευ-Παρ 09:00-14:00 & 17:30-21:00, Σάβ 09:00-14:00". Anything it
+//   doesn't fully understand omits the field rather than publishing a
+//   guessed schedule; the text itself still shows wherever it's rendered.
+//
+// `vatID` is the ΑΦΜ from Settings, emitted as entered: a public business
+// identifier (it already appears on every invoice) and one of the stronger
+// signals tying this site to the registered business behind it.
 function buildLocalBusinessJsonLd(
   storeName: string,
   logoUrl: string | null,
@@ -79,6 +84,7 @@ function buildLocalBusinessJsonLd(
     (url): url is string => Boolean(url)
   );
   const streetAddress = settings?.contactAddress?.replace(/\s*\n+\s*/g, ", ").trim() || null;
+  const openingHours = parseOpeningHours(settings?.businessHours);
   return {
     "@context": "https://schema.org",
     "@type": "Store",
@@ -91,6 +97,8 @@ function buildLocalBusinessJsonLd(
     ...(streetAddress
       ? { address: { "@type": "PostalAddress", streetAddress, addressCountry: "GR" } }
       : {}),
+    ...(settings?.vatNumber ? { vatID: settings.vatNumber } : {}),
+    ...(openingHours ? { openingHoursSpecification: openingHours } : {}),
     contactPoint: [
       {
         "@type": "ContactPoint",

@@ -177,6 +177,7 @@ export async function saveProductAction(productId: string, formData: FormData): 
       isActive: formData.get("isActive") === "on",
       isNewOverride: formData.get("isNewOverride") === "on",
       internalCode: internalCodeResult.code,
+      brand: optionalText(formData.get("brand")),
       material: optionalText(formData.get("material")),
       weightGrams: optionalNumber(formData.get("weightGrams")),
       lengthCm: optionalNumber(formData.get("lengthCm")),
@@ -298,12 +299,17 @@ export async function checkInternalCodeAction(
 }
 
 /**
- * The "Delete Product" action inside the duplicate-internal-code warning —
- * the one place in the admin a single product can be deleted directly
- * (every other delete path is the bulk list action). Same authorization and
- * the same order-history guard as bulkArchive, just for one id.
+ * Single-product delete — used by the "Delete Product" action inside the
+ * duplicate-internal-code warning and by the product edit page's delete
+ * panel (every other delete path is the bulk list action). Same
+ * authorization and the same order-history guard as bulkArchive, just for
+ * one id. `deleted` tells the caller which of the two outcomes happened, so
+ * the edit page can leave a page that no longer exists but stay on one that
+ * was only deactivated.
  */
-export async function deleteProductAction(productId: string): Promise<ActionResult> {
+export async function deleteProductAction(
+  productId: string
+): Promise<{ ok: true; message: string; deleted: boolean } | { ok: false; error: string }> {
   let admin;
   try {
     admin = await requireAdmin();
@@ -320,6 +326,7 @@ export async function deleteProductAction(productId: string): Promise<ActionResu
     updateTag(META_FEED_CACHE_TAG);
     return {
       ok: true,
+      deleted: result.deleted,
       message: result.deleted
         ? "Το προϊόν διαγράφηκε οριστικά."
         : "Το προϊόν έχει παραγγελίες, οπότε απενεργοποιήθηκε αντί να διαγραφεί.",

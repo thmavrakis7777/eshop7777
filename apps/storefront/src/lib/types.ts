@@ -100,6 +100,10 @@ export type Product = {
   // True if at least one variant is purchasable.
   isAvailable: boolean;
   characteristics: ProductCharacteristics | null;
+  // Manufacturer, when the owner has entered one (product edit → Μάρκα).
+  // Undefined for unbranded stock — never defaulted to the store's own name,
+  // which would misstate who made a third-party product.
+  brand?: string;
 };
 
 /**

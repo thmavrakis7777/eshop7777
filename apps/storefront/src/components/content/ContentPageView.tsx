@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ContentPage } from "@/lib/data/content-pages";
 import { RichBody } from "@/components/content/RichBody";
 import { Breadcrumbs } from "@/components/category/Breadcrumbs";
@@ -34,7 +35,18 @@ export function renderBody(body: string) {
 // field — getContentPage never selected one) so every route file's own
 // already-declared PATH constant stays the single source of truth for its
 // URL, instead of duplicating it onto the page row.
-export async function ContentPageView({ page, path }: { page: ContentPage; path: string }) {
+//
+// `children` render after the body — for a page whose route adds something
+// the CMS text can't hold (the Contact page's settings-driven map link).
+export async function ContentPageView({
+  page,
+  path,
+  children,
+}: {
+  page: ContentPage;
+  path: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="container-shell max-w-3xl py-8 md:py-12">
       <Breadcrumbs items={[{ label: page.title, href: path }]} />
@@ -55,6 +67,7 @@ export async function ContentPageView({ page, path }: { page: ContentPage; path:
       ) : (
         <p className="text-ink-muted">Το περιεχόμενο αυτής της σελίδας δεν έχει προστεθεί ακόμα.</p>
       )}
+      {children}
     </div>
   );
 }

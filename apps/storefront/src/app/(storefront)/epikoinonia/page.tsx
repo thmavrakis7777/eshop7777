@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ContentPageView } from "@/components/content/ContentPageView";
 import { getContentPage } from "@/lib/data/content-pages";
+import { getSiteSettings } from "@/lib/data/site-settings";
+import { googleMapsSearchUrl } from "@/lib/maps";
 import { getSeoOverride } from "@/lib/data/seo";
 import { deriveMetaDescription } from "@/lib/seo-text";
 import { richBodyToPlainText } from "@/components/content/RichBody";
@@ -36,8 +38,27 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ContactPage() {
-  const page = await getContentPage(SLUG);
+  const [page, settings] = await Promise.all([getContentPage(SLUG), getSiteSettings()]);
   if (!page) notFound();
 
-  return <ContentPageView page={page} path={PATH} />;
+  // From the Settings address, so it follows an address change without anyone
+  // editing this page's text.
+  const mapsUrl = googleMapsSearchUrl(settings?.contactAddress);
+
+  return (
+    <ContentPageView page={page} path={PATH}>
+      {mapsUrl && (
+        <p className="mt-8 text-[1.0625rem] leading-[1.75] text-ink-muted">
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline underline-offset-2 hover:no-underline"
+          >
+            Δείτε το κατάστημα στο Google Maps
+          </a>
+        </p>
+      )}
+    </ContentPageView>
+  );
 }

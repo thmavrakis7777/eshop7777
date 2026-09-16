@@ -134,6 +134,12 @@ export default async function ProductPage({ params }: Props) {
     ...(product.characteristics?.weightGrams != null
       ? { weight: { "@type": "QuantitativeValue", value: product.characteristics.weightGrams, unitCode: "GRM" } }
       : {}),
+    // Only when the owner entered one — an unbranded product gets no `brand`
+    // rather than the store's name, which would misstate the manufacturer.
+    ...(product.brand ? { brand: { "@type": "Brand", name: product.brand } } : {}),
+    // The same trail the visible breadcrumbs use, most general first, in the
+    // ">"-separated form Google reads as a category path.
+    ...(categoryTrail?.length ? { category: categoryTrail.map((c) => c.name).join(" > ") } : {}),
     // AggregateOffer (not a single Offer) when variants don't share one
     // price — a single `price` would be schema.org-incorrect once it's only
     // true for one of several variants.
