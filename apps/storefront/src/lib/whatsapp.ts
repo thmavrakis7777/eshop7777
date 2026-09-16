@@ -22,6 +22,19 @@ export function normalizeWhatsappPhone(raw: string): string {
   return raw.replace(/\D/g, "");
 }
 
+/**
+ * Readable form for display, e.g. "+30 695 150 8538". Greek mobile/landline
+ * numbers (30 + 10 digits) are grouped 3-3-4; anything else is shown as one
+ * "+digits" run rather than grouped by guesswork.
+ */
+export function formatWhatsappPhone(raw: string): string {
+  const digits = normalizeWhatsappPhone(raw);
+  if (digits.length === 12 && digits.startsWith("30")) {
+    return `+30 ${digits.slice(2, 5)} ${digits.slice(5, 8)} ${digits.slice(8)}`;
+  }
+  return `+${digits}`;
+}
+
 // Loose on purpose (same spirit as isValidPhone in checkout-validation.ts):
 // full international format (country code + number), no per-country rules.
 export function isValidWhatsappPhone(raw: string): boolean {
