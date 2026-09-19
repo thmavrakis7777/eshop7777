@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ContentPageView } from "@/components/content/ContentPageView";
 import { getContentPage } from "@/lib/data/content-pages";
 import { getSiteSettings } from "@/lib/data/site-settings";
-import { googleMapsSearchUrl } from "@/lib/maps";
+import { storeMapsUrl } from "@/lib/maps";
 import { getSeoOverride } from "@/lib/data/seo";
 import { deriveMetaDescription } from "@/lib/seo-text";
 import { richBodyToPlainText } from "@/components/content/RichBody";
@@ -43,7 +43,7 @@ export default async function ContactPage() {
 
   // From the Settings address, so it follows an address change without anyone
   // editing this page's text.
-  const mapsUrl = googleMapsSearchUrl(settings?.contactAddress);
+  const mapsUrl = storeMapsUrl(settings?.contactAddress);
 
   return (
     <ContentPageView page={page} path={PATH}>

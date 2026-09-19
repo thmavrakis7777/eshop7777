@@ -13,7 +13,7 @@ import { CookieSettingsLink } from "./CookieSettingsLink";
 import { FooterNewsletterForm } from "./FooterNewsletterForm";
 import type { SiteSettings } from "@/lib/data/site-settings";
 import type { NavCategory } from "@/lib/types";
-import { googleMapsSearchUrl } from "@/lib/maps";
+import { storeMapsUrl } from "@/lib/maps";
 import { formatWhatsappPhone, isValidWhatsappPhone, normalizeWhatsappPhone } from "@/lib/whatsapp";
 
 const DEFAULT_TAGLINE =
@@ -90,7 +90,7 @@ export function Footer({
   // never links a number that button would refuse.
   const whatsapp =
     settings?.whatsappPhone && isValidWhatsappPhone(settings.whatsappPhone) ? settings.whatsappPhone : null;
-  const mapsUrl = googleMapsSearchUrl(settings?.contactAddress);
+  const mapsUrl = storeMapsUrl(settings?.contactAddress);
   const hasContact = settings?.contactPhone || whatsapp || settings?.contactEmail || settings?.contactAddress;
 
   return (

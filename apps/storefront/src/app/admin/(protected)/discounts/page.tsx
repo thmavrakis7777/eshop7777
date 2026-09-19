@@ -15,7 +15,7 @@ export default async function AdminDiscountsPage() {
         description={
           discounts.length === 0
             ? "Κωδικοί που οι πελάτες εισάγουν στο καλάθι τους."
-            : `${discounts.length} κωδικοί, ${active} ενεργοί αυτή τη στιγμή.`
+            : `${discounts.length} ${discounts.length === 1 ? "κωδικός" : "κωδικοί"}, ${active} ${active === 1 ? "ενεργός" : "ενεργοί"} αυτή τη στιγμή.`
         }
       />
       <DiscountManager discounts={discounts} />
