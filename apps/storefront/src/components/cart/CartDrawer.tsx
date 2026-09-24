@@ -73,7 +73,7 @@ function CartDrawerInner({
   freeShippingThresholdCents: number | null;
   stockInquiry: StockInquiryContact;
 }) {
-  const controller = useCartController(null);
+  const controller = useCartController();
   const router = useRouter();
   const pathname = usePathname();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -89,7 +89,13 @@ function CartDrawerInner({
     document.body.style.overflow = "hidden";
     closeButtonRef.current?.focus();
 
-    getCartAction().then((cart) => controller.setCart(cart));
+    // The drawer renders the shared cart immediately (it used to show a
+    // skeleton for 0.49–1.11 s while it fetched a cart the page already had —
+    // Speed audit SPD-06). This refresh stays, in the background, for the one
+    // thing the shared copy can't know: a change made in another tab or on
+    // another device. Newest snapshot wins, so it can never roll back an
+    // edit made here.
+    getCartAction().then(controller.receiveCart);
 
     const frame = requestAnimationFrame(() => setVisible(true));
     return () => {
@@ -196,19 +202,11 @@ function CartDrawerInner({
             min-height to 0 per spec) — kept for clarity, not because it
             changes behavior. */}
         <div className="min-h-0 flex-1 overflow-y-auto px-4">
-          {!cart ? (
-            <div className="flex flex-col gap-4 py-4" aria-hidden="true">
-              {[0, 1].map((i) => (
-                <div key={i} className="flex gap-3">
-                  <div className="h-20 w-20 shrink-0 animate-pulse rounded-md bg-surface" />
-                  <div className="flex flex-1 flex-col gap-2 pt-1">
-                    <div className="h-3 w-2/3 animate-pulse rounded-sm bg-surface" />
-                    <div className="h-3 w-1/3 animate-pulse rounded-sm bg-surface" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : !hasItems ? (
+          {/* No loading skeleton any more: the shared cart is always loaded
+              (the layout seeds it), so `null` means "no cart", which is the
+              empty state. The old skeleton keyed off `!cart`, so a visitor
+              who had never added anything saw it forever. */}
+          {!cart || !hasItems ? (
             <EmptyCartState compact onContinueShopping={handleContinueShopping} />
           ) : (
             <div className="divide-y divide-border">

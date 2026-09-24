@@ -28,7 +28,7 @@ export function AddToCartButton({
   // the PDP's page.tsx from site settings, not re-fetched here.
   stockInquiry: StockInquiryContact;
 }) {
-  const { showAddedToast } = useCartUI();
+  const { showAddedToast, receiveCart } = useCartUI();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const hasMultipleVariants = product.variants.length > 1;
@@ -67,6 +67,10 @@ export function AddToCartButton({
     setError(null);
     startTransition(async () => {
       const result = await addLineItemAction(selectedVariantId, quantity);
+      // Success or not, a returned cart is the server's current truth — it
+      // is what updates the header badge now that actions no longer
+      // re-render the page (CART_STATE_SPEC.md).
+      if (result.cart) receiveCart(result.cart);
       if (result.ok) {
         showAddedToast();
         if (selectedVariant) {

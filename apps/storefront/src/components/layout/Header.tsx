@@ -54,20 +54,20 @@ function useHeaderOverlay() {
 export function Header({
   categories: navCategories,
   navItems,
-  cartItemCount,
-  cartTotal,
   storeName,
   logoUrl,
 }: {
   categories: MenuNavCategory[];
   /** Resolved main nav — owner-composed items, or the category fallback. */
   navItems: NavItem[];
-  cartItemCount: number;
-  cartTotal: Money;
   storeName: string;
   logoUrl: string | null;
 }) {
-  const { openDrawer } = useCartUI();
+  // From the shared client cart, not layout props: cart actions no longer
+  // re-render the layout, so props would freeze at the first page load.
+  const { openDrawer, cart } = useCartUI();
+  const cartItemCount = cart?.itemCount ?? 0;
+  const cartTotal: Money = cart?.total ?? { amount: 0, currencyCode: "EUR" };
   const { count: wishlistCount } = useWishlist();
   const overlay = useHeaderOverlay();
   const [openMenu, setOpenMenu] = useState<string | null>(null);

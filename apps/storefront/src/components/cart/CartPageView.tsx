@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import type { Cart } from "@/lib/types";
 import { useCartController } from "@/lib/hooks/use-cart-controller";
+import { getCartAction } from "@/lib/actions/cart";
+import { displayedCart } from "@/lib/cart-snapshot";
 import { CartLineItemRow } from "@/components/cart/CartLineItemRow";
 import { CartLineItemTableRow } from "@/components/cart/CartLineItemTableRow";
 import { CartTableHeader } from "@/components/cart/CartTableHeader";
@@ -29,9 +32,18 @@ export function CartPageView({
   freeShippingThresholdCents: number | null;
   stockInquiry: StockInquiryContact;
 }) {
-  const controller = useCartController(initialCart);
-  const cart = controller.cart;
-  if (!cart) return null;
+  const controller = useCartController();
+  const { receiveCart } = controller;
+  // This page's server render is one more snapshot of the shared cart. On a
+  // normal visit it's the freshest there is; on a Back/Forward visit Next
+  // restores this page from its router cache with the cart it had back then,
+  // and "newest wins" makes that copy lose to what the shopper did since.
+  const cart = displayedCart(controller.cart, initialCart);
+  useEffect(() => {
+    receiveCart(initialCart);
+    // Plus one background read, for a change made in another tab or device.
+    getCartAction().then(receiveCart);
+  }, [initialCart, receiveCart]);
 
   if (cart.items.length === 0) {
     return <EmptyCartState />;

@@ -1,7 +1,6 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
 import {
   CartError,
   addItem,
@@ -78,10 +77,16 @@ function mapCartError(err: unknown): string {
 
 export type CartActionResult = { ok: true; cart: Cart } | { ok: false; error: string; cart: Cart | null };
 
+// No revalidatePath here, deliberately. Any revalidation inside a server
+// action makes Next re-render the *whole current page* into the response
+// (measured: 221 KB for one Add to Cart) and wipe the router cache, so every
+// visible link prefetches again (25+ requests). The Cart returned below is
+// all any caller needs: it goes into the shared client cart
+// (CartUIProvider.receiveCart), which the header badge, drawer, /kalathi and
+// /checkout all read. Speed audit SPD-08; CART_STATE_SPEC.md.
 async function resultFrom(run: () => Promise<unknown>): Promise<CartActionResult> {
   try {
     await run();
-    revalidatePath("/", "layout");
     const cart = await getCart();
     // The mutation succeeded but the cart vanished underneath us (pruned
     // between write and read-back) — surface the same "expired" state the UI

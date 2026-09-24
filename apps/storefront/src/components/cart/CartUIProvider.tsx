@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import type { Cart } from "@/lib/types";
+import { newerCart } from "@/lib/cart-snapshot";
 
 type ToastState = { message: string } | null;
 
@@ -12,13 +14,53 @@ type CartUIContextValue = {
   toast: ToastState;
   showAddedToast: () => void;
   dismissToast: () => void;
+  // The one copy of the cart the whole storefront reads — header badge,
+  // drawer, /kalathi, /checkout. See CART_STATE_SPEC.md.
+  cart: Cart | null;
+  // Every server snapshot goes through here (action results, page renders,
+  // background refreshes); the newer one wins, see lib/cart-snapshot.ts.
+  receiveCart: (incoming: Cart | null) => void;
+  // Optimistic local edits only (useCartController's quantity/removal
+  // patches). Keeps the snapshot's fetchedAt, so the server's answer to the
+  // same edit always replaces it.
+  patchCart: (patch: (cart: Cart) => Cart) => void;
 };
 
 const CartUIContext = createContext<CartUIContextValue | null>(null);
 
 const TOAST_AUTO_DISMISS_MS = 4000;
 
-export function CartUIProvider({ children }: { children: React.ReactNode }) {
+export function CartUIProvider({
+  initialCart,
+  children,
+}: {
+  // The layout's own getCart(). Also the channel for the rare server
+  // actions that still refresh the whole layout (login/logout cart merge,
+  // order placed): each of those re-renders the layout with a new snapshot.
+  initialCart: Cart | null;
+  children: React.ReactNode;
+}) {
+  // Cart actions used to end in revalidatePath("/", "layout"): every add,
+  // +/− or removal re-rendered and re-sent the whole current page (221 KB
+  // on a product page) just so the header badge would update, and wiped the
+  // router cache so every visible link prefetched again (Speed audit
+  // PERF-003/SPD-08). The actions already return the full Cart, so the
+  // browser keeps it here instead and every surface reads this copy.
+  const [cart, setCart] = useState<Cart | null>(initialCart);
+  const [lastInitialCart, setLastInitialCart] = useState(initialCart);
+  if (lastInitialCart !== initialCart) {
+    setLastInitialCart(initialCart);
+    setCart((prev) => newerCart(prev, initialCart));
+  }
+
+  const receiveCart = useCallback((incoming: Cart | null) => {
+    setCart((prev) => newerCart(prev, incoming));
+  }, []);
+
+  const patchCart = useCallback((patch: (cart: Cart) => Cart) => {
+    setCart((prev) => (prev ? patch(prev) : prev));
+  }, []);
+
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -60,7 +102,7 @@ export function CartUIProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartUIContext.Provider
-      value={{ isDrawerOpen, openDrawer, closeDrawer, toast, showAddedToast, dismissToast }}
+      value={{ isDrawerOpen, openDrawer, closeDrawer, toast, showAddedToast, dismissToast, cart, receiveCart, patchCart }}
     >
       {children}
     </CartUIContext.Provider>

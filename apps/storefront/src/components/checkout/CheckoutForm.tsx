@@ -24,7 +24,9 @@ import {
   updateTaxDocumentAction,
   type TaxDocumentDetails,
 } from "@/lib/actions/checkout";
-import { removeLineItemAction } from "@/lib/actions/cart";
+import { getCartAction, removeLineItemAction } from "@/lib/actions/cart";
+import { useCartUI } from "@/components/cart/CartUIProvider";
+import { displayedCart } from "@/lib/cart-snapshot";
 import { lookupCompanyByAfm } from "@/lib/actions/afm-lookup";
 import { isLineItemOverstocked } from "@/lib/stock";
 import { highestOversizedFeeCents } from "@/lib/shipping";
@@ -80,7 +82,21 @@ export function CheckoutForm({
   stockInquiry: StockInquiryContact;
 }) {
   const router = useRouter();
-  const [cart, setCart] = useState(initialCart);
+  // The shared client cart, not a local copy. It used to be
+  // useState(initialCart): set once, so when the shopper changed a quantity
+  // in the cart drawer (which opens on this page too) the order summary kept
+  // the old lines and totals even though the page re-rendered with new
+  // props. Every result below goes through receiveCart instead, and so does
+  // an edit made in the drawer. See CART_STATE_SPEC.md §2–3 and
+  // displayedCart() for how this page's own snapshot joins in.
+  const { cart: sharedCart, receiveCart } = useCartUI();
+  const cart = displayedCart(sharedCart, initialCart);
+  useEffect(() => {
+    receiveCart(initialCart);
+    // Background read on arrival: this page can be restored by Back/Forward
+    // with an old cart, or the cart can have changed in another tab.
+    getCartAction().then(receiveCart);
+  }, [initialCart, receiveCart]);
 
   // Fires once per checkout page load, off the cart as it was when checkout
   // was entered — not on `cart` state, which changes on every address/
@@ -172,7 +188,7 @@ export function CheckoutForm({
     if (email === cart.email) return;
     setEmailSaving(true);
     const result = await updateCheckoutEmailAction(email);
-    if (result.ok) setCart(result.cart);
+    if (result.ok) receiveCart(result.cart);
     else setEmailError(result.error);
     setEmailSaving(false);
   }
@@ -222,7 +238,7 @@ export function CheckoutForm({
     });
     if (result.ok) {
       lastSavedDetails.current = signature;
-      setCart(result.cart);
+      receiveCart(result.cart);
       setShippingOptions(result.shippingOptions);
       setShippingStatus(result.shippingOptions.length > 0 ? "ready" : "empty");
       // Address changed since a shipping method was chosen — the old
@@ -318,7 +334,7 @@ export function CheckoutForm({
     setSelectedShippingId(option.id);
     setShippingSaving(true);
     const result = await setShippingMethodAction(option.id);
-    if (result.ok) setCart(result.cart);
+    if (result.ok) receiveCart(result.cart);
     else setSelectedShippingId(null);
     setShippingSaving(false);
   }
@@ -333,14 +349,14 @@ export function CheckoutForm({
   async function handleRemoveItem(lineItemId: string) {
     setPendingLineId(lineItemId);
     const result = await removeLineItemAction(lineItemId);
-    if (result.ok) setCart(result.cart);
+    if (result.ok) receiveCart(result.cart);
     setPendingLineId(null);
   }
 
   async function saveTaxDocument(payload: TaxDocumentDetails) {
     setTaxSaving(true);
     const result = await updateTaxDocumentAction(payload);
-    if (result.ok) setCart(result.cart);
+    if (result.ok) receiveCart(result.cart);
     setTaxSaving(false);
   }
 

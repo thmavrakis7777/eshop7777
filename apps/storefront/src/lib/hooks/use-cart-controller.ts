@@ -8,6 +8,7 @@ import {
   applyPromoCodeAction,
   removePromoCodeAction,
 } from "@/lib/actions/cart";
+import { useCartUI } from "@/components/cart/CartUIProvider";
 import { isQuantityAvailable } from "@/lib/stock";
 
 // Optimistically patches only the touched line's quantity/line-total for
@@ -35,8 +36,17 @@ function withOptimisticRemoval(cart: Cart, lineId: string): Cart {
   };
 }
 
-export function useCartController(initialCart: Cart | null) {
-  const [cart, setCart] = useState<Cart | null>(initialCart);
+// Reads and edits the shared client cart (CartUIProvider), not a copy of its
+// own: the drawer, /kalathi and the header badge used to each hold a
+// separate cart and only agreed because every action re-rendered the whole
+// page. Now one edit is visible everywhere at once. The header count moves
+// on the server's answer (and on an optimistic removal), not on an
+// optimistic quantity change: that patch leaves itemCount alone on purpose,
+// because the over-stock branch below applies a quantity it never sends.
+// Errors and "which line is pending" stay per-instance: they belong to the
+// surface the shopper is actually using.
+export function useCartController() {
+  const { cart, receiveCart, patchCart } = useCartUI();
   const [error, setError] = useState<string | null>(null);
   // Which line the current error belongs to. Deliberately separate from
   // `pendingLineId`: the consumers used to key the error off that, but it is
@@ -73,16 +83,16 @@ export function useCartController(initialCart: Cart | null) {
   ) {
     clearError();
     if (!isQuantityAvailable(quantity, stock.stockQuantity, stock.allowBackorder)) {
-      setCart((prev) => (prev ? withOptimisticQuantity(prev, lineId, quantity) : prev));
+      patchCart((prev) => withOptimisticQuantity(prev, lineId, quantity));
       return;
     }
     setPendingLineId(lineId);
-    setCart((prev) => (prev ? withOptimisticQuantity(prev, lineId, quantity) : prev));
+    patchCart((prev) => withOptimisticQuantity(prev, lineId, quantity));
     startTransition(async () => {
       const result = await updateLineItemQuantityAction(lineId, quantity);
       // On failure the server cart is authoritative — assigning it also
       // rolls back the optimistic quantity that was never accepted.
-      if (result.cart) setCart(result.cart);
+      if (result.cart) receiveCart(result.cart);
       if (!result.ok) {
         setError(result.error);
         setErrorLineId(lineId);
@@ -94,10 +104,10 @@ export function useCartController(initialCart: Cart | null) {
   function removeItem(lineId: string) {
     clearError();
     setPendingLineId(lineId);
-    setCart((prev) => (prev ? withOptimisticRemoval(prev, lineId) : prev));
+    patchCart((prev) => withOptimisticRemoval(prev, lineId));
     startTransition(async () => {
       const result = await removeLineItemAction(lineId);
-      if (result.cart) setCart(result.cart);
+      if (result.cart) receiveCart(result.cart);
       if (!result.ok) {
         setError(result.error);
         setErrorLineId(lineId);
@@ -110,7 +120,7 @@ export function useCartController(initialCart: Cart | null) {
     setCouponPending(true);
     startTransition(async () => {
       const result = await applyPromoCodeAction(code);
-      if (result.cart) setCart(result.cart);
+      if (result.cart) receiveCart(result.cart);
       setCouponPending(false);
       onSettled(result.ok, result.ok ? undefined : result.error);
     });
@@ -120,14 +130,14 @@ export function useCartController(initialCart: Cart | null) {
     setCouponPending(true);
     startTransition(async () => {
       const result = await removePromoCodeAction(code);
-      if (result.cart) setCart(result.cart);
+      if (result.cart) receiveCart(result.cart);
       setCouponPending(false);
     });
   }
 
   return {
     cart,
-    setCart,
+    receiveCart,
     error,
     errorLineId,
     pendingLineId,

@@ -254,6 +254,14 @@ export type Cart = {
   // rather than an undefined/invalid state.
   taxDocumentType: TaxDocumentType;
   invoiceDetails?: InvoiceDetails;
+  // Server clock (ms) when this snapshot was read from the database. The
+  // browser keeps one shared cart that several sources feed — the layout,
+  // /kalathi and /checkout renders, every cart action's result, background
+  // refreshes — and some of those can arrive stale (a page restored by the
+  // Back button still carries the cart it was rendered with). "Newest
+  // fetchedAt wins" is the one rule that orders them all; see
+  // lib/cart-snapshot.ts and CART_STATE_SPEC.md §3.
+  fetchedAt: number;
 };
 
 // The checkout form's own shape (street/number split, matching the Greek

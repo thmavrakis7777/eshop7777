@@ -13,7 +13,7 @@ import { trackAddToCart } from "@/lib/analytics/track";
 // result row so the add-to-cart behavior/toast timing lives in exactly one
 // place rather than being copy-pasted per surface.
 export function useQuickAdd(product: Product) {
-  const { showAddedToast } = useCartUI();
+  const { showAddedToast, receiveCart } = useCartUI();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -26,6 +26,8 @@ export function useQuickAdd(product: Product) {
     setError(null);
     startTransition(async () => {
       const result = await addLineItemAction(variant.id, 1);
+      // Same as AddToCartButton: the returned cart updates the header badge.
+      if (result.cart) receiveCart(result.cart);
       if (result.ok) {
         showAddedToast();
         trackAddToCart({

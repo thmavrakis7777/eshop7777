@@ -225,7 +225,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
         Μετάβαση στο περιεχόμενο
       </a>
       <WishlistProvider isLoggedIn={customerId !== null}>
-        <CartUIProvider>
+        <CartUIProvider initialCart={cart}>
           <TopBars>
             <AnnouncementBar
               text={settings?.announcementText ?? null}
@@ -239,8 +239,6 @@ export default async function StorefrontLayout({ children }: { children: React.R
             // the full tree Footer (a server component) can take as-is.
             categories={toMenuCategories(categories)}
             navItems={navItems}
-            cartItemCount={cart?.itemCount ?? 0}
-            cartTotal={cart?.total ?? { amount: 0, currencyCode: "EUR" }}
             storeName={branding.storeName}
             logoUrl={branding.logoUrl}
           />

@@ -308,6 +308,9 @@ function toDomainCart(r: CartRow): Cart {
           },
         }
       : {}),
+    // Stamped here, the single place every Cart is built, so every copy the
+    // browser holds can say how fresh it is — see Cart.fetchedAt.
+    fetchedAt: Date.now(),
   };
 }
 
