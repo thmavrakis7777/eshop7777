@@ -1,5 +1,6 @@
 import { cache } from "react";
 import {
+  getActiveProductSlugs,
   getAllCollectionSlugs,
   getAllProductSlugs,
   getCartCrossSell as dbGetCartCrossSell,
@@ -62,6 +63,24 @@ export async function getProductsByCollectionHandle(
 export const getProductByHandle = cache(async (handle: string): Promise<Product | undefined> => {
   return getProductBySlug(handle);
 });
+
+/**
+ * Whether /proionta/{handle} is a real product — for the product layout's
+ * 404 check, which runs before the page's loading skeleton streams and on
+ * every prefetch of a product link.
+ *
+ * The cached slug list answers "yes" for free. A "no" is confirmed against
+ * the database before it's believed: the list can be up to 60 s stale if a
+ * product was activated by anything that doesn't updateTag (a script, a
+ * direct SQL edit), and a false 404 on a live product is far worse than one
+ * extra query for a URL that's already about to 404. getProductByHandle is
+ * request-cached, so on the rare path that reaches it the page reuses the
+ * result.
+ */
+export async function productExists(handle: string): Promise<boolean> {
+  if ((await getActiveProductSlugs()).includes(handle)) return true;
+  return (await getProductByHandle(handle)) !== undefined;
+}
 
 export async function getNewArrivalsPaged(
   opts: { sort?: ProductSort; limit?: number; offset?: number } = {}

@@ -543,6 +543,24 @@ export async function getAllCollectionSlugs(): Promise<{ slug: string; updatedAt
   return rows.map((r) => ({ slug: r.slug, updatedAt: new Date(r.updated_at).toISOString() }));
 }
 
+// Every active product's slug — the cheap "does /proionta/{slug} exist?"
+// answer the product layout needs before its loading skeleton streams (see
+// proionta/[handle]/layout.tsx). That layout also runs on every prefetch of
+// a product link, so it must not cost a query per card on screen; one
+// cached list does, at this catalogue size, for all of them. Same
+// SEARCH_CACHE_TAG as the search index: every product create, edit,
+// (de)activation and delete already calls updateTag on it. Not
+// getCachedSearchCatalog itself — that one leaves out hide_from_search
+// products, which still have a product page.
+export const getActiveProductSlugs = unstable_cache(
+  async (): Promise<string[]> => {
+    const rows = await sql<{ slug: string }[]>`SELECT slug FROM shop.product WHERE is_active`;
+    return rows.map((r) => r.slug);
+  },
+  ["active-product-slugs"],
+  { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
+);
+
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
   const rows = (await sql`
     SELECT ${productFields}
