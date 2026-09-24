@@ -5,7 +5,8 @@
       "name": "storefront",
       "runtimeExecutable": "C:\\Users\\t.mavrakis\\Desktop\\CLAUDE\\.claude\\dev-storefront.cmd",
       "runtimeArgs": [],
-      "port": 3000
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }
