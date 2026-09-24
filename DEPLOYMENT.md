@@ -45,6 +45,18 @@ load" in production.
 (auto-detected). Build/start commands: Vercel's Next.js defaults, no
 override needed.
 
+**Function region**: `dub1` (Dublin), pinned in `apps/storefront/vercel.json`
+— it has to live in the Root Directory above, not the repo root, or Vercel
+never reads it. Dublin is the same AWS region as the Supabase database
+(`eu-west-1`). Before this, no region was configured and functions ran in
+Vercel's default `iad1` (Washington DC), so every query and every new pooler
+connection crossed the Atlantic — the Speed audit's PERF-002, measured as
+1.4–3.8 s cold server responses. The dashboard also has a Functions → Region
+setting; treat this file as the source of truth and don't assume which of
+the two wins — check the deployed result instead: the `X-Vercel-Id` response
+header reads `fra1::dub1::…` when the edge is Frankfurt and the function
+runs in Dublin (it read `fra1::iad1::…` before this change).
+
 **Environment variables to set in Vercel's dashboard** (Project → Settings →
 Environment Variables, Production) — see `apps/storefront/.env.example` for
 the full list with explanations:
