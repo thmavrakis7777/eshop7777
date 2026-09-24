@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import type { Money, NavCategory } from "@/lib/types";
+import type { MenuNavCategory, Money } from "@/lib/types";
 import type { NavItem } from "@/lib/data/navigation";
 import { formatPrice } from "@/lib/format";
 import { publicImageUrl } from "@/lib/storage/urls";
@@ -58,7 +58,7 @@ export function Header({
   storeName,
   logoUrl,
 }: {
-  categories: NavCategory[];
+  categories: MenuNavCategory[];
   /** Resolved main nav — owner-composed items, or the category fallback. */
   navItems: NavItem[];
   cartItemCount: number;

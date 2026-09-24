@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Hero } from "@/components/home/Hero";
 import { CategoryGrid } from "@/components/home/CategoryGrid";
 import { ProductRail } from "@/components/home/ProductRail";
@@ -73,22 +73,23 @@ export function HomepageSectionGroup({
 }) {
   const first = group[0];
 
+  // The group that opens the page is never wrapped in ScrollReveal: the
+  // reveal starts at opacity 0 in the server HTML and only lifts after the
+  // JS bundle downloads, hydrates and plays a 500 ms fade, so an already-
+  // loaded hero image stayed invisible for 0.9–4.3 s and that wait *was*
+  // the homepage's LCP (Speed audit PERF-001/SPD-02). Later heroes and
+  // promos keep the reveal — they're below the fold, where the fade is the
+  // intended effect and costs no paint time.
+  const reveal = (node: ReactNode) => (isFirstGroup ? node : <ScrollReveal>{node}</ScrollReveal>);
+
   switch (first.kind) {
     // Consecutive heroes arrive here as one group and become a carousel —
     // see groupSections() in lib/data/homepage-sections.ts.
     case "hero":
-      return (
-        <ScrollReveal>
-          <Hero slides={group} storeName={storeName} isFirstSection={isFirstGroup} />
-        </ScrollReveal>
-      );
+      return reveal(<Hero slides={group} storeName={storeName} isFirstSection={isFirstGroup} />);
 
     case "promo":
-      return (
-        <ScrollReveal>
-          <EditorialBanner blocks={group} />
-        </ScrollReveal>
-      );
+      return reveal(<EditorialBanner blocks={group} />);
 
     case "category_grid":
       return (

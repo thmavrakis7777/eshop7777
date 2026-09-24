@@ -35,7 +35,11 @@ export function ProductImage({
 
   return (
     <div className="relative aspect-square w-full overflow-hidden rounded-md">
-      <Image src={imageUrl} alt={label} fill sizes={sizes} priority={priority} className="object-cover" />
+      {/* next/image's own `priority` is deprecated since Next 16 in favour of
+          `preload`, which is the same behaviour (get-img-props.js maps one
+          onto the other); this component keeps its `priority` name so its
+          callers don't have to change. */}
+      <Image src={imageUrl} alt={label} fill sizes={sizes} preload={priority} className="object-cover" />
     </div>
   );
 }

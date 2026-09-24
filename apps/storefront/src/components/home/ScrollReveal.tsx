@@ -15,6 +15,12 @@ import type { ReactNode } from "react";
  * viewport.once: false so the section fades back out on the way past and
  * back in in on return, per spec. Only opacity/transform are animated —
  * both compositor-only, so this can't introduce layout shift.
+ *
+ * Never wrap the section that opens the page: `initial` is rendered into
+ * the server HTML as opacity 0, so anything above the fold stays invisible
+ * until JS hydrates — that made the homepage LCP 0.9–4.3 s later than the
+ * hero image itself (Speed audit PERF-001). HomepageSectionGroup skips it
+ * for the first group.
  */
 export function ScrollReveal({ children }: { children: ReactNode }) {
   const reduceMotion = useReducedMotion();

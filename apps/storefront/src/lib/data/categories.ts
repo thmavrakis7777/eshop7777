@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { sql } from "@/lib/db/client";
-import type { Category, CategoryNode, FaqItem, NavCategory } from "@/lib/types";
+import type { Category, CategoryNode, FaqItem, MenuCategory, MenuNavCategory, NavCategory } from "@/lib/types";
 
 // Invalidated by category/collection admin saves (taxonomy-actions.ts).
 export const CATEGORY_CACHE_TAG = "categories";
@@ -251,6 +251,37 @@ export const getNavCategories = cache(async (): Promise<NavCategory[]> => {
     };
   });
 });
+
+/**
+ * The nav tree cut down to what Header and MobileMenu read (see MenuCategory
+ * in lib/types.ts for why). Pure mapping of getNavCategories()' result, so
+ * it costs no extra query.
+ *
+ * Memoized by id: a cross-listed category appears in several
+ * `displayChildren` arrays as the *same* node, and nothing in the data
+ * stops a secondary-parent edge from pointing back up its own ancestor
+ * chain — mapping each node once (and registering it before recursing)
+ * keeps that shared, and makes such a cycle end instead of recursing
+ * forever.
+ */
+export function toMenuCategories(roots: NavCategory[]): MenuNavCategory[] {
+  const mapped = new Map<string, MenuCategory>();
+  const toMenu = (node: CategoryNode): MenuCategory => {
+    const existing = mapped.get(node.id);
+    if (existing) return existing;
+    const menu: MenuCategory = {
+      name: node.name,
+      handle: node.handle,
+      canonicalHref: node.canonicalHref,
+      mobileViewAllButton: node.mobileViewAllButton,
+      displayChildren: [],
+    };
+    mapped.set(node.id, menu);
+    menu.displayChildren = node.displayChildren.map(toMenu);
+    return menu;
+  };
+  return roots.map((root) => ({ ...toMenu(root), promo: root.promo }));
+}
 
 /**
  * A category located by its full URL path, with everything a category page

@@ -149,6 +149,22 @@ export type NavCategory = CategoryNode & {
   };
 };
 
+// What the header's mega-menu and the mobile drawer actually read — nothing
+// else. Both are client components, so whatever tree the layout hands them
+// is serialized into every page's RSC payload; the full NavCategory tree
+// (descriptions, FAQs, images, counts, and the canonical `children` tree
+// on top of `displayChildren`) came to ~93 KB there and was hydrated on
+// every page (Speed audit PERF-004/SPD-05). Built by toMenuCategories() in
+// lib/data/categories.ts. Adding a field here means the menu now needs it,
+// so keep this the exact list of what Header/MobileMenu use.
+export type MenuCategory = Pick<Category, "name" | "handle" | "mobileViewAllButton"> & {
+  canonicalHref: string;
+  displayChildren: MenuCategory[];
+};
+
+// Only top-level entries carry the mega-menu promo tile, same as NavCategory.
+export type MenuNavCategory = MenuCategory & Pick<NavCategory, "promo">;
+
 export type CartLineItem = {
   id: string;
   variantId: string;

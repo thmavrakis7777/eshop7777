@@ -193,6 +193,10 @@ export default async function ProductPage({ params }: Props) {
             label={product.title}
             tone={product.placeholderTone}
             sizes="(min-width: 768px) 50vw, 100vw"
+            // The page's LCP element on every viewport (first in the grid on
+            // mobile, left column on desktop) — lazy-loading it made mobile
+            // LCP land 0.9 s after FCP (Speed audit PERF-007/SPD-03).
+            priority
           />
           <WishlistButton
             handle={product.handle}

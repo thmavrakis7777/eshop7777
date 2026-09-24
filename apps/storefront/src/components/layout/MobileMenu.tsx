@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import type { CategoryNode, NavCategory } from "@/lib/types";
+import type { MenuCategory, MenuNavCategory } from "@/lib/types";
 import type { NavItem } from "@/lib/data/navigation";
 import { ChevronRightIcon, CloseIcon, HeartIcon, UserIcon } from "@/components/ui/Icons";
 import { StoreLogo } from "./StoreLogo";
@@ -14,10 +14,11 @@ const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 // Mirrors DEFAULT_VIEW_ALL_TEXT in lib/data/categories.ts — only used as a
-// last-resort fallback if a CategoryNode somehow arrives without
+// last-resort fallback if a MenuCategory somehow arrives without
 // mobileViewAllButton populated (every real node from fetchAllCategories
-// always has it; this keeps the component correct even if a caller ever
-// hands it a hand-built CategoryNode that omits the optional field).
+// always has it, and toMenuCategories copies it through; this keeps the
+// component correct even if a caller ever hands it a hand-built node that
+// omits the optional field).
 const DEFAULT_VIEW_ALL_TEXT = "Δείτε όλα τα προϊόντα της κατηγορίας";
 
 // One shape for every tappable line in the drawer. py-4 puts a text-sm row at
@@ -27,7 +28,7 @@ const ROW = "flex w-full items-center gap-3 px-4 py-4 text-left";
 
 type DrawerProps = {
   onClose: () => void;
-  categories: NavCategory[];
+  categories: MenuNavCategory[];
   navItems: NavItem[];
   storeName: string;
   logoUrl: string | null;
@@ -62,7 +63,7 @@ function MenuDrawer({
    * just opened. The path doubles as the URL builder, since a category's
    * canonical href is its whole handle chain.
    */
-  const [path, setPath] = useState<CategoryNode[]>([]);
+  const [path, setPath] = useState<MenuCategory[]>([]);
   // Which edge the incoming level slides in from. Forward reads as "deeper",
   // back as "out" — the cue that this is still one menu, not a page change.
   const [goingBack, setGoingBack] = useState(false);
@@ -74,12 +75,12 @@ function MenuDrawer({
 
   const depth = path.length;
   const current = path.at(-1);
-  // Only ever real at depth 1: `path[0]` is the exact NavCategory object
+  // Only ever real at depth 1: `path[0]` is the exact MenuNavCategory object
   // Header.tsx's own top-level list holds (see the top-level branch below,
   // `drillInto(category)`), so it's the only level with a `.promo` — a
-  // grandchild CategoryNode from `node.children` never carries one. Main-
+  // deeper MenuCategory from `displayChildren` never carries one. Main-
   // category-only by construction, matching the desktop mega menu.
-  const topLevelPromo = depth === 1 ? (current as NavCategory | undefined)?.promo : undefined;
+  const topLevelPromo = depth === 1 ? (current as MenuNavCategory | undefined)?.promo : undefined;
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -126,7 +127,7 @@ function MenuDrawer({
     return () => document.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, [onClose]);
 
-  function drillInto(node: CategoryNode) {
+  function drillInto(node: MenuCategory) {
     setPath((p) => [...p, node]);
     setGoingBack(false);
   }
@@ -380,8 +381,8 @@ function CategoryRow({
   onDrill,
   onClose,
 }: {
-  node: CategoryNode;
-  onDrill: (node: CategoryNode) => void;
+  node: MenuCategory;
+  onDrill: (node: MenuCategory) => void;
   onClose: () => void;
 }) {
   // displayChildren, not children: a cross-listed leaf category (no

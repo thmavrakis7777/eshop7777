@@ -17,7 +17,7 @@ import { siteUrl } from "@/lib/site-config";
 import { safeJsonLd } from "@/lib/json-ld";
 import { getBranding } from "@/lib/data/branding";
 import type { SiteSettings } from "@/lib/data/site-settings";
-import { getNavCategories } from "@/lib/data/categories";
+import { getNavCategories, toMenuCategories } from "@/lib/data/categories";
 import { getCart } from "@/lib/data/cart";
 import { getPromoBanner } from "@/lib/data/promo-banner";
 import { getSiteSettings } from "@/lib/data/site-settings";
@@ -234,7 +234,10 @@ export default async function StorefrontLayout({ children }: { children: React.R
             {promoBanner && <PromoBannerBar banner={promoBanner} />}
           </TopBars>
           <Header
-            categories={categories}
+            // Header is a client component: its props ship in every page's
+            // RSC payload, so it gets only the fields the menus read, not
+            // the full tree Footer (a server component) can take as-is.
+            categories={toMenuCategories(categories)}
             navItems={navItems}
             cartItemCount={cart?.itemCount ?? 0}
             cartTotal={cart?.total ?? { amount: 0, currencyCode: "EUR" }}

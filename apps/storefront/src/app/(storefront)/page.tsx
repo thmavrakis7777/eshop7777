@@ -4,7 +4,6 @@ import { CategoryGrid } from "@/components/home/CategoryGrid";
 import { HomepageSectionGroup } from "@/components/home/HomepageSections";
 import { TrustStrip } from "@/components/home/TrustStrip";
 import { Newsletter } from "@/components/home/Newsletter";
-import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { getNavCategories } from "@/lib/data/categories";
 import { getHomepageSections, groupSections } from "@/lib/data/homepage-sections";
 import { getSeoOverride } from "@/lib/data/seo";
@@ -77,9 +76,9 @@ export default async function HomePage() {
         ))
       ) : (
         <>
-          <ScrollReveal>
-            <Hero slides={[]} storeName={branding.storeName} isFirstSection />
-          </ScrollReveal>
+          {/* No ScrollReveal: this Hero always opens the page — see the
+              first-group rule in HomepageSections.tsx. */}
+          <Hero slides={[]} storeName={branding.storeName} isFirstSection />
           <CategoryGrid categories={categories} />
           <TrustStrip />
           <Newsletter />
