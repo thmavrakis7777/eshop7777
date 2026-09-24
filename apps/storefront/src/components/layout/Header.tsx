@@ -20,6 +20,7 @@ import {
 import { MobileMenu } from "./MobileMenu";
 import { SearchBox } from "./SearchBox";
 import { StoreLogo } from "./StoreLogo";
+import { HoverPrefetchLink } from "@/components/ui/HoverPrefetchLink";
 import { useCartUI } from "@/components/cart/CartUIProvider";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 
@@ -497,27 +498,30 @@ export function Header({
                       handle with the child's — that concatenation assumes the
                       child's URL lives under this exact category, which is
                       false for a cross-listed one (its real URL is wherever
-                      its PRIMARY parent puts it). */}
+                      its PRIMARY parent puts it). Every link in this panel
+                      is a HoverPrefetchLink: the panel shows ~60 at once,
+                      and prefetching them all on open was ~60 requests per
+                      hover. */}
                   {activeMegaMenu.displayChildren.map((child) => (
                     <div key={child.handle} className="mb-5 break-inside-avoid">
-                      <Link
+                      <HoverPrefetchLink
                         href={child.canonicalHref}
                         className="block rounded-sm px-2 py-1 text-sm font-medium text-ink hover:text-accent transition-colors"
                         onClick={() => setOpenMenu(null)}
                       >
                         {child.name}
-                      </Link>
+                      </HoverPrefetchLink>
                       {child.displayChildren.length > 0 && (
                         <ul className="mt-1 flex flex-col">
                           {child.displayChildren.map((grandchild) => (
                             <li key={grandchild.handle}>
-                              <Link
+                              <HoverPrefetchLink
                                 href={grandchild.canonicalHref}
                                 className="block rounded-sm px-2 py-1 text-xs text-ink-muted hover:text-ink transition-colors"
                                 onClick={() => setOpenMenu(null)}
                               >
                                 {grandchild.name}
-                              </Link>
+                              </HoverPrefetchLink>
                             </li>
                           ))}
                         </ul>
@@ -529,19 +533,19 @@ export function Header({
                     balancing algorithm could drop this "view all" link
                     partway down a column instead of it reading as a single
                     consistent call-to-action under the category list. */}
-                <Link
+                <HoverPrefetchLink
                   href={activeMegaMenu.canonicalHref}
                   className="mt-1 inline-block rounded-sm px-2 py-1 text-sm font-medium text-accent hover:underline"
                   onClick={() => setOpenMenu(null)}
                 >
                   Όλα τα προϊόντα →
-                </Link>
+                </HoverPrefetchLink>
               </div>
               {activeMegaMenu.promo && (() => {
                 const promo = activeMegaMenu.promo;
                 const imageUrl = publicImageUrl(promo.imagePath);
                 return (
-                  <Link
+                  <HoverPrefetchLink
                     href={promo.href}
                     className="group relative flex min-h-48 flex-col justify-end overflow-hidden rounded-md bg-surface p-4"
                     onClick={() => setOpenMenu(null)}
@@ -584,7 +588,7 @@ export function Header({
                         {promo.buttonText}
                       </span>
                     </div>
-                  </Link>
+                  </HoverPrefetchLink>
                 );
               })()}
             </div>
