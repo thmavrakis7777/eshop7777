@@ -23,6 +23,26 @@ const CONTENT_TYPES: Record<string, string> = {
 /** Longest signature checked below (WebP needs bytes 0–11). */
 const SNIFF_BYTES = 12;
 
+/**
+ * Sent as the upload's `cache-control` header. Supabase stores it with the
+ * object and serves it back verbatim on every public read; without it, the
+ * Storage server records `no-cache`, so every visitor revalidated every
+ * image on every page view (measured on production, 19 Σεπ — SPD-07).
+ *
+ * A year plus `immutable` is safe only because the bytes at a given URL can
+ * never change: uploadImage names every object with a fresh UUID, POSTs
+ * without `x-upsert` (Storage refuses an existing path rather than
+ * overwriting it), and nothing in this app deletes Storage objects. A
+ * replaced image is a new upload at a new URL, never an edit in place. If
+ * any of those three stop being true, this has to come down, because a
+ * browser holding a year-long copy has no way to hear about the change.
+ *
+ * Also raises how long Vercel keeps an optimized product photo, since
+ * next/image uses the larger of this and `images.minimumCacheTTL` (4 h).
+ * That means fewer re-optimizations, not more.
+ */
+const CACHE_CONTROL = "public, max-age=31536000, immutable";
+
 export class UploadError extends Error {}
 
 /**
@@ -134,6 +154,7 @@ export async function uploadImage(file: File, folder: string): Promise<{ path: s
         Authorization: `Bearer ${serviceKey}`,
         apikey: serviceKey,
         "Content-Type": sniffed,
+        "Cache-Control": CACHE_CONTROL,
       },
       body: buffer,
     }
