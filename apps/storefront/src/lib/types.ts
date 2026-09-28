@@ -1,6 +1,8 @@
 // Shaped to line up with Medusa's product/category response objects,
 // so the Phase 2 swap to real data is an adapter change, not a UI rewrite.
 
+import type { TotalsDiscount, TotalsShipping } from "@/lib/cart-totals";
+
 export type Tone = "clay" | "sage" | "stone" | "linen";
 
 export type Money = {
@@ -245,6 +247,13 @@ export type Cart = {
   // save. Undefined exactly when hasShippingMethod is false.
   shippingMethodId?: string;
   total: Money;
+  // The rules this snapshot was priced with — the applied discount's and the
+  // saved shipping method's, exactly as computeTotals read them (null when
+  // none). Lets the browser re-run the same computeTotals after an
+  // optimistic quantity change or removal, so the totals move with the line
+  // instead of a round trip later (SPD-09, CART_TOTALS_SPEC.md). Only this
+  // shopper's own applied code and shipping prices checkout already shows.
+  pricing: { discount: TotalsDiscount | null; shipping: TotalsShipping | null };
   promotions: AppliedPromotion[];
   shippingAddress?: AddressSummary;
   billingAddress?: AddressSummary;

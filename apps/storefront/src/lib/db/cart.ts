@@ -3,25 +3,22 @@ import { sql, type Tx } from "@/lib/db/client";
 import { toneFor } from "@/lib/db/catalog";
 import { publicImageUrl } from "@/lib/storage/urls";
 import { isHeraklionAddress } from "@/lib/heraklion";
-import { highestOversizedFeeCents } from "@/lib/shipping";
-import type { Cart, CartLineItem, Money } from "@/lib/types";
+import { computeTotals, eur } from "@/lib/cart-totals";
+import type { Cart, CartLineItem } from "@/lib/types";
 
 /**
  * The cart engine. Replaces Medusa's cart module, its line-item adjustments,
  * its promotion application methods, and the four tables behind them.
  *
- * Totals are computed here, in one place, from the cart's own rows — the
- * storefront never has to reconcile a `subtotal` that silently folds in
+ * Totals are computed from the cart's own rows by one function,
+ * computeTotals (lib/cart-totals.ts — shared with the browser since SPD-09)
+ * — the storefront never has to reconcile a `subtotal` that silently folds in
  * shipping (the exact Medusa quirk documented in the old lib/data/cart.ts,
  * where `subtotal` and `item_subtotal` meant different things).
  *
  * Money is VAT-INCLUSIVE integer cents throughout (Greek B2C law). `vatTotal`
  * is a derived breakdown line, never added on top.
  */
-
-// Standard Greek ΦΠΑ. Overridable per-store in shop.site_setting and
-// per-product via shop.product.vat_rate; both default to this.
-const DEFAULT_VAT_RATE = 24;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,8 +30,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * one, so the migration is invisible to anyone mid-shop.
  */
 export const isCartId = (id: string | undefined | null): id is string => Boolean(id && UUID_RE.test(id));
-
-const eur = (cents: number): Money => ({ amount: cents / 100, currencyCode: "EUR" });
 
 type CartRow = {
   id: string;
@@ -102,89 +97,6 @@ export function toAddressSummary(a: AddressJson) {
   };
 }
 
-/**
- * The single money calculation for a cart. Exported because order completion
- * must produce byte-identical figures — the customer is charged what the
- * cart showed, so there is exactly one implementation of this arithmetic.
- */
-export function computeTotals(input: {
-  items: Array<{
-    unit_price_cents: number;
-    quantity: number;
-    /** Per-product override. NULL/0 = ships under the standard method. */
-    shipping_cost_cents?: number | null;
-  }>;
-  discount: { type: "percentage" | "fixed"; value: number; min_subtotal_cents: number } | null;
-  shipping: {
-    price_cents: number;
-    free_over_cents: number | null;
-    is_pickup: boolean;
-    /** Heraklion's own free-shipping threshold overrides the oversized surcharge — see below. */
-    heraklion_only?: boolean;
-  } | null;
-  vatRate?: number;
-}) {
-  const subtotalCents = input.items.reduce((sum, i) => sum + i.unit_price_cents * i.quantity, 0);
-
-  let discountCents = 0;
-  if (input.discount && subtotalCents >= input.discount.min_subtotal_cents) {
-    discountCents =
-      input.discount.type === "percentage"
-        ? Math.round((subtotalCents * input.discount.value) / 100)
-        : input.discount.value;
-    // Never discount below zero, and never turn a discount into a refund.
-    discountCents = Math.min(discountCents, subtotalCents);
-  }
-
-  const afterDiscount = subtotalCents - discountCents;
-
-  // Shipping. Two regimes, never mixed:
-  //
-  //   * All-standard cart  → the chosen method's price, once, waived above
-  //     the free-shipping threshold.
-  //   * Any oversized item → shipping is the HIGHEST single oversized item's
-  //     own cost (see lib/shipping.ts's highestOversizedFeeCents, shared
-  //     with ShippingSection's checkout-UI preview so the two can never
-  //     disagree) — never summed across multiple oversized lines, never
-  //     multiplied by quantity. Standard items in the same cart ride along
-  //     free rather than adding the method price on top.
-  //
-  // So 1 normal = 3.50, 1 heavy (€8) + 1 normal = 8.00, 2 heavy (€8 each) +
-  // 1 normal = 8.00 (not 16.00), a €7 item + a €12 item = 12.00 (not 19.00).
-  // Reversed from an earlier "sum every oversized line × its quantity"
-  // design per an explicit later business decision — see git history for
-  // that rule if it's ever needed again.
-  //
-  // The free-shipping threshold deliberately does NOT waive oversized costs
-  // for the nationwide method: that parcel genuinely costs more to send, and
-  // a large order does not make a bathtub cheaper to ship. Heraklion's own
-  // method is the one deliberate exception — its threshold is a flat "free
-  // delivery in the city" promise that covers the whole order, heavy/bulky
-  // included, per the approved Heraklion free-shipping spec. Store pickup
-  // skips all of it either way, oversized included — nothing is being sent.
-  let shippingCents = 0;
-  if (input.shipping && !input.shipping.is_pickup) {
-    const oversizedCents = highestOversizedFeeCents(input.items.map((i) => i.shipping_cost_cents));
-    const qualifiesFree =
-      input.shipping.free_over_cents != null && afterDiscount >= input.shipping.free_over_cents;
-
-    if (oversizedCents > 0 && !(input.shipping.heraklion_only && qualifiesFree)) {
-      shippingCents = oversizedCents;
-    } else {
-      shippingCents = qualifiesFree ? 0 : input.shipping.price_cents;
-    }
-  }
-
-  const totalCents = afterDiscount + shippingCents;
-
-  // Prices already include VAT, so this extracts the embedded tax rather than
-  // adding to it: gross × rate ÷ (100 + rate).
-  const rate = input.vatRate ?? DEFAULT_VAT_RATE;
-  const vatCents = Math.round((totalCents * rate) / (100 + rate));
-
-  return { subtotalCents, discountCents, shippingCents, totalCents, vatCents, vatRate: rate };
-}
-
 // One query for the whole cart: header, joined shipping method and discount,
 // plus items as an aggregated JSON array. The Medusa version needed a `fields`
 // string listing every relation to expand.
@@ -248,8 +160,10 @@ function toDomainCart(r: CartRow): Cart {
     allowBackorder: i.allow_backorder,
   }));
 
-  const totals = computeTotals({
-    items: r.items,
+  // Built once, used twice: to price this snapshot, and handed to the
+  // browser as `pricing` so an optimistic edit re-runs the same
+  // computeTotals with the same rules (recomputeTotals, SPD-09).
+  const pricing: Cart["pricing"] = {
     discount:
       r.discount_type && r.discount_value != null
         ? {
@@ -267,7 +181,8 @@ function toDomainCart(r: CartRow): Cart {
             heraklion_only: r.shipping_heraklion_only ?? false,
           }
         : null,
-  });
+  };
+  const totals = computeTotals({ items: r.items, ...pricing });
 
   return {
     id: r.id,
@@ -282,6 +197,7 @@ function toDomainCart(r: CartRow): Cart {
     hasShippingMethod: r.shipping_price_cents != null,
     shippingMethodId: r.shipping_method_id ?? undefined,
     total: eur(totals.totalCents),
+    pricing,
     // One discount per cart. Medusa allowed a list; a second code now replaces
     // the first rather than stacking, which is what a single-discount store
     // actually wants and removes a whole class of "which order do they apply

@@ -9,12 +9,13 @@ import path from "node:path";
 // (`pnpm db:test-concurrency`) rather than something `pnpm test`/CI could
 // ever accidentally fire against production.
 //
-// computeTotals (lib/db/cart.ts) lives in a `server-only` module that also
-// creates lib/db/client.ts's Postgres client at import time — this dummy
+// toDomainProduct (lib/db/catalog.ts) lives in a `server-only` module that
+// also creates lib/db/client.ts's Postgres client at import time — this dummy
 // connection string lets that module load without throwing, with zero real
 // connection ever attempted (postgres.js connects lazily, per query, and
-// these tests only ever call the pure computeTotals function). Real tests
-// must never depend on it resolving to anything.
+// these tests only ever call pure functions). Real tests must never depend
+// on it resolving to anything. (computeTotals used to be the reason too; it
+// moved to the plain lib/cart-totals.ts in SPD-09.)
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = "postgres://test:test@localhost:5432/test";
 }

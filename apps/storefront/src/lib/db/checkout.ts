@@ -1,7 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { sql } from "@/lib/db/client";
-import { computeTotals } from "@/lib/db/cart";
+import { computeTotals } from "@/lib/cart-totals";
 import { isHeraklionAddress } from "@/lib/heraklion";
 import {
   LOYALTY_REWARD_DEFAULT_EXPIRY_DAYS,

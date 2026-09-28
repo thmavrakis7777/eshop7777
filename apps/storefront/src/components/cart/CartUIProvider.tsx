@@ -24,6 +24,15 @@ type CartUIContextValue = {
   // patches). Keeps the snapshot's fetchedAt, so the server's answer to the
   // same edit always replaces it.
   patchCart: (patch: (cart: Cart) => Cart) => void;
+  // True while any optimistic cart edit is still waiting for the server.
+  // Since SPD-09 those edits move the totals at once, so for that moment the
+  // shown total is a prediction. /checkout's pay button waits it out, so it
+  // only ever offers to charge a total the server has confirmed
+  // (CART_TOTALS_SPEC.md §3.6). A count, not a flag: two lines can be in
+  // flight at once, and the first answer mustn't unlock the button early.
+  cartEditPending: boolean;
+  beginCartEdit: () => void;
+  endCartEdit: () => void;
 };
 
 const CartUIContext = createContext<CartUIContextValue | null>(null);
@@ -60,6 +69,10 @@ export function CartUIProvider({
   const patchCart = useCallback((patch: (cart: Cart) => Cart) => {
     setCart((prev) => (prev ? patch(prev) : prev));
   }, []);
+
+  const [editsInFlight, setEditsInFlight] = useState(0);
+  const beginCartEdit = useCallback(() => setEditsInFlight((n) => n + 1), []);
+  const endCartEdit = useCallback(() => setEditsInFlight((n) => Math.max(0, n - 1)), []);
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
@@ -102,7 +115,20 @@ export function CartUIProvider({
 
   return (
     <CartUIContext.Provider
-      value={{ isDrawerOpen, openDrawer, closeDrawer, toast, showAddedToast, dismissToast, cart, receiveCart, patchCart }}
+      value={{
+        isDrawerOpen,
+        openDrawer,
+        closeDrawer,
+        toast,
+        showAddedToast,
+        dismissToast,
+        cart,
+        receiveCart,
+        patchCart,
+        cartEditPending: editsInFlight > 0,
+        beginCartEdit,
+        endCartEdit,
+      }}
     >
       {children}
     </CartUIContext.Provider>

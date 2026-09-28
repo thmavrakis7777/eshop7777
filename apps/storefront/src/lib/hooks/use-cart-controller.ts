@@ -10,12 +10,13 @@ import {
 } from "@/lib/actions/cart";
 import { useCartUI } from "@/components/cart/CartUIProvider";
 import { isQuantityAvailable } from "@/lib/stock";
+import { recomputeTotals } from "@/lib/cart-totals";
 
-// Optimistically patches only the touched line's quantity/line-total for
-// instant feedback (CART_UX_SPEC.md §10) — cart-level subtotal/discount/tax
-// depend on server-side promotion/tax logic this hook has no business
-// reimplementing, so those stay at their last-known value until the real
-// response reconciles them a moment later (surfaced via `pendingLineId`).
+// Patches only the touched line's quantity/line-total (CART_UX_SPEC.md §10).
+// On its own this is the display for a quantity that is never sent (above
+// stock, see updateQuantity): the line shows it, the totals stay at the
+// server's. An edit that IS sent also goes through recomputeTotals, so the
+// totals move with the line (SPD-09).
 function withOptimisticQuantity(cart: Cart, lineId: string, quantity: number): Cart {
   return {
     ...cart,
@@ -27,26 +28,23 @@ function withOptimisticQuantity(cart: Cart, lineId: string, quantity: number): C
   };
 }
 
+// Item count and totals come from recomputeTotals, which the caller applies.
 function withOptimisticRemoval(cart: Cart, lineId: string): Cart {
-  const removed = cart.items.find((i) => i.id === lineId);
-  return {
-    ...cart,
-    items: cart.items.filter((i) => i.id !== lineId),
-    itemCount: cart.itemCount - (removed?.quantity ?? 0),
-  };
+  return { ...cart, items: cart.items.filter((i) => i.id !== lineId) };
 }
 
 // Reads and edits the shared client cart (CartUIProvider), not a copy of its
 // own: the drawer, /kalathi and the header badge used to each hold a
 // separate cart and only agreed because every action re-rendered the whole
-// page. Now one edit is visible everywhere at once. The header count moves
-// on the server's answer (and on an optimistic removal), not on an
-// optimistic quantity change: that patch leaves itemCount alone on purpose,
-// because the over-stock branch below applies a quantity it never sends.
-// Errors and "which line is pending" stay per-instance: they belong to the
-// surface the shopper is actually using.
+// page. Now one edit is visible everywhere at once — the line, the totals
+// and the header count together for every edit that is sent (SPD-09); the
+// server's answer to it still replaces all of them. Errors and "which line
+// is pending" stay per-instance: they belong to the surface the shopper is
+// actually using. Whether ANY cart edit is still waiting for the server is
+// shared (beginCartEdit/endCartEdit), because /checkout's pay button must
+// not offer a total the server hasn't confirmed yet.
 export function useCartController() {
-  const { cart, receiveCart, patchCart } = useCartUI();
+  const { cart, receiveCart, patchCart, beginCartEdit, endCartEdit } = useCartUI();
   const [error, setError] = useState<string | null>(null);
   // Which line the current error belongs to. Deliberately separate from
   // `pendingLineId`: the consumers used to key the error off that, but it is
@@ -87,32 +85,45 @@ export function useCartController() {
       return;
     }
     setPendingLineId(lineId);
-    patchCart((prev) => withOptimisticQuantity(prev, lineId, quantity));
+    patchCart((prev) => recomputeTotals(withOptimisticQuantity(prev, lineId, quantity)));
+    beginCartEdit();
     startTransition(async () => {
-      const result = await updateLineItemQuantityAction(lineId, quantity);
-      // On failure the server cart is authoritative — assigning it also
-      // rolls back the optimistic quantity that was never accepted.
-      if (result.cart) receiveCart(result.cart);
-      if (!result.ok) {
-        setError(result.error);
-        setErrorLineId(lineId);
+      try {
+        const result = await updateLineItemQuantityAction(lineId, quantity);
+        // On failure the server cart is authoritative — assigning it also
+        // rolls back the optimistic quantity (and the totals predicted from
+        // it) that was never accepted.
+        if (result.cart) receiveCart(result.cart);
+        if (!result.ok) {
+          setError(result.error);
+          setErrorLineId(lineId);
+        }
+        setPendingLineId(null);
+      } finally {
+        // Even if the request itself throws: a stuck count would lock
+        // /checkout's pay button for the rest of the visit.
+        endCartEdit();
       }
-      setPendingLineId(null);
     });
   }
 
   function removeItem(lineId: string) {
     clearError();
     setPendingLineId(lineId);
-    patchCart((prev) => withOptimisticRemoval(prev, lineId));
+    patchCart((prev) => recomputeTotals(withOptimisticRemoval(prev, lineId)));
+    beginCartEdit();
     startTransition(async () => {
-      const result = await removeLineItemAction(lineId);
-      if (result.cart) receiveCart(result.cart);
-      if (!result.ok) {
-        setError(result.error);
-        setErrorLineId(lineId);
+      try {
+        const result = await removeLineItemAction(lineId);
+        if (result.cart) receiveCart(result.cart);
+        if (!result.ok) {
+          setError(result.error);
+          setErrorLineId(lineId);
+        }
+        setPendingLineId(null);
+      } finally {
+        endCartEdit();
       }
-      setPendingLineId(null);
     });
   }
 

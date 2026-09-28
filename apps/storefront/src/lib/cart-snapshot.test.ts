@@ -20,6 +20,7 @@ function cart(fetchedAt: number, itemCount = 1): Cart {
     vatRate: 24,
     hasShippingMethod: false,
     total: eur(10),
+    pricing: { discount: null, shipping: null },
     promotions: [],
     taxDocumentType: "receipt",
     fetchedAt,

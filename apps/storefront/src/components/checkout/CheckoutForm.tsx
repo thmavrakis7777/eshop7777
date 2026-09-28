@@ -89,7 +89,7 @@ export function CheckoutForm({
   // props. Every result below goes through receiveCart instead, and so does
   // an edit made in the drawer. See CART_STATE_SPEC.md §2–3 and
   // displayedCart() for how this page's own snapshot joins in.
-  const { cart: sharedCart, receiveCart } = useCartUI();
+  const { cart: sharedCart, receiveCart, cartEditPending } = useCartUI();
   const cart = displayedCart(sharedCart, initialCart);
   useEffect(() => {
     receiveCart(initialCart);
@@ -511,6 +511,9 @@ export function CheckoutForm({
     taxDocumentReady &&
     Boolean(selectedPaymentId) &&
     !hasOverstockedItem &&
+    // A cart edit from the drawer is still on its way: the total on the
+    // button is the browser's prediction until the server answers (SPD-09).
+    !cartEditPending &&
     !isSubmitting;
 
   // Removing the last item mid-checkout must not leave an unusable form
