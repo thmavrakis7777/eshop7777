@@ -106,8 +106,9 @@ breaking every `= ANY(${array})` query while scalar queries keep working.
 
 The session-mode connection cap that motivated all this is separately
 handled: `lib/db/client.ts` caps the pool at 1 during `next build` (which
-is what produced the old `EMAXCONNSESSION` warnings), and at 5 per
-instance at runtime.
+is what produced the old `EMAXCONNSESSION` warnings), and at 3 per
+instance at runtime (5 until 2026-09-28, when traffic bursts still
+exhausted the 40-slot pool — see the comment on `max` there).
 
 ## 2. Supabase (database)
 

@@ -19,7 +19,7 @@ import {
 import { getOrderForEmail } from "@/lib/db/order-email";
 import { sendShipmentNotificationEmail } from "@/lib/email/send";
 import { setCustomerActive, withdrawMarketingConsent } from "@/lib/admin/customers";
-import { DiscountError, deleteDiscount, saveDiscount } from "@/lib/admin/discounts";
+import { DiscountError, deleteDiscount, getDiscountUsage, saveDiscount, type DiscountUsage } from "@/lib/admin/discounts";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
 import { scheduleRestockNotifications } from "@/lib/stock-notifications";
 
@@ -427,6 +427,25 @@ export async function deleteDiscountAction(id: string): Promise<ActionResult> {
           ? "Ο κωδικός διαγράφηκε."
           : "Ο κωδικός απενεργοποιήθηκε — έχει χρησιμοποιηθεί σε παραγγελίες, οπότε διατηρείται στο ιστορικό.",
     };
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
+}
+
+/**
+ * The discounts screen's "N χρήσεις" — which orders used a code, newest
+ * first. Loaded only when opened, one code at a time.
+ */
+export async function getDiscountUsageAction(
+  id: string
+): Promise<{ ok: true; usage: DiscountUsage[] } | { ok: false; error: string }> {
+  try {
+    await admin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+  try {
+    return { ok: true, usage: await getDiscountUsage(id) };
   } catch (err) {
     return { ok: false, error: mapError(err) };
   }

@@ -159,7 +159,31 @@ type GeminiResponse = {
 const RETRYABLE_STATUSES = new Set([429, 503]);
 const RETRY_DELAYS_MS = [1000, 3000];
 
+/**
+ * Time limits. During the same overload each 503 took 7–24 s to arrive, so
+ * three tries kept the admin waiting ~48 s before the overload message. Now
+ * a try Google hasn't answered within PER_TRY_MS is abandoned — that is
+ * overload too, so it ends with the same "unavailable" message, and it is
+ * NOT retried (only an actual 429/503 answer is) — and the whole call,
+ * waits included, stays within TOTAL_MS: a retry only starts if at least
+ * MIN_TRY_MS of the budget would be left for it.
+ *
+ * 20 s rather than a tighter 15 s: no successful generation's duration had
+ * ever been measured (Google was overloaded the whole afternoon this was
+ * written), and a limit shorter than a slow-but-successful answer would
+ * break the button instead of fixing it. logGeminiSuccess records real
+ * durations so these can be tightened from data.
+ */
+const PER_TRY_MS = 20_000;
+const TOTAL_MS = 30_000;
+const MIN_TRY_MS = 8_000;
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// fetch rejects with a DOMException named "TimeoutError" when
+// AbortSignal.timeout fires ("AbortError" on some runtimes).
+const isTimeout = (err: unknown) =>
+  typeof err === "object" && err !== null && ["TimeoutError", "AbortError"].includes((err as { name?: string }).name ?? "");
 
 /**
  * Server-side-only diagnostic logging for a failed Gemini call. Deliberately
@@ -179,7 +203,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * metadata plus Gemini's own response, truncated.
  */
 function logGeminiFailure(details: {
-  kind: "network" | "http_error";
+  kind: "network" | "http_error" | "timeout";
   model: string;
   requestType: string;
   attempt: number;
@@ -192,6 +216,11 @@ function logGeminiFailure(details: {
     timestamp: new Date().toISOString(),
     ...details,
   });
+}
+
+/** Same privacy rules as logGeminiFailure — how long a good answer took, nothing else. */
+function logGeminiSuccess(details: { model: string; requestType: string; attempt: number; ms: number }) {
+  console.info("[gemini] ok", details);
 }
 
 export class GeminiProvider implements AIProvider {
@@ -223,11 +252,21 @@ export class GeminiProvider implements AIProvider {
       }),
     };
 
+    const started = Date.now();
+    const timedOut = (attempt: number, err: unknown) => {
+      logGeminiFailure({ kind: "timeout", model, requestType, attempt, errorName: (err as { name?: string }).name });
+      return new AIProviderError(`Gemini did not answer within the time limit (attempt ${attempt})`, "unavailable");
+    };
+
     let res: Response;
-    for (let attempt = 1; ; attempt++) {
+    let attempt = 1;
+    for (; ; attempt++) {
       try {
-        res = await fetch(endpoint, request);
+        // The same signal also bounds reading the response body below.
+        const remaining = TOTAL_MS - (Date.now() - started);
+        res = await fetch(endpoint, { ...request, signal: AbortSignal.timeout(Math.min(PER_TRY_MS, remaining)) });
       } catch (err) {
+        if (isTimeout(err)) throw timedOut(attempt, err);
         logGeminiFailure({
           kind: "network",
           model,
@@ -254,7 +293,8 @@ export class GeminiProvider implements AIProvider {
         throw new AIProviderError(`Gemini returned ${res.status}: ${body.slice(0, 300)}`, "request_failed");
       }
       const delay = RETRY_DELAYS_MS[attempt - 1];
-      if (delay === undefined) {
+      const leftForNextTry = TOTAL_MS - (Date.now() - started) - (delay ?? 0);
+      if (delay === undefined || leftForNextTry < MIN_TRY_MS) {
         throw new AIProviderError(
           `Gemini returned ${res.status} after ${attempt} attempts: ${body.slice(0, 300)}`,
           "unavailable"
@@ -263,7 +303,14 @@ export class GeminiProvider implements AIProvider {
       await sleep(delay);
     }
 
-    const data: GeminiResponse = await res.json();
+    let data: GeminiResponse;
+    try {
+      data = await res.json();
+    } catch (err) {
+      if (isTimeout(err)) throw timedOut(attempt, err);
+      throw new AIProviderError("Gemini returned malformed JSON", "invalid_response");
+    }
+    logGeminiSuccess({ model, requestType, attempt, ms: Date.now() - started });
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) throw new AIProviderError("Gemini returned no content", "invalid_response");
 

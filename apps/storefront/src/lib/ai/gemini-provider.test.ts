@@ -56,8 +56,10 @@ function generate() {
 
 beforeEach(() => {
   vi.stubEnv("GEMINI_API_KEY", "test-key");
-  vi.useFakeTimers({ toFake: ["setTimeout"] });
+  // Date too: the 30 s budget is measured with Date.now().
+  vi.useFakeTimers({ toFake: ["setTimeout", "Date"] });
   vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "info").mockImplementation(() => {});
   fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -141,5 +143,55 @@ describe("GeminiProvider retry on 429/503", () => {
       (err) => err instanceof AIProviderError && err.code === "request_failed"
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("GeminiProvider time limits", () => {
+  it("gives every try a time limit", async () => {
+    answerWith(ok);
+    await generate();
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("ends a try Google hasn't answered in time with 'unavailable', without retrying it", async () => {
+    fetchMock.mockImplementationOnce(async () => {
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    });
+    await expect(generate()).rejects.toSatisfy((err) => err instanceof AIProviderError && err.code === "unavailable");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("doesn't start a retry the 30 s budget has no room for", async () => {
+    // The 503 arrives 23 s in: after the 1 s wait only 6 s would be left.
+    fetchMock.mockImplementationOnce(async () => {
+      vi.advanceTimersByTime(23_000);
+      return fail(503);
+    });
+    await expect(generate()).rejects.toSatisfy((err) => err instanceof AIProviderError && err.code === "unavailable");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("still retries a slow 503 when the budget has room", async () => {
+    // 503 at 20 s: 30 − 20 − 1 = 9 s left, enough for another try.
+    fetchMock.mockImplementationOnce(async () => {
+      vi.advanceTimersByTime(20_000);
+      return fail(503);
+    });
+    answerWith(ok);
+    const result = generate();
+    await vi.advanceTimersByTimeAsync(1000);
+    await expect(result).resolves.toMatchObject({ seoTitle: "t" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("logs how long a good answer took, and nothing about the content", async () => {
+    answerWith(ok);
+    await generate();
+    expect(console.info).toHaveBeenCalledWith(
+      "[gemini] ok",
+      expect.objectContaining({ requestType: "category:description,seoTitle,metaDescription", attempt: 1 })
+    );
+    expect(JSON.stringify((console.info as ReturnType<typeof vi.fn>).mock.calls)).not.toContain("Ψεκαστήρες");
   });
 });

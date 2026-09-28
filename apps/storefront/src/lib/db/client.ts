@@ -54,7 +54,22 @@ function createClient() {
     // than this store's real traffic and back to the value this project's
     // own commit history had already deliberately tuned to before the
     // pooler was found to be undersized for it.
-    max: isBuildPhase ? 1 : 5,
+    //
+    // Lowered to 3 (2026-09-28): it wasn't comfortably more. Traffic bursts
+    // still hit the ceiling — 17 shopper-facing error pages in one week on
+    // /proionta/[handle] and /[category], the latest a burst on 2026-09-27
+    // 03:40 UTC across many product pages within two seconds (crawler-
+    // shaped; the request logs had expired, so the source isn't proven).
+    // A burst makes Vercel start more instances, each opening up to `max`
+    // connections: 5 filled the 40 slots at 8 instances, 3 needs 14. The
+    // cost is small — a page's parallel queries share 3 connections instead
+    // of 5, a few ms each against a pooler in the same Dublin region.
+    // idle_timeout stays 20 s: shortening it would add a reconnect to more
+    // page views and does nothing during a burst, when connections are busy.
+    // Vercel's attachDatabasePool (@vercel/functions) would release idle
+    // connections before an instance is suspended, but supports `pg`, not
+    // postgres.js — it throws on this client.
+    max: isBuildPhase ? 1 : 3,
     idle_timeout: 20,
     connect_timeout: 10,
     // Safe on the session-mode pooler this connects to, and required if it

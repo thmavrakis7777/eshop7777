@@ -569,15 +569,23 @@ export type StockMovement = {
   reason: string;
   note: string | null;
   createdAt: string;
+  orderId: string | null;
   orderNumber: number | null;
+  // Who made a manual change; null for sales and for an admin since deleted.
+  adminName: string | null;
 };
 
+/** The inventory screen's "Ιστορικό" — newest first. */
 export async function listStockMovements(variantId: string, limit = 20): Promise<StockMovement[]> {
   const rows = await sql<
-    { id: string; delta: number; reason: string; note: string | null; created_at: Date; order_number: number | null }[]
-  >`SELECT m.id, m.delta, m.reason, m.note, m.created_at, o.order_number
+    {
+      id: string; delta: number; reason: string; note: string | null; created_at: Date;
+      order_id: string | null; order_number: number | null; admin_name: string | null;
+    }[]
+  >`SELECT m.id, m.delta, m.reason, m.note, m.created_at, m.order_id, o.order_number, a.name AS admin_name
       FROM shop.inventory_movement m
       LEFT JOIN shop.orders o ON o.id = m.order_id
+      LEFT JOIN shop.admin_user a ON a.id = m.admin_user_id
      WHERE m.variant_id = ${variantId}
      ORDER BY m.created_at DESC LIMIT ${limit}`;
 
@@ -587,6 +595,8 @@ export async function listStockMovements(variantId: string, limit = 20): Promise
     reason: r.reason,
     note: r.note,
     createdAt: new Date(r.created_at).toISOString(),
+    orderId: r.order_id,
     orderNumber: r.order_number,
+    adminName: r.admin_name,
   }));
 }

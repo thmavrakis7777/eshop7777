@@ -1,15 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { deleteDiscountAction, saveDiscountAction } from "@/lib/admin/sales-actions";
-import type { AdminDiscount } from "@/lib/admin/discounts";
+import { useEffect, useState, useTransition } from "react";
+import { deleteDiscountAction, getDiscountUsageAction, saveDiscountAction } from "@/lib/admin/sales-actions";
+import type { AdminDiscount, DiscountUsage } from "@/lib/admin/discounts";
 import { money, centsToPriceInput } from "@/components/admin/ui/primitives";
+import { SHOP_TIME_ZONE } from "@/lib/dates";
 
 const field =
   "w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-ink";
 
-const date = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium" });
+// Pinned to the shop's timezone: this renders on the server (UTC) first, and
+// an end date just after midnight in Greece would otherwise show the day
+// before — and differ between server and browser.
+const date = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: SHOP_TIME_ZONE });
 
 // State is derived from the dates and counters, never stored — so the badge
 // can never disagree with what checkout will actually do.
@@ -29,6 +34,7 @@ export function DiscountManager({ discounts }: { discounts: AdminDiscount[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdminDiscount | null>(null);
+  const [usageOf, setUsageOf] = useState<string | null>(null);
 
   function run(fn: () => Promise<{ ok: boolean; message?: string; error?: string }>) {
     startTransition(async () => {
@@ -106,9 +112,25 @@ export function DiscountManager({ discounts }: { discounts: AdminDiscount[] }) {
 
                 <div className="text-xs text-ink-muted">
                   {d.minSubtotalCents > 0 && <>Ελάχ. {money(d.minSubtotalCents)} · </>}
-                  {d.maxRedemptions != null
-                    ? `${d.redemptionCount}/${d.maxRedemptions} χρήσεις`
-                    : `${d.redemptionCount} χρήσεις`}
+                  {(() => {
+                    const uses =
+                      d.maxRedemptions != null
+                        ? `${d.redemptionCount}/${d.maxRedemptions} χρήσεις`
+                        : `${d.redemptionCount} χρήσεις`;
+                    // Clickable only when there is something to list.
+                    return d.redemptionCount > 0 ? (
+                      <button
+                        type="button"
+                        aria-expanded={usageOf === d.id}
+                        onClick={() => setUsageOf(usageOf === d.id ? null : d.id)}
+                        className="underline decoration-dotted underline-offset-2 hover:text-ink"
+                      >
+                        {uses} {usageOf === d.id ? "▴" : "▾"}
+                      </button>
+                    ) : (
+                      uses
+                    );
+                  })()}
                   {d.endsAt && <> · έως {date.format(new Date(d.endsAt))}</>}
                 </div>
 
@@ -129,6 +151,12 @@ export function DiscountManager({ discounts }: { discounts: AdminDiscount[] }) {
                   </button>
                 </div>
               </div>
+
+              {usageOf === d.id && (
+                <div className="border-t border-border bg-surface/40 px-4 py-3">
+                  <DiscountUsageList discountId={d.id} />
+                </div>
+              )}
 
               {editing === d.id && (
                 <div className="border-t border-border bg-surface/40 px-4 py-4">
@@ -186,6 +214,46 @@ export function DiscountManager({ discounts }: { discounts: AdminDiscount[] }) {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Which orders used a code, newest first (the last 20), loaded when the
+ * "N χρήσεις" count is opened. An order deleted permanently since no longer
+ * appears here, though it still counts toward the number of uses.
+ */
+function DiscountUsageList({ discountId }: { discountId: string }) {
+  const [state, setState] = useState<{ usage?: DiscountUsage[]; error?: string }>({});
+
+  useEffect(() => {
+    let current = true;
+    void getDiscountUsageAction(discountId).then((result) => {
+      if (current) setState(result.ok ? { usage: result.usage } : { error: result.error });
+    });
+    return () => {
+      current = false;
+    };
+  }, [discountId]);
+
+  if (state.error) return <p className="text-xs text-danger">{state.error}</p>;
+  if (!state.usage) return <p className="text-xs text-ink-muted">Φόρτωση…</p>;
+  if (state.usage.length === 0) {
+    return <p className="text-xs text-ink-muted">Οι παραγγελίες με αυτόν τον κωδικό έχουν διαγραφεί.</p>;
+  }
+
+  return (
+    <ul className="flex flex-col gap-1 text-xs">
+      {state.usage.map((u) => (
+        <li key={u.orderId} className="flex flex-wrap items-baseline gap-x-3">
+          <Link href={`/admin/orders/${u.orderId}`} className="font-medium text-ink underline hover:text-accent">
+            #{u.orderNumber}
+          </Link>
+          <span className="tabular-nums text-ink-muted">{date.format(new Date(u.createdAt))}</span>
+          <span className="text-ink">{u.customerEmail}</span>
+          <span className="tabular-nums text-ink">{money(u.totalCents)}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

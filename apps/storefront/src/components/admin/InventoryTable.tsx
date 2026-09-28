@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
-import { changeStockByAction, setStockAction } from "@/lib/admin/taxonomy-actions";
-import type { InventoryRow } from "@/lib/admin/taxonomy";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
+import { changeStockByAction, getStockHistoryAction, setStockAction } from "@/lib/admin/taxonomy-actions";
+import type { InventoryRow, StockMovement } from "@/lib/admin/taxonomy";
+import { SHOP_TIME_ZONE } from "@/lib/dates";
 
 /**
  * Inventory: edit stock inline, without opening each product.
@@ -110,8 +111,10 @@ function useStockNudges(onError: (text: string) => void) {
 
   function view(row: InventoryRow) {
     const n = nudges[row.variantId];
-    const shown = (n?.confirmed ?? row.stock) + (n?.queued ?? 0) + (n?.inflight ?? 0);
-    return { shown, saving: Boolean(n && (n.queued !== 0 || n.inflight !== 0)) };
+    // Last figure the server confirmed — changes only once a save lands.
+    const settled = n?.confirmed ?? row.stock;
+    const shown = settled + (n?.queued ?? 0) + (n?.inflight ?? 0);
+    return { shown, settled, saving: Boolean(n && (n.queued !== 0 || n.inflight !== 0)) };
   }
 
   return { nudge, forget, view };
@@ -123,6 +126,7 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [value, setValue] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [historyOf, setHistoryOf] = useState<string | null>(null);
   const stock = useStockNudges((text) => setMsg({ ok: false, text }));
 
   // The list arrives lowest-stock-first, and every save reloads it — so
@@ -177,14 +181,15 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
           </thead>
           <tbody>
             {sorted.map((r) => {
-              const { shown, saving } = stock.view(r);
+              const { shown, settled, saving } = stock.view(r);
               const tone =
                 r.allowBackorder ? "text-ink-muted"
                   : shown <= 0 ? "text-danger"
                   : shown <= 5 ? "text-accent"
                   : "text-ink";
               return (
-                <tr key={r.variantId} className="transition-colors hover:bg-surface">
+                <Fragment key={r.variantId}>
+                <tr className="transition-colors hover:bg-surface">
                   <td className="border-b border-border px-4 py-2.5">
                     <Link href={`/admin/products/${r.productId}`} className="font-medium text-ink hover:text-accent">
                       {r.productTitle}
@@ -258,22 +263,42 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
                         </button>
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        // Waits for this row's −/+ to finish saving, so the
-                        // box never opens on a number that is about to change.
-                        disabled={saving}
-                        onClick={() => {
-                          setEditing(r.variantId);
-                          setValue(String(shown));
-                        }}
-                        className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-surface disabled:opacity-50"
-                      >
-                        Αλλαγή
-                      </button>
+                      <span className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          aria-expanded={historyOf === r.variantId}
+                          onClick={() => setHistoryOf(historyOf === r.variantId ? null : r.variantId)}
+                          className="rounded-md px-2 py-1 text-xs text-ink-muted hover:bg-surface hover:text-ink"
+                        >
+                          Ιστορικό {historyOf === r.variantId ? "▴" : "▾"}
+                        </button>
+                        <button
+                          type="button"
+                          // Waits for this row's −/+ to finish saving, so the
+                          // box never opens on a number that is about to change.
+                          disabled={saving}
+                          onClick={() => {
+                            setEditing(r.variantId);
+                            setValue(String(shown));
+                          }}
+                          className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-surface disabled:opacity-50"
+                        >
+                          Αλλαγή
+                        </button>
+                      </span>
                     )}
                   </td>
                 </tr>
+                {historyOf === r.variantId && (
+                  <tr>
+                    <td colSpan={5} className="border-b border-border bg-surface/40 px-4 py-3">
+                      {/* Keyed by the confirmed stock: reloads after each
+                          save lands, so the new line shows up by itself. */}
+                      <StockHistory key={settled} variantId={r.variantId} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>
@@ -283,6 +308,79 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
         Τα − / + αποθηκεύονται αυτόματα. Κάθε αλλαγή αποθέματος καταγράφεται με τον χρήστη που την έκανε.
       </p>
     </>
+  );
+}
+
+const REASON: Record<string, string> = {
+  manual: "Χειροκίνητη αλλαγή",
+  order: "Παραγγελία",
+  cancel: "Ακύρωση παραγγελίας",
+  correction: "Διόρθωση",
+  import: "Εισαγωγή",
+};
+
+// Pinned to the shop's timezone — the server runs UTC (see lib/dates.ts).
+const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short", timeZone: SHOP_TIME_ZONE });
+
+const HISTORY_LIMIT = 20; // listStockMovements' default
+
+/**
+ * One row's stock history: the last 20 changes, newest first — what
+ * changed, why (sale, cancellation, manual change) and who. Every stock
+ * change is recorded (shop.inventory_movement), including the −/+ above
+ * and the product editor's variant form.
+ */
+function StockHistory({ variantId }: { variantId: string }) {
+  const [state, setState] = useState<{ movements?: StockMovement[]; error?: string }>({});
+
+  useEffect(() => {
+    let current = true;
+    void getStockHistoryAction(variantId).then((result) => {
+      if (current) setState(result.ok ? { movements: result.movements } : { error: result.error });
+    });
+    return () => {
+      current = false;
+    };
+  }, [variantId]);
+
+  if (state.error) return <p className="text-xs text-danger">{state.error}</p>;
+  if (!state.movements) return <p className="text-xs text-ink-muted">Φόρτωση…</p>;
+  if (state.movements.length === 0) {
+    return <p className="text-xs text-ink-muted">Δεν έχει καταγραφεί καμία αλλαγή αποθέματος ακόμα.</p>;
+  }
+
+  return (
+    <div>
+      <ul className="flex flex-col gap-1 text-xs">
+        {state.movements.map((m) => (
+          <li key={m.id} className="flex flex-wrap items-baseline gap-x-3">
+            <span className="w-32 shrink-0 tabular-nums text-ink-muted">{when.format(new Date(m.createdAt))}</span>
+            <span
+              className={`w-10 shrink-0 text-right font-medium tabular-nums ${m.delta > 0 ? "text-success" : "text-danger"}`}
+            >
+              {m.delta > 0 ? `+${m.delta}` : `−${-m.delta}`}
+            </span>
+            <span className="text-ink">
+              {REASON[m.reason] ?? m.reason}
+              {m.orderId && m.orderNumber != null && (
+                <>
+                  {" "}
+                  <Link href={`/admin/orders/${m.orderId}`} className="underline hover:text-accent">
+                    #{m.orderNumber}
+                  </Link>
+                </>
+              )}
+            </span>
+            {(m.adminName || m.note) && (
+              <span className="text-ink-muted">{[m.adminName, m.note].filter(Boolean).join(" · ")}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {state.movements.length === HISTORY_LIMIT && (
+        <p className="mt-2 text-xs text-ink-muted">Εμφανίζονται οι {HISTORY_LIMIT} πιο πρόσφατες αλλαγές.</p>
+      )}
+    </div>
   );
 }
 

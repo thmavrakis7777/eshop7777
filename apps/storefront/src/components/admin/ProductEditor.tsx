@@ -597,6 +597,9 @@ function VariantForm({
     data.set("price", price);
     data.set("compareAtPrice", compareAt);
     data.set("stock", stock);
+    // What this form showed on opening: unchanged means "leave stock as it
+    // is now", so a sale made meanwhile isn't overwritten (saveVariant).
+    if (variant) data.set("stockBefore", String(variant.stockQuantity));
     return data;
   }
 

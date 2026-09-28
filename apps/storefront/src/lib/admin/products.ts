@@ -1,5 +1,5 @@
 import "server-only";
-import { sql, transaction } from "@/lib/db/client";
+import { sql, transaction, type Tx } from "@/lib/db/client";
 import { normalizeSearchText } from "@/lib/search";
 import { daysSince } from "@/lib/dates";
 import {
@@ -499,6 +499,7 @@ export async function createProduct(input: {
   stockQuantity: number;
   categoryId: string | null;
   internalCode?: string | null;
+  adminUserId: string;
 }): Promise<string> {
   return transaction(async (tx) => {
     const dupeSlug = await tx<{ id: string }[]>`SELECT id FROM shop.product WHERE slug = ${input.slug}`;
@@ -518,12 +519,26 @@ export async function createProduct(input: {
 
     // Every product has at least one variant — the storefront's price and
     // stock live there, so a product without one is unsellable and invisible.
-    await tx`
+    const [v] = await tx<{ id: string }[]>`
       INSERT INTO shop.product_variant (product_id, sku, title, price_cents, stock_quantity)
-      VALUES (${p.id}, ${input.sku}, 'Default', ${input.priceCents}, ${input.stockQuantity})`;
+      VALUES (${p.id}, ${input.sku}, 'Default', ${input.priceCents}, ${input.stockQuantity})
+      RETURNING id`;
+    await logStartingStock(tx, v.id, input.stockQuantity, input.adminUserId);
 
     return p.id;
   });
+}
+
+/**
+ * A new variant's opening stock is a stock change like any other, so it
+ * gets its line in the history too — otherwise the history of a product
+ * created with 20 units would start at the first sale and never add up.
+ */
+async function logStartingStock(tx: Tx, variantId: string, quantity: number, adminUserId: string) {
+  if (quantity === 0) return;
+  await tx`
+    INSERT INTO shop.inventory_movement (variant_id, delta, reason, admin_user_id, note)
+    VALUES (${variantId}, ${quantity}, 'manual', ${adminUserId}, 'Αρχικό απόθεμα')`;
 }
 
 /**
@@ -634,6 +649,16 @@ export async function deleteProductById(id: string): Promise<{ deleted: boolean;
   });
 }
 
+/**
+ * The product editor's variant form (price, SKU, stock…).
+ *
+ * Stock is written only when the admin actually changed the number:
+ * `stockBefore` is what the form showed when it opened, and if the submitted
+ * stock still equals it, the row's current stock is kept. The form used to
+ * write its number back every time, so a sale made while someone was fixing
+ * a price was silently undone on save. A changed number is recorded in
+ * shop.inventory_movement like every other stock change (it used to skip it).
+ */
 export async function saveVariant(
   productId: string,
   variant: {
@@ -643,34 +668,52 @@ export async function saveVariant(
     priceCents: number;
     compareAtPriceCents: number | null;
     stockQuantity: number;
+    stockBefore?: number;
     allowBackorder: boolean;
     isActive: boolean;
-  }
+  },
+  adminUserId: string
 ): Promise<void> {
-  const dupe = await sql<{ id: string }[]>`
-    SELECT id FROM shop.product_variant
-     WHERE sku = ${variant.sku} ${variant.id ? sql`AND id <> ${variant.id}` : sql``}`;
-  if (dupe.length > 0) throw new CatalogError("SKU already in use", "duplicate_sku");
+  await transaction(async (tx) => {
+    const dupe = await tx<{ id: string }[]>`
+      SELECT id FROM shop.product_variant
+       WHERE sku = ${variant.sku} ${variant.id ? tx`AND id <> ${variant.id}` : tx``}`;
+    if (dupe.length > 0) throw new CatalogError("SKU already in use", "duplicate_sku");
 
-  if (variant.id) {
-    await sql`
-      UPDATE shop.product_variant SET
-        sku = ${variant.sku}, title = ${variant.title}, price_cents = ${variant.priceCents},
-        compare_at_price_cents = ${variant.compareAtPriceCents},
-        stock_quantity = ${variant.stockQuantity}, allow_backorder = ${variant.allowBackorder},
-        is_active = ${variant.isActive}
-      WHERE id = ${variant.id} AND product_id = ${productId}`;
-    return;
-  }
+    if (variant.id) {
+      const [current] = await tx<{ stock_quantity: number }[]>`
+        SELECT stock_quantity FROM shop.product_variant
+         WHERE id = ${variant.id} AND product_id = ${productId} FOR UPDATE`;
+      if (!current) throw new CatalogError("Variant not found", "not_found");
+      const stockEdited = variant.stockBefore === undefined || variant.stockQuantity !== variant.stockBefore;
+      const stock = stockEdited ? variant.stockQuantity : current.stock_quantity;
 
-  const [{ next }] = await sql<{ next: number }[]>`
-    SELECT COALESCE(MAX(position), -1) + 1 AS next FROM shop.product_variant WHERE product_id = ${productId}`;
-  await sql`
-    INSERT INTO shop.product_variant (product_id, sku, title, price_cents,
-      compare_at_price_cents, stock_quantity, allow_backorder, is_active, position)
-    VALUES (${productId}, ${variant.sku}, ${variant.title}, ${variant.priceCents},
-      ${variant.compareAtPriceCents}, ${variant.stockQuantity}, ${variant.allowBackorder},
-      ${variant.isActive}, ${next})`;
+      await tx`
+        UPDATE shop.product_variant SET
+          sku = ${variant.sku}, title = ${variant.title}, price_cents = ${variant.priceCents},
+          compare_at_price_cents = ${variant.compareAtPriceCents},
+          stock_quantity = ${stock}, allow_backorder = ${variant.allowBackorder},
+          is_active = ${variant.isActive}
+        WHERE id = ${variant.id}`;
+      if (stock !== current.stock_quantity) {
+        await tx`
+          INSERT INTO shop.inventory_movement (variant_id, delta, reason, admin_user_id)
+          VALUES (${variant.id}, ${stock - current.stock_quantity}, 'manual', ${adminUserId})`;
+      }
+      return;
+    }
+
+    const [{ next }] = await tx<{ next: number }[]>`
+      SELECT COALESCE(MAX(position), -1) + 1 AS next FROM shop.product_variant WHERE product_id = ${productId}`;
+    const [created] = await tx<{ id: string }[]>`
+      INSERT INTO shop.product_variant (product_id, sku, title, price_cents,
+        compare_at_price_cents, stock_quantity, allow_backorder, is_active, position)
+      VALUES (${productId}, ${variant.sku}, ${variant.title}, ${variant.priceCents},
+        ${variant.compareAtPriceCents}, ${variant.stockQuantity}, ${variant.allowBackorder},
+        ${variant.isActive}, ${next})
+      RETURNING id`;
+    await logStartingStock(tx, created.id, variant.stockQuantity, adminUserId);
+  });
 }
 
 export async function deleteVariant(productId: string, variantId: string): Promise<void> {

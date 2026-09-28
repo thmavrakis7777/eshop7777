@@ -260,6 +260,13 @@ export async function createProductAction(
   const internalCodeResult = validateInternalCode(formData.get("internalCode"));
   if ("error" in internalCodeResult) return { ok: false, error: internalCodeResult.error };
 
+  // Same guard as the variant editor — "-3" or "2,5" used to reach the
+  // database and come back as the generic "something went wrong".
+  const stockQuantity = Number(formData.get("stock") ?? 0) || 0;
+  if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
+    return { ok: false, error: "Το απόθεμα πρέπει να είναι μη αρνητικός ακέραιος." };
+  }
+
   const slugInput = optionalText(formData.get("slug"));
   let id: string;
   try {
@@ -268,9 +275,10 @@ export async function createProductAction(
       slug: slugInput ?? slugify(parsed.data.title),
       sku: parsed.data.sku.toUpperCase(),
       priceCents: priceToCents(formData.get("price")),
-      stockQuantity: Number(formData.get("stock") ?? 0) || 0,
+      stockQuantity,
       categoryId: optionalText(formData.get("categoryId")),
       internalCode: internalCodeResult.code,
+      adminUserId: admin.id,
     });
     await auditLog(admin.id, "product.create", "product", id, { title: parsed.data.title });
   } catch (err) {
@@ -376,21 +384,30 @@ export async function saveVariantAction(productId: string, formData: FormData): 
   if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
     return { ok: false, error: "Το απόθεμα πρέπει να είναι μη αρνητικός ακέραιος." };
   }
+  // The number the form opened with — lets saveVariant leave stock alone
+  // when only the price or SKU was edited (see its comment).
+  const stockBeforeRaw = optionalText(formData.get("stockBefore"));
+  const stockBefore = stockBeforeRaw != null && /^\d+$/.test(stockBeforeRaw) ? Number(stockBeforeRaw) : undefined;
 
   try {
-    await saveVariant(productId, {
-      id: optionalText(formData.get("variantId")) ?? undefined,
-      sku,
-      title: optionalText(formData.get("variantTitle")) ?? "Default",
-      priceCents,
-      compareAtPriceCents: compareAt,
-      stockQuantity,
-      // The store sells only what is on the shelf — no backorders. Forced
-      // here rather than read from the form, so no request can switch it on;
-      // migration 0033 enforces the same rule in the database.
-      allowBackorder: false,
-      isActive: formData.get("variantActive") !== "off",
-    });
+    await saveVariant(
+      productId,
+      {
+        id: optionalText(formData.get("variantId")) ?? undefined,
+        sku,
+        title: optionalText(formData.get("variantTitle")) ?? "Default",
+        priceCents,
+        compareAtPriceCents: compareAt,
+        stockQuantity,
+        stockBefore,
+        // The store sells only what is on the shelf — no backorders. Forced
+        // here rather than read from the form, so no request can switch it on;
+        // migration 0033 enforces the same rule in the database.
+        allowBackorder: false,
+        isActive: formData.get("variantActive") !== "off",
+      },
+      admin.id
+    );
     await auditLog(admin.id, "variant.save", "product", productId, { sku });
   } catch (err) {
     return { ok: false, error: mapError(err) };

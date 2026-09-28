@@ -7,12 +7,14 @@ import {
   TaxonomyError,
   deleteCategory,
   deleteCollection,
+  listStockMovements,
   moveCategory,
   saveCategory,
   saveCategoryMegaMenuPromo,
   saveCategorySecondaryParents,
   saveCategoryViewAllButton,
   saveCollection,
+  type StockMovement,
 } from "@/lib/admin/taxonomy";
 import { CatalogError, adjustStock, changeStockBy } from "@/lib/admin/products";
 import { CATEGORY_CACHE_TAG } from "@/lib/data/categories";
@@ -274,6 +276,25 @@ function revalidateAfterStockChange() {
   revalidateStorefront();
   updateTag(META_FEED_CACHE_TAG);
   scheduleRestockNotifications();
+}
+
+/**
+ * The inventory screen's "Ιστορικό" panel, loaded only when opened — the
+ * screen lists up to 300 rows, and nobody reads the history of all of them.
+ */
+export async function getStockHistoryAction(
+  variantId: string
+): Promise<{ ok: true; movements: StockMovement[] } | { ok: false; error: string }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+  try {
+    return { ok: true, movements: await listStockMovements(variantId) };
+  } catch {
+    return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
+  }
 }
 
 /**
