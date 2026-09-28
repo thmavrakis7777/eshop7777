@@ -326,8 +326,29 @@ export async function addProductImage(
     VALUES (${productId}, ${storagePath}, ${altText}, ${next})`;
 }
 
-export async function deleteProductImage(imageId: string): Promise<void> {
-  await sql`DELETE FROM shop.product_image WHERE id = ${imageId}`;
+/** Scoped to the product, so a stale or crafted id can't remove another product's photo. */
+export async function deleteProductImage(productId: string, imageId: string): Promise<void> {
+  await sql`DELETE FROM shop.product_image WHERE id = ${imageId} AND product_id = ${productId}`;
+}
+
+/**
+ * Rewrites every photo's position from the order given — first = the main
+ * photo (position 0, see 0001_init.sql). All-or-nothing: `imageIds` must be
+ * exactly this product's photos, so a screen that missed an upload made in
+ * another tab can't leave two photos sharing a position.
+ */
+export async function reorderProductImages(productId: string, imageIds: string[]): Promise<void> {
+  await transaction(async (tx) => {
+    const rows = await tx<{ id: string }[]>`
+      SELECT id FROM shop.product_image WHERE product_id = ${productId} FOR UPDATE`;
+    const current = new Set(rows.map((r) => r.id));
+    if (imageIds.length !== current.size || new Set(imageIds).size !== imageIds.length || !imageIds.every((id) => current.has(id))) {
+      throw new CatalogError("Product images changed", "stale_images");
+    }
+    for (const [position, id] of imageIds.entries()) {
+      await tx`UPDATE shop.product_image SET position = ${position} WHERE id = ${id}`;
+    }
+  });
 }
 
 /**
@@ -353,6 +374,7 @@ export class CatalogError extends Error {
       | "duplicate_internal_code"
       | "not_found"
       | "last_variant"
+      | "stale_images"
   ) {
     super(message);
   }
@@ -660,6 +682,22 @@ export async function deleteVariant(productId: string, variantId: string): Promi
   await sql`DELETE FROM shop.product_variant WHERE id = ${variantId} AND product_id = ${productId}`;
 }
 
+/**
+ * The code the "new product" form pre-fills: one past the highest all-digit
+ * SKU, as 5 digits (00013). Only a suggestion — a supplier code typed over
+ * it is kept as is, and codes that aren't all digits are simply skipped
+ * here. Two admins creating products at the same moment can be offered the
+ * same number; product_variant_sku_key rejects the second save with the
+ * normal "SKU already in use" message.
+ */
+export async function suggestNextSku(): Promise<string> {
+  const [{ next }] = await sql<{ next: string }[]>`
+    SELECT (COALESCE(MAX(sku::bigint), 0) + 1)::text AS next
+      FROM shop.product_variant
+     WHERE sku ~ '^[0-9]{1,15}$'`;
+  return next.padStart(5, "0");
+}
+
 /** Adjusts stock and records why. Every stock change goes through here. */
 export async function adjustStock(
   variantId: string,
@@ -679,6 +717,33 @@ export async function adjustStock(
     await tx`
       INSERT INTO shop.inventory_movement (variant_id, delta, reason, admin_user_id, note)
       VALUES (${variantId}, ${delta}, ${reason}, ${adminUserId}, ${note ?? null})`;
+  });
+}
+
+/**
+ * The inventory screen's −/+ buttons. Takes a CHANGE, not a target number,
+ * on purpose: the browser only knows the stock as of its last answer, so
+ * "set it to 13" from two quick clicks (or two admins) could overwrite a
+ * change it never saw. Adding under the row lock can't lose one.
+ *
+ * Never goes below zero (shop.product_variant has a CHECK for that, and
+ * backorders are off store-wide) — a −1 on 0 simply changes nothing. Returns
+ * the stock after the change so the screen can show the real number.
+ */
+export async function changeStockBy(variantId: string, delta: number, adminUserId: string): Promise<number> {
+  return transaction(async (tx) => {
+    const [v] = await tx<{ stock_quantity: number }[]>`
+      SELECT stock_quantity FROM shop.product_variant WHERE id = ${variantId} FOR UPDATE`;
+    if (!v) throw new CatalogError("Variant not found", "not_found");
+    const next = Math.max(0, v.stock_quantity + delta);
+    const applied = next - v.stock_quantity;
+    if (applied === 0) return next;
+
+    await tx`UPDATE shop.product_variant SET stock_quantity = ${next} WHERE id = ${variantId}`;
+    await tx`
+      INSERT INTO shop.inventory_movement (variant_id, delta, reason, admin_user_id)
+      VALUES (${variantId}, ${applied}, 'manual', ${adminUserId})`;
+    return next;
   });
 }
 

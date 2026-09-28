@@ -63,7 +63,9 @@ export default async function AdminInventoryPage({ searchParams }: { searchParam
           description={view === "all" ? "Δοκίμασε διαφορετική αναζήτηση." : "Καλά νέα."}
         />
       ) : (
-        <InventoryTable rows={rows} />
+        // Keyed by filter so a new tab or search starts a fresh table — its
+        // row order is frozen at mount (see InventoryTable).
+        <InventoryTable key={`${view}:${q}`} rows={rows} />
       )}
     </>
   );

@@ -12,8 +12,10 @@
  * the largest box on common screens, which stays sharp on phones and
  * laptops without shipping 4K files.
  *
- * Uploads accept JPEG, PNG, WebP and GIF (no SVG) up to 5 MB —
- * lib/storage/upload.ts. When a layout changes, re-measure and update this
+ * Uploads accept JPEG, PNG, WebP and GIF (no SVG) up to 4 MB —
+ * lib/storage/upload.ts. Product photos are shrunk to 1600 px in the
+ * browser before upload (lib/admin/prepare-photo.ts); other images are sent
+ * exactly as picked. When a layout changes, re-measure and update this
  * file; every upload field reads from it.
  */
 
@@ -88,6 +90,7 @@ export const IMAGE_SIZE_HINTS = {
   // NOT a fallback for the homepage — the hint says so rather than implying one.
   seoSocial: "Προτεινόμενο: 1200×630 px, JPEG ή PNG, έως ~300 KB — εμφανίζεται όταν μοιράζεται κάποιος τον σύνδεσμο της αρχικής σε social/messaging. Αν μείνει κενό, η αρχική κοινοποιείται χωρίς εικόνα (η γενική «Εικόνα κοινοποίησης» δεν χρησιμοποιείται εδώ).",
   // Product photos go through next/image everywhere; the product page shows
-  // them square at up to ~665 px wide, so 1600 stays sharp at 2×.
-  product: `Προτεινόμενο: 1600×1600 px (τετράγωνη), JPEG ή WebP, έως ~500 KB. ${RESIZED}`,
+  // them square at up to ~665 px wide, so 1600 stays sharp at 2×. The same
+  // 1600 is what prepare-photo.ts shrinks a larger photo to before upload.
+  product: `Προτεινόμενο: 1600×1600 px (τετράγωνη), JPEG ή WebP, έως ~500 KB. Μεγαλύτερες φωτογραφίες (π.χ. από κινητό) μικραίνουν αυτόματα πριν ανέβουν. ${RESIZED}`,
 } as const;

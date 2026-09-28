@@ -1,13 +1,11 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin, auditLog } from "@/lib/admin/auth";
 import {
   CatalogError,
   addProductImage,
-  adjustStock,
   bulkAddToCollection,
   bulkAdjustPrice,
   bulkArchive,
@@ -20,6 +18,7 @@ import {
   deleteVariant,
   findProductByInternalCode,
   listProducts,
+  reorderProductImages,
   saveVariant,
   slugify,
   updateProduct,
@@ -84,6 +83,7 @@ function mapError(err: unknown): string {
       case "duplicate_internal_code": return "Ο εσωτερικός κωδικός χρησιμοποιείται ήδη.";
       case "last_variant": return "Δεν μπορείς να διαγράψεις τη μοναδική παραλλαγή ενός προϊόντος.";
       case "not_found": return "Δεν βρέθηκε.";
+      case "stale_images": return "Οι εικόνες άλλαξαν σε άλλη καρτέλα. Ανανέωσε τη σελίδα και δοκίμασε ξανά.";
     }
   }
   if (err instanceof Error && err.message === "Not authenticated") {
@@ -236,7 +236,14 @@ const newProductSchema = z.object({
   sku: z.string().trim().min(1, "Ο κωδικός (SKU) είναι υποχρεωτικός."),
 });
 
-export async function createProductAction(formData: FormData): Promise<ActionResult> {
+/**
+ * Returns the new id rather than redirecting: the form still has the photos
+ * picked alongside it to upload (they need the product to exist first), and
+ * opens the editor itself afterwards.
+ */
+export async function createProductAction(
+  formData: FormData
+): Promise<{ ok: true; productId: string } | { ok: false; error: string }> {
   let admin;
   try {
     admin = await requireAdmin();
@@ -273,9 +280,10 @@ export async function createProductAction(formData: FormData): Promise<ActionRes
   revalidatePath("/admin/products");
   updateTag(SEARCH_CACHE_TAG);
   updateTag(META_FEED_CACHE_TAG);
-  // New products start inactive, so the operator lands in the editor to
-  // finish them rather than back on a list where nothing looks different.
-  redirect(`/admin/products/${id}`);
+  // New products start inactive, so the form sends the operator on to the
+  // editor to finish them rather than back to a list where nothing looks
+  // different.
+  return { ok: true, productId: id };
 }
 
 /**
@@ -360,7 +368,7 @@ export async function saveVariantAction(productId: string, formData: FormData): 
     return { ok: false, error: "Η αρχική τιμή πρέπει να είναι μεγαλύτερη από την τιμή πώλησης." };
   }
 
-  // Same guard adjustStockAction/setStockAction already apply — this editor
+  // Same guard setStockAction (taxonomy-actions.ts) already applies — this editor
   // was the one path that didn't, so a typo like "-3" saved straight through
   // (found in a full project audit; db/migrations/0026 adds the matching
   // CHECK constraint as defense in depth).
@@ -463,38 +471,45 @@ export async function deleteProductImageAction(productId: string, imageId: strin
   } catch {
     return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
   }
-  await deleteProductImage(imageId);
-  await auditLog(admin.id, "product.image_delete", "product", productId, { imageId });
+  // Inside a try like every other action here: a database hiccup used to
+  // throw out of this one and replace the whole editor with the error page.
+  try {
+    await deleteProductImage(productId, imageId);
+    await auditLog(admin.id, "product.image_delete", "product", productId, { imageId });
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/", "layout");
   updateTag(META_FEED_CACHE_TAG);
   return { ok: true, message: "Η εικόνα διαγράφηκε." };
 }
 
-export async function adjustStockAction(variantId: string, quantity: number): Promise<ActionResult> {
+/**
+ * The editor's "make main" and ←/→ controls. The screen sends the whole new
+ * order; the first photo becomes the main one shown on cards, search and
+ * the Meta feed.
+ */
+export async function reorderProductImagesAction(productId: string, imageIds: string[]): Promise<ActionResult> {
   let admin;
   try {
     admin = await requireAdmin();
   } catch {
     return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
   }
-  if (!Number.isInteger(quantity) || quantity < 0) {
-    return { ok: false, error: "Το απόθεμα πρέπει να είναι μη αρνητικός ακέραιος." };
+  if (!Array.isArray(imageIds) || !imageIds.every((id) => typeof id === "string")) {
+    return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
   }
   try {
-    await adjustStock(variantId, quantity, admin.id);
+    await reorderProductImages(productId, imageIds);
+    await auditLog(admin.id, "product.image_reorder", "product", productId, { imageIds });
   } catch (err) {
     return { ok: false, error: mapError(err) };
   }
-  revalidatePath("/admin/inventory");
-  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/", "layout");
-  // Stock isn't part of the search index, but it is the Meta feed's
-  // availability field — a stock change must invalidate the feed even
-  // though it has never needed to touch SEARCH_CACHE_TAG.
   updateTag(META_FEED_CACHE_TAG);
-  scheduleRestockNotifications();
-  return { ok: true, message: "Το απόθεμα ενημερώθηκε." };
+  return { ok: true, message: "Η σειρά των εικόνων αποθηκεύτηκε." };
 }
 
 // ---------------------------------------------------------------------------

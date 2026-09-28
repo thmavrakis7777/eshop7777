@@ -97,6 +97,17 @@ const nextConfig: NextConfig = {
       __SENTRY_DEBUG__: false,
     },
   },
+  // Every dashboard image upload is a Server Action, and Next rejects any
+  // action body over 1 MB by default — so the "up to 5 MB" the upload code
+  // promised was really 1 MB, and an ordinary phone photo (2–5 MB) failed
+  // before reaching it (the largest of the 47 uploads so far was 763 KB).
+  // 4.5 MB is Vercel's own ceiling for a function request body;
+  // lib/storage/upload.ts caps a file at 4 MB, leaving room for the
+  // multipart wrapping. Product photos are also shrunk in the browser
+  // first (lib/admin/prepare-photo.ts), so they rarely come near this.
+  experimental: {
+    serverActions: { bodySizeLimit: "4.5mb" },
+  },
 };
 
 // Sentry — browser error tracking (src/instrumentation-client.ts). This

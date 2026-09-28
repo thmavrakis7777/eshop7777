@@ -12,7 +12,10 @@ import { PRODUCT_IMAGE_BUCKET } from "@/lib/storage/urls";
  * only does so after the admin has actively picked a file to upload.
  */
 
-const MAX_BYTES = 5 * 1024 * 1024;
+// Bounded by the request itself: uploads arrive through Server Actions,
+// whose body limit next.config.ts sets to 4.5 MB (Vercel's own ceiling) —
+// 4 MB here leaves room for the multipart wrapping around the file.
+const MAX_BYTES = 4 * 1024 * 1024;
 const CONTENT_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -120,11 +123,11 @@ export async function uploadImage(file: File, folder: string): Promise<{ path: s
     throw new UploadError("Επιτρέπονται μόνο εικόνες JPEG, PNG, WebP ή GIF.");
   }
   if (file.size > MAX_BYTES) {
-    throw new UploadError("Η εικόνα είναι πολύ μεγάλη (μέγιστο 5MB).");
+    throw new UploadError("Η εικόνα είναι πολύ μεγάλη (μέγιστο 4MB).");
   }
 
   // Read once, reuse for both the signature check and the request body — the
-  // cap above bounds this at 5MB, and a File's stream cannot be read twice.
+  // cap above bounds this at 4MB, and a File's stream cannot be read twice.
   const buffer = await file.arrayBuffer();
   const sniffed = sniffImageType(new Uint8Array(buffer, 0, Math.min(buffer.byteLength, SNIFF_BYTES)));
 

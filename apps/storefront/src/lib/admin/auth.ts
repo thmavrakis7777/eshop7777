@@ -2,7 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { createHash, randomBytes } from "node:crypto";
 import { sql } from "@/lib/db/client";
-import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { verifyPassword } from "@/lib/auth/password";
 
 /**
  * Admin authentication — deliberately a SEPARATE system from customer auth:
@@ -144,17 +144,4 @@ export async function auditLog(
   } catch {
     // Intentionally swallowed — see above.
   }
-}
-
-export async function createAdminUser(input: {
-  email: string;
-  password: string;
-  name: string;
-  role: AdminRole;
-}): Promise<string> {
-  const [row] = await sql<{ id: string }[]>`
-    INSERT INTO shop.admin_user (email, password_hash, name, role)
-    VALUES (${input.email}, ${await hashPassword(input.password)}, ${input.name}, ${input.role})
-    RETURNING id`;
-  return row.id;
 }

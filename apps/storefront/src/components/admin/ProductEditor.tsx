@@ -22,6 +22,12 @@ import { money, centsToPriceInput } from "@/components/admin/ui/primitives";
  *
  * A dirty indicator plus ⌘S/Ctrl+S, because the failure mode of an autosave
  * editor is uncertainty about whether something saved. Here it is explicit.
+ *
+ * Variants, photos and the AI panel sit inside this <form> visually but save
+ * themselves; they are marked `data-own-save`. Typing there must not flag
+ * this form as unsaved, and Enter there must not submit it — an input inside
+ * a form submits that form on Enter, which used to save the product instead
+ * of the variant price just typed, while showing "Αποθηκεύτηκε".
  */
 
 
@@ -29,6 +35,11 @@ const field =
   "w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-ink";
 const labelCls = "text-sm font-medium text-ink";
 const hint = "text-xs text-ink-muted";
+
+// Text-like inputs are the ones Enter submits the surrounding form from
+// (HTML "implicit submission"); a file picker or checkbox uses Enter itself.
+const NOT_TEXT = ["file", "checkbox", "radio", "button", "submit", "reset", "image", "color", "range"];
+const submitsOnEnter = (el: EventTarget) => el instanceof HTMLInputElement && !NOT_TEXT.includes(el.type);
 
 export function ProductEditor({
   product,
@@ -62,13 +73,20 @@ export function ProductEditor({
 
   return (
     <form
-      onChange={() => setDirty(true)}
+      onChange={(e) => {
+        if (!(e.target as Element).closest("[data-own-save]")) setDirty(true);
+      }}
       onSubmit={(e) => {
         e.preventDefault();
         submit(e.currentTarget);
       }}
       onKeyDown={(e) => {
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        const saveKey = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s";
+        if ((e.target as Element).closest("[data-own-save]")) {
+          if (saveKey || (e.key === "Enter" && submitsOnEnter(e.target))) e.preventDefault();
+          return;
+        }
+        if (saveKey) {
           e.preventDefault();
           submit(e.currentTarget);
         }
@@ -251,12 +269,14 @@ export function ProductEditor({
             </Field>
           </Panel>
 
-          <AiSeoGenerator
-            productId={product.id}
-            hasExistingContent={Boolean(product.description || product.seo?.seoTitle || product.seo?.metaDescription)}
-            isPublished={product.isActive}
-            hasPrimaryImage={product.images.length > 0}
-          />
+          <div data-own-save>
+            <AiSeoGenerator
+              productId={product.id}
+              hasExistingContent={Boolean(product.description || product.seo?.seoTitle || product.seo?.metaDescription)}
+              isPublished={product.isActive}
+              hasPrimaryImage={product.images.length > 0}
+            />
+          </div>
 
           <Panel title="SEO" hint="Αν τα αφήσεις κενά, χρησιμοποιείται ο τίτλος και η περιγραφή του προϊόντος.">
             <Field label="SEO τίτλος" htmlFor="seoTitle">
@@ -361,7 +381,9 @@ export function ProductEditor({
           </Panel>
 
           <Panel title="Εικόνες">
-            <ProductImageManager productId={product.id} images={product.images} />
+            <div data-own-save>
+              <ProductImageManager productId={product.id} images={product.images} />
+            </div>
           </Panel>
         </div>
       </div>
@@ -457,7 +479,7 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
   }
 
   return (
-    <section className="rounded-lg border border-border bg-bg p-5">
+    <section data-own-save className="rounded-lg border border-border bg-bg p-5">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold tracking-wide text-ink uppercase">
           {isSingle ? "Τιμή & απόθεμα" : `Παραλλαγές (${product.variants.length})`}
@@ -589,7 +611,19 @@ function VariantForm({
   }, [price, compareAt]);
 
   return (
-    <div className="rounded-md border border-ink bg-surface/40 p-4">
+    <div
+      // Enter or ⌘S/Ctrl+S in a variant field saves the variant — the
+      // product form above ignores keys from inside [data-own-save].
+      onKeyDown={(e) => {
+        const saveKey =
+          (e.key === "Enter" && submitsOnEnter(e.target)) ||
+          ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s");
+        if (!saveKey) return;
+        e.preventDefault();
+        if (!pending) onSubmit(buildFormData());
+      }}
+      className="rounded-md border border-ink bg-surface/40 p-4"
+    >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label className={labelCls}>Κωδικός (SKU)</label>

@@ -14,9 +14,10 @@ import {
   saveCategoryViewAllButton,
   saveCollection,
 } from "@/lib/admin/taxonomy";
-import { adjustStock } from "@/lib/admin/products";
+import { CatalogError, adjustStock, changeStockBy } from "@/lib/admin/products";
 import { CATEGORY_CACHE_TAG } from "@/lib/data/categories";
 import { CACHE_TAGS } from "@/lib/db/content";
+import { META_FEED_CACHE_TAG } from "@/lib/db/meta-feed";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
 import type { FaqItem } from "@/lib/types";
 import { scheduleRestockNotifications } from "@/lib/stock-notifications";
@@ -33,6 +34,9 @@ function mapError(err: unknown): string {
       case "not_found": return "Δεν βρέθηκε.";
     }
   }
+  // The stock actions below throw CatalogError (lib/admin/products.ts), not
+  // TaxonomyError — a variant deleted in another tab lands here.
+  if (err instanceof CatalogError && err.code === "not_found") return "Δεν βρέθηκε.";
   return "Κάτι πήγε στραβά. Δοκίμασε ξανά.";
 }
 
@@ -257,6 +261,49 @@ export async function deleteCollectionAction(id: string): Promise<ActionResult> 
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Everything a stock change has to refresh, shared by both stock actions
+ * below. Stock isn't in the search index, but it is the Meta feed's
+ * availability field — setStockAction used to skip the feed, so Facebook/
+ * Instagram could show a sold-out item as available for up to the feed's
+ * 5-minute cache.
+ */
+function revalidateAfterStockChange() {
+  revalidatePath("/admin/inventory");
+  revalidatePath("/admin/products");
+  revalidateStorefront();
+  updateTag(META_FEED_CACHE_TAG);
+  scheduleRestockNotifications();
+}
+
+/**
+ * The inventory screen's −/+ buttons. The screen gathers quick clicks into
+ * one call (five taps on + arrive as delta 5), so `delta` is any non-zero
+ * whole number — the cap only rejects a garbage request.
+ */
+export async function changeStockByAction(
+  variantId: string,
+  delta: number
+): Promise<{ ok: true; stock: number } | { ok: false; error: string }> {
+  let admin;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+  if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 10_000) {
+    return { ok: false, error: "Μη έγκυρη αλλαγή αποθέματος." };
+  }
+  let stock: number;
+  try {
+    stock = await changeStockBy(variantId, delta, admin.id);
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
+  revalidateAfterStockChange();
+  return { ok: true, stock };
+}
+
 export async function setStockAction(variantId: string, quantity: number, note?: string): Promise<ActionResult> {
   let admin;
   try {
@@ -275,9 +322,6 @@ export async function setStockAction(variantId: string, quantity: number, note?:
   } catch (err) {
     return { ok: false, error: mapError(err) };
   }
-  revalidatePath("/admin/inventory");
-  revalidatePath("/admin/products");
-  revalidateStorefront();
-  scheduleRestockNotifications();
+  revalidateAfterStockChange();
   return { ok: true, message: "Το απόθεμα ενημερώθηκε." };
 }

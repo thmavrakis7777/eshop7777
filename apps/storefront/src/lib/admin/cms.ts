@@ -34,21 +34,6 @@ export const CONTENT_PAGE_SLUGS: Array<{ slug: string; label: string }> = [
   { slug: "karieres", label: "Καριέρα" },
 ];
 
-// The subset that are genuinely legal/compliance pages, not general content
-// (Σχετικά, FAQ, Καριέρα, order tracking, buying guides are informational,
-// not legal) — used to build the footer's ΝΟΜΙΚΑ section and to decide which
-// pages get the fuller legal-template treatment. Order here is the footer's
-// display order.
-export const LEGAL_PAGE_SLUGS = [
-  "oroi-xrisis",
-  "aporrito",
-  "cookies",
-  "epistrofes",
-  "apostoles",
-  "pliromes",
-  "eggyisi",
-] as const;
-
 // ---------------------------------------------------------------------------
 // Homepage blocks
 // ---------------------------------------------------------------------------
