@@ -422,9 +422,10 @@ export async function getProductsByCategorySlug(
 // change a facet's answer — product save/delete, variant save/delete —
 // already calls updateTag(SEARCH_CACHE_TAG) for the search index, so this
 // piggybacks on invalidation that already fires at the right times instead
-// of wiring a second tag through the same call sites. The one gap is
-// adjustStockAction (the inventory screen's quick stock edit), which today
-// only invalidates the Meta feed tag — a stock-only change there can leave
+// of wiring a second tag through the same call sites. The one gap is the
+// inventory screen's stock edits (setStockAction/changeStockByAction in
+// lib/admin/taxonomy-actions.ts), which invalidate the Meta feed tag but not
+// this one — a stock-only change there can leave
 // `hasOutOfStock` stale for up to the revalidate window below. Acceptable:
 // this cache only feeds filter-UI bounds (never stock/checkout
 // authorization, which is always re-checked live in lib/stock.ts and
@@ -560,6 +561,26 @@ export const getActiveProductSlugs = unstable_cache(
   ["active-product-slugs"],
   { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
 );
+
+export type GalleryImage = { url: string; alt: string | null };
+
+/**
+ * Every photo of one product, in the order set in the dashboard (first =
+ * main) — the product page's gallery. Listing queries keep reading only the
+ * first photo (productFields' image_path), so a grid of cards doesn't carry
+ * every card's whole gallery. `alt` is the photo's own alt text (written by
+ * the dashboard's AI SEO tool), null where none was ever set.
+ */
+export async function getProductGallery(productId: string): Promise<GalleryImage[]> {
+  const rows = await sql<{ storage_path: string; alt_text: string | null }[]>`
+    SELECT storage_path, alt_text FROM shop.product_image
+     WHERE product_id = ${productId}
+     ORDER BY position`;
+  return rows.flatMap((r) => {
+    const url = publicImageUrl(r.storage_path);
+    return url ? [{ url, alt: r.alt_text }] : [];
+  });
+}
 
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
   const rows = (await sql`

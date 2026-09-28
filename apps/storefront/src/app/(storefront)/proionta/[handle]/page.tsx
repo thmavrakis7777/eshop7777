@@ -13,10 +13,11 @@ import { ProductWarranty } from "@/components/product/ProductWarranty";
 import { ProductRail } from "@/components/home/ProductRail";
 import { ProductRailSkeleton } from "@/components/home/ProductRailSkeleton";
 import { ProductImage } from "@/components/ui/ProductImage";
+import { ProductGallery } from "@/components/product/ProductGallery";
 import { Stars } from "@/components/ui/Stars";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
 import { categoryPathHref, getCategoryTrail } from "@/lib/data/categories";
-import { getProductByHandle, getRelatedProducts } from "@/lib/data/products";
+import { getProductByHandle, getProductGallery, getRelatedProducts } from "@/lib/data/products";
 import type { Product } from "@/lib/types";
 import { getProductExtra } from "@/lib/data/product-extras";
 import { getSiteSettings } from "@/lib/data/site-settings";
@@ -99,12 +100,13 @@ export default async function ProductPage({ params }: Props) {
   // and /mageirika-skeyi/tigania, both of which 404. Related products moved
   // to their own Suspense boundary below (see RelatedProducts) — below the
   // fold and independent, no reason for it to gate the rest of the page.
-  const [categoryTrail, seo, extra, siteSettings, nonce] = await Promise.all([
+  const [categoryTrail, seo, extra, siteSettings, nonce, gallery] = await Promise.all([
     product.categoryHandle ? getCategoryTrail(product.categoryHandle) : undefined,
     getSeoOverride("product", product.id),
     getProductExtra(product.id),
     getSiteSettings(),
     headers().then((h) => h.get("x-nonce") ?? undefined),
+    getProductGallery(product.id),
   ]);
 
   // Per-product override, falling back to the site-wide default — both
@@ -122,8 +124,9 @@ export default async function ProductPage({ params }: Props) {
     name: product.title,
     description: product.shortDescription || product.title,
     // Only when a real photo exists — no placeholder/fabricated image URL,
-    // same "only what's populated" rule as material/weight below.
-    ...(product.imageUrl ? { image: product.imageUrl } : {}),
+    // same "only what's populated" rule as material/weight below. Every
+    // photo when there are several (schema.org takes a list), main first.
+    ...(product.imageUrl ? { image: gallery.length > 1 ? gallery.map((g) => g.url) : product.imageUrl } : {}),
     // Medusa's real variant SKU — the same value shown as "Κωδικός
     // προϊόντος" below. Omitted rather than faked when a variant has none.
     ...(product.code ? { sku: product.code } : {}),
@@ -188,16 +191,19 @@ export default async function ProductPage({ params }: Props) {
 
       <div className="container-shell mt-4 grid grid-cols-1 gap-8 md:mt-8 md:grid-cols-2 md:gap-12">
         <div className="relative md:sticky md:top-24 md:self-start">
-          <ProductImage
-            imageUrl={product.imageUrl}
-            label={product.title}
-            tone={product.placeholderTone}
-            sizes="(min-width: 768px) 50vw, 100vw"
-            // The page's LCP element on every viewport (first in the grid on
-            // mobile, left column on desktop) — lazy-loading it made mobile
-            // LCP land 0.9 s after FCP (Speed audit PERF-007/SPD-03).
-            priority
-          />
+          {gallery.length > 0 ? (
+            // Preloads its first photo — the page's LCP element on every
+            // viewport (Speed audit PERF-007/SPD-03), see ProductGallery.
+            <ProductGallery images={gallery} title={product.title} sizes="(min-width: 768px) 50vw, 100vw" />
+          ) : (
+            // No photo yet: the same placeholder tile as before.
+            <ProductImage
+              imageUrl={null}
+              label={product.title}
+              tone={product.placeholderTone}
+              sizes="(min-width: 768px) 50vw, 100vw"
+            />
+          )}
           <WishlistButton
             handle={product.handle}
             title={product.title}

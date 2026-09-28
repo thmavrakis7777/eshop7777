@@ -9,6 +9,7 @@ import {
   getNewArrivalsPaged as dbGetNewArrivalsPaged,
   getSaleProductsPaged as dbGetSaleProductsPaged,
   getProductBySlug,
+  getProductGallery,
   getProductsByCategorySlug,
   getProductsByCollectionSlug,
   getProductsBySlugs,
@@ -20,7 +21,7 @@ import {
 import { expandQueryWithSynonyms } from "@/lib/data/search-management";
 import { buildSearchIndexEntry, rankSearchMatches } from "@/lib/search";
 import type { Product } from "@/lib/types";
-import type { CategoryFacets, CategoryFilters, ProductSort } from "@/lib/db/catalog";
+import type { CategoryFacets, CategoryFilters, GalleryImage, ProductSort } from "@/lib/db/catalog";
 
 /**
  * Product reads. Every function here keeps the exact signature it had when
@@ -33,8 +34,8 @@ import type { CategoryFacets, CategoryFilters, ProductSort } from "@/lib/db/cata
  * `slug`. The translation happens here and nowhere else.
  */
 
-export { toneFor };
-export type { CategoryFacets, CategoryFilters, ProductSort };
+export { toneFor, getProductGallery };
+export type { CategoryFacets, CategoryFilters, GalleryImage, ProductSort };
 
 export async function getProductsByCategoryHandle(
   categoryHandle: string,
