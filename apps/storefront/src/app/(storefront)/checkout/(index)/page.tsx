@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCart } from "@/lib/data/cart";
 import { getPaymentProviders, getShippingOptionsForCart } from "@/lib/data/checkout";
+import { getCheckoutAccount } from "@/lib/data/customer";
+import { getCartAddressFields } from "@/lib/db/cart";
+import { buildCheckoutPrefill } from "@/lib/checkout-prefill";
 import { getSiteSettings } from "@/lib/data/site-settings";
 import { resolveStockInquiryContact } from "@/lib/whatsapp";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
@@ -24,8 +27,25 @@ export default async function CheckoutPage() {
   // The cart already carries its own region — no need to resolve "the"
   // default region separately, which was both an extra request and wrong
   // the moment a second region exists.
-  const [paymentProviders, siteSettings] = await Promise.all([getPaymentProviders(), getSiteSettings()]);
+  //
+  // The form's starting values come from the cart's own saved address, else
+  // the signed-in customer's address book (CHECKOUT_PREFILL_GOOGLE_SPEC.md
+  // §2.1) — both reads never throw, and on failure the form just starts
+  // empty, as it always did.
+  const [paymentProviders, siteSettings, cartAddresses, account] = await Promise.all([
+    getPaymentProviders(),
+    getSiteSettings(),
+    getCartAddressFields(cart.id),
+    getCheckoutAccount(),
+  ]);
   const stockInquiry = resolveStockInquiryContact(siteSettings);
+  const prefill = buildCheckoutPrefill({
+    cartEmail: cart.email,
+    cartShipping: cartAddresses.shipping,
+    cartBilling: cartAddresses.billing,
+    customer: account?.customer ?? null,
+    savedAddresses: account?.addresses ?? [],
+  });
 
   // If the address (and possibly a shipping method) was already saved on an
   // earlier visit — a refresh, or navigating back into checkout — resolve
@@ -65,6 +85,9 @@ export default async function CheckoutPage() {
         paymentProviders={paymentProviders}
         initialShippingOptions={initialShippingOptions}
         stockInquiry={stockInquiry}
+        prefill={prefill}
+        savedAddresses={account?.addresses ?? []}
+        signedIn={account !== null}
       />
     </div>
   );

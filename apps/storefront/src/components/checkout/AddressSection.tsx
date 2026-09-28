@@ -21,7 +21,7 @@ export function AddressSection({
 }: {
   values: ContactAddressFields;
   errors: ContactAddressErrors;
-  onFieldChange: (field: keyof ContactAddressFields, value: string) => void;
+  onFieldChange: (field: keyof ContactAddressFields, value: string, autofilled?: boolean) => void;
   onFieldBlur: (field: keyof ContactAddressFields) => void;
   saving?: boolean;
 }) {
@@ -46,7 +46,7 @@ export function AddressSection({
           id="checkout-street"
           label="Οδός"
           value={values.street}
-          onChange={(v) => onFieldChange("street", v)}
+          onChange={(v, autofilled) => onFieldChange("street", v, autofilled)}
           onBlur={() => onFieldBlur("street")}
           error={errors.street}
           onAddressSelected={handleAddressSelected}
@@ -55,7 +55,7 @@ export function AddressSection({
           id="checkout-number"
           label="Αριθμός"
           value={values.number}
-          onChange={(v) => onFieldChange("number", v)}
+          onChange={(v, autofilled) => onFieldChange("number", v, autofilled)}
           onBlur={() => onFieldBlur("number")}
           error={errors.number}
         />
@@ -67,7 +67,7 @@ export function AddressSection({
           inputMode="numeric"
           autoComplete="postal-code"
           value={values.postalCode}
-          onChange={(v) => onFieldChange("postalCode", v)}
+          onChange={(v, autofilled) => onFieldChange("postalCode", v, autofilled)}
           onBlur={() => onFieldBlur("postalCode")}
           error={errors.postalCode}
         />
@@ -76,7 +76,7 @@ export function AddressSection({
           label="Πόλη"
           autoComplete="address-level2"
           value={values.city}
-          onChange={(v) => onFieldChange("city", v)}
+          onChange={(v, autofilled) => onFieldChange("city", v, autofilled)}
           onBlur={() => onFieldBlur("city")}
           error={errors.city}
         />
@@ -85,7 +85,7 @@ export function AddressSection({
         id="checkout-area"
         label="Περιοχή (προαιρετικό)"
         value={values.area}
-        onChange={(v) => onFieldChange("area", v)}
+        onChange={(v, autofilled) => onFieldChange("area", v, autofilled)}
         onBlur={() => onFieldBlur("area")}
       />
       <div className="flex items-center justify-between text-sm">

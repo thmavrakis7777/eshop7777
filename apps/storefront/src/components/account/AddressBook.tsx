@@ -44,10 +44,10 @@ export function AddressBook({ addresses: initialAddresses }: { addresses: Custom
                   {address.firstName} {address.lastName}
                 </p>
                 <p className="text-ink-muted">
-                  {/* `number` is empty for a saved address — Οδός and Αριθμός are
-                      stored combined in one column and splitting them back apart
-                      is not reliably reversible. Joining on filtered parts keeps
-                      that from rendering as a stray space before the comma. */}
+                  {/* `number` can be empty — Οδός and Αριθμός are stored combined
+                      in one column, and splitStreetAndNumber leaves it blank when
+                      the line has no trailing number. Joining on filtered parts
+                      keeps that from rendering as a stray space before the comma. */}
                   {[[address.street, address.number].filter(Boolean).join(" "), address.area]
                     .filter(Boolean)
                     .join(", ")}

@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { Cart, PaymentProvider, ShippingOption, TaxDocumentType } from "@/lib/types";
+import type { Cart, CustomerAddress, PaymentProvider, ShippingOption, TaxDocumentType } from "@/lib/types";
 import {
   EMPTY_BILLING_ADDRESS,
-  EMPTY_CONTACT_ADDRESS,
   EMPTY_INVOICE_FIELDS,
   validateAddressFields,
   type BillingAddressErrors,
@@ -42,6 +41,27 @@ import { CheckoutOrderSummary } from "@/components/checkout/CheckoutOrderSummary
 import { EmptyCartState } from "@/components/cart/EmptyCartState";
 import { formatPrice } from "@/lib/format";
 import { trackInitiateCheckout } from "@/lib/analytics/track";
+import { splitStreetAndNumber } from "@/lib/address-format";
+import { detailsFromSavedAddress, findSavedAddress, type CheckoutPrefill } from "@/lib/checkout-prefill";
+import { NEW_ADDRESS, SavedAddressPicker } from "@/components/checkout/SavedAddressPicker";
+
+// How long after the browser's last autofilled field the form saves it. One
+// autofill fires a change per field in quick succession, so this waits for
+// the burst to finish and saves once, rather than once per field.
+const AUTOFILL_SAVE_DELAY_MS = 250;
+
+const SIGN_IN_HREF = `/logariasmos/eisodos?redirectTo=${encodeURIComponent("/checkout")}`;
+
+// An autofilled "address-line1" arrives as one string ("Ικάρου 25") — split
+// the number into Αριθμός when that's still empty (A4). Autofill only: while
+// someone is typing, a street genuinely ending in a number ("Πλατεία 1866")
+// must stay exactly as typed.
+function withAutofilledStreet<T extends { street: string; number: string }>(prev: T, value: string): T {
+  const next = { ...prev, street: value };
+  if (prev.number.trim()) return next;
+  const split = splitStreetAndNumber(value);
+  return split.number ? { ...next, street: split.street, number: split.number } : next;
+}
 
 function validateDetails(d: ContactAddressFields): ContactAddressErrors {
   const errors: ContactAddressErrors = {};
@@ -72,6 +92,9 @@ export function CheckoutForm({
   paymentProviders,
   initialShippingOptions,
   stockInquiry,
+  prefill,
+  savedAddresses,
+  signedIn,
 }: {
   initialCart: Cart;
   paymentProviders: PaymentProvider[];
@@ -80,6 +103,13 @@ export function CheckoutForm({
   // the shipping section forget an address that's already on the cart.
   initialShippingOptions: ShippingOption[];
   stockInquiry: StockInquiryContact;
+  // The form's starting values — the cart's own address, else the signed-in
+  // customer's saved one (lib/checkout-prefill.ts, built in checkout/page.tsx).
+  prefill: CheckoutPrefill;
+  // The signed-in customer's address book, for the picker and to tell
+  // whether the address is already saved. Empty for a guest.
+  savedAddresses: CustomerAddress[];
+  signedIn: boolean;
 }) {
   const router = useRouter();
   // The shared client cart, not a local copy. It used to be
@@ -111,22 +141,40 @@ export function CheckoutForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCart.id]);
 
-  const [email, setEmail] = useState(initialCart.email ?? "");
+  const [email, setEmail] = useState(prefill.email);
   const [emailError, setEmailError] = useState<string>();
   const [emailSaving, setEmailSaving] = useState(false);
 
-  const [details, setDetails] = useState<ContactAddressFields>(EMPTY_CONTACT_ADDRESS);
+  // Starts from `prefill` instead of always empty: it used to be empty even
+  // after a refresh, with the cart still holding the address the shipping
+  // section was already priced on.
+  const [details, setDetails] = useState<ContactAddressFields>(prefill.details);
   const [touchedFields, setTouchedFields] = useState<Set<keyof ContactAddressFields>>(new Set());
   const [detailsSaving, setDetailsSaving] = useState(false);
   const [detailsServerError, setDetailsServerError] = useState<string>();
-  const lastSavedDetails = useRef<string | null>(null);
+  // Filled from the cart = already saved, in the exact shape attemptDetailsSave
+  // signs (below), so leaving a field untouched doesn't re-save the same thing.
+  const lastSavedDetails = useRef<string | null>(
+    prefill.detailsNeedSave ? null : JSON.stringify({ details: prefill.details, billing: prefill.billing })
+  );
+  const latestDetailsSave = useRef(0);
 
-  // Unchecked by default (CHECKOUT_PREMIUM_SPEC.md §3) — same "always starts
-  // empty regardless of what's already saved on the cart" pattern the
-  // contact/address fields already use, not a new gap.
-  const [billingDiffers, setBillingDiffers] = useState(false);
-  const [billingFields, setBillingFields] = useState<BillingAddressFields>(EMPTY_BILLING_ADDRESS);
+  // Unchecked by default (CHECKOUT_PREMIUM_SPEC.md §3) — ticked only when the
+  // cart already holds a billing address that genuinely differs, so a
+  // refresh doesn't quietly fold it back into the shipping one on the next
+  // save.
+  const [billingDiffers, setBillingDiffers] = useState(prefill.billing !== null);
+  const [billingFields, setBillingFields] = useState<BillingAddressFields>(prefill.billing ?? EMPTY_BILLING_ADDRESS);
   const [billingTouched, setBillingTouched] = useState<Set<keyof BillingAddressFields>>(new Set());
+
+  // Bumped by an autofilled change; the effects below save a moment later.
+  const [detailsAutofillTick, setDetailsAutofillTick] = useState(0);
+  const [emailAutofillTick, setEmailAutofillTick] = useState(0);
+
+  // §2.3/§2.4 — which saved address the form shows, and "keep this address
+  // for next time" (ticked by default, owner's decision D2).
+  const [savedAddressId, setSavedAddressId] = useState(prefill.savedAddressId ?? NEW_ADDRESS);
+  const [saveAddress, setSaveAddress] = useState(true);
 
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>(initialShippingOptions);
   const [shippingStatus, setShippingStatus] = useState<"pending-address" | "loading" | "ready" | "empty" | "error">(
@@ -193,8 +241,79 @@ export function CheckoutForm({
     setEmailSaving(false);
   }
 
-  function handleDetailsFieldChange(field: keyof ContactAddressFields, value: string) {
-    setDetails((prev) => ({ ...prev, [field]: value }));
+  // An autofilled field is marked touched too, so a value the browser got
+  // wrong (an old number, a foreign ΤΚ) shows its error straight away instead
+  // of silently holding up the save.
+  function handleDetailsFieldChange(field: keyof ContactAddressFields, value: string, autofilled = false) {
+    setDetails((prev) => (autofilled && field === "street" ? withAutofilledStreet(prev, value) : { ...prev, [field]: value }));
+    if (autofilled) {
+      setTouchedFields((prev) => new Set(prev).add(field));
+      setDetailsAutofillTick((n) => n + 1);
+    }
+  }
+
+  function handleEmailChange(value: string, autofilled: boolean) {
+    setEmail(value);
+    if (autofilled) setEmailAutofillTick((n) => n + 1);
+  }
+
+  // Autofill never leaves the fields it fills, so the save-on-blur below
+  // never ran for them: the address looked complete but was never on the
+  // cart, shipping kept asking for it, and the order button did nothing
+  // (CHECKOUT_PREFILL_GOOGLE_SPEC.md A1). An autofilled change saves on its
+  // own instead, once the burst of fields settles. Each tick re-runs the
+  // effect from the render that has the newest values, and the cleanup
+  // drops the previous timer, so only the last one saves.
+  useEffect(() => {
+    if (detailsAutofillTick === 0) return;
+    const timer = setTimeout(() => void attemptDetailsSave(), AUTOFILL_SAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailsAutofillTick]);
+
+  useEffect(() => {
+    if (emailAutofillTick === 0) return;
+    const timer = setTimeout(() => void handleEmailBlur(), AUTOFILL_SAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emailAutofillTick]);
+
+  // Values filled from the account (not the cart) are saved straight away,
+  // exactly as if the customer had typed them and moved on — so the
+  // shipping options are already there, and for a Heraklion address the one
+  // delivery option is already picked (§2.2). In order, email first, so the
+  // two saves can't hand back carts that each miss the other's change. The
+  // ref keeps React's development double-run of effects from saving twice.
+  const prefillSaveStarted = useRef(false);
+  useEffect(() => {
+    if (prefillSaveStarted.current) return;
+    prefillSaveStarted.current = true;
+    void (async () => {
+      if (prefill.emailNeedsSave) await handleEmailBlur();
+      if (prefill.detailsNeedSave) await attemptDetailsSave();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Picking another saved address replaces the recipient and address
+  // together (they belong to that address) and saves it right away.
+  // "Νέα διεύθυνση" empties the address but keeps the customer's own name and
+  // phone, and hides the old address's shipping options — the cart still
+  // holds that address until the new one is complete, and canSubmit refuses
+  // an order while the fields on screen aren't valid.
+  function handleSavedAddressSelect(id: string) {
+    setSavedAddressId(id);
+    setTouchedFields(new Set());
+    const address = savedAddresses.find((a) => a.id === id);
+    if (!address) {
+      setDetails((prev) => ({ ...prev, street: "", number: "", area: "", postalCode: "", city: "" }));
+      setShippingStatus("pending-address");
+      setSelectedShippingId(null);
+      return;
+    }
+    const next = detailsFromSavedAddress(address, prefill.profile);
+    setDetails(next);
+    void attemptDetailsSave(undefined, next);
   }
 
   // Single combined save for three visual sections (contact, address,
@@ -204,11 +323,14 @@ export function CheckoutForm({
   // `billingDiffersOverride` lets the billing checkbox force an immediate
   // re-save with its new value before React has committed the state update
   // (reading `billingDiffers` from the closure here would still see the old
-  // value in the same tick it changed).
-  async function attemptDetailsSave(billingDiffersOverride?: boolean) {
+  // value in the same tick it changed). `detailsOverride` is the same thing
+  // for the saved-address picker, which sets every field at once and saves
+  // in the same tick.
+  async function attemptDetailsSave(billingDiffersOverride?: boolean, detailsOverride?: ContactAddressFields) {
     const effectiveBillingDiffers = billingDiffersOverride ?? billingDiffers;
+    const fields = detailsOverride ?? details;
 
-    const errors = validateDetails(details);
+    const errors = validateDetails(fields);
     if (Object.keys(errors).length > 0) return;
 
     // Billing only participates in the save once it's actually complete —
@@ -223,19 +345,27 @@ export function CheckoutForm({
     const billingComplete = effectiveBillingDiffers && Object.keys(validateAddressFields(billingFields)).length === 0;
 
     const signature = JSON.stringify({
-      details,
+      details: fields,
       billing: billingComplete ? billingFields : null,
     });
     if (signature === lastSavedDetails.current) return;
 
+    const saveId = ++latestDetailsSave.current;
     setDetailsSaving(true);
     setDetailsServerError(undefined);
     setShippingStatus("loading");
     const result = await updateCheckoutDetailsAction({
-      ...details,
+      ...fields,
       billingDiffers: billingComplete,
       billing: billingComplete ? billingFields : undefined,
     });
+    // A newer save started while this one was in flight (two quick edits, or
+    // an autofill save overlapping a blur save): only the newest answer may
+    // touch the form. An older one applied first used to flash the previous
+    // address's shipping options — a Heraklion one for an address already
+    // changed to Athens, even auto-selected — and clear `detailsSaving`
+    // while the newest save was still on its way. Found live while testing.
+    if (saveId !== latestDetailsSave.current) return;
     if (result.ok) {
       lastSavedDetails.current = signature;
       receiveCart(result.cart);
@@ -310,8 +440,15 @@ export function CheckoutForm({
     if (!checked) void attemptDetailsSave(false);
   }
 
-  function handleBillingFieldChange(field: keyof BillingAddressFields, value: string) {
-    setBillingFields((prev) => ({ ...prev, [field]: value }));
+  // Same autofill handling as handleDetailsFieldChange.
+  function handleBillingFieldChange(field: keyof BillingAddressFields, value: string, autofilled = false) {
+    setBillingFields((prev) =>
+      autofilled && field === "street" ? withAutofilledStreet(prev, value) : { ...prev, [field]: value }
+    );
+    if (autofilled) {
+      setBillingTouched((prev) => new Set(prev).add(field));
+      setDetailsAutofillTick((n) => n + 1);
+    }
   }
 
   async function handleBillingBlur(field: keyof BillingAddressFields) {
@@ -471,6 +608,21 @@ export function CheckoutForm({
     return null;
   }
 
+  // Every field on screen is valid, yet the order can't go through: part of
+  // it never reached the cart (a browser whose autofill isAutofillChange
+  // doesn't recognise, or a click that landed mid-save), or the shipping
+  // choice is still open. This used to do nothing at all — no error, no
+  // scroll — so it saves whatever is missing now and points at the shipping
+  // step, the one thing left that isn't a text field. It never places the
+  // order by itself: the customer presses the button again.
+  async function saveMissingAndShowShipping() {
+    if (isValidEmail(email) && email !== cart.email && !emailSaving) await handleEmailBlur();
+    if (!detailsSaving) await attemptDetailsSave();
+    if (!cart.hasShippingMethod) {
+      document.getElementById("checkout-shipping")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+
   function handleSubmit() {
     if (!canSubmit) {
       setSubmitAttempted(true);
@@ -479,13 +631,15 @@ export function CheckoutForm({
         const el = document.getElementById(firstInvalidId);
         el?.scrollIntoView({ behavior: "smooth", block: "center" });
         el?.focus();
+      } else if (!hasOverstockedItem && !isSubmitting) {
+        void saveMissingAndShowShipping();
       }
       return;
     }
     if (!selectedPaymentId) return;
     setSubmitError(undefined);
     startSubmitTransition(async () => {
-      const result = await completeCheckoutAction(selectedPaymentId);
+      const result = await completeCheckoutAction(selectedPaymentId, { saveAddress: showSaveAddress && saveAddress });
       if (result.ok) {
         router.push(`/checkout/epibebaiosi?order=${result.orderId}`);
       } else {
@@ -507,6 +661,13 @@ export function CheckoutForm({
     cart.items.length > 0 &&
     Boolean(cart.email) &&
     Boolean(cart.shippingAddress) &&
+    // What's on screen, not only what's on the cart: the cart keeps its last
+    // saved address while a field is emptied or "Νέα διεύθυνση" is picked,
+    // and the order must never go to an address the form no longer shows.
+    // For the same reason, not while an email/address save is in flight.
+    Object.keys(validateDetails(details)).length === 0 &&
+    !detailsSaving &&
+    !emailSaving &&
     cart.hasShippingMethod &&
     taxDocumentReady &&
     Boolean(selectedPaymentId) &&
@@ -515,6 +676,10 @@ export function CheckoutForm({
     // button is the browser's prediction until the server answers (SPD-09).
     !cartEditPending &&
     !isSubmitting;
+
+  // §2.4 — offered to a signed-in customer whose address isn't in their
+  // address book yet (the server skips a duplicate anyway).
+  const showSaveAddress = signedIn && !findSavedAddress(details, savedAddresses);
 
   // Removing the last item mid-checkout must not leave an unusable form
   // with nothing to pay for — hand the shopper back to a clear, familiar
@@ -533,7 +698,17 @@ export function CheckoutForm({
           using `order` here would flip the desktop columns too — found
           live while testing this exact mistake. */}
       <div className="flex flex-col gap-8">
-          <EmailSection value={email} onChange={setEmail} onBlur={handleEmailBlur} error={visibleEmailError} saving={emailSaving} />
+          <EmailSection
+            value={email}
+            onChange={handleEmailChange}
+            onBlur={handleEmailBlur}
+            error={visibleEmailError}
+            saving={emailSaving}
+            signInHref={signedIn ? undefined : SIGN_IN_HREF}
+          />
+          {savedAddresses.length >= 2 && (
+            <SavedAddressPicker addresses={savedAddresses} selectedId={savedAddressId} onSelect={handleSavedAddressSelect} />
+          )}
           <ContactSection
             values={details}
             errors={visibleDetailsErrors}
@@ -548,15 +723,30 @@ export function CheckoutForm({
             onFieldBlur={handleDetailsBlur}
             saving={detailsSaving}
           />
-          <BillingAddressSection
-            checked={billingDiffers}
-            onToggle={handleBillingToggle}
-            values={billingFields}
-            errors={visibleBillingErrors}
-            onFieldChange={handleBillingFieldChange}
-            onFieldBlur={handleBillingBlur}
-            saving={detailsSaving}
-          />
+          {/* The save-address checkbox sits with the billing one — same
+              markup, same spacing — as the two options under the address. */}
+          <div className="flex flex-col gap-3">
+            {showSaveAddress && (
+              <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={saveAddress}
+                  onChange={(e) => setSaveAddress(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-accent"
+                />
+                <span className="text-ink">Αποθήκευση διεύθυνσης στον λογαριασμό μου</span>
+              </label>
+            )}
+            <BillingAddressSection
+              checked={billingDiffers}
+              onToggle={handleBillingToggle}
+              values={billingFields}
+              errors={visibleBillingErrors}
+              onFieldChange={handleBillingFieldChange}
+              onFieldBlur={handleBillingBlur}
+              saving={detailsSaving}
+            />
+          </div>
           {detailsServerError && (
             <p role="alert" className="text-sm text-danger">
               {detailsServerError}

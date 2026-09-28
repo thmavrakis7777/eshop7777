@@ -2,6 +2,7 @@ import "server-only";
 import { sql } from "@/lib/db/client";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createCustomerSession } from "@/lib/auth/session";
+import { normalizePhone, normalizePostalCode, splitStreetAndNumber } from "@/lib/address-format";
 import type { Address, Customer, CustomerAddress } from "@/lib/types";
 
 /**
@@ -144,7 +145,7 @@ export async function updateCustomerProfile(
   const rows = await sql<CustomerRow[]>`
     UPDATE shop.customer
        SET first_name = ${input.firstName}, last_name = ${input.lastName},
-           phone = ${input.phone || null}
+           phone = ${normalizePhone(input.phone) || null}
      WHERE id = ${customerId}
     RETURNING id, email, first_name, last_name, phone`;
   if (!rows[0]) throw new AuthError("Customer not found", "not_found");
@@ -190,18 +191,20 @@ type AddressRow = {
 };
 
 function toDomainAddress(a: AddressRow): CustomerAddress {
+  // Οδός and Αριθμός are stored combined in address_1, the same way the
+  // checkout form submits them. splitStreetAndNumber takes the trailing
+  // number back off for the edit form and the checkout pre-fill; saving joins
+  // the two with one space again, so a wrong guess never changes the stored
+  // text (see its own comment).
+  const { street, number } = splitStreetAndNumber(a.address_1);
   return {
     id: a.id,
     label: a.label ?? undefined,
     isDefaultShipping: a.is_default_shipping,
     firstName: a.first_name ?? "",
     lastName: a.last_name ?? "",
-    // Οδός and Αριθμός are stored combined in address_1, the same way the
-    // checkout form submits them. Splitting them back apart is not reliably
-    // reversible, so it is not attempted — the whole string shows as "street"
-    // and number stays blank when editing a saved address.
-    street: a.address_1,
-    number: "",
+    street,
+    number,
     area: a.address_2 ?? undefined,
     city: a.city,
     postalCode: a.postal_code,
@@ -234,8 +237,43 @@ export async function addCustomerAddress(
     VALUES (
       ${customerId}, ${label || null}, ${address.firstName}, ${address.lastName},
       ${[address.street, address.number].filter(Boolean).join(" ")},
-      ${address.area || null}, ${address.city}, ${address.postalCode},
-      ${address.countryCode || "gr"}, ${address.phone || null})`;
+      ${address.area || null}, ${address.city}, ${normalizePostalCode(address.postalCode)},
+      ${address.countryCode || "gr"}, ${normalizePhone(address.phone) || null})`;
+}
+
+/**
+ * Checkout's "Αποθήκευση διεύθυνσης στον λογαριασμό μου"
+ * (CHECKOUT_PREFILL_GOOGLE_SPEC.md §2.4). Copies the placed order's own
+ * shipping address — what was actually committed, never anything the
+ * browser sends — into the customer's address book, so their next checkout
+ * fills itself in.
+ *
+ * One statement, so the checks can't race the insert: the order must belong
+ * to this customer (the session's id, not a client value), an address with
+ * the same street text + ΤΚ is skipped rather than duplicated (same
+ * comparison as isSameAddressLine), and the first address a customer ever
+ * saves becomes their default.
+ */
+export async function saveOrderAddressToCustomer(customerId: string, orderId: string): Promise<void> {
+  await sql`
+    INSERT INTO shop.customer_address (
+      customer_id, first_name, last_name, address_1, address_2,
+      city, postal_code, country_code, phone, is_default_shipping)
+    SELECT o.customer_id,
+           o.shipping_address->>'first_name', o.shipping_address->>'last_name',
+           COALESCE(o.shipping_address->>'address_1', ''), o.shipping_address->>'address_2',
+           COALESCE(o.shipping_address->>'city', ''), COALESCE(o.shipping_address->>'postal_code', ''),
+           COALESCE(o.shipping_address->>'country_code', 'gr'), o.shipping_address->>'phone',
+           NOT EXISTS (SELECT 1 FROM shop.customer_address a WHERE a.customer_id = o.customer_id)
+      FROM shop.orders o
+     WHERE o.id = ${orderId} AND o.customer_id = ${customerId} AND o.shipping_address IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM shop.customer_address a
+          WHERE a.customer_id = o.customer_id
+            AND lower(regexp_replace(btrim(a.address_1), '\\s+', ' ', 'g'))
+              = lower(regexp_replace(btrim(COALESCE(o.shipping_address->>'address_1', '')), '\\s+', ' ', 'g'))
+            AND regexp_replace(a.postal_code, '\\s', '', 'g')
+              = regexp_replace(COALESCE(o.shipping_address->>'postal_code', ''), '\\s', '', 'g'))`;
 }
 
 // customer_id is in the WHERE clause, not just the id — so one customer can
@@ -252,8 +290,8 @@ export async function updateCustomerAddress(
            last_name = ${address.lastName},
            address_1 = ${[address.street, address.number].filter(Boolean).join(" ")},
            address_2 = ${address.area || null}, city = ${address.city},
-           postal_code = ${address.postalCode},
-           country_code = ${address.countryCode || "gr"}, phone = ${address.phone || null}
+           postal_code = ${normalizePostalCode(address.postalCode)},
+           country_code = ${address.countryCode || "gr"}, phone = ${normalizePhone(address.phone) || null}
      WHERE id = ${addressId} AND customer_id = ${customerId}`;
 }
 

@@ -7,6 +7,7 @@ import {
   type AddressSuggestion,
   type ParsedAddressDetails,
 } from "@/lib/actions/address-autocomplete";
+import { isAutofillChange } from "@/components/checkout/autofill";
 
 // Wraps the plain "Οδός" text input with a live suggestions dropdown —
 // never replaces manual entry (CHECKOUT_PREMIUM_SPEC.md §2's hard
@@ -27,7 +28,7 @@ export function AddressAutocomplete({
   id: string;
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string, autofilled: boolean) => void;
   onBlur?: () => void;
   error?: string;
   onAddressSelected: (details: ParsedAddressDetails) => void;
@@ -69,12 +70,16 @@ export function AddressAutocomplete({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  function handleChange(newValue: string) {
-    onChange(newValue);
+  function handleChange(newValue: string, autofilled: boolean) {
+    onChange(newValue, autofilled);
     setActiveIndex(-1);
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    if (newValue.trim().length < 3) {
+    // Suggestions are for someone typing an address, not for one the
+    // browser just filled in whole — looking it up then only popped the
+    // dropdown open over an already-complete form and spent a Places
+    // request on it (CHECKOUT_PREFILL_GOOGLE_SPEC.md A5).
+    if (autofilled || newValue.trim().length < 3) {
       setSuggestions([]);
       setIsOpen(false);
       return;
@@ -92,7 +97,7 @@ export function AddressAutocomplete({
   async function handleSelect(suggestion: AddressSuggestion) {
     setIsOpen(false);
     setSuggestions([]);
-    onChange(suggestion.mainText || value);
+    onChange(suggestion.mainText || value, false);
 
     const details = await getPlaceDetails(suggestion.placeId, sessionToken.current);
     if (details) onAddressSelected(details);
@@ -127,7 +132,7 @@ export function AddressAutocomplete({
         id={id}
         type="text"
         value={value}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e) => handleChange(e.target.value, isAutofillChange(e))}
         onKeyDown={handleKeyDown}
         onBlur={() => {
           // A short delay so a click on a suggestion (which also blurs the

@@ -23,7 +23,7 @@ export function BillingAddressSection({
   onToggle: (checked: boolean) => void;
   values: BillingAddressFields;
   errors: BillingAddressErrors;
-  onFieldChange: (field: keyof BillingAddressFields, value: string) => void;
+  onFieldChange: (field: keyof BillingAddressFields, value: string, autofilled?: boolean) => void;
   onFieldBlur: (field: keyof BillingAddressFields) => void;
   saving?: boolean;
 }) {
@@ -60,7 +60,7 @@ export function BillingAddressSection({
               label="Οδός"
               autoComplete="billing address-line1"
               value={values.street}
-              onChange={(v) => onFieldChange("street", v)}
+              onChange={(v, autofilled) => onFieldChange("street", v, autofilled)}
               onBlur={() => onFieldBlur("street")}
               error={errors.street}
             />
@@ -68,7 +68,7 @@ export function BillingAddressSection({
               id="billing-number"
               label="Αριθμός"
               value={values.number}
-              onChange={(v) => onFieldChange("number", v)}
+              onChange={(v, autofilled) => onFieldChange("number", v, autofilled)}
               onBlur={() => onFieldBlur("number")}
               error={errors.number}
             />
@@ -80,7 +80,7 @@ export function BillingAddressSection({
               inputMode="numeric"
               autoComplete="billing postal-code"
               value={values.postalCode}
-              onChange={(v) => onFieldChange("postalCode", v)}
+              onChange={(v, autofilled) => onFieldChange("postalCode", v, autofilled)}
               onBlur={() => onFieldBlur("postalCode")}
               error={errors.postalCode}
             />
@@ -89,7 +89,7 @@ export function BillingAddressSection({
               label="Πόλη"
               autoComplete="billing address-level2"
               value={values.city}
-              onChange={(v) => onFieldChange("city", v)}
+              onChange={(v, autofilled) => onFieldChange("city", v, autofilled)}
               onBlur={() => onFieldBlur("city")}
               error={errors.city}
             />
@@ -98,7 +98,7 @@ export function BillingAddressSection({
             id="billing-area"
             label="Περιοχή (προαιρετικό)"
             value={values.area}
-            onChange={(v) => onFieldChange("area", v)}
+            onChange={(v, autofilled) => onFieldChange("area", v, autofilled)}
             onBlur={() => onFieldBlur("area")}
           />
         </div>

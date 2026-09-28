@@ -1,3 +1,5 @@
+import { isValidPostalCode } from "@/lib/checkout-validation";
+
 // Shared shape for the "Στοιχεία παραλήπτη" + "Διεύθυνση παράδοσης"
 // sections — two visual sections, but they save together as Medusa's
 // single `shipping_address` object (lib/actions/checkout.ts), so their
@@ -55,7 +57,7 @@ export function validateAddressFields<T extends { street: string; number: string
   if (!fields.street.trim()) errors.street = "Παρακαλώ συμπληρώστε το πεδίο";
   if (!fields.number.trim()) errors.number = "Παρακαλώ συμπληρώστε το πεδίο";
   if (!fields.postalCode.trim()) errors.postalCode = "Παρακαλώ συμπληρώστε το πεδίο";
-  else if (!/^\d{5}$/.test(fields.postalCode.trim())) errors.postalCode = "Ο ταχυδρομικός κώδικας δεν είναι έγκυρος.";
+  else if (!isValidPostalCode(fields.postalCode)) errors.postalCode = "Ο ταχυδρομικός κώδικας δεν είναι έγκυρος.";
   if (!fields.city.trim()) errors.city = "Παρακαλώ συμπληρώστε το πεδίο";
   return errors;
 }

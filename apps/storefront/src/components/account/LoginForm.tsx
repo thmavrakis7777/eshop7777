@@ -7,7 +7,7 @@ import { FormField } from "@/components/checkout/FormField";
 import { loginAction } from "@/lib/actions/customer";
 import { mergeWishlistOnLoginAction } from "@/lib/actions/wishlist";
 import { getWishlistSnapshot } from "@/lib/wishlist-storage";
-import { isValidEmail, isRequired } from "@/lib/checkout-validation";
+import { isValidEmail, isRequired, withRedirectTo } from "@/lib/checkout-validation";
 
 export function LoginForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter();
@@ -69,7 +69,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
         <Link href="/logariasmos/xexasate-kodikos" className="text-ink-muted hover:text-ink hover:underline">
           Ξέχασες τον κωδικό;
         </Link>
-        <Link href="/logariasmos/eggrafi" className="text-accent hover:underline">
+        <Link href={withRedirectTo("/logariasmos/eggrafi", redirectTo)} className="text-accent hover:underline">
           Δημιουργία λογαριασμού
         </Link>
       </div>

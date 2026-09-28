@@ -146,7 +146,9 @@ export function ShippingSection({
   oversizedFeeEur: number;
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    // The id is where a blocked "Ολοκλήρωση Παραγγελίας" scrolls to when every
+    // field is valid and only the shipping choice is left (CheckoutForm).
+    <section id="checkout-shipping" className="flex flex-col gap-3">
       <SectionHeading number={4} title="Τρόπος αποστολής" />
       {status === "ready" && (
         <FreeShippingHint

@@ -2,19 +2,23 @@
 // checks (CHECKOUT_UX_SPEC.md §12 wants inline, per-field Greek errors, not
 // a validation library's generic English ones).
 
+import { normalizePhone, normalizePostalCode } from "@/lib/address-format";
+
 export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
 // Greek landline/mobile numbers are 10 digits (mobile starts 69, landlines
-// vary by area code) — loose on purpose, just strips spaces/dashes and
-// checks length+digits rather than trying to validate real area codes.
+// vary by area code) — loose on purpose, just checks length+digits rather
+// than trying to validate real area codes. normalizePhone first, so a number
+// autofilled as "+30 694 123 4567" passes instead of being rejected (A2).
 export function isValidPhone(value: string): boolean {
-  return /^\d{10}$/.test(value.replace(/[\s-]/g, ""));
+  return /^\d{10}$/.test(normalizePhone(value));
 }
 
+// "712 01" passes too (A3) — callers store normalizePostalCode's output.
 export function isValidPostalCode(value: string): boolean {
-  return /^\d{5}$/.test(value.trim());
+  return /^\d{5}$/.test(normalizePostalCode(value));
 }
 
 export function isRequired(value: string): boolean {
@@ -40,6 +44,16 @@ export function isValidPassword(value: string): boolean {
 // which a post-login redirect must never follow.
 export function isSafeRedirectPath(value: string | null | undefined): value is string {
   return !!value && value.startsWith("/") && !value.startsWith("//");
+}
+
+// Carries a post-login destination across the login ↔ register links, so a
+// shopper who arrives from checkout's "Σύνδεση" and then picks "Δημιουργία
+// λογαριασμού" still lands back in checkout (CHECKOUT_PREFILL_GOOGLE_SPEC.md
+// §2.5). The default destination (/logariasmos) is left off the URL.
+export function withRedirectTo(path: string, redirectTo: string): string {
+  return isSafeRedirectPath(redirectTo) && redirectTo !== "/logariasmos"
+    ? `${path}?redirectTo=${encodeURIComponent(redirectTo)}`
+    : path;
 }
 
 export function isValidAFM(value: string): boolean {

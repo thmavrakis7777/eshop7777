@@ -1,5 +1,10 @@
 "use client";
 
+import { isAutofillChange } from "@/components/checkout/autofill";
+
+// `onChange`'s second argument says whether the browser filled the value in
+// (isAutofillChange) — checkout saves those right away; every other form
+// just ignores it.
 export function FormField({
   id,
   label,
@@ -16,7 +21,7 @@ export function FormField({
   label: string;
   type?: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string, autofilled: boolean) => void;
   onBlur?: () => void;
   error?: string;
   autoComplete?: string;
@@ -32,7 +37,7 @@ export function FormField({
         id={id}
         type={type}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value, isAutofillChange(e))}
         onBlur={onBlur}
         autoComplete={autoComplete}
         inputMode={inputMode}

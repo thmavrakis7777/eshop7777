@@ -86,6 +86,28 @@ export type AddressJson = {
   phone?: string | null;
 };
 
+/**
+ * The cart's saved addresses exactly as stored, for filling the checkout
+ * form back in after a refresh or a return visit
+ * (CHECKOUT_PREFILL_GOOGLE_SPEC.md §2.1). Cart.shippingAddress can't serve:
+ * it's display-shaped (one combined name, one address line) and travels to
+ * every page's header and cart drawer, so the raw fields are read here, by
+ * /checkout alone, rather than added to every Cart. Never throws — without
+ * them the form simply starts empty, as it always used to.
+ */
+export async function getCartAddressFields(
+  cartId: string
+): Promise<{ shipping: AddressJson | null; billing: AddressJson | null }> {
+  try {
+    const [row] = await sql<{ shipping_address: AddressJson | null; billing_address: AddressJson | null }[]>`
+      SELECT shipping_address, billing_address FROM shop.cart WHERE id = ${cartId}`;
+    return { shipping: row?.shipping_address ?? null, billing: row?.billing_address ?? null };
+  } catch (err) {
+    console.error("[checkout] CART_ADDRESS_PREFILL_READ_FAILED", { cartId, error: String(err) });
+    return { shipping: null, billing: null };
+  }
+}
+
 export function toAddressSummary(a: AddressJson) {
   return {
     fullName: [a.first_name, a.last_name].filter(Boolean).join(" "),

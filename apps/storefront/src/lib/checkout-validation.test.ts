@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSafeRedirectPath } from "./checkout-validation";
+import { isSafeRedirectPath, withRedirectTo } from "./checkout-validation";
 
 // QA-013: a logged-out deep link (e.g. /logariasmos/parangelies) must
 // redirect through login and land back on that same page — but the
@@ -40,5 +40,22 @@ describe("isSafeRedirectPath", () => {
     expect(isSafeRedirectPath("")).toBe(false);
     expect(isSafeRedirectPath(null)).toBe(false);
     expect(isSafeRedirectPath(undefined)).toBe(false);
+  });
+});
+
+// CHECKOUT_PREFILL_GOOGLE_SPEC.md §2.5: checkout's "Σύνδεση" → "Δημιουργία
+// λογαριασμού" must still land back in checkout.
+describe("withRedirectTo", () => {
+  it("carries a real destination across", () => {
+    expect(withRedirectTo("/logariasmos/eggrafi", "/checkout")).toBe("/logariasmos/eggrafi?redirectTo=%2Fcheckout");
+  });
+
+  it("leaves the default destination off the URL", () => {
+    expect(withRedirectTo("/logariasmos/eggrafi", "/logariasmos")).toBe("/logariasmos/eggrafi");
+  });
+
+  it("never carries an unsafe destination", () => {
+    expect(withRedirectTo("/logariasmos/eisodos", "//evil.example.com")).toBe("/logariasmos/eisodos");
+    expect(withRedirectTo("/logariasmos/eisodos", "https://evil.example.com")).toBe("/logariasmos/eisodos");
   });
 });

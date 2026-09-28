@@ -47,6 +47,25 @@ export async function getCustomerAddresses(): Promise<CustomerAddress[]> {
   return listCustomerAddresses(customerId);
 }
 
+/**
+ * The signed-in customer and their address book, for pre-filling checkout
+ * (CHECKOUT_PREFILL_GOOGLE_SPEC.md §2.1) — one session lookup instead of the
+ * two getCustomer() + getCustomerAddresses() would make. Null when signed
+ * out. Never throws: a failed read only means the form starts empty, exactly
+ * as it does for a guest, never a broken checkout page.
+ */
+export async function getCheckoutAccount(): Promise<{ customer: Customer; addresses: CustomerAddress[] } | null> {
+  const customerId = await getCustomerId();
+  if (!customerId) return null;
+  try {
+    const [customer, addresses] = await Promise.all([getCustomerById(customerId), listCustomerAddresses(customerId)]);
+    return customer ? { customer, addresses } : null;
+  } catch (err) {
+    console.error("[checkout] ACCOUNT_PREFILL_READ_FAILED", { error: String(err) });
+    return null;
+  }
+}
+
 export async function getCustomerOrders(): Promise<Order[]> {
   const customerId = await getCustomerId();
   if (!customerId) return [];

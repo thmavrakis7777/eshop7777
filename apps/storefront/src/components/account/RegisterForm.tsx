@@ -7,7 +7,7 @@ import { FormField } from "@/components/checkout/FormField";
 import { registerAction } from "@/lib/actions/customer";
 import { mergeWishlistOnLoginAction } from "@/lib/actions/wishlist";
 import { getWishlistSnapshot } from "@/lib/wishlist-storage";
-import { isValidEmail, isValidPassword, isRequired } from "@/lib/checkout-validation";
+import { isValidEmail, isValidPassword, isRequired, withRedirectTo } from "@/lib/checkout-validation";
 
 export function RegisterForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter();
@@ -78,7 +78,7 @@ export function RegisterForm({ redirectTo }: { redirectTo: string }) {
       </button>
       <p className="text-sm text-ink-muted">
         Έχεις ήδη λογαριασμό;{" "}
-        <Link href="/logariasmos/eisodos" className="text-accent hover:underline">
+        <Link href={withRedirectTo("/logariasmos/eisodos", redirectTo)} className="text-accent hover:underline">
           Σύνδεση
         </Link>
       </p>

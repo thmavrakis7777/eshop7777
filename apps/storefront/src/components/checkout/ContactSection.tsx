@@ -13,7 +13,7 @@ export function ContactSection({
 }: {
   values: ContactAddressFields;
   errors: ContactAddressErrors;
-  onFieldChange: (field: keyof ContactAddressFields, value: string) => void;
+  onFieldChange: (field: keyof ContactAddressFields, value: string, autofilled?: boolean) => void;
   onFieldBlur: (field: keyof ContactAddressFields) => void;
   saving?: boolean;
 }) {
@@ -26,7 +26,7 @@ export function ContactSection({
           label="Όνομα"
           autoComplete="given-name"
           value={values.firstName}
-          onChange={(v) => onFieldChange("firstName", v)}
+          onChange={(v, autofilled) => onFieldChange("firstName", v, autofilled)}
           onBlur={() => onFieldBlur("firstName")}
           error={errors.firstName}
         />
@@ -35,7 +35,7 @@ export function ContactSection({
           label="Επώνυμο"
           autoComplete="family-name"
           value={values.lastName}
-          onChange={(v) => onFieldChange("lastName", v)}
+          onChange={(v, autofilled) => onFieldChange("lastName", v, autofilled)}
           onBlur={() => onFieldBlur("lastName")}
           error={errors.lastName}
         />
@@ -47,7 +47,7 @@ export function ContactSection({
         inputMode="tel"
         autoComplete="tel"
         value={values.phone}
-        onChange={(v) => onFieldChange("phone", v)}
+        onChange={(v, autofilled) => onFieldChange("phone", v, autofilled)}
         onBlur={() => onFieldBlur("phone")}
         error={errors.phone}
       />

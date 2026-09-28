@@ -16,7 +16,9 @@ import { getCustomerId } from "@/lib/data/customer";
 import { getShippingOptionsForCart } from "@/lib/data/checkout";
 import { sendOrderConfirmationEmail, sendOwnerOrderNotificationEmail } from "@/lib/email/send";
 import { getOrderForEmail, markConfirmationEmailSent } from "@/lib/db/order-email";
-import { isValidEmail, isValidPostalCode } from "@/lib/checkout-validation";
+import { isValidEmail, isValidPhone, isValidPostalCode } from "@/lib/checkout-validation";
+import { normalizePhone, normalizePostalCode } from "@/lib/address-format";
+import { saveOrderAddressToCustomer } from "@/lib/db/customer";
 import type { Cart, ShippingOption } from "@/lib/types";
 
 // Maps real failure codes to the Greek copy table in CHECKOUT_UX_SPEC.md §12.
@@ -113,14 +115,21 @@ export async function updateCheckoutDetailsAction(details: CheckoutDetails): Pro
   if (postalCodes.some((code) => !isValidPostalCode(code))) {
     return { ok: false, error: "Ο ταχυδρομικός κώδικας δεν είναι έγκυρος.", cart: await getCart() };
   }
+  // Checked here too now, not only in the browser — this is the number the
+  // courier calls. Stored normalised (10 digits, "71201"), whatever form it
+  // was typed or autofilled in (CHECKOUT_PREFILL_GOOGLE_SPEC.md A2/A3).
+  if (!isValidPhone(details.phone)) {
+    return { ok: false, error: "Το τηλέφωνο δεν είναι έγκυρο.", cart: await getCart() };
+  }
+  const phone = normalizePhone(details.phone);
 
   const shippingAddress = {
     first_name: details.firstName,
     last_name: details.lastName,
-    phone: details.phone,
+    phone,
     address_1: `${details.street} ${details.number}`.trim(),
     address_2: details.area || null,
-    postal_code: details.postalCode,
+    postal_code: normalizePostalCode(details.postalCode),
     city: details.city,
     country_code: "gr",
   };
@@ -129,10 +138,10 @@ export async function updateCheckoutDetailsAction(details: CheckoutDetails): Pro
       ? {
           first_name: details.firstName,
           last_name: details.lastName,
-          phone: details.phone,
+          phone,
           address_1: `${details.billing.street} ${details.billing.number}`.trim(),
           address_2: details.billing.area || null,
-          postal_code: details.billing.postalCode,
+          postal_code: normalizePostalCode(details.billing.postalCode),
           city: details.billing.city,
           country_code: "gr",
         }
@@ -182,20 +191,38 @@ export type CheckoutCompleteResult =
  * sendOrderConfirmationEmail never throws: an email outage must not cost the
  * customer an order that is already placed and whose stock is already
  * deducted.
+ *
+ * `saveAddress` is the "Αποθήκευση διεύθυνσης στον λογαριασμό μου" checkbox
+ * (CHECKOUT_PREFILL_GOOGLE_SPEC.md §2.4). It only ever acts for the session's
+ * own signed-in customer, copies the committed order's address (never a
+ * browser-supplied one), and runs after the order like the emails do: a
+ * failure to save it must not turn a placed order into an error.
  */
-export async function completeCheckoutAction(paymentMethodCode: string): Promise<CheckoutCompleteResult> {
+export async function completeCheckoutAction(
+  paymentMethodCode: string,
+  options: { saveAddress?: boolean } = {}
+): Promise<CheckoutCompleteResult> {
   const cartId = await requireCartId();
   if (!cartId) return { ok: false, error: EXPIRED };
 
+  const customerId = await getCustomerId();
   let order;
   try {
-    order = await completeOrder(cartId, await getCustomerId(), paymentMethodCode);
+    order = await completeOrder(cartId, customerId, paymentMethodCode);
   } catch (err) {
     return { ok: false, error: mapCheckoutError(err) };
   }
 
   (await cookies()).delete(CART_ID_COOKIE);
   revalidatePath("/", "layout");
+
+  if (options.saveAddress && customerId) {
+    try {
+      await saveOrderAddressToCustomer(customerId, order.id);
+    } catch (err) {
+      console.error("[checkout] SAVE_ADDRESS_TO_ACCOUNT_FAILED", { orderId: order.id, error: String(err) });
+    }
+  }
 
   // The order is already committed above — nothing from here on may throw
   // back to the customer. sendOrderConfirmationEmail itself never throws,
