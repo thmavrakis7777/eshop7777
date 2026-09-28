@@ -14,7 +14,7 @@ import type { Product } from "@/lib/types";
 
 // Thin per-listing-type wrappers around the existing data adapters, called
 // directly from the infinite-scroll grid (InfiniteProductGrid) the same way
-// lib/actions/search.ts and recently-viewed.ts are already called from
+// recently-viewed.ts is already called from
 // Client Components for reads, not just mutations — same established
 // pattern, just for "load the next batch" instead of "resolve these handles."
 //

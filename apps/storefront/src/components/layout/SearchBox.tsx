@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import type { Product } from "@/lib/types";
 import { SearchIcon } from "@/components/ui/Icons";
 import { SearchResultRow } from "@/components/layout/SearchResultRow";
-import { searchProductsPreviewAction } from "@/lib/actions/search";
+import { normalizeSearchText } from "@/lib/search";
 
 const MIN_QUERY_LENGTH = 2;
-const DEBOUNCE_MS = 250;
+// Was 250 ms while suggestions were a server action: Next sends those one
+// at a time, so a shorter wait only queued more of them. They are a
+// cancellable GET now (app/api/search/route.ts, SPD-10).
+const DEBOUNCE_MS = 150;
 const LISTBOX_ID = "search-listbox";
 
 // Live-results dropdown backed by lib/search.ts's Greek-aware ranked search
@@ -26,6 +29,13 @@ export function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
   const [activeIndex, setActiveIndex] = useState(-1);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestId = useRef(0);
+  const inFlight = useRef<AbortController | null>(null);
+  // Answers already fetched while this panel is open, keyed by the
+  // normalized query: backspacing or retyping shows them at once, with no
+  // wait and no request. Lives exactly as long as the panel — SearchBox
+  // unmounts when it closes (Header.tsx) — so the next search starts from
+  // fresh data and suggestions stay live across visits.
+  const seenResults = useRef(new Map<string, Product[]>());
   const containerRef = useRef<HTMLDivElement>(null);
 
   const trimmedQuery = query.trim();
@@ -48,21 +58,53 @@ export function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
     if (belowMinLength) return;
 
     const currentRequestId = ++requestId.current;
-    debounceTimer.current = setTimeout(async () => {
-      setIsLoading(true);
-      const products = await searchProductsPreviewAction(trimmedQuery);
-      // Ignore a response for a keystroke that's since been superseded —
-      // request B (a longer, more specific query) can resolve before an
-      // earlier, shorter request A that's still in flight.
-      if (currentRequestId !== requestId.current) return;
-      setResults(products);
-      setIsOpen(true);
-      setIsLoading(false);
-      setActiveIndex(-1);
-    }, DEBOUNCE_MS);
+    // Sent normalized: every comparison in lib/search.ts normalizes anyway,
+    // so the results are identical, and "Τηγ"/"τηγ" share one seen answer.
+    const key = normalizeSearchText(trimmedQuery);
+    const seen = seenResults.current.get(key);
+    debounceTimer.current = setTimeout(
+      async () => {
+        let products = seen;
+        if (!products) {
+          setIsLoading(true);
+          const controller = new AbortController();
+          inFlight.current = controller;
+          try {
+            const res = await fetch(`/api/search?q=${encodeURIComponent(key)}`, { signal: controller.signal });
+            if (!res.ok) throw new Error(`search ${res.status}`);
+            products = (await res.json()) as Product[];
+            seenResults.current.set(key, products);
+          } catch {
+            // Either cancelled by a newer keystroke (nothing to do — that
+            // keystroke owns the dropdown now) or a real failure (offline,
+            // server error). The server action this replaced left the
+            // spinner running forever on a failure; now it stops, and the
+            // dropdown closes rather than keep an older query's results
+            // under the new one. Enter still reaches the full results page.
+            if (currentRequestId === requestId.current) {
+              setIsLoading(false);
+              setIsOpen(false);
+            }
+            return;
+          }
+        }
+        // Ignore a response for a keystroke that's since been superseded —
+        // request B (a longer, more specific query) can resolve before an
+        // earlier, shorter request A that's still in flight.
+        if (currentRequestId !== requestId.current) return;
+        setResults(products);
+        setIsOpen(true);
+        setIsLoading(false);
+        setActiveIndex(-1);
+      },
+      seen ? 0 : DEBOUNCE_MS
+    );
 
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      // A newer keystroke (or the panel closing) makes this request
+      // pointless — cancel it instead of letting it finish unread.
+      inFlight.current?.abort();
     };
   }, [trimmedQuery, belowMinLength]);
 
