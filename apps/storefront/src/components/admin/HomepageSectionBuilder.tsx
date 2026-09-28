@@ -12,6 +12,7 @@ import {
 import { ProductPicker } from "@/components/admin/ProductPicker";
 import { TrustItemsEditor } from "@/components/admin/TrustItemsEditor";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { IMAGE_SIZE_HINTS as SIZE_HINTS } from "@/lib/admin/image-size-hints";
 import { DEFAULT_TRUST_ITEMS } from "@/components/home/TrustStrip";
 import type { AdminHomepageBlock } from "@/lib/admin/cms";
 import type { HomepageSectionKind, PromoBanner2Config } from "@/lib/content-types";
@@ -55,66 +56,20 @@ const KIND_HINTS: Record<HomepageSectionKind, string> = {
     "Η φόρμα εγγραφής. Τίτλος, κείμενο, κουμπί και προαιρετική εικόνα φόντου είναι δικά σου — η αποστολή email δεν είναι ακόμα συνδεδεμένη.",
 };
 
-// Hero and Promo render their image as a plain <img> with no server-side
-// resizing (Hero.tsx, EditorialBanner.tsx) — unlike product photos, the
-// exact file uploaded here is what every visitor downloads, so the source
-// size/weight matters directly to page speed. Only the two kinds asked
-// about get a hint; the others render through next/image (Content) or have
-// no size-sensitive image use case worth a specific number (Newsletter).
+// Recommended sizes for each image field, measured against where the image
+// actually renders — see lib/admin/image-size-hints.ts, the one place these
+// numbers live. Kinds without an image (category grid, rails, trust) have
+// no entry.
 const IMAGE_SIZE_HINTS: Partial<Record<HomepageSectionKind, { desktop: string; tablet?: string; mobile?: string }>> = {
-  hero: {
-    // 1920×1080 (16:9), not the old 1920×640 — that ratio was calibrated
-    // for a fixed, short desktop box. The homepage's OPENING Hero now gets
-    // the full-screen-height treatment at every breakpoint, not just
-    // mobile/tablet (hero-viewport-fill in Hero.tsx, and see globals.css —
-    // it fills exactly what's left of the viewport below the announcement/
-    // promo bars), so a short 3:1 source now gets cropped hard on the
-    // sides on an ordinary 16:9 monitor instead of comfortably covering
-    // it. A second/later Hero an admin adds further down the page is still
-    // a fixed 32rem (512px) box on desktop/tablet regardless — a shorter,
-    // more landscape image (close to the old 1920×640) still fits that one
-    // better than a 16:9 source would.
-    desktop:
-      "Προτεινόμενο μέγεθος 1920×1080px (JPEG/WebP, έως ~250KB) — για το πρώτο/κύριο Hero της αρχικής, που καλύπτει όλη την οθόνη σε desktop/tablet. Για ένα δεύτερο Hero πιο κάτω στη σελίδα, που είναι πάντα ένα σταθερού ύψους πλαίσιο (32rem), ταιριάζει καλύτερα μια πιο οριζόντια εικόνα, π.χ. 1920×640px. Δεν αλλάζει μέγεθος αυτόματα.",
-    // The 900×1200 (portrait) recommendation is calibrated for the
-    // homepage's OPENING Hero specifically — that one alone gets the
-    // full-screen-height treatment on mobile/tablet (hero-viewport-fill in
-    // Hero.tsx). A second/later Hero an admin adds further down the page
-    // is a fixed, much shorter box on every device (26rem/416px on mobile),
-    // where a tall portrait source gets cropped hard — a shorter, more
-    // landscape image works better there.
-    mobile:
-      "Προτεινόμενο μέγεθος 900×1200px, έως ~120KB — μόνο για κινητό (προαιρετικό· χωρίς αυτό, εμφανίζεται η desktop εικόνα παντού). Ισχύει για το πρώτο/κύριο Hero της αρχικής, που καλύπτει όλη την οθόνη σε κινητό. Ένα δεύτερο Hero πιο κάτω στη σελίδα είναι πάντα ένα κοντύτερο, σταθερού ύψους πλαίσιο — εκεί μια λιγότερο ψηλή (πιο οριζόντια) εικόνα ταιριάζει καλύτερα.",
-  },
-  // Banner 1's own field — see BANNER2_IMAGE_HINTS just below for Banner 2,
-  // which is a genuinely different target shape (always a fixed-ratio card,
-  // never the auto-height layout Banner 1 alone uses).
-  promo: {
-    // Banner 1 alone (no Banner 2 filled in) has NO single fixed ratio: on
-    // mobile it's a square crop, but on desktop/tablet it stretches to
-    // match the text panel's own height (EditorialBanner.tsx's
-    // `md:aspect-auto md:h-full`), which varies with how much copy is in
-    // the banner — a square-ish, centered source crops reasonably in both
-    // cases. The MOMENT Banner 2 is also filled in, both banners switch to
-    // the fixed 4:3 card layout instead (see PromoBannerCard) — a
-    // different target shape, so a square Banner 1 image chosen for the
-    // solo layout will crop top/bottom once Banner 2 makes it a 4:3 card.
-    desktop:
-      "Προτεινόμενο μέγεθος 1200×1200px (τετράγωνο, JPEG/WebP, έως ~150KB) αν χρησιμοποιείς ΜΟΝΟ αυτό το banner (χωρίς Banner 2 πιο κάτω) — έτσι γεμίζει καλά είτε σε τετράγωνη περικοπή (κινητό) είτε στο πλάτος της στήλης (desktop/tablet). Αν συμπληρώσεις και το Banner 2, αλλάζει layout σε κάρτα σταθερής αναλογίας 4:3 — τότε προτίμησε πλατύτερη εικόνα, π.χ. 1600×1200px, όπως στο Banner 2 πιο κάτω. Δεν αλλάζει μέγεθος αυτόματα.",
-    tablet: "Προαιρετικό — χωρίς αυτό, εμφανίζεται η desktop εικόνα σε tablet.",
-    mobile: "Προτεινόμενο μέγεθος 900×900px — προαιρετικό· χωρίς αυτό, εμφανίζεται η desktop εικόνα σε κινητό.",
-  },
+  hero: SIZE_HINTS.homepage.hero,
+  promo: SIZE_HINTS.homepage.promo,
+  content: SIZE_HINTS.homepage.content,
+  newsletter: SIZE_HINTS.homepage.newsletter,
 };
 
-// Banner 2 only ever renders inside PromoBannerCard (EditorialBanner.tsx),
-// which is a fixed 4:3 `aspect-[4/3]` box on every breakpoint — unlike
-// Banner 1 above, there is exactly one target shape here, not two, so a
-// 4:3 source crops to nothing at all instead of being a compromise.
-const BANNER2_IMAGE_HINTS = {
-  desktop: "Προτεινόμενο μέγεθος 1600×1200px (αναλογία 4:3, JPEG/WebP, έως ~150KB) — εμφανίζεται πάντα σε κάρτα αυτής της αναλογίας, σε desktop, tablet και κινητό. Δεν αλλάζει μέγεθος αυτόματα.",
-  tablet: "Προαιρετικό — χωρίς αυτό, εμφανίζεται η desktop εικόνα σε tablet.",
-  mobile: "Προαιρετικό — χωρίς αυτό, εμφανίζεται η desktop εικόνα σε κινητό. Ίδια αναλογία 4:3 αν το ανεβάσεις ξεχωριστά.",
-};
+// Banner 2 only ever renders inside PromoBannerCard (EditorialBanner.tsx), a
+// fixed 4:3 box on every breakpoint.
+const BANNER2_IMAGE_HINTS = SIZE_HINTS.homepage.banner2;
 
 const SOURCE_LABELS: Record<string, string> = {
   newest: "Νεότερα προϊόντα",

@@ -4,6 +4,7 @@ import { getAdminPromoBanner, getAdminSiteSettings, getPdpContentDefaults } from
 import { savePromoBannerAction, savePdpContentDefaultsAction, saveSiteSettingsAction } from "@/lib/admin/cms-actions";
 import { CmsForm } from "@/components/admin/CmsForm";
 import { Card, PageHeader, SectionTitle } from "@/components/admin/ui/primitives";
+import { IMAGE_SIZE_HINTS } from "@/lib/admin/image-size-hints";
 
 export const metadata = { title: "Header & Footer" };
 
@@ -131,19 +132,19 @@ export default async function AdminLayoutContentPage() {
                     name: "logoPath",
                     label: "Λογότυπο",
                     type: "text",
-                    hint: "Διαδρομή αρχείου ή πλήρες URL. Κενό = εμφανίζεται το όνομα του καταστήματος ως κείμενο.",
+                    hint: IMAGE_SIZE_HINTS.branding.logo,
                   },
                   {
                     name: "faviconPath",
                     label: "Favicon",
                     type: "text",
-                    hint: "Το εικονίδιο στην καρτέλα του browser. Διαδρομή αρχείου ή πλήρες URL.",
+                    hint: IMAGE_SIZE_HINTS.branding.favicon,
                   },
                   {
                     name: "ogImagePath",
                     label: "Εικόνα κοινοποίησης (OG image)",
                     type: "text",
-                    hint: "Εμφανίζεται όταν μοιράζεται κάποιος σύνδεσμο του καταστήματος σε social/messaging.",
+                    hint: IMAGE_SIZE_HINTS.branding.ogImage,
                   },
                   {
                     name: "defaultVatRate",

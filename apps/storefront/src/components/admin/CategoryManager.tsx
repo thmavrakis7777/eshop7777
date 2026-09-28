@@ -10,6 +10,7 @@ import {
 import type { AdminCategory } from "@/lib/admin/taxonomy";
 import { MAX_CATEGORY_DEPTH } from "@/lib/category-depth";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { IMAGE_SIZE_HINTS } from "@/lib/admin/image-size-hints";
 
 /**
  * The category tree, edited in place.
@@ -412,7 +413,7 @@ function CategoryForm({
           name="imagePath"
           defaultValue={category?.imagePath}
           folder="categories"
-          hint="Προτεινόμενο μέγεθος 1200×1200px (τετράγωνο, JPEG/WebP, έως ~150KB) — έτσι εμφανίζεται στις κάρτες επιλογής κατηγορίας (αλλάζει μέγεθος αυτόματα ανά συσκευή). Αν ο «Τύπος σελίδας» είναι Landing, η ίδια εικόνα εμφανίζεται και ως banner στην κορυφή της σελίδας της κατηγορίας, στις πραγματικές της διαστάσεις (όχι τετράγωνη εκεί) — μια σχεδόν τετράγωνη έως ελαφρώς οριζόντια φωτογραφία με το θέμα στο κέντρο δουλεύει καλά και στις δύο περιπτώσεις."
+          hint={IMAGE_SIZE_HINTS.category.image}
         />
         <p className="text-xs text-ink-muted">
           Ανέβασε αρχείο ή επικόλλησε URL. Χρησιμοποιείται στις κάρτες επιλογής κατηγορίας. Κενό = εμφανίζεται
@@ -490,6 +491,7 @@ function CategoryForm({
                 <label className="text-sm font-medium text-ink">Εικόνα προβολής</label>
                 <ImageUploadField
                   name="megaMenuImagePath"
+                  hint={IMAGE_SIZE_HINTS.category.megaMenu}
                   defaultValue={category?.megaMenuImagePath}
                   folder="categories"
                 />

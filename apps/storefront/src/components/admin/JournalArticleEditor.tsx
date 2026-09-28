@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { IMAGE_SIZE_HINTS } from "@/lib/admin/image-size-hints";
 import { ProductPicker } from "@/components/admin/ProductPicker";
 import { Card, SectionTitle, buttonStyles } from "@/components/admin/ui/primitives";
 import {
@@ -195,6 +196,7 @@ export function JournalArticleEditor({
             <ImageUploadField
               id="j-hero"
               name="heroImagePath"
+              hint={IMAGE_SIZE_HINTS.journal.hero}
               defaultValue={article.heroImagePath}
               folder="journal"
             />
@@ -350,7 +352,7 @@ export function JournalArticleEditor({
           <Labeled
             id="j-social"
             label="Εικόνα για social (προαιρετικά)"
-            hint="Αν μείνει κενή, χρησιμοποιείται η κύρια εικόνα."
+            hint={IMAGE_SIZE_HINTS.journal.social}
           >
             <ImageUploadField
               id="j-social"

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { addProductImageAction, deleteProductImageAction } from "@/lib/admin/catalog-actions";
 import { publicImageUrl } from "@/lib/storage/urls";
 import type { AdminProductImage } from "@/lib/admin/products";
+import { IMAGE_SIZE_HINTS } from "@/lib/admin/image-size-hints";
 
 const hint = "text-xs text-ink-muted";
 
@@ -93,7 +94,7 @@ export function ProductImageManager({ productId, images }: { productId: string; 
         />
       </label>
       <p className={`mt-1.5 ${hint}`}>
-        Προτεινόμενο μέγεθος 1600×1600px (τετράγωνο) — αλλάζει μέγεθος και μορφή αυτόματα ανά συσκευή.
+        {IMAGE_SIZE_HINTS.product}
       </p>
       {error && <p className="mt-1.5 text-xs text-danger">{error}</p>}
     </div>

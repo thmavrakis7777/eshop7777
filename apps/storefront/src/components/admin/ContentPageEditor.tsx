@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { saveContentPageAction } from "@/lib/admin/cms-actions";
 import type { AdminContentPage } from "@/lib/admin/cms";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { IMAGE_SIZE_HINTS } from "@/lib/admin/image-size-hints";
 
 /**
  * The static content pages (About, legal/compliance, help), edited from one
@@ -128,7 +129,7 @@ export function ContentPageEditor({ pages }: { pages: AdminContentPage[] }) {
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-sm font-medium text-ink">Εικόνα (προαιρετικό)</label>
-                    <ImageUploadField name="imagePath" defaultValue={p.imagePath} folder="pages" />
+                    <ImageUploadField name="imagePath" defaultValue={p.imagePath} folder="pages" hint={IMAGE_SIZE_HINTS.contentPage} />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-sm font-medium text-ink">Εναλλακτικό κείμενο εικόνας (alt)</label>

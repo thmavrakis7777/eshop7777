@@ -3,6 +3,7 @@ import { saveHomepageSeoAction } from "@/lib/admin/cms-actions";
 import { CmsForm } from "@/components/admin/CmsForm";
 import { CategorySeoEditor } from "@/components/admin/CategorySeoEditor";
 import { Card, PageHeader, SectionTitle } from "@/components/admin/ui/primitives";
+import { IMAGE_SIZE_HINTS } from "@/lib/admin/image-size-hints";
 
 export const metadata = { title: "SEO" };
 
@@ -44,7 +45,7 @@ export default async function AdminSeoPage() {
                   name: "socialImagePath",
                   label: "Εικόνα για social",
                   type: "text",
-                  hint: "Εμφανίζεται όταν μοιράζεται κάποιος τον σύνδεσμο. Ενεργοποιείται με τη ρύθμιση του Supabase Storage.",
+                  hint: IMAGE_SIZE_HINTS.seoSocial,
                 },
                 { name: "keywords", label: "Λέξεις-κλειδιά", type: "text" },
                 {
