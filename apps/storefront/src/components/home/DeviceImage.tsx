@@ -6,12 +6,14 @@ import type { Tone } from "@/lib/types";
  * Promotional Banner's device-specific images (Part 2.8–2.10 of the
  * homepage brief). Plain `<picture>`/`<source>`, not `next/image`: the same
  * choice already made for Hero.tsx and EditorialBanner.tsx's existing
- * single image, for the same two reasons documented there — the production
- * CSP blocks inline `background-image` styles, and `next/image` has no way
- * to swap `src` per breakpoint the way art direction (not just resizing)
- * needs. These are admin-uploaded images of arbitrary dimensions (unlike
- * product photos, which do go through `next/image`), so nothing here is
- * resized server-side — the admin UI's hint text says so explicitly.
+ * single image. (An older note here said `next/image` can't swap `src` per
+ * breakpoint; it can, via `getImageProps()` inside `<picture>`. The real
+ * reason these stay plain is cost: routing them through the image optimizer
+ * adds Vercel image transformations, and the owner chose not to, 2026-09-28
+ * — see HOMEPAGE_IMAGES_SPEC.md §0.) These are admin-uploaded images of
+ * arbitrary dimensions (unlike product photos, which do go through
+ * `next/image`), so nothing here is resized server-side — the admin UI's
+ * hint text says so explicitly, and the right size is the uploader's call.
  *
  * Fallback (Part 2.9): tablet falls back to desktop when empty, mobile
  * falls back to desktop when empty. Always renders exactly the same three

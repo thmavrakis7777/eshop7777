@@ -1,6 +1,6 @@
 # Cart state without full-page refreshes (Speed audit SPD-08, + SPD-06)
 
-Status: **implemented and tested locally, not yet committed** · 2026-09-24 · branch `perf/spd-08-cart-state` · §8 has what implementation found
+Status: **shipped 2026-09-25 (`6d1d6ee`), verified on production** · §8 has what implementation found · login cart-merge and order placement still to be tried by the owner
 
 ## 1. Problem (measured on production, 24 Σεπ, after SPD-01)
 

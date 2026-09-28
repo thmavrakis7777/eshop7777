@@ -56,7 +56,15 @@ export function HeroCarousel({
       >
         {slides.map((slide, i) => (
           <div key={slide.id} className="w-full flex-none snap-start">
-            <HeroSlide content={slide} asH1={i === 0} storeName={storeName} isFirstSection={isFirstSection} />
+            <HeroSlide
+              content={slide}
+              asH1={i === 0}
+              storeName={storeName}
+              isFirstSection={isFirstSection}
+              // Only the slide on screen at load can be the LCP; the rest
+              // are off to the side and load lazily as they scroll in.
+              isLcp={isFirstSection && i === 0}
+            />
           </div>
         ))}
       </div>

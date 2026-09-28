@@ -45,6 +45,7 @@ export function HeroSlide({
   asH1 = true,
   storeName,
   isFirstSection = false,
+  isLcp = false,
 }: {
   content: HomepageSection;
   asH1?: boolean;
@@ -56,8 +57,19 @@ export function HeroSlide({
   // Any other Hero an admin adds further down the page keeps the plain
   // 26rem/32rem box, unaffected.
   isFirstSection?: boolean;
+  // True only for the first slide of the page's first Hero: the one image
+  // that can be the Largest Contentful Paint. Every slide used to load
+  // eagerly at fetchPriority="high", so a second Hero far below the fold
+  // (and carousel slides 2+) downloaded on page load and competed with the
+  // real LCP image (Speed audit SPD-11, measured: a 93 KB «ΠΡΟΣΦΟΡΕΣ» hero).
+  isLcp?: boolean;
 }) {
   const { eyebrow, heading, body, ctaLabel, ctaHref, imageUrl, mobileImageUrl, imageAlt } = content;
+  // Lazy works for carousel slides too: they sit off-screen to the side in
+  // a scroll container, and the browser loads them as they're scrolled near.
+  const loadingProps = isLcp
+    ? ({ fetchPriority: "high" } as const)
+    : ({ loading: "lazy", decoding: "async" } as const);
   const HeadingTag = asH1 ? "h1" : "p";
   // Optional by design: the same banner can be a plain image with no button.
   const showButton = content.config?.showButton !== false && Boolean(ctaLabel && ctaHref);
@@ -85,7 +97,7 @@ export function HeroSlide({
           src={imageUrl}
           alt={imageAlt ?? ""}
           className="absolute inset-0 h-full w-full object-cover"
-          fetchPriority="high"
+          {...loadingProps}
         />
       )}
       {imageUrl && mobileImageUrl && (
@@ -95,8 +107,8 @@ export function HeroSlide({
             src={mobileImageUrl}
             alt={imageAlt ?? ""}
             className="absolute inset-0 h-full w-full object-cover"
-            // The hero is the LCP element — never lazy.
-            fetchPriority="high"
+            // Eager + high priority only when this is the page's LCP image.
+            {...loadingProps}
           />
         </picture>
       )}
@@ -191,7 +203,12 @@ export function Hero({
       {slides.length >= 2 ? (
         <HeroCarousel slides={slides} storeName={storeName} isFirstSection={isFirstSection} />
       ) : (
-        <HeroSlide content={slides[0] ?? DEFAULT_HERO} storeName={storeName} isFirstSection={isFirstSection} />
+        <HeroSlide
+          content={slides[0] ?? DEFAULT_HERO}
+          storeName={storeName}
+          isFirstSection={isFirstSection}
+          isLcp={isFirstSection}
+        />
       )}
     </section>
   );

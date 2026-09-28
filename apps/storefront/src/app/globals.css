@@ -174,6 +174,34 @@
     }
   }
 
+  /* Homepage section reveal — components/home/ScrollReveal.tsx flips
+     data-reveal; these rules are the whole animation. Matches the
+     framer-motion values it replaced exactly: 500 ms, "easeOut" (framer's
+     cubic-bezier(0, 0, 0.58, 1), i.e. CSS ease-out), from 20 px below.
+     No data-reveal at all (the server HTML, and any section on screen at
+     load) means visible. */
+  .scroll-reveal {
+    transition:
+      opacity 500ms ease-out,
+      transform 500ms ease-out;
+  }
+
+  .scroll-reveal[data-reveal="hidden"] {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-reveal {
+      transition: none;
+    }
+
+    .scroll-reveal[data-reveal="hidden"] {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   .sr-only-focusable:not(:focus) {
     position: absolute;
     width: 1px;
