@@ -72,7 +72,9 @@ export interface AIProvider {
 export class AIProviderError extends Error {
   constructor(
     message: string,
-    public readonly code: "not_configured" | "request_failed" | "invalid_response"
+    // "unavailable" = the provider kept answering "busy" (429/503) even
+    // after the automatic retries — temporary on its side, not a bug here.
+    public readonly code: "not_configured" | "request_failed" | "invalid_response" | "unavailable"
   ) {
     super(message);
   }

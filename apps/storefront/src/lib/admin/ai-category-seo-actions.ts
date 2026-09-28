@@ -45,6 +45,8 @@ function mapAiError(err: unknown): string {
         return "Το AI επέστρεψε μη έγκυρη απάντηση. Δοκίμασε ξανά.";
       case "request_failed":
         return "Η κλήση στο AI απέτυχε. Δοκίμασε ξανά.";
+      case "unavailable":
+        return "Το AI της Google είναι προσωρινά υπερφορτωμένο — δοκίμασε ξανά σε 1–2 λεπτά.";
     }
   }
   return "Κάτι πήγε στραβά. Δοκίμασε ξανά.";

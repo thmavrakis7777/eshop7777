@@ -146,6 +146,22 @@ type GeminiResponse = {
 };
 
 /**
+ * Gemini answers 503 ("This model is currently experiencing high demand")
+ * or 429 during short load spikes on Google's side — confirmed live
+ * 2026-09-28: three category generations failed in one afternoon, all 503
+ * UNAVAILABLE, nothing wrong with the key, model or request. Those spikes
+ * usually clear within seconds, so the exact same request is sent again up
+ * to twice (after ~1s, then ~3s) before the admin sees an error. Every other
+ * failure (400, 401/403, 404 for a retired model, network errors) still
+ * fails on the first attempt exactly as before — retrying those would only
+ * delay the same answer.
+ */
+const RETRYABLE_STATUSES = new Set([429, 503]);
+const RETRY_DELAYS_MS = [1000, 3000];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
  * Server-side-only diagnostic logging for a failed Gemini call. Deliberately
  * the only thing this change does — no prompt, model, endpoint, rate-limit,
  * or save-path logic is touched. Without this, a failure's real cause (HTTP
@@ -166,6 +182,7 @@ function logGeminiFailure(details: {
   kind: "network" | "http_error";
   model: string;
   requestType: string;
+  attempt: number;
   status?: number;
   errorBody?: string;
   errorName?: string;
@@ -191,42 +208,59 @@ export class GeminiProvider implements AIProvider {
 
     const endpoint = `${API_BASE}/${model}:generateContent`;
 
-    let res: Response;
-    try {
-      res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt(subject) }] },
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: buildResponseSchema(fields, subject),
-            temperature: 0.9, // higher than default — instruction §12 wants genuine variety across products, not a fixed template
-          },
-        }),
-      });
-    } catch (err) {
-      logGeminiFailure({
-        kind: "network",
-        model,
-        requestType,
-        errorName: err instanceof Error ? err.name : typeof err,
-        errorMessage: err instanceof Error ? err.message : String(err),
-      });
-      throw new AIProviderError(`Gemini request failed: ${String(err)}`, "request_failed");
-    }
+    // Built once — a retry resends exactly this request, never a changed one.
+    const request: RequestInit = {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt(subject) }] },
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: buildResponseSchema(fields, subject),
+          temperature: 0.9, // higher than default — instruction §12 wants genuine variety across products, not a fixed template
+        },
+      }),
+    };
 
-    if (!res.ok) {
+    let res: Response;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        res = await fetch(endpoint, request);
+      } catch (err) {
+        logGeminiFailure({
+          kind: "network",
+          model,
+          requestType,
+          attempt,
+          errorName: err instanceof Error ? err.name : typeof err,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
+        throw new AIProviderError(`Gemini request failed: ${String(err)}`, "request_failed");
+      }
+
+      if (res.ok) break;
+
       const body = await res.text().catch(() => "");
       logGeminiFailure({
         kind: "http_error",
         model,
         requestType,
+        attempt,
         status: res.status,
         errorBody: body.slice(0, 500),
       });
-      throw new AIProviderError(`Gemini returned ${res.status}: ${body.slice(0, 300)}`, "request_failed");
+      if (!RETRYABLE_STATUSES.has(res.status)) {
+        throw new AIProviderError(`Gemini returned ${res.status}: ${body.slice(0, 300)}`, "request_failed");
+      }
+      const delay = RETRY_DELAYS_MS[attempt - 1];
+      if (delay === undefined) {
+        throw new AIProviderError(
+          `Gemini returned ${res.status} after ${attempt} attempts: ${body.slice(0, 300)}`,
+          "unavailable"
+        );
+      }
+      await sleep(delay);
     }
 
     const data: GeminiResponse = await res.json();
