@@ -305,7 +305,21 @@ phone, ΤΚ), `lib/checkout-prefill.ts` (what the form starts with),
 Checks: tsc, eslint, vitest (156 tests, new ones for the split, phone, ΤΚ
 and fill-in rules), `next build`.
 
-## 7. Phase 2: built (28 Σεπ 2026), waiting for keys + migration
+## 7. Phase 2: live on www.mavrakishome.gr (1 Οκτ 2026, `1c696fc`)
+
+Live check 1 Οκτ 2026: button on the live login page; the start route sends
+to Google with the production callback; the flow cookie is
+`__Host-stia_google_flow` (Secure, HttpOnly, SameSite=Lax, 10 min); the
+owner's live sign-in matched the existing Google link (no duplicate account,
+password kept). Vercel has `GOOGLE_OAUTH_CLIENT_ID` and
+`GOOGLE_OAUTH_CLIENT_SECRET` (Production; the secret Sensitive). The first
+client secret was exposed in a chat transcript while being set up, so it was
+replaced; the old one (`****fXwj`) is disabled in Google Cloud and the site
+uses `****9kO9`.
+
+Still open: the privacy paragraph on `/aporrito` (owner, via the
+dashboard); optional brand check so Google's screen shows "MAVRAKIS HOME"
+(needs `mavrakishome.gr` verified in Google Search Console).
 
 As §3, with the owner's final requirements: Authorization Code flow with
 PKCE (S256), state and nonce; scopes `openid email profile`; callbacks
