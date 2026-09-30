@@ -4,12 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FormField } from "@/components/checkout/FormField";
+import { GoogleSignInButton, SignInDivider } from "@/components/account/GoogleSignInButton";
 import { loginAction } from "@/lib/actions/customer";
 import { mergeWishlistOnLoginAction } from "@/lib/actions/wishlist";
 import { getWishlistSnapshot } from "@/lib/wishlist-storage";
 import { isValidEmail, isRequired, withRedirectTo } from "@/lib/checkout-validation";
 
-export function LoginForm({ redirectTo }: { redirectTo: string }) {
+// `googleHref` is set only when Google sign-in is configured (googleSignInHref).
+export function LoginForm({ redirectTo, googleHref }: { redirectTo: string; googleHref?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,6 +46,12 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+      {googleHref && (
+        <>
+          <GoogleSignInButton href={googleHref} />
+          <SignInDivider />
+        </>
+      )}
       <FormField id="login-email" label="Email" type="email" autoComplete="email" value={email} onChange={setEmail} />
       <FormField
         id="login-password"

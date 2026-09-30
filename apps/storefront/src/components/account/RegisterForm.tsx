@@ -4,12 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FormField } from "@/components/checkout/FormField";
+import { GoogleSignInButton, SignInDivider } from "@/components/account/GoogleSignInButton";
 import { registerAction } from "@/lib/actions/customer";
 import { mergeWishlistOnLoginAction } from "@/lib/actions/wishlist";
 import { getWishlistSnapshot } from "@/lib/wishlist-storage";
 import { isValidEmail, isValidPassword, isRequired, withRedirectTo } from "@/lib/checkout-validation";
 
-export function RegisterForm({ redirectTo }: { redirectTo: string }) {
+// `googleHref` is set only when Google sign-in is configured (googleSignInHref).
+export function RegisterForm({ redirectTo, googleHref }: { redirectTo: string; googleHref?: string }) {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -51,6 +53,12 @@ export function RegisterForm({ redirectTo }: { redirectTo: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+      {googleHref && (
+        <>
+          <GoogleSignInButton href={googleHref} />
+          <SignInDivider />
+        </>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <FormField id="register-first-name" label="Όνομα" autoComplete="given-name" value={firstName} onChange={setFirstName} />
         <FormField id="register-last-name" label="Επώνυμο" autoComplete="family-name" value={lastName} onChange={setLastName} />

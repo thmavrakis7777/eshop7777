@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { SectionHeading } from "@/components/checkout/SectionHeading";
 import { FormField } from "@/components/checkout/FormField";
+import { GoogleSignInButton } from "@/components/account/GoogleSignInButton";
 
 // Email requested first, with a stated reason — CHECKOUT_UX_SPEC.md §4/§17:
 // an unexplained field reads as data-harvesting, an explained one reads as
@@ -10,8 +11,9 @@ import { FormField } from "@/components/checkout/FormField";
 //
 // `signInHref` is set for signed-out visitors only: one line offering to
 // sign in, which fills the rest of the form from the account
-// (CHECKOUT_PREFILL_GOOGLE_SPEC.md §2.5). Just a line, not a gate — guest
-// checkout stays the default path.
+// (CHECKOUT_PREFILL_GOOGLE_SPEC.md §2.5), plus "Συνέχεια με Google" when
+// that's configured (`googleHref`, §3.4). Offers, not a gate — the email
+// field right below is still the guest path, exactly as before.
 export function EmailSection({
   value,
   onChange,
@@ -19,6 +21,7 @@ export function EmailSection({
   error,
   saving,
   signInHref,
+  googleHref,
 }: {
   value: string;
   onChange: (value: string, autofilled: boolean) => void;
@@ -26,6 +29,7 @@ export function EmailSection({
   error?: string;
   saving?: boolean;
   signInHref?: string;
+  googleHref?: string;
 }) {
   return (
     <section className="flex flex-col gap-3">
@@ -38,6 +42,7 @@ export function EmailSection({
           </Link>
         </p>
       )}
+      {googleHref && <GoogleSignInButton href={googleHref} />}
       <FormField
         id="checkout-email"
         label="Email"

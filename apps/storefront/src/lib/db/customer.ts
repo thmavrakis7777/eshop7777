@@ -60,10 +60,19 @@ export async function registerCustomer(input: {
   const passwordHash = await hashPassword(input.password);
 
   const customerId = await sql.begin(async (tx) => {
-    const existing = await tx<{ id: string; password_hash: string | null }[]>`
-      SELECT id, password_hash FROM shop.customer WHERE lower(email) = lower(${input.email})`;
+    const existing = await tx<{ id: string; password_hash: string | null; has_google: boolean }[]>`
+      SELECT c.id, c.password_hash,
+             EXISTS (SELECT 1 FROM shop.customer_identity i WHERE i.customer_id = c.id) AS has_google
+        FROM shop.customer c WHERE lower(c.email) = lower(${input.email})`;
 
-    if (existing[0]?.password_hash) throw new AuthError("Email already registered", "email_taken");
+    // An account made by "Συνέχεια με Google" has no password either, but it
+    // is someone's real account, not a guest row: without this check,
+    // anyone could "register" with that email, set a password, and walk
+    // into it (CHECKOUT_PREFILL_GOOGLE_SPEC.md §3.3). Its owner adds a
+    // password through "Ξέχασες τον κωδικό;", which proves the email is theirs.
+    if (existing[0]?.password_hash || existing[0]?.has_google) {
+      throw new AuthError("Email already registered", "email_taken");
+    }
 
     // A guest who has ordered before already has a customer row with no
     // password. Registering upgrades that row in place, so their order
@@ -131,11 +140,103 @@ export async function getCustomerById(customerId: string): Promise<Customer | nu
   return rows[0] ? toDomainCustomer(rows[0]) : null;
 }
 
+/**
+ * The account a password-reset email may be sent for: one with a password,
+ * or one signed in with Google (so a Google-only customer can add a password
+ * the safe way — the emailed link proves the address is theirs). A guest's
+ * passwordless row is neither, and gets nothing.
+ */
 export async function findCustomerIdByEmail(email: string): Promise<string | null> {
   const rows = await sql<{ id: string }[]>`
-    SELECT id FROM shop.customer
-     WHERE lower(email) = lower(${email}) AND is_active AND password_hash IS NOT NULL`;
+    SELECT c.id FROM shop.customer c
+     WHERE lower(c.email) = lower(${email}) AND c.is_active
+       AND (c.password_hash IS NOT NULL
+            OR EXISTS (SELECT 1 FROM shop.customer_identity i WHERE i.customer_id = c.id))`;
   return rows[0]?.id ?? null;
+}
+
+/** False for an account created by Google sign-in that never set a password. */
+export async function customerHasPassword(customerId: string): Promise<boolean> {
+  const [row] = await sql<{ has_password: boolean }[]>`
+    SELECT password_hash IS NOT NULL AS has_password FROM shop.customer WHERE id = ${customerId}`;
+  return row?.has_password ?? false;
+}
+
+// ---------------------------------------------------------------------------
+// "Συνέχεια με Google" (CHECKOUT_PREFILL_GOOGLE_SPEC.md §3.2)
+// ---------------------------------------------------------------------------
+
+export type GoogleSignInProfile = { subject: string; email: string; givenName: string; familyName: string };
+
+/**
+ * Which customer a verified Google sign-in belongs to, creating or linking
+ * the account as needed. The caller (the callback route) has already
+ * checked the ID token, including that Google verified the email.
+ *
+ * 1. That Google account is already linked → its customer. Matched on
+ *    Google's stable `sub`, never the email, which can change on Google's
+ *    side.
+ * 2. A customer with the same email exists → link Google to it and sign in.
+ *    Their password stays exactly as it was (owner's decision D1), and the
+ *    unique index on lower(email) means a second account for that email
+ *    can't exist anyway.
+ * 3. Otherwise → a new customer with Google's name and no password.
+ *
+ * A deactivated account is refused on every path, as password login does.
+ * Two first sign-ins racing each other (a double click) can both miss step 1
+ * or 2 and collide on a unique key; the second is simply retried once, and
+ * then finds what the first created.
+ */
+export async function signInWithGoogle(profile: GoogleSignInProfile): Promise<string> {
+  try {
+    return await resolveGoogleCustomer(profile);
+  } catch (err) {
+    if ((err as { code?: string })?.code === "23505") return resolveGoogleCustomer(profile);
+    throw err;
+  }
+}
+
+async function resolveGoogleCustomer(profile: GoogleSignInProfile): Promise<string> {
+  return sql.begin(async (tx) => {
+    const [linked] = await tx<{ id: string; is_active: boolean }[]>`
+      SELECT c.id, c.is_active
+        FROM shop.customer_identity i
+        JOIN shop.customer c ON c.id = i.customer_id
+       WHERE i.provider = 'google' AND i.subject = ${profile.subject}`;
+    if (linked) {
+      if (!linked.is_active) throw new AuthError("Account is deactivated", "invalid_credentials");
+      return linked.id;
+    }
+
+    const [existing] = await tx<{ id: string; is_active: boolean }[]>`
+      SELECT id, is_active FROM shop.customer
+       WHERE lower(email) = lower(${profile.email})
+         FOR UPDATE`;
+
+    let customerId: string;
+    if (existing) {
+      if (!existing.is_active) throw new AuthError("Account is deactivated", "invalid_credentials");
+      // Only fills a name the account doesn't have yet — never overwrites
+      // what the customer entered themselves.
+      await tx`
+        UPDATE shop.customer
+           SET first_name = COALESCE(NULLIF(first_name, ''), ${profile.givenName || null}),
+               last_name = COALESCE(NULLIF(last_name, ''), ${profile.familyName || null})
+         WHERE id = ${existing.id}`;
+      customerId = existing.id;
+    } else {
+      const [created] = await tx<{ id: string }[]>`
+        INSERT INTO shop.customer (email, first_name, last_name)
+        VALUES (${profile.email}, ${profile.givenName || null}, ${profile.familyName || null})
+        RETURNING id`;
+      customerId = created.id;
+    }
+
+    await tx`
+      INSERT INTO shop.customer_identity (provider, subject, customer_id, email_at_link)
+      VALUES ('google', ${profile.subject}, ${customerId}, ${profile.email})`;
+    return customerId;
+  });
 }
 
 export async function updateCustomerProfile(

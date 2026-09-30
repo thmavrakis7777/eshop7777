@@ -304,3 +304,54 @@ phone, ΤΚ), `lib/checkout-prefill.ts` (what the form starts with),
 
 Checks: tsc, eslint, vitest (156 tests, new ones for the split, phone, ΤΚ
 and fill-in rules), `next build`.
+
+## 7. Phase 2: built (28 Σεπ 2026), waiting for keys + migration
+
+As §3, with the owner's final requirements: Authorization Code flow with
+PKCE (S256), state and nonce; scopes `openid email profile`; callbacks
+pinned to `https://www.mavrakishome.gr/api/auth/google/callback` and
+`http://localhost:3000/api/auth/google/callback`; a verified Google email
+links to an existing account and its password stays; guest checkout
+unchanged; no Google script, no Identity Platform.
+
+Files: `db/migrations/0034_customer_identity.sql`,
+`lib/auth/google-oidc.ts` (protocol rules), `lib/auth/google.ts` (keys,
+token exchange), `lib/auth/sign-in.ts` (session start shared with password
+login), `app/api/auth/google/route.ts` + `callback/route.ts`,
+`/logariasmos/google` (wishlist merge, then on), `GoogleSignInButton`,
+`SetPasswordByEmail`; `signInWithGoogle`, the registration guard and the
+reset lookup in `lib/db/customer.ts`.
+
+Found while testing: on `next dev -H 0.0.0.0` a Route Handler's
+`request.url` host is `0.0.0.0`, so absolute redirects sent the browser off
+localhost, where the session cookie isn't sent. In-site redirects are now
+relative (`redirectWithinSite`).
+
+Tested: 25 unit tests (protocol rules, and both routes up to where they
+would reach Google or the database). Live on localhost without keys: no
+button anywhere, routes refuse with the right message and stay on
+localhost. Migration 0034 applied to the live database (29 Σεπ 2026).
+Google Cloud client set up 30 Σεπ 2026 (project "My First Project",
+External, In production). **Full sign-in tested on localhost 30 Σεπ 2026**
+with the owner's Google account, which already had a password account:
+linked to that account (no duplicate, 4 customers before and after),
+password kept, normal session created. One local-only hiccup: after a dev
+server restart, Turbopack's cache served a stale route table and the
+callback answered 404 until the route recompiled; Vercel builds from
+scratch, so production can't hit this. **Deploy order: migration → Vercel env vars → deploy** — registration
+and password reset query `shop.customer_identity`.
+
+**29 Σεπ 2026:** migration 0034 applied to the live database (via
+`db/migrate.mjs`; RLS on, 0 rows). The owner approved the privacy-page
+paragraph below. It goes on `/aporrito` (dashboard) when Google sign-in goes
+live, not before, so the page never describes a feature the site doesn't
+have yet:
+
+> **Σύνδεση με Google.** Αν επιλέξεις «Συνέχεια με Google», η Google μάς
+> διαβιβάζει το όνομα, το email και το αναγνωριστικό του λογαριασμού σου
+> Google. Τα χρησιμοποιούμε μόνο για να δημιουργήσουμε ή να συνδέσουμε τον
+> λογαριασμό σου στο κατάστημα. Δεν λαμβάνουμε τον κωδικό σου Google ούτε
+> πρόσβαση σε άλλα δεδομένα του λογαριασμού σου.
+
+Next: owner adds the keys to `.env.local` → end-to-end test on localhost
+→ commit → keys in Vercel (Production) → push → privacy paragraph.

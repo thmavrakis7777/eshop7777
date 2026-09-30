@@ -95,6 +95,7 @@ export function CheckoutForm({
   prefill,
   savedAddresses,
   signedIn,
+  googleSignInHref,
 }: {
   initialCart: Cart;
   paymentProviders: PaymentProvider[];
@@ -110,6 +111,9 @@ export function CheckoutForm({
   // whether the address is already saved. Empty for a guest.
   savedAddresses: CustomerAddress[];
   signedIn: boolean;
+  // "Συνέχεια με Google", back to checkout afterwards; undefined when Google
+  // sign-in isn't configured (lib/auth/google.ts).
+  googleSignInHref?: string;
 }) {
   const router = useRouter();
   // The shared client cart, not a local copy. It used to be
@@ -705,6 +709,7 @@ export function CheckoutForm({
             error={visibleEmailError}
             saving={emailSaving}
             signInHref={signedIn ? undefined : SIGN_IN_HREF}
+            googleHref={signedIn ? undefined : googleSignInHref}
           />
           {savedAddresses.length >= 2 && (
             <SavedAddressPicker addresses={savedAddresses} selectedId={savedAddressId} onSelect={handleSavedAddressSelect} />

@@ -5,6 +5,7 @@ import { getPaymentProviders, getShippingOptionsForCart } from "@/lib/data/check
 import { getCheckoutAccount } from "@/lib/data/customer";
 import { getCartAddressFields } from "@/lib/db/cart";
 import { buildCheckoutPrefill } from "@/lib/checkout-prefill";
+import { googleSignInHref } from "@/lib/auth/google";
 import { getSiteSettings } from "@/lib/data/site-settings";
 import { resolveStockInquiryContact } from "@/lib/whatsapp";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
@@ -88,6 +89,7 @@ export default async function CheckoutPage() {
         prefill={prefill}
         savedAddresses={account?.addresses ?? []}
         signedIn={account !== null}
+        googleSignInHref={googleSignInHref("/checkout")}
       />
     </div>
   );

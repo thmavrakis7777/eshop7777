@@ -20,17 +20,15 @@ import {
   CUSTOMER_SESSION_COOKIE,
   checkRateLimit,
   consumePasswordResetToken,
-  cookieOptions,
   createCustomerSession,
   createPasswordResetToken,
   destroyAllCustomerSessions,
   destroyCustomerSession,
   rateLimitKey,
 } from "@/lib/auth/session";
+import { mergeGuestCart, setSessionCookie } from "@/lib/auth/sign-in";
+import { getGoogleOAuthConfig } from "@/lib/auth/google";
 import { getCustomerAddresses, getCustomerId } from "@/lib/data/customer";
-import { CART_ID_COOKIE, isCartId } from "@/lib/data/cart";
-import { mergeGuestCartIntoCustomer } from "@/lib/db/cart";
-import { setCartIdCookie } from "@/lib/actions/cart";
 import { sendPasswordChangedEmail, sendPasswordResetEmail, sendWelcomeEmail } from "@/lib/email/send";
 import { isValidEmail, isValidPassword, isRequired, isValidPostalCode } from "@/lib/checkout-validation";
 import type { Address, Customer, CustomerAddress } from "@/lib/types";
@@ -43,7 +41,11 @@ function mapAuthError(err: unknown): string {
       case "invalid_credentials":
         return "Λάθος email ή κωδικός πρόσβασης.";
       case "email_taken":
-        return "Υπάρχει ήδη λογαριασμός με αυτό το email.";
+        // Also what registering with a Google-linked email answers
+        // (registerCustomer) — point to the way in that actually works.
+        return getGoogleOAuthConfig()
+          ? "Υπάρχει ήδη λογαριασμός με αυτό το email. Συνδέσου με τον κωδικό σου ή με Google."
+          : "Υπάρχει ήδη λογαριασμός με αυτό το email.";
       case "wrong_password":
         return "Ο τρέχων κωδικός δεν είναι σωστός.";
       case "rate_limited":
@@ -55,28 +57,6 @@ function mapAuthError(err: unknown): string {
   return "Κάτι πήγε στραβά. Δοκίμασε ξανά.";
 }
 
-async function setSessionCookie(token: string) {
-  (await cookies()).set(CUSTOMER_SESSION_COOKIE, token, cookieOptions);
-}
-
-/**
- * Runs right after login/register. A guest's cart is a cookie the merge
- * code can read directly (no client involvement needed, unlike the
- * wishlist — see mergeWishlistOnLoginAction — which lives in localStorage
- * and has to be merged from the client instead). Best-effort: a merge
- * failure must never turn a successful login into a failed one, so errors
- * are logged and swallowed, not surfaced.
- */
-async function mergeGuestCart(customerId: string): Promise<void> {
-  const guestCartId = (await cookies()).get(CART_ID_COOKIE)?.value;
-  if (!isCartId(guestCartId)) return;
-  try {
-    const mergedCartId = await mergeGuestCartIntoCustomer(customerId, guestCartId);
-    if (mergedCartId !== guestCartId) await setCartIdCookie(mergedCartId);
-  } catch (err) {
-    console.error("[customer] CART_MERGE_FAILED", { error: String(err) });
-  }
-}
 
 export type AuthActionResult = { ok: true } | { ok: false; error: string };
 export type CustomerActionResult = { ok: true; customer: Customer } | { ok: false; error: string };
