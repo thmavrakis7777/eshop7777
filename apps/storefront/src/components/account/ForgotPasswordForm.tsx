@@ -30,8 +30,10 @@ export function ForgotPasswordForm() {
       <div className="flex flex-col gap-4">
         <p className="text-sm text-ink">
           Αν υπάρχει λογαριασμός με το email <strong>{email}</strong>, θα λάβεις σύντομα ένα μήνυμα με οδηγίες
-          επαναφοράς του κωδικού σου. Ο σύνδεσμος ισχύει για 15 λεπτά.
+          επαναφοράς του κωδικού σου. Ο σύνδεσμος ισχύει για 30 λεπτά.
         </p>
+        {/* 30 = RESET_TOKEN_TTL_MINUTES (lib/auth/session.ts) and what the
+            reset email itself says (lib/email/send.ts); keep all three equal. */}
         <Link href="/logariasmos/eisodos" className="text-sm text-accent hover:underline">
           Επιστροφή στη σύνδεση
         </Link>
