@@ -323,6 +323,14 @@ service needed for *validation* (as opposed to *lookup*, next section).
 >   there could be a later, opt-in addition.
 > - Every lookup is recorded by ΑΑΔΕ under the shop's ΑΦΜ. That is how the
 >   service works, and checking invoice details is what it exists for.
+> - Verified live 2026-10-02 with three cases: the owner's ΑΦΜ fills; a
+>   corrected ΑΦΜ swaps in the right company; an unassigned ΑΦΜ clears
+>   the fields. ΑΑΔΕ answers `RG_WS_PUBLIC_TAXPAYER_NF` for an unassigned
+>   ΑΦΜ, which is logged as info, not as an error.
+> - The invoice details also appear in the customer's order confirmation
+>   email and in the owner's new-order alert. Απόδειξη orders' emails are
+>   unchanged. The storefront confirmation page and the admin order page
+>   already showed them.
 
 Researched this session, and this is the part of your brief I'd push back on
 directly:

@@ -49,6 +49,9 @@ export type OrderEmailData = {
   trackingCode: string | null;
   trackingUrl: string | null;
   loyaltyReward: { code: string; endsAtFormatted: string | null } | null;
+  // Set only when the customer asked for a Τιμολόγιο; null means Απόδειξη,
+  // the default, which the emails don't spell out.
+  invoice: { companyName: string; afm: string; doy: string; activity: string } | null;
 };
 
 const dateFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short" });
@@ -76,6 +79,11 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
       tracking_url: string | null;
       loyalty_reward_code: string | null;
       loyalty_reward_ends_at: Date | null;
+      tax_document_type: "receipt" | "invoice";
+      invoice_company_name: string | null;
+      invoice_afm: string | null;
+      invoice_doy: string | null;
+      invoice_activity: string | null;
       items: Array<{
         title: string;
         variant_title: string | null;
@@ -93,6 +101,8 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
            o.vat_cents, o.vat_rate, o.total_cents, o.payment_method,
            o.shipping_address, o.courier_name, o.tracking_code, o.tracking_url,
            d.code AS loyalty_reward_code, d.ends_at AS loyalty_reward_ends_at,
+           o.tax_document_type, o.invoice_company_name, o.invoice_afm,
+           o.invoice_doy, o.invoice_activity,
            COALESCE((
              SELECT json_agg(json_build_object(
                'title', i.title, 'variant_title', i.variant_title, 'sku', i.sku,
@@ -158,6 +168,15 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
           endsAtFormatted: r.loyalty_reward_ends_at ? dateOnlyFmt.format(new Date(r.loyalty_reward_ends_at)) : null,
         }
       : null,
+    invoice:
+      r.tax_document_type === "invoice"
+        ? {
+            companyName: r.invoice_company_name ?? "",
+            afm: r.invoice_afm ?? "",
+            doy: r.invoice_doy ?? "",
+            activity: r.invoice_activity ?? "",
+          }
+        : null,
   };
 }
 

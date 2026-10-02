@@ -38,6 +38,11 @@ function logLookupFailure(detail: Record<string, string | number>): void {
   console.error(`[aade] AADE_LOOKUP_FAILED ${JSON.stringify(detail)}`);
 }
 
+// ΑΑΔΕ's answer for an ΑΦΜ that isn't in the business registry (seen live
+// for an unassigned ΑΦΜ, 2026-10-02) — a customer's typo or a private
+// individual, not a fault, so it's logged as info rather than an error.
+const TAXPAYER_NOT_FOUND = "RG_WS_PUBLIC_TAXPAYER_NF";
+
 export async function lookupCompanyByAfm(afm: string): Promise<CompanyLookupResult | null> {
   // Trimmed: a space or line break picked up when pasting into Vercel makes
   // ΑΑΔΕ reject the codes (…_NOT_AUTHENTICATED) with nothing visibly wrong.
@@ -69,9 +74,14 @@ export async function lookupCompanyByAfm(afm: string): Promise<CompanyLookupResu
 
     const outcome = parseAfmLookupResponse(await res.text());
     if (!outcome.ok) {
-      // ΑΑΔΕ's own code (e.g. RG_WS_PUBLIC_TOKEN_USERNAME_NOT_DEFINED when
-      // no codes reach it), so it can be looked up in their FAQ: codes
-      // wrong or missing in Vercel, an ΑΦΜ that isn't a business, etc.
+      if (outcome.errorCode === TAXPAYER_NOT_FOUND) {
+        console.info(`[aade] AADE_LOOKUP_NOT_FOUND`);
+        return null;
+      }
+      // ΑΑΔΕ's own code, so it can be looked up in their FAQ — e.g.
+      // RG_WS_PUBLIC_TOKEN_USERNAME_NOT_DEFINED (no codes reached it) or
+      // …_NOT_AUTHENTICATED (codes wrong: seen live when the Vercel values
+      // carried stray whitespace, before they were trimmed above).
       logLookupFailure({ errorCode: outcome.errorCode });
       return null;
     }

@@ -117,6 +117,29 @@ function addressBlock(address: OrderEmailData["shippingAddress"]): string {
   </p>`;
 }
 
+// The Τιμολόγιο details exactly as they'll be printed on the invoice — in
+// the customer's copy so a wrong ΑΦΜ or name is caught before the invoice
+// is issued, and in the owner's alert so an invoice order isn't mistaken
+// for the usual Απόδειξη. Only ever rendered for invoice orders.
+function invoiceBlock(invoice: NonNullable<OrderEmailData["invoice"]>): string {
+  return `<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Τιμολόγιο</div>
+    <p style="margin:0;font-size:13px;line-height:1.6;color:${INK}">
+      ${escapeHtml(invoice.companyName)}<br>
+      <span style="color:${MUTED}">ΑΦΜ: ${escapeHtml(invoice.afm)} · ΔΟΥ: ${escapeHtml(invoice.doy)}</span>
+      ${invoice.activity ? `<br><span style="color:${MUTED}">${escapeHtml(invoice.activity)}</span>` : ""}
+    </p>`;
+}
+
+function invoiceTextLines(invoice: OrderEmailData["invoice"]): (string | null)[] {
+  if (!invoice) return [];
+  return [
+    `Τιμολόγιο: ${invoice.companyName}`,
+    `ΑΦΜ: ${invoice.afm} · ΔΟΥ: ${invoice.doy}`,
+    invoice.activity ? `Δραστηριότητα: ${invoice.activity}` : null,
+    ``,
+  ];
+}
+
 function footer(storeName: string, contact: { phone: string | null; email: string | null; address: string | null }): string {
   const legalLinks = [
     ["Όροι Χρήσης", "/oroi-xrisis"],
@@ -178,6 +201,7 @@ export function orderConfirmationHtml(
         <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Παράδοση σε</div>
         ${addressBlock(order.shippingAddress)}
       </td></tr>
+      ${order.invoice ? `<tr><td style="padding-top:16px">${invoiceBlock(order.invoice)}</td></tr>` : ""}
     </table>
 
     ${ctaButton("Δείτε την παραγγελία σας", ctx.orderUrl)}
@@ -212,6 +236,7 @@ export function orderConfirmationText(order: OrderEmailData, ctx: { storeName: s
     ``,
     `Τρόπος πληρωμής: ${paymentMethodLabel(order.paymentMethod)}`,
     ``,
+    ...invoiceTextLines(order.invoice),
     order.loyaltyReward
       ? `Κέρδισες ένα κουπόνι έκπτωσης 5€ για την επόμενη παραγγελία σου: ${order.loyaltyReward.code}${order.loyaltyReward.endsAtFormatted ? ` (ισχύει έως ${order.loyaltyReward.endsAtFormatted})` : ""}`
       : null,
@@ -297,6 +322,13 @@ export function ownerOrderNotificationHtml(
         </table>
       </td></tr>
     </table>
+    ${
+      order.invoice
+        ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SURFACE};border-radius:10px;margin-bottom:20px">
+      <tr><td style="padding:16px 20px">${invoiceBlock(order.invoice)}</td></tr>
+    </table>`
+        : ""
+    }
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemRows}</table>
     ${summaryBlock(order)}
@@ -334,6 +366,7 @@ export function ownerOrderNotificationText(order: OrderEmailData, ctx: { adminOr
     `Email: ${order.email}`,
     order.shippingAddress?.phone ? `Τηλέφωνο: ${order.shippingAddress.phone}` : null,
     ``,
+    ...invoiceTextLines(order.invoice),
     ...lines,
     ``,
     `Σύνολο: ${money(order.totalCents)}`,
