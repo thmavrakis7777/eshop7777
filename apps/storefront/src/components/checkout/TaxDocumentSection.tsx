@@ -8,10 +8,11 @@ import type { TaxDocumentType } from "@/lib/types";
 // Απόδειξη is the default (CHECKOUT_PREMIUM_SPEC.md §4) — Τιμολόγιο reveals
 // the invoice fields via the same grid-rows expand pattern as
 // BillingAddressSection. ΑΦΜ is checksum-validated on blur; a valid ΑΦΜ
-// then triggers a ΓΕΜΗ lookup (CheckoutForm.tsx's handleInvoiceFieldBlur)
-// that autofills Επωνυμία/Δραστηριότητα when found — Έδρα still isn't
-// autofilled (it reuses the billing address, a separate section/toggle),
-// and ΔΟΥ has no equivalent in ΓΕΜΗ's data at all, so both stay manual.
+// then triggers an ΑΑΔΕ registry lookup (CheckoutForm.tsx's
+// handleInvoiceFieldBlur) that fills Επωνυμία/ΔΟΥ/Δραστηριότητα when found.
+// ΑΦΜ comes first for that reason: the customer types it before reaching
+// the fields it fills. Έδρα isn't filled — it reuses the billing address,
+// a separate section/toggle the customer may already have typed into.
 export function TaxDocumentSection({
   type,
   onTypeChange,
@@ -21,6 +22,7 @@ export function TaxDocumentSection({
   onFieldBlur,
   saving,
   afmLookupLoading,
+  registryMatch,
 }: {
   type: TaxDocumentType;
   onTypeChange: (type: TaxDocumentType) => void;
@@ -30,6 +32,9 @@ export function TaxDocumentSection({
   onFieldBlur: (field: keyof InvoiceFormFields) => void;
   saving?: boolean;
   afmLookupLoading?: boolean;
+  // Set while the ΑΦΜ on screen is the one ΑΑΔΕ's details came from; null
+  // once it's edited, so the note never vouches for a different ΑΦΜ.
+  registryMatch?: { inactive: boolean } | null;
 }) {
   const isInvoice = type === "invoice";
 
@@ -75,15 +80,6 @@ export function TaxDocumentSection({
         {/* `inert` — same reasoning as BillingAddressSection: a collapsed
             grid row alone doesn't stop Tab from reaching hidden fields. */}
         <div className="flex flex-col gap-3 overflow-hidden" inert={!isInvoice}>
-          <FormField
-            id="invoice-company-name"
-            label="Επωνυμία"
-            autoComplete="organization"
-            value={values.companyName}
-            onChange={(v) => onFieldChange("companyName", v)}
-            onBlur={() => onFieldBlur("companyName")}
-            error={errors.companyName}
-          />
           <div className="grid grid-cols-2 gap-3">
             <FormField
               id="invoice-afm"
@@ -103,11 +99,36 @@ export function TaxDocumentSection({
               error={errors.doy}
             />
           </div>
-          {afmLookupLoading && (
+          {afmLookupLoading ? (
             <p role="status" className="text-xs text-ink-muted">
               Αναζήτηση στοιχείων επιχείρησης…
             </p>
+          ) : (
+            registryMatch && (
+              <div role="status" className="flex flex-col gap-1 text-xs">
+                <p className="text-ink-muted">
+                  Τα στοιχεία συμπληρώθηκαν από το μητρώο ΑΑΔΕ. Έλεγξέ τα και διόρθωσε ό,τι χρειάζεται.
+                </p>
+                {/* A warning, not a block — the registry can lag behind,
+                    and the customer may know better. */}
+                {registryMatch.inactive && (
+                  <p className="text-danger">
+                    Σύμφωνα με το μητρώο ΑΑΔΕ, η επιχείρηση με αυτόν τον ΑΦΜ δεν είναι ενεργή. Έλεγξε ότι τον
+                    έγραψες σωστά.
+                  </p>
+                )}
+              </div>
+            )
           )}
+          <FormField
+            id="invoice-company-name"
+            label="Επωνυμία"
+            autoComplete="organization"
+            value={values.companyName}
+            onChange={(v) => onFieldChange("companyName", v)}
+            onBlur={() => onFieldBlur("companyName")}
+            error={errors.companyName}
+          />
           <FormField
             id="invoice-activity"
             label="Δραστηριότητα"

@@ -288,6 +288,42 @@ as the existing `isValidPhone`/`isValidPostalCode` helpers in
 service needed for *validation* (as opposed to *lookup*, next section).
 
 ### 4.3 AADE / business lookup — real findings, real caveat
+
+> **Superseded 2026-10-02 — the lookup now uses ΑΑΔΕ, not ΓΕΜΗ.** The
+> original text below is kept for history, but two of its claims were
+> wrong:
+> - ΑΑΔΕ access does **not** mean contacting ΑΑΔΕ. It is self-serve and
+>   free with the shop's own TAXISnet: register for the service, then
+>   create "ειδικοί κωδικοί" for it (steps in `apps/storefront/.env.example`).
+>   That is less friction than ΓΕΜΗ, whose key needs their approval and was
+>   never obtained, so the ΓΕΜΗ lookup never ran in production.
+> - ΑΑΔΕ returns the ΔΟΥ, which ΓΕΜΗ lacks. It also returns the legal name,
+>   the activities (one marked κύρια), the registered address, and whether
+>   the ΑΦΜ is active.
+>
+> **What's built** (prompted by alexandrisstores.gr's checkout, which
+> fills the same fields from the same registry):
+> - `lib/aade-registry.ts` builds the SOAP 1.2 request and reads the
+>   reply. The contract comes from ΑΑΔΕ's live WSDL/XSD. Errors come back
+>   as HTTP 200 with `error_rec/error_code`, which a live probe without
+>   codes confirmed. `lib/actions/afm-lookup.ts` makes the call
+>   server-side, using `AADE_RG_USERNAME`/`AADE_RG_PASSWORD`, a 5 s
+>   timeout and a limit of 20 lookups per 5 min per IP.
+> - The lookup fills **Επωνυμία, ΔΟΥ and the κύρια Δραστηριότητα**, then
+>   shows "Τα στοιχεία συμπληρώθηκαν από το μητρώο ΑΑΔΕ. Έλεγξέ τα και
+>   διόρθωσε ό,τι χρειάζεται." It also warns, without blocking, when the
+>   registry says the business is not active.
+> - ΑΦΜ now comes first in the section, so the customer types it before
+>   reaching the fields it fills.
+> - Correcting a mistyped ΑΦΜ replaces the wrong company's details. Values
+>   the customer typed are never overwritten (`applyRegistryFill`). The
+>   old rule only filled empty fields.
+> - Έδρα is still not filled. It is the billing address, which the
+>   customer may already have typed. Offering ΑΑΔΕ's registered address
+>   there could be a later, opt-in addition.
+> - Every lookup is recorded by ΑΑΔΕ under the shop's ΑΦΜ. That is how the
+>   service works, and checking invoice details is what it exists for.
+
 Researched this session, and this is the part of your brief I'd push back on
 directly:
 
@@ -591,12 +627,10 @@ Given the size, I'd sequence this so each phase is independently testable
    degrade gracefully with no API key configured (the state today — no key
    has been provided). Real end-to-end verification against Google's
    actual API needs a real `GOOGLE_PLACES_API_KEY` — see `CHANGELOG.md`.
-4. ~~ΑΦΜ/business lookup (ΓΕΜΗ Open Data)~~ — **built (2026-08-09), not
-   yet live-verified.** The real API contract (endpoint, auth header,
-   response shape) was confirmed live against ΓΕΜΗ's own public Swagger
-   spec this session — a real correction to §4.3 below: getting a working
-   `GEMI_API_KEY` needs registration + approval, not an instant self-serve
-   key as first characterized. See `CHANGELOG.md`.
+4. ~~ΑΦΜ/business lookup (ΓΕΜΗ Open Data)~~ — **built (2026-08-09), never
+   live** (no `GEMI_API_KEY` was ever obtained). **Replaced 2026-10-02 by
+   an ΑΑΔΕ registry lookup** that also fills the ΔΟΥ; see the note at the
+   top of §4.3.
 5. ~~Order confirmation emails~~ — **built (2026-08-10)**, SendGrid (not
    Resend — already a bundled dependency, see `CHANGELOG.md`) +
    `order.placed` subscriber. Verified live with a real completed order;

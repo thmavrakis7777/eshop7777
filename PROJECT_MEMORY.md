@@ -3244,10 +3244,10 @@ no-admin extracts:
 - `GOOGLE_PLACES_API_KEY` (`apps/storefront/.env.local`) — not yet set; the
   address autocomplete (Phase 3) degrades gracefully without it, but needs
   a real key to actually verify/use.
-- `GEMI_API_KEY` (`apps/storefront/.env.local`) — not yet set; requires
-  registering at `opendata.businessportal.gr/register/` and waiting for
-  approval (not instant). The ΑΦΜ-triggered business lookup (Phase 4)
-  degrades gracefully without it.
+- ~~`GEMI_API_KEY`~~: no longer used. Since 2026-10-02 the ΑΦΜ business
+  lookup uses ΑΑΔΕ's registry with `AADE_RG_USERNAME`/`AADE_RG_PASSWORD`,
+  which are set in Vercel Production (see `CHECKOUT_PREMIUM_SPEC.md` §4.3).
+  Without them it degrades to manual entry.
 - Coupon codes — the coupon UI/flow is real and verified end-to-end
   (`CART_UX_SPEC.md` §7), but no real promotion campaigns have been decided
   or created in the admin; only a temporary test code was used for

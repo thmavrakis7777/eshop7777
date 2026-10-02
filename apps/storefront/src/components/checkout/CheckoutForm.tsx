@@ -6,6 +6,7 @@ import type { Cart, CustomerAddress, PaymentProvider, ShippingOption, TaxDocumen
 import {
   EMPTY_BILLING_ADDRESS,
   EMPTY_INVOICE_FIELDS,
+  applyRegistryFill,
   validateAddressFields,
   type BillingAddressErrors,
   type BillingAddressFields,
@@ -13,6 +14,7 @@ import {
   type ContactAddressFields,
   type InvoiceFormErrors,
   type InvoiceFormFields,
+  type RegistryFillFields,
 } from "@/components/checkout/checkout-form-state";
 import { isValidEmail, isValidPhone, isValidPostalCode, isValidAFM, isRequired } from "@/lib/checkout-validation";
 import {
@@ -204,6 +206,19 @@ export function CheckoutForm({
   const [invoiceTouched, setInvoiceTouched] = useState<Set<keyof InvoiceFormFields>>(new Set());
   const [taxSaving, setTaxSaving] = useState(false);
   const [afmLookupLoading, setAfmLookupLoading] = useState(false);
+  // What the last successful ΑΑΔΕ lookup filled in, and for which ΑΦΜ — so
+  // the next lookup knows which field values are still the registry's and
+  // which the customer typed (applyRegistryFill), and leaving the same ΑΦΜ
+  // again doesn't query ΑΑΔΕ twice. A ref: only event handlers read it.
+  const registryFill = useRef<{ afm: string; fields: RegistryFillFields } | null>(null);
+  // The same, for display: the "συμπληρώθηκαν από το μητρώο ΑΑΔΕ" note.
+  const [registryMatch, setRegistryMatch] = useState<{ afm: string; inactive: boolean } | null>(null);
+  const latestAfmLookup = useRef(0);
+  // The invoice fields as they are right now, for lookUpAfm: after its
+  // await, `invoiceFields` would still be the render the lookup started in,
+  // missing anything typed meanwhile. Every change goes through
+  // updateInvoiceFields, which writes both, so this is never behind.
+  const latestInvoiceFields = useRef(invoiceFields);
 
   const [pendingLineId, setPendingLineId] = useState<string | null>(null);
 
@@ -506,51 +521,70 @@ export function CheckoutForm({
     // Switching to Απόδειξη always has something valid to save immediately;
     // switching to Τιμολόγιο has empty fields at first — nothing to save
     // until the customer actually fills them in and blurs.
-    if (type === "receipt") void saveTaxDocument({ type: "receipt" });
+    if (type === "receipt") {
+      // Drops an ΑΦΜ lookup still in flight, so its result can't save a
+      // Τιμολόγιο over the Απόδειξη just chosen.
+      latestAfmLookup.current++;
+      setAfmLookupLoading(false);
+      void saveTaxDocument({ type: "receipt" });
+    }
+  }
+
+  function updateInvoiceFields(next: InvoiceFormFields) {
+    latestInvoiceFields.current = next;
+    setInvoiceFields(next);
   }
 
   function handleInvoiceFieldChange(field: keyof InvoiceFormFields, value: string) {
-    setInvoiceFields((prev) => ({ ...prev, [field]: value }));
+    updateInvoiceFields({ ...latestInvoiceFields.current, [field]: value });
   }
 
-  // ΓΕΜΗ lookup fires the moment ΑΦΜ passes its checksum — independent of
-  // whether the rest of the form validates yet, since the whole point is
-  // autofilling Επωνυμία/Δραστηριότητα *before* the customer types them.
-  // `currentFields` (not the `invoiceFields` closure) is what gets
-  // validated/saved below, so a successful lookup can save immediately in
-  // the same blur instead of waiting for a second one — reading
-  // `invoiceFields` again here would still see the pre-lookup values,
-  // since `setInvoiceFields` doesn't update the closure synchronously.
+  async function saveInvoiceIfValid(fields: InvoiceFormFields) {
+    if (Object.keys(validateInvoiceFields(fields)).length > 0) return;
+    await saveTaxDocument({ type: "invoice", ...fields });
+  }
+
+  // The ΑΑΔΕ lookup fires the moment a new ΑΦΜ passes its checksum —
+  // independent of whether the rest of the form validates yet, since the
+  // whole point is filling Επωνυμία/ΔΟΥ/Δραστηριότητα *before* the customer
+  // types them. That blur's save is left to the lookup, so it saves the
+  // filled-in values once instead of the empty ones first.
   async function handleInvoiceFieldBlur(field: keyof InvoiceFormFields) {
     setInvoiceTouched((prev) => new Set(prev).add(field));
 
-    let currentFields = invoiceFields;
-    if (field === "afm" && isValidAFM(invoiceFields.afm)) {
-      setAfmLookupLoading(true);
-      const result = await lookupCompanyByAfm(invoiceFields.afm);
-      setAfmLookupLoading(false);
-      if (result) {
-        // Functional update, not a snapshot object — the lookup can take a
-        // moment, and if the customer typed into Επωνυμία while it was in
-        // flight, applying a plain object captured before the await would
-        // silently overwrite what they just typed. Merging against `prev`
-        // (the state at the moment this actually commits) avoids that real
-        // race condition, found during this session's own audit.
-        setInvoiceFields((prev) => {
-          const merged = {
-            ...prev,
-            companyName: prev.companyName || result.companyName,
-            activity: prev.activity || result.activity || prev.activity,
-          };
-          currentFields = merged;
-          return merged;
-        });
-      }
+    const afm = invoiceFields.afm.trim();
+    if (field === "afm" && isValidAFM(afm) && afm !== registryFill.current?.afm) {
+      await lookUpAfm(afm);
+      return;
     }
+    await saveInvoiceIfValid(invoiceFields);
+  }
 
-    const errors = validateInvoiceFields(currentFields);
-    if (Object.keys(errors).length > 0) return;
-    await saveTaxDocument({ type: "invoice", ...currentFields });
+  async function lookUpAfm(afm: string) {
+    const lookupId = ++latestAfmLookup.current;
+    setAfmLookupLoading(true);
+    const result = await lookupCompanyByAfm(afm);
+    // Another ΑΦΜ was looked up, or Απόδειξη chosen, while this one was in
+    // flight — this result is stale and changes nothing.
+    if (lookupId !== latestAfmLookup.current) return;
+    setAfmLookupLoading(false);
+
+    const previousFill = registryFill.current?.fields ?? null;
+    const next: RegistryFillFields | null = result
+      ? { companyName: result.companyName, doy: result.doy, activity: result.activity ?? "" }
+      : null;
+    registryFill.current = next ? { afm, fields: next } : null;
+    setRegistryMatch(result ? { afm, inactive: result.inactive } : null);
+    // Merged into the fields as they are now (latestInvoiceFields), not the
+    // `invoiceFields` this blur started with — the lookup takes a moment,
+    // and whatever the customer typed meanwhile must survive it. The same
+    // merged object is what gets saved. The ΓΕΜΗ version captured it inside
+    // a setInvoiceFields updater instead, which React runs later rather
+    // than on the spot, so that save went out with the pre-lookup fields
+    // (the stale-closure race TASKS.md recorded).
+    const merged = applyRegistryFill(latestInvoiceFields.current, previousFill, next);
+    updateInvoiceFields(merged);
+    await saveInvoiceIfValid(merged);
   }
 
   // Same reasoning as visibleBillingErrors above: only reveal-all while
@@ -786,6 +820,7 @@ export function CheckoutForm({
             onFieldBlur={handleInvoiceFieldBlur}
             saving={taxSaving}
             afmLookupLoading={afmLookupLoading}
+            registryMatch={registryMatch?.afm === invoiceFields.afm.trim() ? registryMatch : null}
           />
         <PaymentSection providers={paymentProviders} selectedId={selectedPaymentId} onSelect={setSelectedPaymentId} />
 

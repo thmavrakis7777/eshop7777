@@ -77,3 +77,29 @@ export const EMPTY_INVOICE_FIELDS: InvoiceFormFields = {
 };
 
 export type InvoiceFormErrors = Partial<Record<keyof InvoiceFormFields, string>>;
+
+// The invoice fields an ΑΦΜ lookup in ΑΑΔΕ's registry can fill.
+export type RegistryFillFields = Pick<InvoiceFormFields, "companyName" | "doy" | "activity">;
+
+const REGISTRY_FILL_KEYS: (keyof RegistryFillFields)[] = ["companyName", "doy", "activity"];
+
+// Applies a registry lookup for a newly entered ΑΦΜ. A field is replaced
+// when it's empty or still holds exactly what the previous lookup put there
+// — so correcting a mistyped ΑΦΜ swaps the wrong company's details for the
+// right one's, which only filling empty fields (the old rule) never did.
+// Anything the customer typed or edited themselves is left alone. With no
+// result (`next` null: lookup failed, or the ΑΦΜ isn't in the registry),
+// the previous ΑΦΜ's details are cleared rather than left under a different
+// ΑΦΜ.
+export function applyRegistryFill(
+  current: InvoiceFormFields,
+  previousFill: RegistryFillFields | null,
+  next: RegistryFillFields | null
+): InvoiceFormFields {
+  const result = { ...current };
+  for (const key of REGISTRY_FILL_KEYS) {
+    const stillOurs = current[key].trim() === "" || (previousFill !== null && current[key] === previousFill[key]);
+    if (stillOurs) result[key] = next?.[key] ?? "";
+  }
+  return result;
+}
