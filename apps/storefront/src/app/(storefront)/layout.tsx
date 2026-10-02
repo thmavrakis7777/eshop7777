@@ -27,6 +27,7 @@ import { getCustomerId } from "@/lib/data/customer";
 import { getNationwideFreeShippingThresholdCents } from "@/lib/data/checkout";
 import { resolveStockInquiryContact } from "@/lib/whatsapp";
 import { parseOpeningHours } from "@/lib/opening-hours";
+import { storeLocationJsonLd } from "@/lib/maps";
 
 /**
  * Everything the shop wears: announcement bar, promo banner, header, footer,
@@ -55,15 +56,16 @@ import { parseOpeningHours } from "@/lib/opening-hours";
 // - `contactAddress` (content-types.ts) is one free-text admin field — see
 //   its "type: text" input in admin/content/layout and the footer's own
 //   `whitespace-pre-line` rendering of it verbatim (Footer.tsx). Nothing in
-//   the data model marks where the street ends and the locality/region
-//   begins, so splitting it into PostalAddress's streetAddress/
-//   addressLocality/addressRegion/postalCode would mean guessing that
-//   boundary — a wrong guess publishes a wrong address to search engines,
-//   which is worse than an accurate but less-decomposed one. The whole
-//   string goes into `streetAddress` instead (normalizing any line breaks
-//   to keep it one line); `addressCountry` is the one part that's a safe,
-//   already-established constant (checkout hardcodes the same "GR" for
-//   every order — lib/db/checkout.ts).
+//   the data model marks where the street ends and the town begins, so
+//   storeLocationJsonLd (lib/maps.ts) splits it into streetAddress/
+//   postalCode/addressLocality only when parseStoreAddress can read it
+//   unambiguously ("ΣΦΑΚΙΑΝΑΚΗ 4, 71201, Ηράκλειο Κρήτης" can be); any other
+//   shape goes into `streetAddress` whole, as before, since a guessed split
+//   publishes a wrong address to search engines — worse than an accurate
+//   but less-decomposed one. `addressCountry` is a safe, already-established
+//   constant (checkout hardcodes the same "GR" for every order —
+//   lib/db/checkout.ts). The same helper adds `geo` and `hasMap` from the
+//   store's own Google Maps listing.
 // - `businessHours` is the same kind of single free-text field, with no
 //   per-day structure. openingHoursSpecification needs real dayOfWeek/opens/
 //   closes values, so it's emitted only when parseOpeningHours()
@@ -83,7 +85,6 @@ function buildLocalBusinessJsonLd(
   const sameAs = [settings?.facebookUrl, settings?.instagramUrl, settings?.tiktokUrl].filter(
     (url): url is string => Boolean(url)
   );
-  const streetAddress = settings?.contactAddress?.replace(/\s*\n+\s*/g, ", ").trim() || null;
   const openingHours = parseOpeningHours(settings?.businessHours);
   return {
     "@context": "https://schema.org",
@@ -94,9 +95,7 @@ function buildLocalBusinessJsonLd(
     ...(sameAs.length > 0 ? { sameAs } : {}),
     ...(settings?.contactPhone ? { telephone: settings.contactPhone } : {}),
     ...(settings?.contactEmail ? { email: settings.contactEmail } : {}),
-    ...(streetAddress
-      ? { address: { "@type": "PostalAddress", streetAddress, addressCountry: "GR" } }
-      : {}),
+    ...storeLocationJsonLd(settings?.contactAddress),
     ...(settings?.vatNumber ? { vatID: settings.vatNumber } : {}),
     ...(openingHours ? { openingHoursSpecification: openingHours } : {}),
     contactPoint: [

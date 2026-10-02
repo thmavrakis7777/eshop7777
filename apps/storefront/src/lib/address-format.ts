@@ -63,3 +63,44 @@ export function isSameAddressLine(
   const fold = (s: string) => s.trim().replace(/\s+/g, " ").toLocaleLowerCase("el");
   return fold(a.line) === fold(b.line) && normalizePostalCode(a.postalCode) === normalizePostalCode(b.postalCode);
 }
+
+/**
+ * The store's own address (Settings → contactAddress, one free-text field)
+ * as schema.org PostalAddress parts, for the store's JSON-LD (lib/maps.ts).
+ *
+ * Reads only the two shapes that leave no doubt where each part starts —
+ * "ΣΦΑΚΙΑΝΑΚΗ 4, 71201, Ηράκλειο Κρήτης" and "ΣΦΑΚΙΑΝΑΚΗ 4, 712 01 Ηράκλειο":
+ * a street ending in a house number, a 5-digit ΤΚ, then a town with no
+ * digits in it. Anything else returns null and the caller publishes the whole
+ * text as streetAddress, as it always did — a guessed split could publish a
+ * wrong street or town to search engines, which is worse than an undivided
+ * but correct line (the same rule parseOpeningHours follows for the hours).
+ * The town stays exactly as typed: cutting "Ηράκλειο Κρήτης" into locality +
+ * region would be one more guess.
+ */
+export function parseStoreAddress(
+  text: string
+): { streetAddress: string; postalCode: string; addressLocality: string } | null {
+  const parts = text
+    .split(/[,\n]/)
+    .map((part) => part.trim().replace(/\s+/g, " "))
+    .filter(Boolean);
+
+  let street: string;
+  let postal: string;
+  let town: string;
+  if (parts.length === 3) {
+    [street, postal, town] = parts;
+  } else if (parts.length === 2) {
+    // "71201 Ηράκλειο" / "712 01 Ηράκλειο" — ΤΚ and town in one part.
+    const match = /^(\d{3} ?\d{2}) (.+)$/.exec(parts[1]);
+    if (!match) return null;
+    [street, postal, town] = [parts[0], match[1], match[2]];
+  } else {
+    return null;
+  }
+
+  const postalCode = normalizePostalCode(postal);
+  if (!splitStreetAndNumber(street).number || !/^\d{5}$/.test(postalCode) || /\d/.test(town)) return null;
+  return { streetAddress: street, postalCode, addressLocality: town };
+}

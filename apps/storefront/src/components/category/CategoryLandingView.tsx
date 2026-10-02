@@ -6,6 +6,7 @@ import { telHref } from "@/components/layout/PhoneOrders";
 import { categoryPathHref } from "@/lib/data/categories";
 import { getSiteSettings } from "@/lib/data/site-settings";
 import { safeJsonLd } from "@/lib/json-ld";
+import { storeLocationJsonLd } from "@/lib/maps";
 import { siteUrl } from "@/lib/site-config";
 import { publicImageUrl } from "@/lib/storage/urls";
 import type { Category, FaqItem } from "@/lib/types";
@@ -40,16 +41,11 @@ function buildLocalBusinessJsonLd(params: {
     name: storeName,
     url: pageUrl,
     ...(phone ? { telephone: `+30${phone.replace(/\D/g, "")}` } : {}),
-    ...(address
-      ? {
-          // The address is stored as one free-text line in Site Settings
-          // (no separate street/postcode/city fields exist), so it goes into
-          // streetAddress whole rather than guessing a split that could be
-          // wrong — better an unsegmented but correct address than an
-          // invented one.
-          address: { "@type": "PostalAddress", streetAddress: address, addressCountry: "GR" },
-        }
-      : {}),
+    // Same address/geo/hasMap as the site-wide Store JSON-LD — one helper,
+    // so this page can never describe the shop's location differently.
+    // The address is one free-text line in Site Settings, split into
+    // street/ΤΚ/town only when it reads unambiguously (see lib/maps.ts).
+    ...storeLocationJsonLd(address),
     areaServed: "Ηράκλειο, Κρήτη",
     description: pageTitle,
   };

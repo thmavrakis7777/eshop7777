@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { isSameAddressLine, normalizePhone, normalizePostalCode, splitStreetAndNumber } from "./address-format";
+import {
+  isSameAddressLine,
+  normalizePhone,
+  normalizePostalCode,
+  parseStoreAddress,
+  splitStreetAndNumber,
+} from "./address-format";
 import { isValidPhone, isValidPostalCode } from "./checkout-validation";
 
 // CHECKOUT_PREFILL_GOOGLE_SPEC.md §2.1 / A2–A4: the shapes addresses and
@@ -87,5 +93,35 @@ describe("isSameAddressLine", () => {
   it("tells different places apart", () => {
     expect(isSameAddressLine({ line: "Ικάρου 25", postalCode: "71201" }, { line: "Ικάρου 27", postalCode: "71201" })).toBe(false);
     expect(isSameAddressLine({ line: "Ικάρου 25", postalCode: "71201" }, { line: "Ικάρου 25", postalCode: "71202" })).toBe(false);
+  });
+});
+
+describe("parseStoreAddress", () => {
+  // Exactly as saved in Settings → contactAddress on 2026-10-02.
+  it("splits the store's own address", () => {
+    expect(parseStoreAddress("ΣΦΑΚΙΑΝΑΚΗ 4, 71201, Ηράκλειο Κρήτης")).toEqual({
+      streetAddress: "ΣΦΑΚΙΑΝΑΚΗ 4",
+      postalCode: "71201",
+      addressLocality: "Ηράκλειο Κρήτης",
+    });
+  });
+
+  it("reads a spaced ΤΚ, a ΤΚ sharing its part with the town, and line breaks", () => {
+    const parts = { streetAddress: "Ικάρου 25", postalCode: "71201", addressLocality: "Ηράκλειο" };
+    expect(parseStoreAddress("Ικάρου 25, 712 01, Ηράκλειο")).toEqual(parts);
+    expect(parseStoreAddress("Ικάρου 25, 71201 Ηράκλειο")).toEqual(parts);
+    expect(parseStoreAddress("Ικάρου 25\n712 01 Ηράκλειο")).toEqual(parts);
+    expect(parseStoreAddress("  Ικάρου  25 ,  71201 ,  Ηράκλειο ")).toEqual(parts);
+  });
+
+  it("returns null for any shape it can't read without guessing", () => {
+    expect(parseStoreAddress("Ηράκλειο Κρήτης")).toBeNull(); // no street
+    expect(parseStoreAddress("Πλατεία Ελευθερίας, 71202, Ηράκλειο")).toBeNull(); // no house number
+    expect(parseStoreAddress("Ικάρου 25, Ηράκλειο, 71201")).toBeNull(); // town before ΤΚ
+    expect(parseStoreAddress("Ικάρου 25, 7120, Ηράκλειο")).toBeNull(); // ΤΚ not 5 digits
+    expect(parseStoreAddress("Ικάρου 25, Ηράκλειο")).toBeNull(); // no ΤΚ
+    expect(parseStoreAddress("Ικάρου 25, 71201, Ηράκλειο, Κρήτη")).toBeNull(); // extra part
+    expect(parseStoreAddress("Ικάρου 25, 71201, 2ο χλμ Ηρακλείου")).toBeNull(); // digits in the town
+    expect(parseStoreAddress("")).toBeNull();
   });
 });
