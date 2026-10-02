@@ -39,8 +39,11 @@ function logLookupFailure(detail: Record<string, string | number>): void {
 }
 
 export async function lookupCompanyByAfm(afm: string): Promise<CompanyLookupResult | null> {
-  const username = process.env.AADE_RG_USERNAME;
-  const password = process.env.AADE_RG_PASSWORD;
+  // Trimmed: a space or line break picked up when pasting into Vercel makes
+  // ΑΑΔΕ reject the codes (…_NOT_AUTHENTICATED) with nothing visibly wrong.
+  // Neither code can legitimately start or end with whitespace.
+  const username = process.env.AADE_RG_USERNAME?.trim();
+  const password = process.env.AADE_RG_PASSWORD?.trim();
   const digits = afm.trim();
   // The checkout only calls this once isValidAFM passes, but this is a
   // public endpoint — re-check the shape before it goes into a request.
