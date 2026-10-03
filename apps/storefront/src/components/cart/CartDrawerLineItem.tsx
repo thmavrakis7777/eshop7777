@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { CartLineItem } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
-import { QuantityStepper } from "@/components/cart/QuantityStepper";
+import { QuantityStepper, useMaxReachedNotice } from "@/components/cart/QuantityStepper";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
 import { CloseIcon } from "@/components/ui/Icons";
 import { isLineItemOverstocked } from "@/lib/stock";
@@ -29,6 +29,9 @@ export function CartDrawerLineItem({
   onRemove: () => void;
 }) {
   const overstocked = isLineItemOverstocked(item);
+  const maxQuantity = item.allowBackorder ? undefined : item.stockQuantity;
+  // "+" pressed at the stock limit shows the same notice (QuantityStepper).
+  const maxReached = useMaxReachedNotice(item.quantity, maxQuantity);
 
   return (
     <div className="flex gap-3 py-4">
@@ -62,8 +65,9 @@ export function CartDrawerLineItem({
             productTitle={item.title}
             editable
             disabled={pending}
-            max={item.allowBackorder ? undefined : item.stockQuantity}
+            max={maxQuantity}
             onChange={onQuantityChange}
+            onMaxReached={maxReached.onMaxReached}
             onRemove={onRemove}
           />
           {/* Same order as ProductCard: discounted price, then the original
@@ -83,7 +87,7 @@ export function CartDrawerLineItem({
             {error}
           </p>
         )}
-        {overstocked && (
+        {(overstocked || maxReached.asked) && (
           <StockInquiryNotice
             message={stockInquiry.message}
             productTitle={item.title}

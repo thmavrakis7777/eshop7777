@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { CartLineItem } from "@/lib/types";
 import { formatPrice, discountPercent } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
-import { QuantityStepper } from "@/components/cart/QuantityStepper";
+import { QuantityStepper, useMaxReachedNotice } from "@/components/cart/QuantityStepper";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
 import { isLineItemOverstocked } from "@/lib/stock";
 import type { StockInquiryContact } from "@/lib/whatsapp";
@@ -32,6 +32,9 @@ export function CartLineItemTableRow({
 }) {
   const pct = discountPercent(item.unitPrice, item.compareAtUnitPrice);
   const overstocked = isLineItemOverstocked(item);
+  const maxQuantity = item.allowBackorder ? undefined : item.stockQuantity;
+  // "+" pressed at the stock limit shows the same notice (QuantityStepper).
+  const maxReached = useMaxReachedNotice(item.quantity, maxQuantity);
 
   return (
     <div className={`hidden lg:grid ${CART_TABLE_GRID_COLS} items-center gap-4 py-6`}>
@@ -77,8 +80,9 @@ export function CartLineItemTableRow({
           productTitle={item.title}
           editable
           disabled={pending}
-          max={item.allowBackorder ? undefined : item.stockQuantity}
+          max={maxQuantity}
           onChange={onQuantityChange}
+          onMaxReached={maxReached.onMaxReached}
           onRemove={onRemove}
         />
       </div>
@@ -90,7 +94,7 @@ export function CartLineItemTableRow({
           {error}
         </p>
       )}
-      {overstocked && (
+      {(overstocked || maxReached.asked) && (
         <div className="col-span-5">
           <StockInquiryNotice
             message={stockInquiry.message}

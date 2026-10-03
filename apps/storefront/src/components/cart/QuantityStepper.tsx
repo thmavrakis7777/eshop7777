@@ -16,6 +16,7 @@ export function QuantityStepper({
   editable = false,
   onChange,
   onRemove,
+  onMaxReached,
 }: {
   quantity: number;
   productTitle: string;
@@ -31,6 +32,12 @@ export function QuantityStepper({
   editable?: boolean;
   onChange: (next: number) => void;
   onRemove?: () => void;
+  // With this, "+" stays pressable at `max` and reports the press instead of
+  // stepping past it — so the caller can show the stock notice to a shopper
+  // who clicks for more, not only to one who types a bigger number
+  // (owner decision, 2026-10-03: the quantity stays at the limit and Add to
+  // cart keeps working). Without it, "+" simply disables at `max`.
+  onMaxReached?: () => void;
 }) {
   const atMax = max != null && quantity >= max;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -130,12 +137,36 @@ export function QuantityStepper({
       <button
         type="button"
         className="flex h-11 w-11 items-center justify-center text-ink disabled:text-ink-muted/40"
-        disabled={disabled || atMax}
+        disabled={disabled || (atMax && !onMaxReached)}
         aria-label={`Αύξηση ποσότητας για ${productTitle}`}
-        onClick={() => onChange(quantity + 1)}
+        onClick={() => {
+          if (atMax) {
+            onMaxReached?.();
+            return;
+          }
+          onChange(quantity + 1);
+        }}
       >
         +
       </button>
     </div>
   );
+}
+
+/**
+ * Pairs with QuantityStepper's `onMaxReached`: `asked` is true once "+" was
+ * pressed at the stock limit, and stays true only while the quantity is
+ * still the one it was pressed at and still at the limit — any change, from
+ * this control or anywhere else (another cart surface, a fresh stock
+ * figure), clears it without a reset path of its own.
+ */
+export function useMaxReachedNotice(quantity: number, max: number | undefined) {
+  const [askedAt, setAskedAt] = useState<number | null>(null);
+  // Forgotten on the first change, not just hidden while it differs —
+  // otherwise 3 → 2 → 3 would bring the notice back unasked.
+  if (askedAt !== null && askedAt !== quantity) setAskedAt(null);
+  return {
+    asked: askedAt === quantity && max != null && quantity >= max,
+    onMaxReached: () => setAskedAt(quantity),
+  };
 }

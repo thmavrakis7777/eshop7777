@@ -5,7 +5,7 @@ import type { Product } from "@/lib/types";
 import { addLineItemAction } from "@/lib/actions/cart";
 import { useCartUI } from "@/components/cart/CartUIProvider";
 import { trackAddToCart } from "@/lib/analytics/track";
-import { QuantityStepper } from "@/components/cart/QuantityStepper";
+import { QuantityStepper, useMaxReachedNotice } from "@/components/cart/QuantityStepper";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
 import { NotifyWhenAvailableForm } from "@/components/product/NotifyWhenAvailableForm";
 import { isQuantityAvailable } from "@/lib/stock";
@@ -61,6 +61,11 @@ export function AddToCartButton({
   // range.
   const isQuantityValid = Number.isInteger(quantity) && quantity >= 1;
   const canAdd = Boolean(selectedVariant) && !isOutOfStock && !exceedsStock && isQuantityValid;
+
+  const maxQuantity = selectedVariant && !selectedVariant.allowBackorder ? selectedVariant.inventoryQuantity : undefined;
+  // "+" pressed at the stock limit: same notice as a typed excess, but the
+  // quantity stays at the limit and Add to cart stays enabled for it.
+  const maxReached = useMaxReachedNotice(quantity, maxQuantity);
 
   function handleClick() {
     if (!selectedVariantId || !canAdd) return;
@@ -132,9 +137,10 @@ export function AddToCartButton({
             quantity={quantity}
             productTitle={product.title}
             editable
-            max={selectedVariant.allowBackorder ? undefined : selectedVariant.inventoryQuantity}
+            max={maxQuantity}
             disabled={isPending}
             onChange={setQuantity}
+            onMaxReached={maxReached.onMaxReached}
           />
         </div>
       )}
@@ -152,7 +158,7 @@ export function AddToCartButton({
             {error}
           </p>
         )}
-        {exceedsStock && selectedVariant && (
+        {(exceedsStock || maxReached.asked) && selectedVariant && (
           <StockInquiryNotice
             message={stockInquiry.message}
             productTitle={product.title}
