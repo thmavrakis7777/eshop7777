@@ -25,9 +25,14 @@ export function ProductCharacteristics({ characteristics }: { characteristics: C
   return (
     <section className="container-shell mt-12 max-w-2xl md:mt-16">
       <h2 className="font-display text-xl text-ink md:text-2xl">Χαρακτηριστικά</h2>
-      <dl className="mt-4 flex flex-col gap-3 border-t border-border pt-6 text-sm">
+      {/* Two columns, each value right beside its label (owner, 2026-10-03)
+          — the values used to sit at the far right edge, a long eye-jump
+          away from what they describe. The label column is as wide as its
+          longest label; `contents` keeps each dt/dd pair grouped in the
+          markup while the grid lines them up. */}
+      <dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-8 gap-y-3 border-t border-border pt-6 text-sm">
         {rows.map(([label, value]) => (
-          <div key={label} className="flex justify-between">
+          <div key={label} className="contents">
             <dt className="text-ink-muted">{label}</dt>
             <dd className="text-ink">{value}</dd>
           </div>

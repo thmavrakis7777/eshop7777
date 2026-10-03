@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRef, useState } from "react";
 import type { GalleryImage } from "@/lib/data/products";
+import { ProductLightbox } from "@/components/product/ProductLightbox";
 
 /**
  * The product page's photos: one large photo, thumbnails under it when
@@ -24,6 +25,9 @@ import type { GalleryImage } from "@/lib/data/products";
  * `sizes` as the stage on purpose: the browser picks the same file from the
  * same srcset, so a thumbnail costs no extra download and no extra image
  * resizing on the server.
+ *
+ * Tapping the large photo opens it full screen (ProductLightbox); the photo
+ * left showing there is the one the page shows after closing.
  */
 export function ProductGallery({
   images,
@@ -35,6 +39,7 @@ export function ProductGallery({
   sizes: string;
 }) {
   const [active, setActive] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const count = images.length;
 
@@ -84,7 +89,27 @@ export function ProductGallery({
             />
           </div>
         ))}
+        {/* Covers the photos, under the page's wishlist heart (which comes
+            later in the DOM). No z-index on purpose — one here would lift it
+            above the heart. A swipe never becomes a click: the browser drops
+            the click once the finger has moved. */}
+        <button
+          type="button"
+          onClick={() => setViewerOpen(true)}
+          aria-label={count > 1 ? `Μεγέθυνση φωτογραφίας ${active + 1} από ${count}` : "Μεγέθυνση φωτογραφίας"}
+          className="absolute inset-0 cursor-zoom-in"
+        />
       </div>
+
+      {viewerOpen && (
+        <ProductLightbox
+          images={images}
+          title={title}
+          index={active}
+          onIndexChange={setActive}
+          onClose={() => setViewerOpen(false)}
+        />
+      )}
 
       {count > 1 && (
         <div className="mt-3 flex gap-2 overflow-x-auto">

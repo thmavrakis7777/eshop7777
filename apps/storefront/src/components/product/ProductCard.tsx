@@ -44,7 +44,9 @@ export function ProductCard({
 
   return (
     <article className="flex h-full flex-col">
-      <div className="relative overflow-hidden rounded-md">
+      {/* `group`: the photo zooms gently while the pointer is anywhere over
+          it, the wishlist heart included (ProductImage hoverZoom). */}
+      <div className="group relative overflow-hidden rounded-md">
         <Link href={`/proionta/${product.handle}`} className="block" tabIndex={-1} aria-hidden="true">
           {product.badges && product.badges.length > 0 && (
             <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
@@ -69,6 +71,7 @@ export function ProductCard({
               tone={product.placeholderTone}
               sizes={sizes}
               priority={priority}
+              hoverZoom
             />
           </div>
         </Link>
