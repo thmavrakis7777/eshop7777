@@ -61,12 +61,16 @@ export type SearchTier =
   | "title-exact"
   | "title-prefix"
   | "title-word"
+  | "brand"
   | "category"
   | "fuzzy";
 
 // Lower is better — mirrors the priority order requested for this feature:
 // exact SKU, then partial SKU, then increasingly loose title matches,
-// then category, then bounded fuzzy as a last resort. "boosted" (Admin-
+// then brand, then category, then bounded fuzzy as a last resort. Brand
+// sits just under the title tiers: a shopper typing "Calfer" means that
+// maker's products, a closer signal than a category name merely containing
+// the text, but weaker than the product's own name matching. "boosted" (Admin-
 // first platform, Phase H) sits above all of them — an admin-boosted
 // product that matches via any tier gets promoted to this one instead of
 // blending a numeric score into the ranking, keeping every match
@@ -78,8 +82,9 @@ export const SEARCH_TIER_RANK: Record<SearchTier, number> = {
   "title-exact": 2,
   "title-prefix": 3,
   "title-word": 4,
-  category: 5,
-  fuzzy: 6,
+  brand: 5,
+  category: 6,
+  fuzzy: 7,
 };
 
 export type SearchIndexEntry = {
@@ -87,19 +92,26 @@ export type SearchIndexEntry = {
   titleWords: string[];
   normalizedSkus: string[];
   normalizedCategoryNames: string[];
+  // Empty for unbranded stock (Product.brand is never defaulted).
+  normalizedBrand: string;
+  brandWords: string[];
 };
 
 export function buildSearchIndexEntry(input: {
   title: string;
   skus: Array<string | null | undefined>;
   categoryNames: string[];
+  brand?: string | null;
 }): SearchIndexEntry {
   const normalizedTitle = normalizeSearchText(input.title);
+  const normalizedBrand = normalizeSearchText(input.brand ?? "");
   return {
     normalizedTitle,
     titleWords: normalizedTitle.split(" ").filter(Boolean),
     normalizedSkus: input.skus.filter((s): s is string => Boolean(s)).map(normalizeSearchText),
     normalizedCategoryNames: input.categoryNames.map(normalizeSearchText),
+    normalizedBrand,
+    brandWords: normalizedBrand.split(" ").filter(Boolean),
   };
 }
 
@@ -115,6 +127,14 @@ function baseMatchTier(normalizedQuery: string, entry: SearchIndexEntry): Search
   if (entry.normalizedTitle === normalizedQuery) return "title-exact";
   if (entry.normalizedTitle.startsWith(normalizedQuery)) return "title-prefix";
   if (entry.titleWords.some((w) => w.startsWith(normalizedQuery))) return "title-word";
+  // Whole brand ("calfer gas") or any word of it ("gas"), from its start —
+  // same prefix rule as the title tiers above.
+  if (
+    entry.normalizedBrand &&
+    (entry.normalizedBrand.startsWith(normalizedQuery) || entry.brandWords.some((w) => w.startsWith(normalizedQuery)))
+  ) {
+    return "brand";
+  }
   if (entry.normalizedCategoryNames.some((c) => c.includes(normalizedQuery))) return "category";
 
   // Only bother fuzzy-matching once the query is long enough that a 1-2
@@ -125,7 +145,8 @@ function baseMatchTier(normalizedQuery: string, entry: SearchIndexEntry): Search
     const threshold = wordDistanceThreshold(normalizedQuery.length);
     const fuzzyTitle = entry.titleWords.some((w) => withinLevenshteinDistance(normalizedQuery, w, threshold));
     const fuzzySku = entry.normalizedSkus.some((sku) => withinLevenshteinDistance(normalizedQuery, sku, threshold));
-    if (fuzzyTitle || fuzzySku) return "fuzzy";
+    const fuzzyBrand = entry.brandWords.some((w) => withinLevenshteinDistance(normalizedQuery, w, threshold));
+    if (fuzzyTitle || fuzzySku || fuzzyBrand) return "fuzzy";
   }
 
   return null;

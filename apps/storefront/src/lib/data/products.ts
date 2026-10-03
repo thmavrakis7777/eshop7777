@@ -156,6 +156,7 @@ export async function searchProducts(
         title: product.title,
         skus: product.variants.map((v) => v.code),
         categoryNames: categoryName ? [categoryName] : [],
+        brand: product.brand,
       });
       return { entry, item: product, tieBreak: entry.normalizedTitle, isBoosted: boosted.has(product.id) };
     })
