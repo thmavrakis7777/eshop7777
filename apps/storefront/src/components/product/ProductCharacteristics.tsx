@@ -7,17 +7,28 @@ import { formatDimensions, formatWeight } from "@/lib/format";
 // all when `characteristics` is null, which is the honest state for every
 // real product today — see PRODUCT_CARD_WISHLIST_PDP_SPEC.md §4 for why
 // this ships empty rather than with invented specs.
-export function ProductCharacteristics({ characteristics }: { characteristics: Characteristics | null }) {
-  if (!characteristics) return null;
+//
+// Brand comes in separately (it lives on Product, not in the attribute
+// set) and leads the list when entered — for hardware it is often what a
+// shopper checks first. Unbranded stock shows no row, never the store name.
+export function ProductCharacteristics({
+  characteristics,
+  brand,
+}: {
+  characteristics: Characteristics | null;
+  brand?: string;
+}) {
+  if (!characteristics && !brand) return null;
 
-  const dimensions = formatDimensions(characteristics);
+  const dimensions = characteristics ? formatDimensions(characteristics) : null;
   const rows: Array<[string, string]> = [
-    characteristics.material ? (["Υλικό", characteristics.material] as [string, string]) : null,
-    characteristics.weightGrams != null
+    brand ? (["Μάρκα", brand] as [string, string]) : null,
+    characteristics?.material ? (["Υλικό", characteristics.material] as [string, string]) : null,
+    characteristics?.weightGrams != null
       ? (["Βάρος", formatWeight(characteristics.weightGrams)] as [string, string])
       : null,
     dimensions ? (["Διαστάσεις", dimensions] as [string, string]) : null,
-    characteristics.originCountry ? (["Χώρα προέλευσης", characteristics.originCountry] as [string, string]) : null,
+    characteristics?.originCountry ? (["Χώρα προέλευσης", characteristics.originCountry] as [string, string]) : null,
   ].filter((row): row is [string, string] => row !== null);
 
   if (rows.length === 0) return null;

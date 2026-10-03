@@ -287,7 +287,7 @@ export default async function ProductPage({ params }: Props) {
         </section>
       )}
 
-      <ProductCharacteristics characteristics={product.characteristics} />
+      <ProductCharacteristics characteristics={product.characteristics} brand={product.brand} />
       <ProductWarranty extra={extra} />
 
       <Suspense fallback={<ProductRailSkeleton title="Σχετικά προϊόντα" />}>
