@@ -352,13 +352,20 @@ export async function reorderProductImages(productId: string, imageIds: string[]
 }
 
 /**
- * The alt_text column has existed since 0001_init.sql, but until now
- * nothing ever wrote to it — addProductImage() accepts an altText argument
- * no caller ever passed. First real write path, added for the AI SEO tool
- * but usable by any future manual alt-text editor too.
+ * The one write path for a photo's alt text: the AI SEO tool (main photo
+ * only) and the editor's per-photo field both go through here. Null clears
+ * it, and the storefront then falls back to the product's title
+ * (ProductGallery). Scoped to the product like deleteProductImage, so a
+ * stale or crafted id can't touch another product's photo.
  */
-export async function updateProductImageAlt(imageId: string, altText: string): Promise<void> {
-  await sql`UPDATE shop.product_image SET alt_text = ${altText} WHERE id = ${imageId}`;
+export async function updateProductImageAlt(
+  productId: string,
+  imageId: string,
+  altText: string | null
+): Promise<void> {
+  await sql`
+    UPDATE shop.product_image SET alt_text = ${altText}
+     WHERE id = ${imageId} AND product_id = ${productId}`;
 }
 
 // ---------------------------------------------------------------------------

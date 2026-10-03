@@ -169,7 +169,7 @@ export async function saveAiSeoContentAction(productId: string, fields: SaveAiSe
     });
 
     if (fields.imageAlt && built.primaryImageId) {
-      await updateProductImageAlt(built.primaryImageId, fields.imageAlt);
+      await updateProductImageAlt(productId, built.primaryImageId, fields.imageAlt);
     }
 
     await auditLog(admin.id, "product.ai_seo_save", "product", productId, { fields: providedFields });

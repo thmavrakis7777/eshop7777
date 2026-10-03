@@ -2,7 +2,11 @@
 
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { deleteProductImageAction, reorderProductImagesAction } from "@/lib/admin/catalog-actions";
+import {
+  deleteProductImageAction,
+  reorderProductImagesAction,
+  updateProductImageAltAction,
+} from "@/lib/admin/catalog-actions";
 import { uploadProductPhotos } from "@/lib/admin/upload-product-photos";
 import { publicImageUrl } from "@/lib/storage/urls";
 import type { AdminProductImage } from "@/lib/admin/products";
@@ -21,8 +25,20 @@ const hint = "text-xs text-ink-muted";
  * picked (upload-product-photos.ts). Every control sits on the thumbnail
  * itself and is always visible — the delete button used to appear only on
  * mouse hover, which a phone or tablet never has.
+ *
+ * Under each thumbnail is that photo's alt text. It belongs to the photo,
+ * not the product, so a replaced photo starts empty — visible here rather
+ * than lost unseen, as the AI tool's alt was when a main photo was swapped.
  */
-export function ProductImageManager({ productId, images }: { productId: string; images: AdminProductImage[] }) {
+export function ProductImageManager({
+  productId,
+  productTitle,
+  images,
+}: {
+  productId: string;
+  productTitle: string;
+  images: AdminProductImage[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [shown, setShown] = useOptimistic(images);
@@ -78,84 +94,94 @@ export function ProductImageManager({ productId, images }: { productId: string; 
           {shown.map((img, i) => {
             const url = publicImageUrl(img.storagePath);
             return (
-              <li key={img.id} className="relative">
-                {url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- admin media-library thumbnail, arbitrary uploaded path.
-                  <img
-                    src={url}
-                    alt={img.altText ?? ""}
-                    className="aspect-square w-full rounded-md border border-border object-cover"
-                  />
-                ) : (
-                  <div className="aspect-square w-full rounded-md border border-border bg-surface" />
-                )}
+              <li key={img.id}>
+                <div className="relative">
+                  {url ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- admin media-library thumbnail, arbitrary uploaded path.
+                    <img
+                      src={url}
+                      alt={img.altText ?? ""}
+                      className="aspect-square w-full rounded-md border border-border object-cover"
+                    />
+                  ) : (
+                    <div className="aspect-square w-full rounded-md border border-border bg-surface" />
+                  )}
 
-                {i === 0 ? (
-                  <span className="absolute left-1 top-1 rounded-sm bg-ink px-1.5 py-0.5 text-[10px] font-medium text-bg">
-                    Κύρια
-                  </span>
-                ) : (
+                  {i === 0 ? (
+                    <span className="absolute left-1 top-1 rounded-sm bg-ink px-1.5 py-0.5 text-[10px] font-medium text-bg">
+                      Κύρια
+                    </span>
+                  ) : (
+                    <ThumbButton
+                      className="absolute left-1 top-1"
+                      label="Ορισμός ως κύρια εικόνα"
+                      disabled={working}
+                      onClick={() => move(i, 0)}
+                    >
+                      ☆
+                    </ThumbButton>
+                  )}
                   <ThumbButton
-                    className="absolute left-1 top-1"
-                    label="Ορισμός ως κύρια εικόνα"
+                    className="absolute right-1 top-1"
+                    danger
+                    label="Διαγραφή εικόνας"
                     disabled={working}
-                    onClick={() => move(i, 0)}
+                    onClick={() => setConfirming(img.id)}
                   >
-                    ☆
+                    ×
                   </ThumbButton>
-                )}
-                <ThumbButton
-                  className="absolute right-1 top-1"
-                  danger
-                  label="Διαγραφή εικόνας"
-                  disabled={working}
-                  onClick={() => setConfirming(img.id)}
-                >
-                  ×
-                </ThumbButton>
-                {shown.length > 1 && (
-                  <div className="absolute inset-x-1 bottom-1 flex justify-between">
-                    {i > 0 ? (
-                      <ThumbButton label="Μετακίνηση αριστερά" disabled={working} onClick={() => move(i, i - 1)}>
-                        ‹
-                      </ThumbButton>
-                    ) : (
-                      <span />
-                    )}
-                    {i < shown.length - 1 && (
-                      <ThumbButton label="Μετακίνηση δεξιά" disabled={working} onClick={() => move(i, i + 1)}>
-                        ›
-                      </ThumbButton>
-                    )}
-                  </div>
-                )}
-
-                {confirming === img.id && (
-                  <div
-                    role="alertdialog"
-                    aria-label="Επιβεβαίωση διαγραφής εικόνας"
-                    className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-md border border-danger/40 bg-bg/95 p-1"
-                  >
-                    <span className="text-xs font-medium text-ink">Διαγραφή;</span>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        autoFocus
-                        onClick={() => remove(img.id)}
-                        className="rounded-sm bg-danger px-2 py-0.5 text-xs font-medium text-bg"
-                      >
-                        Ναι
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirming(null)}
-                        className="rounded-sm border border-border px-2 py-0.5 text-xs text-ink"
-                      >
-                        Όχι
-                      </button>
+                  {shown.length > 1 && (
+                    <div className="absolute inset-x-1 bottom-1 flex justify-between">
+                      {i > 0 ? (
+                        <ThumbButton label="Μετακίνηση αριστερά" disabled={working} onClick={() => move(i, i - 1)}>
+                          ‹
+                        </ThumbButton>
+                      ) : (
+                        <span />
+                      )}
+                      {i < shown.length - 1 && (
+                        <ThumbButton label="Μετακίνηση δεξιά" disabled={working} onClick={() => move(i, i + 1)}>
+                          ›
+                        </ThumbButton>
+                      )}
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {confirming === img.id && (
+                    <div
+                      role="alertdialog"
+                      aria-label="Επιβεβαίωση διαγραφής εικόνας"
+                      className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-md border border-danger/40 bg-bg/95 p-1"
+                    >
+                      <span className="text-xs font-medium text-ink">Διαγραφή;</span>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          autoFocus
+                          onClick={() => remove(img.id)}
+                          className="rounded-sm bg-danger px-2 py-0.5 text-xs font-medium text-bg"
+                        >
+                          Ναι
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirming(null)}
+                          className="rounded-sm border border-border px-2 py-0.5 text-xs text-ink"
+                        >
+                          Όχι
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <AltInput
+                  productId={productId}
+                  image={img}
+                  index={i}
+                  fallback={productTitle}
+                  disabled={working}
+                  onError={(e) => setErrors(e ? [e] : [])}
+                />
               </li>
             );
           })}
@@ -184,6 +210,83 @@ export function ProductImageManager({ productId, images }: { productId: string; 
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * Saves on blur or Enter, like the variant fields — there is no save button
+ * for photos. Empty is allowed: the storefront then uses the product title,
+ * which the placeholder shows.
+ */
+function AltInput({
+  productId,
+  image,
+  index,
+  fallback,
+  disabled,
+  onError,
+}: {
+  productId: string;
+  image: AdminProductImage;
+  index: number;
+  fallback: string;
+  disabled: boolean;
+  onError: (error: string | null) => void;
+}) {
+  const router = useRouter();
+  const [draft, setDraft] = useState(image.altText ?? "");
+  const [saving, startSaving] = useTransition();
+  const [saved, setSaved] = useState(false);
+  // Follows a change made elsewhere (the AI tool saving the main photo's
+  // alt) — adjusting state during render, same pattern as AddToCartButton.
+  const [stored, setStored] = useState(image.altText);
+  if (image.altText !== stored) {
+    setStored(image.altText);
+    setDraft(image.altText ?? "");
+  }
+
+  function commit() {
+    const next = draft.replace(/\s+/g, " ").trim();
+    setDraft(next);
+    if (next === (image.altText ?? "")) return;
+    setSaved(false);
+    startSaving(async () => {
+      const result = await updateProductImageAltAction(productId, image.id, next);
+      if (!result.ok) {
+        onError(result.error);
+        return;
+      }
+      onError(null);
+      setSaved(true);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="mt-1">
+      <input
+        type="text"
+        value={draft}
+        maxLength={150}
+        disabled={disabled || saving}
+        placeholder={fallback}
+        aria-label={`Alt κείμενο εικόνας ${index + 1}`}
+        title="Περιγραφή της φωτογραφίας για Google και αναγνώστες οθόνης. Κενό = το όνομα του προϊόντος."
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setSaved(false);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
+        className="w-full rounded-sm border border-border bg-bg px-1.5 py-1 text-xs text-ink outline-none placeholder:text-ink-muted/60 focus:border-ink disabled:opacity-50"
+      />
+      <p className="mt-0.5 text-[10px] text-ink-muted">{saving ? "Αποθήκευση…" : saved ? "Αποθηκεύτηκε ✓" : "Alt"}</p>
     </div>
   );
 }

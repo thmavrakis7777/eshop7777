@@ -382,7 +382,7 @@ export function ProductEditor({
 
           <Panel title="Εικόνες">
             <div data-own-save>
-              <ProductImageManager productId={product.id} images={product.images} />
+              <ProductImageManager productId={product.id} productTitle={product.title} images={product.images} />
             </div>
           </Panel>
         </div>

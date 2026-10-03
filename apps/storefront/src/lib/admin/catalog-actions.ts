@@ -22,6 +22,7 @@ import {
   saveVariant,
   slugify,
   updateProduct,
+  updateProductImageAlt,
 } from "@/lib/admin/products";
 import { createMediaAsset } from "@/lib/admin/cms";
 import { uploadImage, UploadError } from "@/lib/storage/upload";
@@ -500,6 +501,45 @@ export async function deleteProductImageAction(productId: string, imageId: strin
   revalidatePath("/", "layout");
   updateTag(META_FEED_CACHE_TAG);
   return { ok: true, message: "Η εικόνα διαγράφηκε." };
+}
+
+/** Longer than an alt text needs (~125 is the usual advice); a cap, not a target. */
+const IMAGE_ALT_MAX = 150;
+
+/**
+ * The editor's per-photo alt field. The text lives on the photo itself, so
+ * replacing a photo starts the new one empty (that is how the AI tool's alt
+ * used to vanish unseen when the main photo was swapped) — this field shows
+ * it and lets the admin fill it in again. Empty clears it back to the
+ * product title fallback.
+ */
+export async function updateProductImageAltAction(
+  productId: string,
+  imageId: string,
+  altText: string
+): Promise<ActionResult> {
+  let admin;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+  if (typeof altText !== "string") {
+    return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
+  }
+  const alt = altText.replace(/\s+/g, " ").trim();
+  if (alt.length > IMAGE_ALT_MAX) {
+    return { ok: false, error: `Το alt είναι πολύ μεγάλο (έως ${IMAGE_ALT_MAX} χαρακτήρες).` };
+  }
+  try {
+    await updateProductImageAlt(productId, imageId, alt || null);
+    await auditLog(admin.id, "product.image_alt", "product", productId, { imageId });
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Το alt αποθηκεύτηκε." };
 }
 
 /**
