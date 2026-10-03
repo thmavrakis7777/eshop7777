@@ -1,5 +1,6 @@
 import "server-only";
 import type { Metadata } from "next";
+import { isEmptyListing } from "@/lib/category-visibility";
 import { categoryPathHref, getCategoryPath } from "@/lib/data/categories";
 import { getSeoOverride } from "@/lib/data/seo";
 import { canonicalListingPath, hasAnyFilterParam, parsePage } from "@/lib/search-params";
@@ -48,8 +49,11 @@ export async function categoryMetadata(
   // Filtered URLs (?material=..., ?price_min=..., etc.) must stay crawlable
   // (internal links still followed) but never indexed — same treatment as an
   // admin-set noindex — or every filter combination becomes a duplicate URL
-  // competing with the one real, canonical category page.
-  const noindex = seo?.robots === "noindex" || hasAnyFilterParam(searchParams);
+  // competing with the one real, canonical category page. A category with
+  // no products in it or below it gets the same treatment until its first
+  // product arrives (isEmptyListing) — still followed, so its links keep
+  // working for crawlers, just not offered as a search result.
+  const noindex = seo?.robots === "noindex" || hasAnyFilterParam(searchParams) || isEmptyListing(category);
   // Falls back to the category's own uploaded image when no admin override
   // is set — found missing in a full project audit (mirrors the pattern
   // journal/[slug]/page.tsx already uses; product pages just got the same

@@ -64,6 +64,15 @@ export async function CategoryRoute({
     ? { label: parent.name, href: categoryPathHref(ancestors.slice(0, -1), parent) }
     : { label: "Αρχική", href: "/" };
 
+  // «Δείτε επίσης» on a leaf: everything the parent's own picker lists
+  // (displayChildren — cross-listed entries included, each at its canonical
+  // URL), minus this page. A category with subcategories doesn't get it — it
+  // already shows those above the grid — and neither does a top-level one.
+  const relatedCategories =
+    parent && category.displayChildren.length === 0
+      ? toChildLinks(parent.displayChildren.filter((c) => c.id !== category.id))
+      : undefined;
+
   return (
     <CategoryPLPView
       title={category.name}
@@ -83,6 +92,7 @@ export async function CategoryRoute({
       // "Shop by category" entering a main category; "choose a type" once
       // you are already inside one and picking a narrower kind of thing.
       childNavTitle={ancestors.length === 0 ? "Αγόρασε ανά κατηγορία" : "Διάλεξε τύπο"}
+      relatedCategories={relatedCategories}
       parentLink={parentLink}
       products={products}
       count={count}

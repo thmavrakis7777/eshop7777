@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
 import { CategoryChildNav, type ChildCategoryLink } from "@/components/category/CategoryChildNav";
+import { CategorySeeAlso } from "@/components/category/CategorySeeAlso";
 import { SortControl } from "@/components/category/SortControl";
 import { CategoryFilterSidebar } from "@/components/category/CategoryFilterSidebar";
 import { CategoryFilterDrawer } from "@/components/category/CategoryFilterDrawer";
@@ -9,6 +10,7 @@ import { renderBody } from "@/components/content/ContentPageView";
 import { InfiniteProductGrid, type ProductSource } from "@/components/category/InfiniteProductGrid";
 import type { Product } from "@/lib/types";
 import type { CategoryFacets, CategoryFilters, ProductSort } from "@/lib/data/products";
+import { descriptionPlainText } from "@/lib/category-visibility";
 import { safeJsonLd } from "@/lib/json-ld";
 import { siteUrl } from "@/lib/site-config";
 
@@ -26,6 +28,7 @@ export async function CategoryPLPView({
   breadcrumbs,
   childCategories,
   childNavTitle,
+  relatedCategories,
   parentLink,
   longDescription,
   products,
@@ -47,6 +50,12 @@ export async function CategoryPLPView({
   /** Direct children of the category being viewed — never the whole subtree. */
   childCategories?: ChildCategoryLink[];
   childNavTitle?: string;
+  /**
+   * «Δείτε επίσης» — the other subcategories of the same parent, shown after
+   * the products. CategoryRoute only passes it for a leaf category; a page
+   * with its own subcategories already lists those above the grid.
+   */
+  relatedCategories?: Pick<ChildCategoryLink, "name" | "href">[];
   /**
    * Where "up one level" goes. Offered again beside the empty state because
    * a shopper who lands on a category with nothing in it is looking at the
@@ -100,13 +109,18 @@ export async function CategoryPLPView({
   collectionUrl?: string;
 }) {
   const nonce = collectionUrl ? ((await headers()).get("x-nonce") ?? undefined) : undefined;
+  // The visible text that describes this listing: the short subtitle where a
+  // listing type has one, otherwise the category copy shown under the grid
+  // (category pages have only that). Structured data must describe what is
+  // on the page, so it is that text, never the meta description.
+  const schemaDescription = descriptionPlainText(description) ?? descriptionPlainText(longDescription);
   const collectionJsonLd = collectionUrl
     ? {
         "@context": "https://schema.org",
         "@type": "CollectionPage",
         name: title,
         url: collectionUrl,
-        ...(description ? { description } : {}),
+        ...(schemaDescription ? { description: schemaDescription } : {}),
         mainEntity: {
           "@type": "ItemList",
           numberOfItems: count,
@@ -176,6 +190,8 @@ export async function CategoryPLPView({
             )}
           </div>
         </div>
+
+        {relatedCategories && <CategorySeeAlso items={relatedCategories} />}
 
         {longDescription && (
           <section className="mt-14 max-w-3xl border-t border-border pt-8">

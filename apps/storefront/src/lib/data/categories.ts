@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { sql } from "@/lib/db/client";
+import { isEmptyListing } from "@/lib/category-visibility";
 import type { Category, CategoryNode, FaqItem, MenuCategory, MenuNavCategory, NavCategory } from "@/lib/types";
 
 // Invalidated by category/collection admin saves (taxonomy-actions.ts).
@@ -342,6 +343,80 @@ export async function getCategoryTrail(handle: string): Promise<CategoryNode[] |
     return undefined;
   };
   return find(await getCategoryTree(), []);
+}
+
+/**
+ * Ids of the categories kept out of search results right now (isEmptyListing)
+ * — the admin category list labels them, so the owner can see which pages
+ * Google is told to skip and why. Reads the same cached tree the storefront
+ * renders from, so the label and the page's real robots tag can't disagree.
+ */
+export async function getEmptyListingCategoryIds(): Promise<string[]> {
+  const ids: string[] = [];
+  const walk = (nodes: CategoryNode[]) => {
+    for (const node of nodes) {
+      if (isEmptyListing(node)) ids.push(node.id);
+      walk(node.children);
+    }
+  };
+  walk(await getCategoryTree());
+  return ids;
+}
+
+/**
+ * When each active category's page last changed in a way a crawler should
+ * care about — the sitemap's <lastmod>. The latest of:
+ *
+ * - the category's own content_updated_at (name, URL, description, image,
+ *   FAQ…; migration 0035 — deliberately not updated_at, which also moves on a
+ *   reorder or a save that changed nothing),
+ * - its direct children's content_updated_at, since the page lists them by
+ *   name and link,
+ * - its SEO row's content_updated_at (title, meta description, robots…),
+ * - the newest updated_at of any product in it or below it, active or not —
+ *   adding, editing or deactivating a product changes what the listing
+ *   shows. Every write to shop.product is an admin action (prices and stock
+ *   live on product_variant, so a sale doesn't move this).
+ *
+ * All of it comes from the database, so a deployment never moves a date.
+ * Not cached: only the sitemap reads it, and the sitemap itself is.
+ */
+export async function getCategoryLastModified(): Promise<Map<string, Date>> {
+  const rows = await sql<{ id: string; last_modified: Date }[]>`
+    WITH RECURSIVE sub AS (
+      SELECT c.id AS root_id, c.id FROM shop.category c WHERE c.is_active
+      UNION ALL
+      -- Same subtree walk as fetchAllCategories (parent_id plus cross-listing
+      -- edges, joined to sub once — see the comment there for why).
+      SELECT s.root_id, c.id
+        FROM sub s
+        JOIN (
+          SELECT id, parent_id AS parent FROM shop.category WHERE is_active
+          UNION ALL
+          SELECT category_id AS id, parent_category_id AS parent FROM shop.category_secondary_parent
+        ) edges ON edges.parent = s.id
+        JOIN shop.category c ON c.id = edges.id AND c.is_active
+    ),
+    product_changes AS (
+      SELECT s.root_id, MAX(p.updated_at) AS at
+        FROM sub s
+        JOIN shop.product p ON p.category_id = s.id
+       GROUP BY s.root_id
+    ),
+    child_changes AS (
+      SELECT parent_id AS id, MAX(content_updated_at) AS at
+        FROM shop.category
+       WHERE parent_id IS NOT NULL
+       GROUP BY parent_id
+    )
+    SELECT c.id,
+           GREATEST(c.content_updated_at, ch.at, seo.content_updated_at, pc.at) AS last_modified
+      FROM shop.category c
+      LEFT JOIN child_changes ch ON ch.id = c.id
+      LEFT JOIN shop.seo_meta seo ON seo.resource_type = 'category' AND seo.resource_id = c.id::text
+      LEFT JOIN product_changes pc ON pc.root_id = c.id
+     WHERE c.is_active`;
+  return new Map(rows.map((r) => [r.id, r.last_modified]));
 }
 
 /** The canonical path for a category, given its ancestor chain. */

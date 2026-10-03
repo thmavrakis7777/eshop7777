@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { countDynamicCollections } from "@/lib/admin/products";
 import { listCategoryTree } from "@/lib/admin/taxonomy";
+import { getEmptyListingCategoryIds } from "@/lib/data/categories";
 import { getNewArrivalWindowDays } from "@/lib/db/catalog";
 import { CategoryManager } from "@/components/admin/CategoryManager";
 import { DynamicCollections } from "@/components/admin/DynamicCollections";
@@ -9,10 +10,11 @@ import { PageHeader } from "@/components/admin/ui/primitives";
 export const metadata = { title: "Κατηγορίες" };
 
 export default async function AdminCategoriesPage() {
-  const [categories, dynamicCounts, newArrivalWindowDays] = await Promise.all([
+  const [categories, dynamicCounts, newArrivalWindowDays, hiddenFromSearchIds] = await Promise.all([
     listCategoryTree(),
     countDynamicCollections(),
     getNewArrivalWindowDays(),
+    getEmptyListingCategoryIds(),
   ]);
   const topLevel = categories.filter((c) => c.depth === 0).length;
 
@@ -40,7 +42,7 @@ export default async function AdminCategoriesPage() {
         <p className="mb-3 text-xs text-ink-muted">
           Χειροκίνητες — εσύ αποφασίζεις ποιο προϊόν ανήκει πού.
         </p>
-        <CategoryManager categories={categories} />
+        <CategoryManager categories={categories} hiddenFromSearchIds={hiddenFromSearchIds} />
       </section>
     </>
   );

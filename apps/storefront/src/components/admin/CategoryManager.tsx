@@ -35,7 +35,20 @@ function slugFromName(name: string): string {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 }
 
-export function CategoryManager({ categories }: { categories: AdminCategory[] }) {
+export function CategoryManager({
+  categories,
+  hiddenFromSearchIds = [],
+}: {
+  categories: AdminCategory[];
+  /**
+   * Categories the storefront currently keeps out of Google (no active
+   * product in them or below — lib/category-visibility.ts). Shown as a label
+   * so the owner sees which pages are hidden and why; it lifts by itself
+   * once a product is added, nothing to switch back here.
+   */
+  hiddenFromSearchIds?: string[];
+}) {
+  const hiddenFromSearch = new Set(hiddenFromSearchIds);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<string | null>(null);
@@ -103,7 +116,7 @@ export function CategoryManager({ categories }: { categories: AdminCategory[] })
             <div key={c.id} className="border-b border-border last:border-b-0">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 transition-colors hover:bg-surface">
                 <div className="min-w-0 flex-1" style={{ paddingLeft: `${c.depth * 1.5}rem` }}>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     {/* ├ while more siblings follow, └ on the last one — the
                         same shape a file tree uses, so parent/child/grandchild
                         reads at a glance instead of from indentation alone. */}
@@ -115,6 +128,14 @@ export function CategoryManager({ categories }: { categories: AdminCategory[] })
                     <span className={c.depth === 0 ? "font-medium text-ink" : "text-ink"}>{c.name}</span>
                     {!c.isActive && (
                       <span className="rounded-sm bg-surface px-1.5 py-0.5 text-xs text-ink-muted">Ανενεργή</span>
+                    )}
+                    {hiddenFromSearch.has(c.id) && (
+                      <span
+                        className="rounded-sm bg-surface px-1.5 py-0.5 text-xs text-ink-muted"
+                        title="Δεν έχει ενεργά προϊόντα, οπότε η Google δεν την εμφανίζει στα αποτελέσματα. Εμφανίζεται ξανά αυτόματα μόλις προστεθεί το πρώτο προϊόν. Οι επισκέπτες τη βλέπουν κανονικά."
+                      >
+                        Κρυφή από Google (χωρίς προϊόντα)
+                      </span>
                     )}
                   </div>
                   <div className="text-xs text-ink-muted">/{c.slug}</div>

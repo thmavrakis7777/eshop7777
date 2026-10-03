@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { getNavCategories } from "@/lib/data/categories";
+import { isEmptyListing } from "@/lib/category-visibility";
+import { getCategoryLastModified, getNavCategories } from "@/lib/data/categories";
 import { getContentPage } from "@/lib/data/content-pages";
 import { getJournalSitemapEntries } from "@/lib/data/journal";
 import { getAllCollectionHandles, getAllProductHandles } from "@/lib/data/products";
@@ -49,15 +50,24 @@ const baseRoutes: MetadataRoute.Sitemap = [
 // request-time rendered) — an unreachable database must degrade to the
 // always-available static routes instead of failing the whole production
 // build.
+//
+// Regenerated at most once an hour after that. Without `revalidate` the
+// build-time copy was served until the next deployment, so a product or
+// category added in the dashboard (or a category leaving the empty state)
+// never reached the sitemap until someone happened to deploy.
+export const revalidate = 3600;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let navCategories: Awaited<ReturnType<typeof getNavCategories>>;
+  let categoryLastModified: Awaited<ReturnType<typeof getCategoryLastModified>>;
   let productHandles: Awaited<ReturnType<typeof getAllProductHandles>>;
   let collectionHandles: Awaited<ReturnType<typeof getAllCollectionHandles>>;
   let contentPages: { slug: (typeof CONTENT_PAGE_SLUGS)[number]; page: unknown }[];
   let journal: Awaited<ReturnType<typeof getJournalSitemapEntries>>;
   try {
-    [navCategories, productHandles, collectionHandles, contentPages, journal] = await Promise.all([
+    [navCategories, categoryLastModified, productHandles, collectionHandles, contentPages, journal] = await Promise.all([
       getNavCategories(),
+      getCategoryLastModified(),
       getAllProductHandles(),
       getAllCollectionHandles(),
       Promise.all(CONTENT_PAGE_SLUGS.map(async (slug) => ({ slug, page: await getContentPage(slug) }))),
@@ -82,15 +92,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // two levels, which silently left every sub-subcategory out of the
   // sitemap. Priority tapers with depth: a main category is a more important
   // entry point than a leaf, but a leaf is still a real, indexable page.
+  //
+  // A category with no products in it or below it is left out — its page is
+  // noindex until the first product arrives (isEmptyListing), and a sitemap
+  // must only offer pages that may be indexed (Search Console reports a
+  // listed noindex URL as an error). That is the difference from /prosfores
+  // above, which stays indexable while empty. The walk still descends into
+  // it; its children are empty too, but the rule stays per-category rather
+  // than assuming that.
+  //
+  // lastModified is when the page's content last really changed
+  // (getCategoryLastModified) — never the build or request time, which would
+  // tell crawlers everything changed on every deployment.
   const categoryRoutes: MetadataRoute.Sitemap = [];
   const walk = (nodes: CategoryNode[], prefix: string, depth: number) => {
     for (const node of nodes) {
       const url = `${prefix}/${node.handle}`;
-      categoryRoutes.push({
-        url: `${siteUrl}${url}`,
-        changeFrequency: "weekly",
-        priority: Math.max(0.9 - depth * 0.2, 0.5),
-      });
+      if (!isEmptyListing(node)) {
+        const lastModified = categoryLastModified.get(node.id);
+        categoryRoutes.push({
+          url: `${siteUrl}${url}`,
+          ...(lastModified ? { lastModified } : {}),
+          changeFrequency: "weekly",
+          priority: Math.max(0.9 - depth * 0.2, 0.5),
+        });
+      }
       walk(node.children, url, depth + 1);
     }
   };
