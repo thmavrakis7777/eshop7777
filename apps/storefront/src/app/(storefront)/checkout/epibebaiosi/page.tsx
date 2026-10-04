@@ -8,6 +8,7 @@ import { paymentMethodLabel } from "@/lib/order-status-labels";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 import { OrderStatusBadge } from "@/components/account/OrderStatusBadge";
 import { PurchaseTracker } from "@/components/checkout/PurchaseTracker";
+import { ON_ORDER_DELIVERY_TEXT } from "@/lib/stock";
 
 // The explicit canonical matters even on a noindex page: without it this
 // route inherits the root layout's `canonical: "/"` and tells crawlers the
@@ -78,6 +79,7 @@ export default async function OrderConfirmationPage({
                     Ποσ.: {item.quantity} × {formatPrice(item.unitPrice)}
                     {item.sku && <span className="font-mono"> · {item.sku}</span>}
                   </span>
+                  {item.onOrderQuantity > 0 && <span className="text-xs text-accent">{ON_ORDER_DELIVERY_TEXT}</span>}
                 </div>
                 <span className="shrink-0 text-sm text-ink tabular-nums">{formatPrice(item.total)}</span>
               </li>

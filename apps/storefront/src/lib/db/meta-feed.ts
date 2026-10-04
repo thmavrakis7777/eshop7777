@@ -32,7 +32,8 @@ export type MetaFeedRow = {
   itemGroupId: string | null; // set only when the product has >1 active variant
   title: string;
   description: string;
-  availability: "in stock" | "out of stock";
+  // Meta's own values; «Κατόπιν παραγγελίας» at stock 0 is "available for order".
+  availability: "in stock" | "available for order" | "out of stock";
   condition: "new";
   priceCents: number; // the ORIGINAL/regular price Meta shows struck through when on sale
   salePriceCents: number | null; // the current selling price, only when actually discounted
@@ -110,7 +111,7 @@ export async function getMetaFeedRows(): Promise<MetaFeedRow[]> {
       itemGroupId: r.active_variant_count > 1 ? r.slug : null,
       title: r.title,
       description: r.description ?? r.title,
-      availability: r.stock_quantity > 0 || r.allow_backorder ? "in stock" : "out of stock",
+      availability: r.stock_quantity > 0 ? "in stock" : r.allow_backorder ? "available for order" : "out of stock",
       condition: "new",
       priceCents,
       salePriceCents,

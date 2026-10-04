@@ -2,6 +2,7 @@ import "server-only";
 import { escapeHtml } from "@/lib/email/send-core";
 import { siteUrl } from "@/lib/site-config";
 import type { OrderEmailData } from "@/lib/db/order-email";
+import { ON_ORDER_DELIVERY_TEXT } from "@/lib/stock";
 
 /**
  * HTML builders for the two transactional emails. Split out of send.ts
@@ -19,6 +20,8 @@ const INK = "#1c1b19";
 const MUTED = "#6b6862";
 const BORDER = "#e7e5e1";
 const SURFACE = "#f6f5f3";
+// The storefront's --color-accent, used for the «Κατόπιν παραγγελίας» note.
+const ACCENT = "#b5502e";
 
 // Fixed by design (task spec) — the one intentionally hardcoded URL in these
 // templates; everything else in this file is order data.
@@ -45,6 +48,7 @@ function productRow(item: OrderEmailData["items"][number]): string {
       ${escapeHtml(item.title)}${item.variantTitle ? `<br><span style="font-size:12px;color:${MUTED}">${escapeHtml(item.variantTitle)}</span>` : ""}
       ${item.sku ? `<br><span style="font-size:11px;color:${MUTED}">SKU: ${escapeHtml(item.sku)}</span>` : ""}
       <br><span style="font-size:12px;color:${MUTED}">Ποσότητα: ${item.quantity} × ${money(item.unitPriceCents)}</span>
+      ${item.onOrderQuantity > 0 ? `<br><span style="font-size:12px;color:${ACCENT}">${escapeHtml(ON_ORDER_DELIVERY_TEXT)}</span>` : ""}
     </td>
     <td style="padding:12px 0;border-bottom:1px solid ${BORDER};font-size:14px;font-weight:600;color:${INK};text-align:right;white-space:nowrap" valign="top">
       ${money(item.lineTotalCents)}

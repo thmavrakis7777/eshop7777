@@ -143,6 +143,9 @@ export type AdminOrderDetail = {
     sku: string | null;
     productSlug: string | null;
     quantity: number;
+    // Units the shop must order from the supplier («Κατόπιν παραγγελίας»,
+    // fixed at checkout — lib/db/checkout.ts). 0 for ordinary lines.
+    backorderedQuantity: number;
     unitPriceCents: number;
     lineTotalCents: number;
   }>;
@@ -158,7 +161,8 @@ export async function getOrderDetail(id: string): Promise<AdminOrderDetail | nul
         SELECT json_agg(json_build_object(
           'id', i.id, 'productId', i.product_id, 'title', i.title,
           'variantTitle', i.variant_title, 'sku', i.sku, 'productSlug', i.product_slug,
-          'quantity', i.quantity, 'unitPriceCents', i.unit_price_cents,
+          'quantity', i.quantity, 'backorderedQuantity', i.backordered_quantity,
+          'unitPriceCents', i.unit_price_cents,
           'lineTotalCents', i.line_total_cents) ORDER BY i.id)
         FROM shop.order_item i WHERE i.order_id = o.id), '[]'::json) AS items,
       COALESCE((
@@ -241,10 +245,14 @@ export async function updateOrderStatus(
     // other than inside the same transaction as the status change would
     // allow a cancelled order whose stock was never returned.
     if (next === "cancelled") {
+      // Only the units that came off the shelf go back. On-order units
+      // («Κατόπιν παραγγελίας», backordered_quantity) were never in stock.
       const items = await tx<{ variant_id: string | null; quantity: number }[]>`
-        SELECT variant_id, quantity FROM shop.order_item WHERE order_id = ${orderId}`;
+        SELECT variant_id, quantity - backordered_quantity AS quantity
+          FROM shop.order_item WHERE order_id = ${orderId}`;
       for (const item of items) {
         if (!item.variant_id) continue; // product deleted since — nothing to restore
+        if (item.quantity <= 0) continue; // wholly on order — nothing was taken
         await tx`
           UPDATE shop.product_variant
              SET stock_quantity = stock_quantity + ${item.quantity}
@@ -338,10 +346,14 @@ export async function deleteOrderPermanently(
     if (!order) throw new OrderError("Order not found", "not_found");
 
     if (RESTORE_STOCK_STATUSES.includes(order.status)) {
+      // Only the units that came off the shelf go back. On-order units
+      // («Κατόπιν παραγγελίας», backordered_quantity) were never in stock.
       const items = await tx<{ variant_id: string | null; quantity: number }[]>`
-        SELECT variant_id, quantity FROM shop.order_item WHERE order_id = ${orderId}`;
+        SELECT variant_id, quantity - backordered_quantity AS quantity
+          FROM shop.order_item WHERE order_id = ${orderId}`;
       for (const item of items) {
         if (!item.variant_id) continue; // product deleted since — nothing to restore
+        if (item.quantity <= 0) continue; // wholly on order — nothing was taken
         await tx`
           UPDATE shop.product_variant
              SET stock_quantity = stock_quantity + ${item.quantity}

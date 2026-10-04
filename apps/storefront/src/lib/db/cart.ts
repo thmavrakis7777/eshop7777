@@ -5,6 +5,7 @@ import { publicImageUrl } from "@/lib/storage/urls";
 import { isHeraklionAddress } from "@/lib/heraklion";
 import { computeTotals, eur } from "@/lib/cart-totals";
 import type { Cart, CartLineItem } from "@/lib/types";
+import { isQuantityAvailable } from "@/lib/stock";
 
 /**
  * The cart engine. Replaces Medusa's cart module, its line-item adjustments,
@@ -374,7 +375,9 @@ export async function addItem(cartId: string, variantId: string, quantity: numbe
       SELECT quantity FROM shop.cart_item WHERE cart_id = ${cartId} AND variant_id = ${variantId}`;
     const desired = (existing?.quantity ?? 0) + quantity;
 
-    if (!v.allow_backorder && desired > v.stock_quantity) {
+    // lib/stock.ts: the stock is the limit, except a «Κατόπιν παραγγελίας»
+    // product at stock 0, which can be ordered in any quantity.
+    if (!isQuantityAvailable(desired, v.stock_quantity, v.allow_backorder)) {
       throw new CartError("Not enough stock", "insufficient_inventory");
     }
 
@@ -412,7 +415,7 @@ export async function updateItemQuantity(cartId: string, itemId: string, quantit
        WHERE i.id = ${itemId} AND i.cart_id = ${cartId}`;
 
     if (!row) throw new CartError("Line item not found", "not_found");
-    if (!row.allow_backorder && quantity > row.stock_quantity) {
+    if (!isQuantityAvailable(quantity, row.stock_quantity, row.allow_backorder)) {
       throw new CartError("Not enough stock", "insufficient_inventory");
     }
 

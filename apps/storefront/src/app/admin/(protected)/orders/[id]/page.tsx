@@ -103,6 +103,14 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                           <span className="font-medium text-ink">{item.title}</span>
                         )}
                         {item.sku && <div className="font-mono text-xs text-ink-muted">{item.sku}</div>}
+                        {/* Units sold at stock 0 on a «Κατόπιν παραγγελίας»
+                            product: to order from the supplier, and the
+                            customer is waiting for a call about the date. */}
+                        {item.backorderedQuantity > 0 && (
+                          <div className="mt-1 inline-block rounded-sm bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent">
+                            Κατόπιν παραγγελίας: {item.backorderedQuantity} τεμ. — παράγγειλέ τα από τον προμηθευτή
+                          </div>
+                        )}
                       </td>
                       <td className="border-b border-border px-4 py-3 text-right tabular-nums">{item.quantity}</td>
                       <td className="border-b border-border px-4 py-3 text-right tabular-nums text-ink-muted">

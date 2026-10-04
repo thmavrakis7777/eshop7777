@@ -401,10 +401,9 @@ export async function saveVariantAction(productId: string, formData: FormData): 
         compareAtPriceCents: compareAt,
         stockQuantity,
         stockBefore,
-        // The store sells only what is on the shelf — no backorders. Forced
-        // here rather than read from the form, so no request can switch it on;
-        // migration 0033 enforces the same rule in the database.
-        allowBackorder: false,
+        // «Κατόπιν παραγγελίας»: the owner's per-product choice (0036 lifted
+        // 0033's ban). Only takes effect at stock 0 — lib/stock.ts.
+        allowBackorder: formData.get("allowBackorder") === "on",
         isActive: formData.get("variantActive") !== "off",
       },
       admin.id

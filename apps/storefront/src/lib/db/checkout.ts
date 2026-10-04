@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { sql } from "@/lib/db/client";
 import { computeTotals } from "@/lib/cart-totals";
 import { isHeraklionAddress } from "@/lib/heraklion";
+import { isQuantityAvailable } from "@/lib/stock";
 import {
   LOYALTY_REWARD_DEFAULT_EXPIRY_DAYS,
   LOYALTY_REWARD_THRESHOLD_CENTS,
@@ -201,19 +202,34 @@ export async function completeOrder(
       },
     });
 
-    // --- Stock. The WHERE clause is the concurrency control: two concurrent
-    // transactions cannot both satisfy `stock_quantity >= quantity` for the
-    // last unit, because the second blocks on the first's row lock and then
-    // re-evaluates against the committed value. A read-then-write would let
-    // both through.
+    // --- Stock. Each variant's row is locked (FOR UPDATE) as it is read, so
+    // a concurrent checkout for the last unit waits here until this
+    // transaction ends and then reads the committed value — the read and
+    // the write below cannot interleave. (An unlocked read-then-write would
+    // let both through; the lock is what makes this one safe.)
+    //
+    // A «Κατόπιν παραγγελίας» product at stock 0 (lib/stock.ts) sells
+    // without touching stock, which never goes below 0 (0026): those units
+    // are recorded on the order line as backordered_quantity (0036) for the
+    // admin, the emails and a later cancellation. The split is general —
+    // shelf units first, the rest on order — though today's rule never mixes
+    // the two on one line.
+    const shelfUnits = new Map<string, number>();
     for (const item of items) {
-      const updated = await tx`
-        UPDATE shop.product_variant
-           SET stock_quantity = stock_quantity - ${item.quantity}
+      const [row] = await tx<{ stock_quantity: number; allow_backorder: boolean }[]>`
+        SELECT stock_quantity, allow_backorder FROM shop.product_variant
          WHERE id = ${item.variant_id}
-           AND (allow_backorder OR stock_quantity >= ${item.quantity})`;
-      if (updated.count === 0) {
+           FOR UPDATE`;
+      if (!row || !isQuantityAvailable(item.quantity, row.stock_quantity, row.allow_backorder)) {
         throw new CheckoutError(`Insufficient stock for ${item.sku ?? item.title}`, "insufficient_inventory");
+      }
+      const fromShelf = Math.min(item.quantity, Math.max(row.stock_quantity, 0));
+      shelfUnits.set(item.variant_id, fromShelf);
+      if (fromShelf > 0) {
+        await tx`
+          UPDATE shop.product_variant
+             SET stock_quantity = stock_quantity - ${fromShelf}
+           WHERE id = ${item.variant_id}`;
       }
     }
 
@@ -235,19 +251,23 @@ export async function completeOrder(
       RETURNING id, order_number`;
 
     for (const item of items) {
+      const fromShelf = shelfUnits.get(item.variant_id) ?? item.quantity;
       await tx`
         INSERT INTO shop.order_item (
           order_id, variant_id, product_id, title, variant_title, sku,
-          product_slug, quantity, unit_price_cents, line_total_cents)
+          product_slug, quantity, unit_price_cents, line_total_cents, backordered_quantity)
         VALUES (
           ${order.id}, ${item.variant_id}, ${item.product_id}, ${item.title},
           ${item.variant_title}, ${item.sku}, ${item.slug}, ${item.quantity},
-          ${item.price_cents}, ${item.price_cents * item.quantity})`;
+          ${item.price_cents}, ${item.price_cents * item.quantity}, ${item.quantity - fromShelf})`;
 
-      // Audit trail, so "why is this product at 3?" has an answer.
-      await tx`
-        INSERT INTO shop.inventory_movement (variant_id, delta, reason, order_id)
-        VALUES (${item.variant_id}, ${-item.quantity}, 'order', ${order.id})`;
+      // Audit trail, so "why is this product at 3?" has an answer. Only the
+      // units that really left the shelf; on-order units never touched it.
+      if (fromShelf > 0) {
+        await tx`
+          INSERT INTO shop.inventory_movement (variant_id, delta, reason, order_id)
+          VALUES (${item.variant_id}, ${-fromShelf}, 'order', ${order.id})`;
+      }
     }
 
     if (discount) {

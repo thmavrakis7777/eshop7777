@@ -8,6 +8,7 @@ import { Stars } from "@/components/ui/Stars";
 import { StockStatus } from "@/components/product/StockStatus";
 import { useQuickAdd } from "@/lib/hooks/use-quick-add";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
+import { stockStateOf } from "@/lib/stock";
 
 const BADGE_LABEL: Record<NonNullable<Product["badges"]>[number], string> = {
   new: "Νέο",
@@ -109,7 +110,7 @@ export function ProductCard({
             </span>
           )}
         </div>
-        <StockStatus isAvailable={product.isAvailable} className="mt-0.5" />
+        <StockStatus state={stockStateOf(product.variants)} className="mt-0.5" />
 
         {hasSingleVariant ? (
           <button

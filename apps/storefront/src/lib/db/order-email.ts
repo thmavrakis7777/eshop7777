@@ -26,6 +26,8 @@ export type OrderEmailData = {
     unitPriceCents: number;
     lineTotalCents: number;
     imageUrl: string | null;
+    // Units the shop orders in («Κατόπιν παραγγελίας»); 0 for most lines.
+    onOrderQuantity: number;
   }>;
   subtotalCents: number;
   discountCents: number;
@@ -89,6 +91,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
         variant_title: string | null;
         sku: string | null;
         quantity: number;
+        backordered_quantity: number;
         unit_price_cents: number;
         line_total_cents: number;
         image_path: string | null;
@@ -106,7 +109,8 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
            COALESCE((
              SELECT json_agg(json_build_object(
                'title', i.title, 'variant_title', i.variant_title, 'sku', i.sku,
-               'quantity', i.quantity, 'unit_price_cents', i.unit_price_cents,
+               'quantity', i.quantity, 'backordered_quantity', i.backordered_quantity,
+               'unit_price_cents', i.unit_price_cents,
                'line_total_cents', i.line_total_cents,
                'image_path', img.storage_path
              ) ORDER BY i.id)
@@ -138,6 +142,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
       unitPriceCents: i.unit_price_cents,
       lineTotalCents: i.line_total_cents,
       imageUrl: publicImageUrl(i.image_path),
+      onOrderQuantity: i.backordered_quantity,
     })),
     subtotalCents: r.subtotal_cents,
     discountCents: r.discount_cents,

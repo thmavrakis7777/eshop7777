@@ -4,7 +4,7 @@ import { ProductImage } from "@/components/ui/ProductImage";
 import { CartTotals } from "@/components/cart/CartTotals";
 import { CloseIcon } from "@/components/ui/Icons";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
-import { isLineItemOverstocked } from "@/lib/stock";
+import { isLineItemOverstocked, isOnOrder, ON_ORDER_DELIVERY_TEXT } from "@/lib/stock";
 import type { StockInquiryContact } from "@/lib/whatsapp";
 
 // Compact line-item presentation (small thumbnail, quantity as plain text —
@@ -90,6 +90,9 @@ function OrderSummaryContent({
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-sm text-ink">{item.title}</span>
                 <span className="text-xs text-ink-muted">Ποσ.: {item.quantity}</span>
+                {isOnOrder(item.stockQuantity, item.allowBackorder) && (
+                  <span className="text-xs text-accent">{ON_ORDER_DELIVERY_TEXT}</span>
+                )}
               </div>
               <span className="shrink-0 text-sm text-ink tabular-nums">{formatPrice(item.lineTotal)}</span>
             </div>

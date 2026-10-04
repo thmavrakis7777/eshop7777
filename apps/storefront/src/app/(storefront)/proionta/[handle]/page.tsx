@@ -26,6 +26,15 @@ import { resolveStockInquiryContact } from "@/lib/whatsapp";
 import { formatPrice, formatPriceFrom } from "@/lib/format";
 import { siteUrl } from "@/lib/site-config";
 import { safeJsonLd } from "@/lib/json-ld";
+import { ON_ORDER_DELIVERY_TEXT, stockStateOf, type StockState } from "@/lib/stock";
+
+// Google's values for the three stock states: «Κατόπιν παραγγελίας» is
+// BackOrder — orderable now, shipped once it arrives from the supplier.
+const SCHEMA_AVAILABILITY: Record<StockState, string> = {
+  in_stock: "https://schema.org/InStock",
+  on_order: "https://schema.org/BackOrder",
+  sold_out: "https://schema.org/OutOfStock",
+};
 
 // Below the fold and independent of everything else on the page — its own
 // Suspense boundary so a slow related-products query doesn't gate the PDP.
@@ -113,7 +122,13 @@ export default async function ProductPage({ params }: Props) {
   // owner-editable (product edit page / Content → Header & Footer). `||` not
   // `??`: an override saved as '' means "cleared back to the default," not
   // "show a blank line" (this schema's empty-string-is-unset convention).
-  const deliveryText = extra?.deliveryTextOverride || siteSettings?.pdpDeliveryText || "2-3 εργάσιμες σε όλη την Ελλάδα";
+  // «Κατόπιν παραγγελίας» (lib/stock.ts) replaces the usual delivery time:
+  // the units aren't on the shelf, so that promise wouldn't hold.
+  const stockState = stockStateOf(product.variants);
+  const deliveryText =
+    stockState === "on_order"
+      ? ON_ORDER_DELIVERY_TEXT
+      : extra?.deliveryTextOverride || siteSettings?.pdpDeliveryText || "2-3 εργάσιμες σε όλη την Ελλάδα";
   const returnsText = extra?.returnsTextOverride || siteSettings?.pdpReturnsText || "Δωρεάν εντός 30 ημερών";
   const paymentText = extra?.paymentTextOverride || siteSettings?.pdpPaymentText || "Αντικαταβολή κατά την παράδοση";
   const stockInquiry = resolveStockInquiryContact(siteSettings);
@@ -153,18 +168,14 @@ export default async function ProductPage({ params }: Props) {
           lowPrice: product.priceRange.min.amount,
           highPrice: product.priceRange.max.amount,
           offerCount: product.variants.length,
-          availability: product.isAvailable
-            ? "https://schema.org/InStock"
-            : "https://schema.org/OutOfStock",
+          availability: SCHEMA_AVAILABILITY[stockState],
           url: `${siteUrl}/proionta/${product.handle}`,
         }
       : {
           "@type": "Offer",
           priceCurrency: product.price.currencyCode,
           price: product.price.amount,
-          availability: product.isAvailable
-            ? "https://schema.org/InStock"
-            : "https://schema.org/OutOfStock",
+          availability: SCHEMA_AVAILABILITY[stockState],
           url: `${siteUrl}/proionta/${product.handle}`,
         },
     // Admin-editable escape hatch for the rare product that needs a real
@@ -242,7 +253,7 @@ export default async function ProductPage({ params }: Props) {
             )}
           </div>
 
-          <StockStatus isAvailable={product.isAvailable} className="mt-4" />
+          <StockStatus state={stockState} className="mt-4" />
 
           <div className="mt-3">
             <AddToCartButton

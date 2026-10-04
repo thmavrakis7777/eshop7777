@@ -91,11 +91,12 @@ export const NEW_ARRIVAL_PREDICATE = sql`
  * out-of-stock facet, and the admin product list's "out of stock"/"low
  * stock" filters. Always assumes the variant table is aliased `v`.
  *
- * Deliberately NOT the same rule completeOrder's stock decrement uses
- * (lib/db/checkout.ts: `allow_backorder OR stock_quantity >= quantity`) —
- * that one checks against a specific cart quantity as an atomic concurrency
- * guard, not a general "is this in stock" yes/no, and merging the two would
- * change what each one means.
+ * Deliberately NOT the same rule completeOrder's stock check uses
+ * (lib/db/checkout.ts, via lib/stock.ts isQuantityAvailable) — that one
+ * checks a specific cart quantity against a locked row, not a general "can
+ * this be bought at all" yes/no, and merging the two would change what each
+ * one means. Here allow_backorder («Κατόπιν παραγγελίας») counts as buyable:
+ * such a variant at stock 0 can still be ordered.
  */
 export const VARIANT_AVAILABLE_PREDICATE = sql`(v.allow_backorder OR v.stock_quantity > 0)`;
 

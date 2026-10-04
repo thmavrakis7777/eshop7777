@@ -6,7 +6,7 @@ import { formatPrice, discountPercent } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { QuantityStepper, useMaxReachedNotice } from "@/components/cart/QuantityStepper";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
-import { isLineItemOverstocked } from "@/lib/stock";
+import { isLineItemOverstocked, isOnOrder, quantityCap, ON_ORDER_DELIVERY_TEXT } from "@/lib/stock";
 import type { StockInquiryContact } from "@/lib/whatsapp";
 import { CART_TABLE_GRID_COLS } from "@/components/cart/cart-table-grid";
 
@@ -32,7 +32,8 @@ export function CartLineItemTableRow({
 }) {
   const pct = discountPercent(item.unitPrice, item.compareAtUnitPrice);
   const overstocked = isLineItemOverstocked(item);
-  const maxQuantity = item.allowBackorder ? undefined : item.stockQuantity;
+  const maxQuantity = quantityCap(item.stockQuantity, item.allowBackorder);
+  const onOrder = isOnOrder(item.stockQuantity, item.allowBackorder);
   // "+" pressed at the stock limit shows the same notice (QuantityStepper).
   const maxReached = useMaxReachedNotice(item.quantity, maxQuantity);
 
@@ -50,6 +51,7 @@ export function CartLineItemTableRow({
             {item.title}
           </Link>
           {item.code && <span className="text-xs text-ink-muted">Κωδικός: {item.code}</span>}
+          {onOrder && <span className="text-xs text-accent">{ON_ORDER_DELIVERY_TEXT}</span>}
           <button
             type="button"
             className="w-fit text-sm text-ink-muted hover:text-ink hover:underline disabled:opacity-50"

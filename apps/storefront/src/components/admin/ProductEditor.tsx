@@ -536,11 +536,12 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
                 )}
               </div>
               <div
-                className={`w-16 text-right text-sm tabular-nums ${
+                className={`min-w-16 text-right text-sm tabular-nums ${
                   v.stockQuantity <= 0 ? "text-danger" : v.stockQuantity <= 5 ? "text-accent" : "text-ink-muted"
                 }`}
               >
                 {v.stockQuantity} τεμ.
+                {v.allowBackorder && <div className="text-xs text-accent">Κατόπιν παραγγελίας</div>}
               </div>
               <button
                 type="button"
@@ -589,6 +590,7 @@ function VariantForm({
   const [price, setPrice] = useState(centsToPriceInput(variant?.priceCents ?? null));
   const [compareAt, setCompareAt] = useState(centsToPriceInput(variant?.compareAtPriceCents ?? null));
   const [stock, setStock] = useState(String(variant?.stockQuantity ?? 0));
+  const [onOrder, setOnOrder] = useState(variant?.allowBackorder ?? false);
 
   function buildFormData(): FormData {
     const data = new FormData();
@@ -597,6 +599,7 @@ function VariantForm({
     data.set("price", price);
     data.set("compareAtPrice", compareAt);
     data.set("stock", stock);
+    data.set("allowBackorder", onOrder ? "on" : "off");
     // What this form showed on opening: unchanged means "leave stock as it
     // is now", so a sale made meanwhile isn't overwritten (saveVariant).
     if (variant) data.set("stockBefore", String(variant.stockQuantity));
@@ -662,6 +665,22 @@ function VariantForm({
           <label className={labelCls}>Απόθεμα</label>
           <input value={stock} onChange={(e) => setStock(e.target.value)} inputMode="numeric" className={field} />
         </div>
+        <label className="flex items-start gap-2 self-end pb-1 text-sm text-ink sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={onOrder}
+            onChange={(e) => setOnOrder(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-ink"
+          />
+          <span>
+            Κατόπιν παραγγελίας
+            <span className={`block ${hint}`}>
+              Όταν το απόθεμα φτάσει στο 0, ο πελάτης μπορεί να το παραγγείλει. Το παραγγέλνεις από τον
+              προμηθευτή και τον ενημερώνεις για τον χρόνο παράδοσης. Όσο υπάρχει απόθεμα, το όριο είναι το
+              απόθεμα.
+            </span>
+          </span>
+        </label>
       </div>
 
       <div className="mt-4 flex items-center gap-2">

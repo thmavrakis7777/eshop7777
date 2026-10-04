@@ -8,7 +8,7 @@ import { trackAddToCart } from "@/lib/analytics/track";
 import { QuantityStepper, useMaxReachedNotice } from "@/components/cart/QuantityStepper";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
 import { NotifyWhenAvailableForm } from "@/components/product/NotifyWhenAvailableForm";
-import { isQuantityAvailable } from "@/lib/stock";
+import { isQuantityAvailable, quantityCap } from "@/lib/stock";
 import type { StockInquiryContact } from "@/lib/whatsapp";
 
 // Handles both today's catalog (always exactly one variant) and a future
@@ -62,7 +62,9 @@ export function AddToCartButton({
   const isQuantityValid = Number.isInteger(quantity) && quantity >= 1;
   const canAdd = Boolean(selectedVariant) && !isOutOfStock && !exceedsStock && isQuantityValid;
 
-  const maxQuantity = selectedVariant && !selectedVariant.allowBackorder ? selectedVariant.inventoryQuantity : undefined;
+  const maxQuantity = selectedVariant
+    ? quantityCap(selectedVariant.inventoryQuantity, selectedVariant.allowBackorder)
+    : undefined;
   // "+" pressed at the stock limit: same notice as a typed excess, but the
   // quantity stays at the limit and Add to cart stays enabled for it.
   const maxReached = useMaxReachedNotice(quantity, maxQuantity);

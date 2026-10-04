@@ -50,6 +50,7 @@ type OrderRow = {
     variant_title: string | null;
     sku: string | null;
     quantity: number;
+    backordered_quantity: number;
     unit_price_cents: number;
     line_total_cents: number;
     product_slug: string | null;
@@ -71,7 +72,8 @@ const ORDER_FIELDS = sql`
   COALESCE((
     SELECT json_agg(json_build_object(
       'id', i.id, 'title', i.title, 'variant_title', i.variant_title, 'sku', i.sku,
-      'quantity', i.quantity, 'unit_price_cents', i.unit_price_cents,
+      'quantity', i.quantity, 'backordered_quantity', i.backordered_quantity,
+      'unit_price_cents', i.unit_price_cents,
       'line_total_cents', i.line_total_cents, 'product_slug', i.product_slug,
       'image_path', img.storage_path
     ) ORDER BY i.id)
@@ -95,6 +97,7 @@ export function toDomainOrder(o: OrderRow): Order {
       variantTitle: item.variant_title ?? undefined,
       sku: item.sku ?? undefined,
       quantity: item.quantity,
+      onOrderQuantity: item.backordered_quantity,
       unitPrice: eur(item.unit_price_cents),
       total: eur(item.line_total_cents),
       imageUrl: publicImageUrl(item.image_path) ?? undefined,

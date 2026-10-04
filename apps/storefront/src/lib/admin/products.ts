@@ -106,8 +106,10 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
                                 WHERE v.product_id = p.id AND ${VARIANT_AVAILABLE_PREDICATE})`
          : sql``}
        ${filters.stock === "low"
+         // «Κατόπιν παραγγελίας» products count too: while they have stock,
+         // the stock is their limit like any other product's (lib/stock.ts).
          ? sql`AND EXISTS (SELECT 1 FROM shop.product_variant v
-                            WHERE v.product_id = p.id AND NOT v.allow_backorder
+                            WHERE v.product_id = p.id
                               AND v.stock_quantity > 0 AND v.stock_quantity <= 5)`
          : sql``}
        ${folded

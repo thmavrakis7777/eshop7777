@@ -334,6 +334,9 @@ export type OrderLineItem = {
   variantTitle?: string;
   sku?: string;
   quantity: number;
+  // Units of this line the shop orders in («Κατόπιν παραγγελίας»), fixed at
+  // checkout; 0 for an ordinary line.
+  onOrderQuantity: number;
   unitPrice: Money;
   total: Money;
   imageUrl?: string;
