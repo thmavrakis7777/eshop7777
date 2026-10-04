@@ -48,6 +48,18 @@ function buildLocalBusinessJsonLd(params: {
     ...storeLocationJsonLd(address),
     areaServed: "Ηράκλειο, Κρήτη",
     description: pageTitle,
+    // The service itself, under both names people search for it by —
+    // «αντικλείδια» is the everyday word, «αντιγραφή κλειδιών» the formal
+    // one (owner, 2026-10-04). Read by Google and by AI answer engines.
+    makesOffer: {
+      "@type": "Offer",
+      itemOffered: {
+        "@type": "Service",
+        name: "Αντικλείδια & αντιγραφή κλειδιών",
+        serviceType: "Αντιγραφή κλειδιών",
+        areaServed: "Ηράκλειο, Κρήτη",
+      },
+    },
   };
 }
 
@@ -166,7 +178,7 @@ export async function CategoryLandingView({
 
       <section id="contact" className="container-shell mt-16 max-w-3xl scroll-mt-24">
         <div className="rounded-lg bg-surface p-6 md:p-10">
-          <h2 className="font-display text-xl text-ink md:text-2xl">Χρειάζεστε Αντιγραφή Κλειδιού;</h2>
+          <h2 className="font-display text-xl text-ink md:text-2xl">Χρειάζεστε Αντικλείδι;</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-muted">
             Επισκεφθείτε το κατάστημά μας στο Ηράκλειο ή καλέστε μας για οποιαδήποτε απορία σχετικά με την
             αντιγραφή του κλειδιού σας.
@@ -233,7 +245,7 @@ export async function CategoryLandingView({
 const KEY_SERVICES = [
   {
     title: "Απλά Κλειδιά Σπιτιού",
-    body: "Η πιο συνηθισμένη περίπτωση: κλειδιά εσωτερικών και εξωτερικών πορτών και ερμαρίων. Η αντιγραφή γίνεται με σύγχρονα μηχανήματα κοπής, με προσοχή στη λεπτομέρεια ώστε το αντίγραφο να ταιριάζει απόλυτα στην κλειδαριά.",
+    body: "Η πιο συνηθισμένη περίπτωση: κλειδιά εσωτερικών και εξωτερικών πορτών και ερμαρίων. Το αντικλείδι κόβεται με σύγχρονα μηχανήματα, με προσοχή στη λεπτομέρεια ώστε να ταιριάζει απόλυτα στην κλειδαριά.",
   },
   {
     title: "Κλειδιά Ασφαλείας & Θωρακισμένης Πόρτας",
