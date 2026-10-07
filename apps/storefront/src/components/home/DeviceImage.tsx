@@ -1,4 +1,5 @@
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
+import { AfterPageLoad } from "@/components/ui/AfterPageLoad";
 import type { Tone } from "@/lib/types";
 
 /**
@@ -46,11 +47,16 @@ export function DeviceImage({
   const tabletResolved = tabletUrl || desktopUrl;
   const mobileResolved = mobileUrl || desktopUrl;
 
+  // Always below the full-height opening Hero, so it waits for the first
+  // screen (AfterPageLoad). The placeholder takes the image's own classes —
+  // `block` standing in for the <img>'s display — so the box is the same.
   return (
-    <picture>
-      <source media="(min-width: 1024px)" srcSet={desktopUrl} />
-      <source media="(min-width: 768px)" srcSet={tabletResolved} />
-      <img src={mobileResolved} alt={alt} loading="lazy" decoding="async" className={className} />
-    </picture>
+    <AfterPageLoad placeholderClassName={`block ${className ?? ""}`}>
+      <picture>
+        <source media="(min-width: 1024px)" srcSet={desktopUrl} />
+        <source media="(min-width: 768px)" srcSet={tabletResolved} />
+        <img src={mobileResolved} alt={alt} loading="lazy" decoding="async" className={className} />
+      </picture>
+    </AfterPageLoad>
   );
 }

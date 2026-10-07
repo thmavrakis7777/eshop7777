@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { HomepageSection } from "@/lib/content-types";
 import { subscribeToNewsletterAction } from "@/lib/actions/newsletter";
+import { AfterPageLoad } from "@/components/ui/AfterPageLoad";
 
 const DEFAULTS = {
   heading: "Μείνε ενημερωμένος",
@@ -62,16 +63,19 @@ export function Newsletter({ section }: { section?: HomepageSection } = {}) {
       <div className="relative overflow-hidden bg-ink px-6 py-12 text-center md:px-12 md:py-16">
         {imageUrl && (
           <>
-            <Image
-              src={imageUrl}
-              alt={section?.imageAlt ?? ""}
-              fill
-              unoptimized
-              // The box is now always the true viewport width, not
-              // container-shell's old ≤1152px cap.
-              sizes="100vw"
-              className="object-cover"
-            />
+            {/* Below the fold everywhere — waits for the first screen. */}
+            <AfterPageLoad placeholderClassName="absolute inset-0">
+              <Image
+                src={imageUrl}
+                alt={section?.imageAlt ?? ""}
+                fill
+                unoptimized
+                // The box is now always the true viewport width, not
+                // container-shell's old ≤1152px cap.
+                sizes="100vw"
+                className="object-cover"
+              />
+            </AfterPageLoad>
             {/* Keeps the white copy readable over any uploaded image — the
                 owner picks the picture, not the contrast ratio. */}
             <div className="absolute inset-0 bg-ink/70" aria-hidden="true" />

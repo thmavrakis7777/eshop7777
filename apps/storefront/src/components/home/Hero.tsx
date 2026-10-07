@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { HomepageSection } from "@/lib/content-types";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
+import { AfterPageLoad } from "@/components/ui/AfterPageLoad";
 
 const DIAGONAL_PATTERN = {
   backgroundImage:
@@ -78,6 +79,20 @@ export function HeroSlide({
   // for — so a set mobile image should cover tablet too here, not hand off
   // to the wide desktop shot a whole breakpoint early.
   const mobileBreakpoint = isFirstSection ? "(min-width: 1024px)" : "(min-width: 768px)";
+  const photo = !imageUrl ? null : mobileImageUrl ? (
+    <picture>
+      <source media={mobileBreakpoint} srcSet={imageUrl} />
+      <img
+        src={mobileImageUrl}
+        alt={imageAlt ?? ""}
+        className="absolute inset-0 h-full w-full object-cover"
+        // Eager + high priority only when this is the page's LCP image.
+        {...loadingProps}
+      />
+    </picture>
+  ) : (
+    <img src={imageUrl} alt={imageAlt ?? ""} className="absolute inset-0 h-full w-full object-cover" {...loadingProps} />
+  );
 
   return (
     <div
@@ -91,27 +106,11 @@ export function HeroSlide({
           confirmed live the moment a real image was first set here (never
           triggered before, since imageUrl was null on every production
           deploy until now). <picture>/<source> covers the art-directed
-          two-image case; a plain <img> covers one image the same way. */}
-      {imageUrl && !mobileImageUrl && (
-        <img
-          src={imageUrl}
-          alt={imageAlt ?? ""}
-          className="absolute inset-0 h-full w-full object-cover"
-          {...loadingProps}
-        />
-      )}
-      {imageUrl && mobileImageUrl && (
-        <picture>
-          <source media={mobileBreakpoint} srcSet={imageUrl} />
-          <img
-            src={mobileImageUrl}
-            alt={imageAlt ?? ""}
-            className="absolute inset-0 h-full w-full object-cover"
-            // Eager + high priority only when this is the page's LCP image.
-            {...loadingProps}
-          />
-        </picture>
-      )}
+          two-image case; a plain <img> covers one image the same way.
+          Every Hero but the LCP one waits for the first screen to finish
+          loading (AfterPageLoad) — lazy alone still started the «ΠΡΟΣΦΟΡΕΣ»
+          Hero's 94 KB alongside the opening photo on phones. */}
+      {photo && (isLcp ? photo : <AfterPageLoad placeholderClassName="absolute inset-0">{photo}</AfterPageLoad>)}
       {!imageUrl && <div className="pointer-events-none absolute inset-0" style={DIAGONAL_PATTERN} aria-hidden="true" />}
       {/* Same gradient recipe as the mega-menu promo tile (Header.tsx) — text
           sits at the bottom of this box, so a bottom-heavy scrim guarantees

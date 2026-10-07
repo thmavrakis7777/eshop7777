@@ -23,10 +23,15 @@ export function ProductRail({
   title,
   viewAllHref,
   products,
+  // The homepage's rails always sit under the full-height Hero, so their
+  // photos wait for the first screen (AfterPageLoad). The product page,
+  // cart and Recently Viewed rails keep plain lazy loading.
+  waitForPageLoad = false,
 }: {
   title: string;
   viewAllHref?: string;
   products: Product[];
+  waitForPageLoad?: boolean;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [atStart, setAtStart] = useState(true);
@@ -85,7 +90,7 @@ export function ProductRail({
         >
           {products.map((p) => (
             <div key={p.id} className="w-[45%] flex-none snap-start sm:w-[31%] md:w-[23%] lg:w-[18.5%]">
-              <ProductCard product={p} sizes={RAIL_CARD_SIZES} />
+              <ProductCard product={p} sizes={RAIL_CARD_SIZES} waitForPageLoad={waitForPageLoad} />
             </div>
           ))}
           {viewAllHref && (

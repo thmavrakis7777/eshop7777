@@ -3,6 +3,7 @@ import Image from "next/image";
 import type { NavCategory } from "@/lib/types";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 import { HorizontalScroller } from "@/components/ui/HorizontalScroller";
+import { AfterPageLoad } from "@/components/ui/AfterPageLoad";
 import { publicImageUrl } from "@/lib/storage/urls";
 
 const TONES = ["clay", "sage", "stone", "linen"] as const;
@@ -62,13 +63,17 @@ export function CategoryGrid({
               <Link key={cat.handle} href={`/${cat.handle}`} className={`group flex flex-col gap-2 ${CARD_WIDTH}`}>
                 {imageUrl ? (
                   <div className="relative aspect-square w-full overflow-hidden rounded-md">
-                    <Image
-                      src={imageUrl}
-                      alt={cat.name}
-                      fill
-                      sizes={CARD_SIZES}
-                      className="object-cover transition-transform duration-200 ease-out group-hover:scale-[1.02]"
-                    />
+                    {/* Below the full-height Hero — waits for the first
+                        screen (AfterPageLoad). */}
+                    <AfterPageLoad placeholderClassName="absolute inset-0">
+                      <Image
+                        src={imageUrl}
+                        alt={cat.name}
+                        fill
+                        sizes={CARD_SIZES}
+                        className="object-cover transition-transform duration-200 ease-out group-hover:scale-[1.02]"
+                      />
+                    </AfterPageLoad>
                   </div>
                 ) : (
                   <PlaceholderTile

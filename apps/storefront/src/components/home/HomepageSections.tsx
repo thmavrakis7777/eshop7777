@@ -35,6 +35,7 @@ async function RailSection({ section }: { section: HomepageSection }) {
       title={section.heading ?? ""}
       viewAllHref={section.config.viewAllHref ?? undefined}
       products={products}
+      waitForPageLoad
     />
   );
 }

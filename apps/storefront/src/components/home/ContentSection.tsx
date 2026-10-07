@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { HomepageSection } from "@/lib/content-types";
+import { AfterPageLoad } from "@/components/ui/AfterPageLoad";
 
 /**
  * A free-form content section: image (with its own mobile crop), heading,
@@ -29,26 +30,29 @@ export function ContentSection({ section }: { section: HomepageSection }) {
             {/* Art direction: a separate crop for narrow viewports when the
                 owner supplied one, rather than letting the desktop image
                 scale down badly. <picture> rather than two <Image>s so only
-                one request is ever made. */}
-            {mobileImageUrl ? (
-              <picture>
-                <source media="(min-width: 768px)" srcSet={imageUrl} />
-                <img
-                  src={mobileImageUrl}
+                one request is ever made. Below the full-height opening Hero,
+                so it waits for the first screen (AfterPageLoad). */}
+            <AfterPageLoad placeholderClassName="absolute inset-0">
+              {mobileImageUrl ? (
+                <picture>
+                  <source media="(min-width: 768px)" srcSet={imageUrl} />
+                  <img
+                    src={mobileImageUrl}
+                    alt={imageAlt ?? heading ?? ""}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </picture>
+              ) : (
+                <Image
+                  src={imageUrl}
                   alt={imageAlt ?? heading ?? ""}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  loading="lazy"
+                  fill
+                  sizes="(min-width: 768px) 50vw, 100vw"
+                  className="object-cover"
                 />
-              </picture>
-            ) : (
-              <Image
-                src={imageUrl}
-                alt={imageAlt ?? heading ?? ""}
-                fill
-                sizes="(min-width: 768px) 50vw, 100vw"
-                className="object-cover"
-              />
-            )}
+              )}
+            </AfterPageLoad>
           </div>
         )}
 

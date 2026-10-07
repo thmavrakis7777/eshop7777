@@ -36,10 +36,13 @@ export function ProductCard({
   // caller (rail, wishlist, journal) renders below the fold and keeps the
   // lazy default.
   priority = false,
+  // Also straight through to ProductImage: only the homepage rails set it.
+  waitForPageLoad = false,
 }: {
   product: Product;
   sizes?: string;
   priority?: boolean;
+  waitForPageLoad?: boolean;
 }) {
   const { hasSingleVariant, isOutOfStock, isPending, error, quickAdd } = useQuickAdd(product);
 
@@ -72,6 +75,7 @@ export function ProductCard({
               tone={product.placeholderTone}
               sizes={sizes}
               priority={priority}
+              waitForPageLoad={waitForPageLoad}
               hoverZoom
             />
           </div>
