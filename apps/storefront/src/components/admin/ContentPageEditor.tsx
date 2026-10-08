@@ -129,7 +129,7 @@ export function ContentPageEditor({ pages }: { pages: AdminContentPage[] }) {
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-sm font-medium text-ink">Εικόνα (προαιρετικό)</label>
-                    <ImageUploadField name="imagePath" defaultValue={p.imagePath} folder="pages" hint={IMAGE_SIZE_HINTS.contentPage} />
+                    <ImageUploadField name="imagePath" defaultValue={p.imagePath} slot="page" hint={IMAGE_SIZE_HINTS.contentPage} />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-sm font-medium text-ink">Εναλλακτικό κείμενο εικόνας (alt)</label>

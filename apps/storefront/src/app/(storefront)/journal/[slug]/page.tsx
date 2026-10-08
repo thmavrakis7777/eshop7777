@@ -13,6 +13,7 @@ import { getSeoOverride } from "@/lib/data/seo";
 import { safeJsonLd } from "@/lib/json-ld";
 import { deriveMetaDescription } from "@/lib/seo-text";
 import { siteUrl } from "@/lib/site-config";
+import { WithAvif } from "@/components/ui/AvifSource";
 
 /**
  * /journal/[slug] — one article.
@@ -169,13 +170,15 @@ export default async function JournalArticlePage({ params }: { params: Params })
         </header>
 
         {article.heroImageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element -- admin-entered path/URL of unknown dimensions; the aspect box removes the layout shift next/image would be earning its keep on. Eager: this is the LCP element.
-          <img
-            src={article.heroImageUrl}
-            alt={article.heroImageAlt || article.title}
-            fetchPriority="high"
-            className="mt-8 aspect-[3/2] w-full rounded-lg object-cover"
-          />
+          <WithAvif src={article.heroImageUrl}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin-entered path/URL of unknown dimensions; the aspect box removes the layout shift next/image would be earning its keep on. Eager: this is the LCP element. */}
+            <img
+              src={article.heroImageUrl}
+              alt={article.heroImageAlt || article.title}
+              fetchPriority="high"
+              className="mt-8 aspect-[3/2] w-full rounded-lg object-cover"
+            />
+          </WithAvif>
         )}
 
         {article.excerpt && (

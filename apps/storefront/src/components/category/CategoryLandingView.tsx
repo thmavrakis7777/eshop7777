@@ -9,6 +9,7 @@ import { safeJsonLd } from "@/lib/json-ld";
 import { storeLocationJsonLd } from "@/lib/maps";
 import { siteUrl } from "@/lib/site-config";
 import { publicImageUrl } from "@/lib/storage/urls";
+import { WithAvif } from "@/components/ui/AvifSource";
 import type { Category, FaqItem } from "@/lib/types";
 
 /**
@@ -135,12 +136,14 @@ export async function CategoryLandingView({
             through publicImageUrl() is what makes an uploaded (as opposed to
             pasted-external-URL) hero image actually render. */}
         {publicImageUrl(category.imagePath) && (
-          // eslint-disable-next-line @next/next/no-img-element -- admin-entered path/URL, not a known-dimension local asset worth next/image's config for a single optional hero.
-          <img
-            src={publicImageUrl(category.imagePath)!}
-            alt={`${category.name} στο ${storeName}`}
-            className="mt-6 w-full rounded-lg object-cover"
-          />
+          <WithAvif src={publicImageUrl(category.imagePath)}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin-entered path/URL, not a known-dimension local asset worth next/image's config for a single optional hero. */}
+            <img
+              src={publicImageUrl(category.imagePath)!}
+              alt={`${category.name} στο ${storeName}`}
+              className="mt-6 w-full rounded-lg object-cover"
+            />
+          </WithAvif>
         )}
 
         {category.description && (

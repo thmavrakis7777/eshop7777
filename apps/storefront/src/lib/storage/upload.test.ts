@@ -56,7 +56,7 @@ describe("sniffImageType", () => {
   });
 
   it("never throws or false-positives on input shorter than a signature", () => {
-    // uploadImage slices only the first 12 bytes, so a 2-byte file reaches
+    // readImageUpload slices only the first 12 bytes, so a 2-byte file reaches
     // here as a 2-byte array. Every signature check must bounds-check rather
     // than read past the end and compare against undefined.
     expect(sniffImageType(bytes())).toBeNull();

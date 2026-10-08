@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { HomepageSection } from "@/lib/content-types";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { AfterPageLoad } from "@/components/ui/AfterPageLoad";
+import { AvifSource, WithAvif } from "@/components/ui/AvifSource";
 
 const DIAGONAL_PATTERN = {
   backgroundImage:
@@ -79,9 +80,14 @@ export function HeroSlide({
   // for — so a set mobile image should cover tablet too here, not hand off
   // to the wide desktop shot a whole breakpoint early.
   const mobileBreakpoint = isFirstSection ? "(min-width: 1024px)" : "(min-width: 768px)";
+  // Each image's AVIF, when the upload pipeline made one, goes right before
+  // its WebP (AvifSource) — fetchPriority on the <img> carries over to
+  // whichever source the browser picks.
   const photo = !imageUrl ? null : mobileImageUrl ? (
     <picture>
+      <AvifSource media={mobileBreakpoint} src={imageUrl} />
       <source media={mobileBreakpoint} srcSet={imageUrl} />
+      <AvifSource src={mobileImageUrl} />
       <img
         src={mobileImageUrl}
         alt={imageAlt ?? ""}
@@ -91,7 +97,9 @@ export function HeroSlide({
       />
     </picture>
   ) : (
-    <img src={imageUrl} alt={imageAlt ?? ""} className="absolute inset-0 h-full w-full object-cover" {...loadingProps} />
+    <WithAvif src={imageUrl}>
+      <img src={imageUrl} alt={imageAlt ?? ""} className="absolute inset-0 h-full w-full object-cover" {...loadingProps} />
+    </WithAvif>
   );
 
   return (

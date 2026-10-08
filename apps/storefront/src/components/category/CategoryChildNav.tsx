@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRightIcon } from "@/components/ui/Icons";
 import type { CategoryNode } from "@/lib/types";
 import { publicImageUrl } from "@/lib/storage/urls";
+import { WithAvif } from "@/components/ui/AvifSource";
 
 export type ChildCategoryLink = {
   name: string;
@@ -114,12 +115,14 @@ function CategoryThumb({ name, imagePath }: { name: string; imagePath?: string |
   const imageUrl = publicImageUrl(imagePath);
   if (imageUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- admin-entered path or remote URL, not a known-dimension local asset; same call as CategoryLandingView's hero.
-      <img
-        src={imageUrl}
-        alt=""
-        className="hidden aspect-[4/3] w-full bg-surface object-cover sm:block"
-      />
+      <WithAvif src={imageUrl}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- admin-entered path or remote URL, not a known-dimension local asset; same call as CategoryLandingView's hero. */}
+        <img
+          src={imageUrl}
+          alt=""
+          className="hidden aspect-[4/3] w-full bg-surface object-cover sm:block"
+        />
+      </WithAvif>
     );
   }
 

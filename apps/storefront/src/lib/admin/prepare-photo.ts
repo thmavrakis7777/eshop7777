@@ -1,5 +1,5 @@
 /**
- * Shrinks a product photo in the browser before it is uploaded.
+ * Shrinks a photo in the browser before it is uploaded.
  *
  * A phone photo is typically 3000–4000 px and 2–5 MB; the product page never
  * shows one larger than ~665 px (see IMAGE_SIZE_HINTS.product), and uploads
@@ -17,13 +17,24 @@
  * checks type and size either way.
  */
 
-const MAX_EDGE = 1600;
-// A photo this small and already within 1600 px is uploaded untouched —
-// re-encoding it would only cost quality.
-const KEEP_BELOW_BYTES = 600 * 1024;
-const QUALITY = 0.85;
+type PrepareOptions = { maxEdge: number; keepBelowBytes: number; quality: number };
 
-export async function preparePhoto(file: File): Promise<File> {
+// Product photos: shrunk to their final size here (1600 px, see
+// IMAGE_SIZE_HINTS.product). A photo this small and already within 1600 px
+// is uploaded untouched — re-encoding it would only cost quality.
+const PRODUCT: PrepareOptions = { maxEdge: 1600, keepBelowBytes: 600 * 1024, quality: 0.85 };
+
+/**
+ * Every other image field (ImageUploadField): the server's image pipeline
+ * does the real resizing for each slot (lib/images/optimize.ts), so this
+ * only has to get a phone photo under the 4 MB upload limit
+ * (lib/storage/upload.ts) — 2560 px is above every slot's size, and 0.92
+ * keeps the detail the server's own encode starts from. Files already under
+ * 3.5 MB and 2560 px go up exactly as picked.
+ */
+export const UPLOAD_ONLY: PrepareOptions = { maxEdge: 2560, keepBelowBytes: 3.5 * 1024 * 1024, quality: 0.92 };
+
+export async function preparePhoto(file: File, { maxEdge, keepBelowBytes, quality }: PrepareOptions = PRODUCT): Promise<File> {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return file;
 
   let bitmap: ImageBitmap;
@@ -36,8 +47,8 @@ export async function preparePhoto(file: File): Promise<File> {
   }
 
   try {
-    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
-    if (scale === 1 && file.size <= KEEP_BELOW_BYTES) return file;
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.size <= keepBelowBytes) return file;
 
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(bitmap.width * scale);
@@ -50,9 +61,9 @@ export async function preparePhoto(file: File): Promise<File> {
     // WebP keeps a PNG's transparency. A browser without a WebP encoder
     // hands back a PNG instead — then JPEG for photos, and the original
     // file for a PNG (JPEG would turn transparency black).
-    let blob = await toBlob(canvas, "image/webp");
+    let blob = await toBlob(canvas, "image/webp", quality);
     if (blob?.type !== "image/webp") {
-      blob = file.type === "image/png" ? null : await toBlob(canvas, "image/jpeg");
+      blob = file.type === "image/png" ? null : await toBlob(canvas, "image/jpeg", quality);
     }
     if (!blob || blob.size >= file.size) return file;
 
@@ -63,6 +74,6 @@ export async function preparePhoto(file: File): Promise<File> {
   }
 }
 
-function toBlob(canvas: HTMLCanvasElement, type: string): Promise<Blob | null> {
-  return new Promise((resolve) => canvas.toBlob(resolve, type, QUALITY));
+function toBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob | null> {
+  return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
 }

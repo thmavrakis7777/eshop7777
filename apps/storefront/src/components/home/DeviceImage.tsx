@@ -1,5 +1,6 @@
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 import { AfterPageLoad } from "@/components/ui/AfterPageLoad";
+import { AvifSource } from "@/components/ui/AvifSource";
 import type { Tone } from "@/lib/types";
 
 /**
@@ -53,8 +54,13 @@ export function DeviceImage({
   return (
     <AfterPageLoad placeholderClassName={`block ${className ?? ""}`}>
       <picture>
+        {/* Each AVIF (when the upload pipeline made one) right before its
+            WebP, same media — the cascade below picks exactly as before. */}
+        <AvifSource media="(min-width: 1024px)" src={desktopUrl} />
         <source media="(min-width: 1024px)" srcSet={desktopUrl} />
+        <AvifSource media="(min-width: 768px)" src={tabletResolved} />
         <source media="(min-width: 768px)" srcSet={tabletResolved} />
+        <AvifSource src={mobileResolved} />
         <img src={mobileResolved} alt={alt} loading="lazy" decoding="async" className={className} />
       </picture>
     </AfterPageLoad>

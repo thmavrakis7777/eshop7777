@@ -9,6 +9,7 @@ import { ChevronRightIcon, CloseIcon, HeartIcon, UserIcon } from "@/components/u
 import { StoreLogo } from "./StoreLogo";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { publicImageUrl } from "@/lib/storage/urls";
+import { WithAvif } from "@/components/ui/AvifSource";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -208,12 +209,14 @@ function MenuDrawer({
                     {(() => {
                       const imageUrl = publicImageUrl(topLevelPromo.imagePath);
                       return imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- fixed 48x48 thumbnail in a flex row, not worth next/image's config for this size.
-                        <img
-                          src={imageUrl}
-                          alt=""
-                          className="h-12 w-12 shrink-0 rounded-sm bg-surface object-cover"
-                        />
+                        <WithAvif src={imageUrl}>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- fixed 48x48 thumbnail in a flex row, not worth next/image's config for this size. */}
+                          <img
+                            src={imageUrl}
+                            alt=""
+                            className="h-12 w-12 shrink-0 rounded-sm bg-surface object-cover"
+                          />
+                        </WithAvif>
                       ) : null;
                     })()}
                     <span className="min-w-0 flex-1">

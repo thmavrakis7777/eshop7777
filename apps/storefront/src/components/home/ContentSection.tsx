@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { HomepageSection } from "@/lib/content-types";
 import { AfterPageLoad } from "@/components/ui/AfterPageLoad";
+import { AvifSource } from "@/components/ui/AvifSource";
 
 /**
  * A free-form content section: image (with its own mobile crop), heading,
@@ -35,7 +36,9 @@ export function ContentSection({ section }: { section: HomepageSection }) {
             <AfterPageLoad placeholderClassName="absolute inset-0">
               {mobileImageUrl ? (
                 <picture>
+                  <AvifSource media="(min-width: 768px)" src={imageUrl} />
                   <source media="(min-width: 768px)" srcSet={imageUrl} />
+                  <AvifSource src={mobileImageUrl} />
                   <img
                     src={mobileImageUrl}
                     alt={imageAlt ?? heading ?? ""}

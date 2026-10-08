@@ -17,6 +17,7 @@ import {
   deleteProductImage,
   deleteVariant,
   findProductByInternalCode,
+  getProductTitle,
   listProducts,
   reorderProductImages,
   saveVariant,
@@ -25,7 +26,7 @@ import {
   updateProductImageAlt,
 } from "@/lib/admin/products";
 import { createMediaAsset } from "@/lib/admin/cms";
-import { uploadImage, UploadError } from "@/lib/storage/upload";
+import { uploadOptimizedImage, UploadError } from "@/lib/storage/upload";
 import { SEARCH_CACHE_TAG } from "@/lib/db/catalog";
 import { META_FEED_CACHE_TAG } from "@/lib/db/meta-feed";
 import { scheduleRestockNotifications } from "@/lib/stock-notifications";
@@ -462,9 +463,13 @@ export async function addProductImageAction(productId: string, formData: FormDat
   }
 
   try {
-    const { path, bytes } = await uploadImage(file, "products");
+    // The photo's file is named after the product (lib/images/names.ts); the
+    // "product" slot also stores a JPEG copy beside the WebP, for Meta's
+    // catalog, which takes only JPEG/PNG (lib/db/meta-feed.ts).
+    const title = await getProductTitle(productId);
+    const { path, bytes, width, height } = await uploadOptimizedImage(file, "product", title ?? file.name);
     await createMediaAsset({ storagePath: path, label: file.name, bytes });
-    await addProductImage(productId, path);
+    await addProductImage(productId, path, null, { width, height });
     await auditLog(admin.id, "product.image_add", "product", productId, { path });
   } catch (err) {
     // Same split as uploadMediaAction (media-actions.ts): UploadError is

@@ -319,13 +319,20 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
 export async function addProductImage(
   productId: string,
   storagePath: string,
-  altText: string | null = null
+  altText: string | null = null,
+  size: { width: number | null; height: number | null } = { width: null, height: null }
 ): Promise<void> {
   const [{ next }] = await sql<{ next: number }[]>`
     SELECT COALESCE(MAX(position) + 1, 0)::int AS next FROM shop.product_image WHERE product_id = ${productId}`;
   await sql`
-    INSERT INTO shop.product_image (product_id, storage_path, alt_text, position)
-    VALUES (${productId}, ${storagePath}, ${altText}, ${next})`;
+    INSERT INTO shop.product_image (product_id, storage_path, alt_text, position, width, height)
+    VALUES (${productId}, ${storagePath}, ${altText}, ${next}, ${size.width}, ${size.height})`;
+}
+
+/** What a new photo's file is named after (lib/images/names.ts). */
+export async function getProductTitle(productId: string): Promise<string | null> {
+  const [row] = await sql<{ title: string }[]>`SELECT title FROM shop.product WHERE id = ${productId}`;
+  return row?.title ?? null;
 }
 
 /** Scoped to the product, so a stale or crafted id can't remove another product's photo. */

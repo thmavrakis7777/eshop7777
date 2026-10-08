@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { publicImageUrl } from "@/lib/storage/urls";
+import { WithAvif } from "@/components/ui/AvifSource";
 
 /**
  * The shared owner-authored content format — used by Journal articles and by
@@ -198,14 +199,16 @@ export function RichBody({ body, className }: { body: string; className?: string
       if (url) {
         blocks.push(
           <figure key={`fig-${blocks.length}`} className="my-2">
-            {/* eslint-disable-next-line @next/next/no-img-element -- admin-entered storage path or external URL of unknown dimensions; the aspect-ratio class is what prevents layout shift, which is next/image's main benefit here. */}
-            <img
-              src={url}
-              alt={caption}
-              loading="lazy"
-              decoding="async"
-              className="aspect-[3/2] w-full rounded-lg object-cover"
-            />
+            <WithAvif src={url}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- admin-entered storage path or external URL of unknown dimensions; the aspect-ratio class is what prevents layout shift, which is next/image's main benefit here. */}
+              <img
+                src={url}
+                alt={caption}
+                loading="lazy"
+                decoding="async"
+                className="aspect-[3/2] w-full rounded-lg object-cover"
+              />
+            </WithAvif>
             {caption && (
               <figcaption className="mt-2 text-sm text-ink-muted">{caption}</figcaption>
             )}

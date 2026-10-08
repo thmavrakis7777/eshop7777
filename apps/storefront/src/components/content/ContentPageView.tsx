@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { WithAvif } from "@/components/ui/AvifSource";
 import type { ContentPage } from "@/lib/data/content-pages";
 import { RichBody } from "@/components/content/RichBody";
 import { Breadcrumbs } from "@/components/category/Breadcrumbs";
@@ -55,12 +56,14 @@ export async function ContentPageView({
         // A real <img>, never a CSS background-image — inline style
         // attributes are blocked by production's style-src-elem CSP
         // (commit 5095f74). Optional: most content pages have no image.
-        // eslint-disable-next-line @next/next/no-img-element -- admin-entered storage path of unknown dimensions; the aspect-ratio class is what prevents layout shift, which is next/image's main benefit here.
-        <img
-          src={page.imageUrl}
-          alt={page.imageAlt ?? ""}
-          className="mb-6 aspect-[16/9] w-full rounded-lg object-cover"
-        />
+        <WithAvif src={page.imageUrl}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- admin-entered storage path of unknown dimensions; the aspect-ratio class is what prevents layout shift, which is next/image's main benefit here. */}
+          <img
+            src={page.imageUrl}
+            alt={page.imageAlt ?? ""}
+            className="mb-6 aspect-[16/9] w-full rounded-lg object-cover"
+          />
+        </WithAvif>
       )}
       {page.body ? (
         <RichBody body={page.body} />

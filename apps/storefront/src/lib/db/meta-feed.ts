@@ -2,6 +2,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { sql } from "@/lib/db/client";
 import { publicImageUrl } from "@/lib/storage/urls";
+import { imageVariant } from "@/lib/images/names";
 import { siteUrl } from "@/lib/site-config";
 import { getBranding } from "@/lib/data/branding";
 
@@ -99,7 +100,14 @@ export async function getMetaFeedRows(): Promise<MetaFeedRow[]> {
     const priceCents = onSale ? r.compare_at_price_cents! : r.price_cents;
     const salePriceCents = onSale ? r.price_cents : null;
 
-    const images = r.image_paths.map((p) => publicImageUrl(p)).filter((u): u is string => Boolean(u));
+    // Meta's catalog accepts only JPEG/PNG, and product photos are stored as
+    // WebP — so each photo's JPEG copy, which the upload pipeline stores
+    // beside it (lib/images/slots.ts, "product"). Photos uploaded before that
+    // copy existed fall back to their WebP until they are re-uploaded or
+    // converted.
+    const images = r.image_paths
+      .map((p) => publicImageUrl(imageVariant(p, "jpg") ?? p))
+      .filter((u): u is string => Boolean(u));
 
     const productType =
       r.category_name && r.parent_category_name

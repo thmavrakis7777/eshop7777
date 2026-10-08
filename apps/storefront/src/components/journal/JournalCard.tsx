@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { WithAvif } from "@/components/ui/AvifSource";
 import type { JournalArticleCard } from "@/lib/data/journal";
 
 /**
@@ -55,12 +56,14 @@ export function JournalHero({ article }: { article: JournalArticleCard }) {
     <article className="grid gap-6 md:grid-cols-2 md:items-center md:gap-10">
       <Link href={`/journal/${article.slug}`} className="group block overflow-hidden rounded-lg">
         {article.heroImageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- admin-entered path/URL of unknown dimensions; the aspect box already prevents the layout shift next/image would be solving.
-          <img
-            src={article.heroImageUrl}
-            alt={article.heroImageAlt || article.title}
-            className="aspect-[4/3] w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-          />
+          <WithAvif src={article.heroImageUrl}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin-entered path/URL of unknown dimensions; the aspect box already prevents the layout shift next/image would be solving. */}
+            <img
+              src={article.heroImageUrl}
+              alt={article.heroImageAlt || article.title}
+              className="aspect-[4/3] w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+            />
+          </WithAvif>
         ) : (
           <div className="aspect-[4/3] w-full bg-surface-strong" aria-hidden="true" />
         )}
@@ -92,14 +95,16 @@ export function JournalCardItem({ article }: { article: JournalArticleCard }) {
     <article className="flex h-full flex-col">
       <Link href={`/journal/${article.slug}`} className="group block overflow-hidden rounded-lg">
         {article.heroImageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- see JournalHero.
-          <img
-            src={article.heroImageUrl}
-            alt={article.heroImageAlt || article.title}
-            loading="lazy"
-            decoding="async"
-            className="aspect-[4/3] w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-          />
+          <WithAvif src={article.heroImageUrl}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- see JournalHero. */}
+            <img
+              src={article.heroImageUrl}
+              alt={article.heroImageAlt || article.title}
+              loading="lazy"
+              decoding="async"
+              className="aspect-[4/3] w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            />
+          </WithAvif>
         ) : (
           <div className="aspect-[4/3] w-full bg-surface-strong" aria-hidden="true" />
         )}

@@ -1,5 +1,8 @@
 import "server-only";
 import { PRODUCT_IMAGE_BUCKET } from "@/lib/storage/urls";
+import { IMAGE_SLOTS, type ImageSlotId } from "@/lib/images/slots";
+import { optimizedStem } from "@/lib/images/names";
+import { optimizeImage, IMAGE_CONTENT_TYPES, type OptimizedImage } from "@/lib/images/optimize";
 
 /**
  * Uploads a file straight to Supabase Storage's REST API. Deliberately not
@@ -33,8 +36,8 @@ const SNIFF_BYTES = 12;
  * image on every page view (measured on production, 19 Σεπ — SPD-07).
  *
  * A year plus `immutable` is safe only because the bytes at a given URL can
- * never change: uploadImage names every object with a fresh UUID, POSTs
- * without `x-upsert` (Storage refuses an existing path rather than
+ * never change: uploadOptimizedImage gives every upload a fresh random name
+ * (lib/images/names.ts), POSTs without `x-upsert` (Storage refuses an existing path rather than
  * overwriting it), and nothing in this app deletes Storage objects. A
  * replaced image is a new upload at a new URL, never an edit in place. If
  * any of those three stop being true, this has to come down, because a
@@ -105,7 +108,75 @@ export function sniffImageType(bytes: Uint8Array): string | null {
   return null;
 }
 
-export async function uploadImage(file: File, folder: string): Promise<{ path: string; bytes: number }> {
+export type UploadedImage = {
+  /** Bucket-relative path of the main file — what the caller stores. */
+  path: string;
+  /** Size of the main file. */
+  bytes: number;
+  width: number | null;
+  height: number | null;
+  /** Every stored file, main first — for the admin's result line. */
+  files: { format: string; bytes: number }[];
+  /** At least one file is over its slot's budget (lib/images/slots.ts). */
+  overBudget: boolean;
+};
+
+/**
+ * Validates an uploaded image, runs it through the image pipeline for its
+ * slot (lib/images/optimize.ts — size, formats, budget) and stores every
+ * resulting file under one readable name (lib/images/names.ts).
+ *
+ * `label` is what the file is named after: the image's alt text, heading or
+ * original file name, whichever the form had (IMAGE_UPLOAD_SPEC.md §2.4).
+ *
+ * Animated GIFs are stored as they are: re-encoding would either drop the
+ * animation or need a format the storefront's <picture>s don't offer.
+ */
+export async function uploadOptimizedImage(file: File, slotId: ImageSlotId, label: string): Promise<UploadedImage> {
+  const storage = storageConfig();
+  const { buffer, sniffed } = await readImageUpload(file);
+  const { folder } = IMAGE_SLOTS[slotId];
+  const stem = optimizedStem(label || file.name);
+
+  if (sniffed === "image/gif") {
+    const path = `${folder}/${stem}.gif`;
+    await putObject(storage, path, sniffed, buffer);
+    return { path, bytes: buffer.length, width: null, height: null, files: [{ format: "gif", bytes: buffer.length }], overBudget: false };
+  }
+
+  let optimized: OptimizedImage;
+  try {
+    optimized = await optimizeImage(buffer, slotId);
+  } catch {
+    // The signature check passed but the image doesn't decode: truncated or
+    // corrupt. Same message as a wrong format — it isn't usable either way.
+    throw new UploadError("Το αρχείο δεν είναι έγκυρη εικόνα JPEG, PNG, WebP ή GIF.");
+  }
+
+  // The extra formats first and the main file last: the storefront assumes
+  // an AVIF/JPEG sits beside any pipeline-named WebP (lib/images/names.ts),
+  // so if an upload fails half-way, no path the caller could store may
+  // exist without its siblings. A failed run leaves orphans, never gaps.
+  const [main, ...extras] = optimized.files;
+  for (const f of extras) {
+    await putObject(storage, `${folder}/${stem}.${f.format}`, IMAGE_CONTENT_TYPES[f.format], f.data);
+  }
+  const path = `${folder}/${stem}.${main.format}`;
+  await putObject(storage, path, IMAGE_CONTENT_TYPES[main.format], main.data);
+
+  return {
+    path,
+    bytes: main.data.length,
+    width: optimized.width,
+    height: optimized.height,
+    files: optimized.files.map((f) => ({ format: f.format, bytes: f.data.length })),
+    overBudget: optimized.overBudget,
+  };
+}
+
+type StorageConfig = { supabaseUrl: string; serviceKey: string };
+
+function storageConfig(): StorageConfig {
   // .trim(): confirmed live that a pasted dashboard value can carry a
   // trailing newline — see the matching note in lib/storage/urls.ts. Here it
   // would land in a URL and an Authorization header, so it's worth guarding
@@ -115,7 +186,10 @@ export async function uploadImage(file: File, folder: string): Promise<{ path: s
   if (!supabaseUrl || !serviceKey) {
     throw new UploadError("Το Supabase Storage δεν έχει ρυθμιστεί.");
   }
+  return { supabaseUrl, serviceKey };
+}
 
+async function readImageUpload(file: File): Promise<{ buffer: Buffer; sniffed: string }> {
   // Cheap rejections first, both before the file is read into memory: an
   // unsupported declared type never needs sniffing, and the size cap is what
   // bounds the allocation on the next line.
@@ -126,7 +200,7 @@ export async function uploadImage(file: File, folder: string): Promise<{ path: s
     throw new UploadError("Η εικόνα είναι πολύ μεγάλη (μέγιστο 4MB).");
   }
 
-  // Read once, reuse for both the signature check and the request body — the
+  // Read once, reuse for both the signature check and the pipeline — the
   // cap above bounds this at 4MB, and a File's stream cannot be read twice.
   const buffer = await file.arrayBuffer();
   const sniffed = sniffImageType(new Uint8Array(buffer, 0, Math.min(buffer.byteLength, SNIFF_BYTES)));
@@ -139,34 +213,30 @@ export async function uploadImage(file: File, folder: string): Promise<{ path: s
     throw new UploadError("Το αρχείο δεν είναι έγκυρη εικόνα JPEG, PNG, WebP ή GIF.");
   }
 
-  // Extension and Content-Type both come from the sniffed type, never the
-  // declared one. With the equality check above they are identical today;
-  // deriving them from the bytes keeps that true by construction rather than
-  // by that check continuing to be correct.
-  const ext = CONTENT_TYPES[sniffed];
+  // Everything from here on — the GIF check, what the pipeline decodes —
+  // goes by the sniffed type, never the declared one. With the equality
+  // check above they are identical today; using the bytes keeps that true
+  // by construction rather than by that check continuing to be correct.
+  return { buffer: Buffer.from(buffer), sniffed };
+}
 
-  // Random name, never the original filename: sidesteps both collisions and
-  // path-injection from a hostile "../../x.jpg" upload name.
-  const path = `${folder}/${crypto.randomUUID()}.${ext}`;
-
-  const res = await fetch(
-    `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/${PRODUCT_IMAGE_BUCKET}/${path}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceKey}`,
-        apikey: serviceKey,
-        "Content-Type": sniffed,
-        "Cache-Control": CACHE_CONTROL,
-      },
-      body: buffer,
-    }
-  );
+async function putObject({ supabaseUrl, serviceKey }: StorageConfig, path: string, contentType: string, body: Buffer) {
+  // The name is never the uploader's filename as given: optimizedStem keeps
+  // only [a-z0-9-] from it plus a random part, which sidesteps both
+  // collisions and path-injection from a hostile "../../x.jpg" upload name.
+  const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/${PRODUCT_IMAGE_BUCKET}/${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${serviceKey}`,
+      apikey: serviceKey,
+      "Content-Type": contentType,
+      "Cache-Control": CACHE_CONTROL,
+    },
+    body: new Uint8Array(body),
+  });
 
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new UploadError(`Η μεταφόρτωση απέτυχε (${res.status}). ${body.slice(0, 200)}`);
+    const text = await res.text().catch(() => "");
+    throw new UploadError(`Η μεταφόρτωση απέτυχε (${res.status}). ${text.slice(0, 200)}`);
   }
-
-  return { path, bytes: file.size };
 }

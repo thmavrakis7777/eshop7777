@@ -13,6 +13,9 @@ import { ProductPicker } from "@/components/admin/ProductPicker";
 import { TrustItemsEditor } from "@/components/admin/TrustItemsEditor";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { IMAGE_SIZE_HINTS as SIZE_HINTS } from "@/lib/admin/image-size-hints";
+import type { ImageSlotId } from "@/lib/images/slots";
+
+type HomepageImageSlot = Extract<ImageSlotId, "hero-desktop" | "hero-mobile" | "promo" | "content" | "newsletter">;
 import { DEFAULT_TRUST_ITEMS } from "@/components/home/TrustStrip";
 import type { AdminHomepageBlock } from "@/lib/admin/cms";
 import type { HomepageSectionKind, PromoBanner2Config } from "@/lib/content-types";
@@ -70,6 +73,18 @@ const IMAGE_SIZE_HINTS: Partial<Record<HomepageSectionKind, { desktop: string; t
 // Banner 2 only ever renders inside PromoBannerCard (EditorialBanner.tsx), a
 // fixed 4:3 box on every breakpoint.
 const BANNER2_IMAGE_HINTS = SIZE_HINTS.homepage.banner2;
+// Banner 2's own alt text and heading name its uploaded file — not Banner
+// 1's, which share the form (ImageUploadField nameFrom).
+const BANNER2_NAME_FROM = ["banner2ImageAlt", "banner2Heading"];
+
+// What each kind's image fields are converted to on upload
+// (lib/images/slots.ts). Only the Hero has a differently shaped mobile image.
+const IMAGE_SLOTS_BY_KIND: Partial<Record<HomepageSectionKind, { desktop: HomepageImageSlot; mobile: HomepageImageSlot }>> = {
+  hero: { desktop: "hero-desktop", mobile: "hero-mobile" },
+  promo: { desktop: "promo", mobile: "promo" },
+  content: { desktop: "content", mobile: "content" },
+  newsletter: { desktop: "newsletter", mobile: "newsletter" },
+};
 
 const SOURCE_LABELS: Record<string, string> = {
   newest: "Νεότερα προϊόντα",
@@ -475,7 +490,7 @@ function SectionForm({
               id="imagePath"
               name="imagePath"
               defaultValue={section?.imagePath}
-              folder="homepage"
+              slot={IMAGE_SLOTS_BY_KIND[kind]?.desktop ?? "promo"}
               hint={IMAGE_SIZE_HINTS[kind]?.desktop}
             />
           </div>
@@ -489,7 +504,7 @@ function SectionForm({
                 id="tabletImagePath"
                 name="tabletImagePath"
                 defaultValue={section?.tabletImagePath}
-                folder="homepage"
+                slot="promo"
                 placeholder="Προαιρετικό — αλλιώς χρησιμοποιείται η desktop"
                 hint={IMAGE_SIZE_HINTS[kind]?.tablet}
               />
@@ -501,7 +516,7 @@ function SectionForm({
               id="mobileImagePath"
               name="mobileImagePath"
               defaultValue={section?.mobileImagePath}
-              folder="homepage"
+              slot={IMAGE_SLOTS_BY_KIND[kind]?.mobile ?? "promo"}
               placeholder="Προαιρετικό — αλλιώς χρησιμοποιείται η desktop"
               hint={IMAGE_SIZE_HINTS[kind]?.mobile}
             />
@@ -751,7 +766,8 @@ function Banner2Fields({
             id="banner2DesktopImagePath"
             name="banner2DesktopImagePath"
             defaultValue={banner2?.desktopImagePath}
-            folder="homepage"
+            slot="promo"
+            nameFrom={BANNER2_NAME_FROM}
             hint={BANNER2_IMAGE_HINTS.desktop}
           />
         </div>
@@ -761,7 +777,8 @@ function Banner2Fields({
             id="banner2TabletImagePath"
             name="banner2TabletImagePath"
             defaultValue={banner2?.tabletImagePath}
-            folder="homepage"
+            slot="promo"
+            nameFrom={BANNER2_NAME_FROM}
             placeholder="Προαιρετικό — αλλιώς χρησιμοποιείται η desktop"
             hint={BANNER2_IMAGE_HINTS.tablet}
           />
@@ -772,7 +789,8 @@ function Banner2Fields({
             id="banner2MobileImagePath"
             name="banner2MobileImagePath"
             defaultValue={banner2?.mobileImagePath}
-            folder="homepage"
+            slot="promo"
+            nameFrom={BANNER2_NAME_FROM}
             placeholder="Προαιρετικό — αλλιώς χρησιμοποιείται η desktop"
             hint={BANNER2_IMAGE_HINTS.mobile}
           />

@@ -198,7 +198,7 @@ export function JournalArticleEditor({
               name="heroImagePath"
               hint={IMAGE_SIZE_HINTS.journal.hero}
               defaultValue={article.heroImagePath}
-              folder="journal"
+              slot="journal-hero"
             />
           </Labeled>
           <Labeled
@@ -358,7 +358,8 @@ export function JournalArticleEditor({
               id="j-social"
               name="socialImagePath"
               defaultValue={article.seo.socialImagePath}
-              folder="journal"
+              slot="journal-social"
+              nameFrom={["title"]}
             />
           </Labeled>
           <div className="grid gap-4 sm:grid-cols-2">

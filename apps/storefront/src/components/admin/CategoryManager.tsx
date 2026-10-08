@@ -433,7 +433,7 @@ function CategoryForm({
         <ImageUploadField
           name="imagePath"
           defaultValue={category?.imagePath}
-          folder="categories"
+          slot="category"
           hint={IMAGE_SIZE_HINTS.category.image}
         />
         <p className="text-xs text-ink-muted">
@@ -514,7 +514,7 @@ function CategoryForm({
                   name="megaMenuImagePath"
                   hint={IMAGE_SIZE_HINTS.category.megaMenu}
                   defaultValue={category?.megaMenuImagePath}
-                  folder="categories"
+                  slot="mega-menu"
                 />
               </div>
 

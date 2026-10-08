@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import type { HomepageSection } from "@/lib/content-types";
 import { subscribeToNewsletterAction } from "@/lib/actions/newsletter";
 import { AfterPageLoad } from "@/components/ui/AfterPageLoad";
+import { WithAvif } from "@/components/ui/AvifSource";
 
 const DEFAULTS = {
   heading: "Μείνε ενημερωμένος",
@@ -65,16 +66,21 @@ export function Newsletter({ section }: { section?: HomepageSection } = {}) {
           <>
             {/* Below the fold everywhere — waits for the first screen. */}
             <AfterPageLoad placeholderClassName="absolute inset-0">
-              <Image
-                src={imageUrl}
-                alt={section?.imageAlt ?? ""}
-                fill
-                unoptimized
-                // The box is now always the true viewport width, not
-                // container-shell's old ≤1152px cap.
-                sizes="100vw"
-                className="object-cover"
-              />
+              {/* unoptimized = the stored file as-is, so its AVIF (when the
+                  upload pipeline made one) is offered the same way as on
+                  the other plain homepage images. */}
+              <WithAvif src={imageUrl}>
+                <Image
+                  src={imageUrl}
+                  alt={section?.imageAlt ?? ""}
+                  fill
+                  unoptimized
+                  // The box is now always the true viewport width, not
+                  // container-shell's old ≤1152px cap.
+                  sizes="100vw"
+                  className="object-cover"
+                />
+              </WithAvif>
             </AfterPageLoad>
             {/* Keeps the white copy readable over any uploaded image — the
                 owner picks the picture, not the contrast ratio. */}

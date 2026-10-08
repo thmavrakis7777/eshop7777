@@ -826,7 +826,7 @@ export function isStorageConfigured(): boolean {
 /**
  * Records an uploaded file in the media library. ON CONFLICT covers a
  * re-upload racing a previous row for the same path — storage_path is
- * generated as a random UUID (lib/storage/upload.ts), so this is a defensive
+ * given a fresh random part (lib/images/names.ts), so this is a defensive
  * backstop rather than an expected case.
  */
 export async function createMediaAsset(input: {
