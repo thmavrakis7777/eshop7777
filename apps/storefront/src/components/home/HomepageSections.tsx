@@ -4,12 +4,13 @@ import { CategoryGrid } from "@/components/home/CategoryGrid";
 import { ProductRail } from "@/components/home/ProductRail";
 import { ProductRailSkeleton } from "@/components/home/ProductRailSkeleton";
 import { EditorialBanner } from "@/components/home/EditorialBanner";
+import { EditorialShowcase } from "@/components/home/EditorialShowcase";
 import { ContentSection } from "@/components/home/ContentSection";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { TrustStrip } from "@/components/home/TrustStrip";
 import { Newsletter } from "@/components/home/Newsletter";
-import { resolveRailProducts } from "@/lib/data/homepage-sections";
-import type { HomepageSection } from "@/lib/content-types";
+import { resolveRailProducts, resolveShowcase } from "@/lib/data/homepage-sections";
+import { SHOWCASE_PRODUCT_COUNT, type HomepageSection } from "@/lib/content-types";
 import type { NavCategory } from "@/lib/types";
 
 /**
@@ -40,6 +41,31 @@ async function RailSection({ section }: { section: HomepageSection }) {
   );
 }
 
+// Same streaming as a rail: each showcase resolves its own source inside its
+// own Suspense boundary.
+async function ShowcaseSection({
+  section,
+  categories,
+  number,
+  eager,
+}: {
+  section: HomepageSection;
+  categories: NavCategory[];
+  number: number;
+  eager: boolean;
+}) {
+  const config = section.config.showcase;
+  if (!config) return null;
+  const data = await resolveShowcase(config.source, SHOWCASE_PRODUCT_COUNT[config.layout], categories);
+  return <EditorialShowcase section={section} data={data} number={number} eager={eager} />;
+}
+
+// Holds the showcase's place while its products load, so the sections below
+// don't jump up and back. Roughly its real height per breakpoint; invisible.
+function ShowcasePlaceholder() {
+  return <div aria-hidden="true" className="mt-16 h-[76rem] md:mt-24 md:h-[80rem] lg:h-[58rem]" />;
+}
+
 function pickCategories(all: NavCategory[], slugs: string[] | undefined): NavCategory[] {
   // No explicit picks = every top-level category in nav order, which is what
   // the hardcoded grid did before this was configurable.
@@ -63,10 +89,14 @@ export function HomepageSectionGroup({
   categories,
   storeName,
   isFirstGroup = false,
+  showcaseNumber = 1,
 }: {
   group: HomepageSection[];
   categories: NavCategory[];
   storeName: string;
+  // This group's place among the page's showcases (1, 2, …) — the number on
+  // an Editorial Showcase's rule. Ignored by every other kind.
+  showcaseNumber?: number;
   // Only true for groups[0] in the caller's map — see (storefront)/page.tsx.
   // Gates Hero's full-viewport-on-mobile/tablet treatment to whichever Hero
   // actually opens the page, not any later one an admin might add.
@@ -98,6 +128,13 @@ export function HomepageSectionGroup({
           categories={pickCategories(categories, first.config.categorySlugs)}
           heading={first.heading ?? undefined}
         />
+      );
+
+    case "showcase":
+      return reveal(
+        <Suspense fallback={<ShowcasePlaceholder />}>
+          <ShowcaseSection section={first} categories={categories} number={showcaseNumber} eager={isFirstGroup} />
+        </Suspense>
       );
 
     case "product_rail":

@@ -498,6 +498,9 @@ export type Collection = {
   slug: string;
   title: string;
   description: string | null;
+  // Bucket-relative storage path, like category.image_path. Read by the
+  // homepage's Editorial Showcase as its fallback image.
+  imagePath: string | null;
 };
 
 // Active-only, public fields — the admin's own AdminCollection (lib/admin/
@@ -505,7 +508,7 @@ export type Collection = {
 // have no storefront-facing meaning.
 export async function getCollectionBySlug(slug: string): Promise<Collection | undefined> {
   const rows = await sql<Collection[]>`
-    SELECT id, slug, title, description
+    SELECT id, slug, title, description, image_path AS "imagePath"
       FROM shop.collection
      WHERE slug = ${slug} AND is_active
      LIMIT 1

@@ -52,6 +52,10 @@ export const IMAGE_SLOTS = {
   promo: { folder: "homepage", width: 1200, height: 1200, formats: ["webp", "avif"], budgetKB: 120 },
   // Content section: a 4:3 box, half width from 768 px.
   content: { folder: "homepage", width: 1200, height: 900, formats: ["webp", "avif"], budgetKB: 150 },
+  // Editorial Showcase «Spread» image: 4:5 at just under half the page width
+  // on desktop (676×845 at 1440), 3:2 across the page on tablets (704×469),
+  // 4:5 edge to edge on phones (390×488).
+  showcase: { folder: "homepage", width: 1200, height: 1500, formats: ["webp", "avif"], budgetKB: 180 },
   // Full-width background (~3:1) under a 70% dark overlay.
   newsletter: { folder: "homepage", width: 1920, height: 640, formats: ["webp", "avif"], budgetKB: 200 },
   // Homepage grid (square), subcategory tiles (4:3, 326×245 at 1440),

@@ -7,8 +7,8 @@ import { useEffect, useRef, type ReactNode } from "react";
 const VISIBLE_AMOUNT = 0.2;
 
 /**
- * Subtle fade + slide-up reveal for the homepage Hero and Promo (Editorial-
- * Banner) sections only — not a general-purpose primitive, so it stays this
+ * Subtle fade + slide-up reveal for the homepage Hero, Promo (Editorial-
+ * Banner) and Editorial Showcase sections only — not a general-purpose primitive, so it stays this
  * small and un-abstracted on purpose. A plain wrapper rather than a change
  * to Hero/EditorialBanner themselves, so those stay server components and
  * every other homepage section (products, categories, guarantees,

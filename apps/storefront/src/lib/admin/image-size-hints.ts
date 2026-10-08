@@ -55,6 +55,14 @@ export const IMAGE_SIZE_HINTS = {
       desktop: "Σχήμα 4:3 (π.χ. 1200×900 px) — μισό πλάτος σε υπολογιστή, όλο το πλάτος σε κινητό.",
       mobile: "Προαιρετικό — μόνο αν θέλεις διαφορετική περικοπή σε κινητό. Ίδιο σχήμα 4:3.",
     },
+    // Editorial Showcase «Spread»: 4:5 beside the text on desktop (676×845
+    // at 1440), a 3:2 crop across the page on tablets, 4:5 edge to edge on
+    // phones. Optional — EditorialShowcase falls back to the category's or
+    // collection's own image, then to the first product's photo.
+    showcase: {
+      desktop: "Προαιρετικό. Κάθετη 4:5 (π.χ. 1200×1500 px), με το θέμα στο κέντρο — σε υπολογιστή δίπλα στο κείμενο, σε tablet κόβεται πιο φαρδιά (3:2), σε κινητό σε όλο το πλάτος. Χωρίς εικόνα εμφανίζεται η εικόνα της κατηγορίας/συλλογής ή η φωτογραφία του πρώτου προϊόντος.",
+      mobile: "Προαιρετικό — μόνο αν θέλεις διαφορετική περικοπή σε κινητό. Κάθετη 4:5. Χωρίς αυτό εμφανίζεται η desktop εικόνα.",
+    },
     // Newsletter: full-width background under a 70% dark overlay. Its
     // component reads only the desktop image.
     newsletter: {

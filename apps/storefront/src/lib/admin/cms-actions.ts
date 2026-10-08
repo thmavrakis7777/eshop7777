@@ -27,6 +27,7 @@ import type { EmailSettings, PdpContentDefaults } from "@/lib/admin/cms";
 import type {
   HomepageSectionConfig,
   HomepageSectionKind,
+  ShowcaseSource,
   TrustIconName,
   TrustItem,
 } from "@/lib/content-types";
@@ -100,6 +101,7 @@ const SECTION_KINDS: HomepageSectionKind[] = [
   "content",
   "trust",
   "newsletter",
+  "showcase",
 ];
 
 // Mirrors TrustIconName. Duplicated as a runtime value because a TS union
@@ -130,6 +132,11 @@ const RAIL_SOURCE_TYPES = [
   "best_sellers",
 ] as const;
 
+// The rail's sources minus "featured" — the Editorial Showcase brief lists
+// these six. Same form field names as the rail, so the admin form shares
+// one source picker between the two.
+const SHOWCASE_SOURCE_TYPES = ["category", "collection", "sale", "newest", "best_sellers", "manual"] as const;
+
 // Reuses the exact same "one slug per line or comma" wire format ProductPicker
 // already writes for a manual rail's productSlugs — not a second format.
 function parseSlugList(raw: FormDataEntryValue | null, max: number): string[] {
@@ -153,7 +160,7 @@ function parseConfig(kind: HomepageSectionKind, formData: FormData): HomepageSec
   const config: HomepageSectionConfig = {};
 
   // Applies to every kind that can render a button.
-  if (kind === "hero" || kind === "promo" || kind === "content") {
+  if (kind === "hero" || kind === "promo" || kind === "content" || kind === "showcase") {
     config.showButton = formData.get("showButton") === "on";
   }
 
@@ -250,7 +257,64 @@ function parseConfig(kind: HomepageSectionKind, formData: FormData): HomepageSec
     }
   }
 
+  if (kind === "showcase") {
+    const rawLayout = String(formData.get("layout") ?? "spread");
+    config.showcase = {
+      layout: rawLayout === "gallery" || rawLayout === "both" ? rawLayout : "spread",
+      // Both kept whichever layout is chosen, so switching layout and back
+      // doesn't lose the other one's setting.
+      imageSide: formData.get("imageSide") === "right" ? "right" : "left",
+      tone: formData.get("tone") === "warm" ? "warm" : "white",
+      source: parseShowcaseSource(formData),
+    };
+  }
+
   return config;
+}
+
+function parseShowcaseSource(formData: FormData): ShowcaseSource {
+  const rawType = String(formData.get("sourceType") ?? "category");
+  const type = (SHOWCASE_SOURCE_TYPES as readonly string[]).includes(rawType)
+    ? (rawType as (typeof SHOWCASE_SOURCE_TYPES)[number])
+    : "category";
+
+  switch (type) {
+    case "category":
+      return { type, categorySlug: String(formData.get("categorySlug") ?? "").trim() };
+    case "collection":
+      return { type, collectionSlug: String(formData.get("collectionSlug") ?? "").trim() };
+    case "manual":
+      // Up to the rail's 24 — only the first the layout shows are used, but
+      // keeping the rest means switching to a larger layout needs no re-picking.
+      return { type, productSlugs: parseSlugList(formData.get("productSlugs"), 24) };
+    case "best_sellers": {
+      const fallback = parseSlugList(formData.get("fallbackProductSlugs"), 24);
+      return { type, ...(fallback.length ? { fallbackProductSlugs: fallback } : {}) };
+    }
+    default:
+      return { type };
+  }
+}
+
+/**
+ * Same "saved fine, never appears" guard as validateRailSource, for a
+ * showcase — plus its heading, which the section's whole design (and its
+ * <h2>) hangs on.
+ */
+function validateShowcase(config: HomepageSectionConfig, heading: string | null): string | null {
+  if (!heading) return "Γράψε έναν τίτλο για την ενότητα — είναι ο μεγάλος τίτλος της στο κατάστημα.";
+  const source = config.showcase?.source;
+  if (!source) return null;
+  if (source.type === "category" && !source.categorySlug) {
+    return "Διάλεξε μια κατηγορία για την ενότητα, αλλιώς δεν θα εμφανίζεται καθόλου στο κατάστημα.";
+  }
+  if (source.type === "collection" && !source.collectionSlug) {
+    return "Διάλεξε μια συλλογή για την ενότητα, αλλιώς δεν θα εμφανίζεται καθόλου στο κατάστημα.";
+  }
+  if (source.type === "manual" && !source.productSlugs.length) {
+    return "Επίλεξε τουλάχιστον ένα προϊόν για την ενότητα, αλλιώς δεν θα εμφανίζεται καθόλου στο κατάστημα.";
+  }
+  return null;
 }
 
 /**
@@ -290,6 +354,8 @@ export async function saveHomepageBlockAction(formData: FormData): Promise<Actio
 
   const railError = kind === "product_rail" ? validateRailSource(config) : null;
   if (railError) return { ok: false, error: railError };
+  const showcaseError = kind === "showcase" ? validateShowcase(config, text(formData.get("heading"))) : null;
+  if (showcaseError) return { ok: false, error: showcaseError };
 
   try {
     const savedId = await saveHomepageBlock({

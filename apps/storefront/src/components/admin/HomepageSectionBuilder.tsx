@@ -15,10 +15,18 @@ import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { IMAGE_SIZE_HINTS as SIZE_HINTS } from "@/lib/admin/image-size-hints";
 import type { ImageSlotId } from "@/lib/images/slots";
 
-type HomepageImageSlot = Extract<ImageSlotId, "hero-desktop" | "hero-mobile" | "promo" | "content" | "newsletter">;
+type HomepageImageSlot = Extract<ImageSlotId, "hero-desktop" | "hero-mobile" | "promo" | "content" | "newsletter" | "showcase">;
 import { DEFAULT_TRUST_ITEMS } from "@/components/home/TrustStrip";
 import type { AdminHomepageBlock } from "@/lib/admin/cms";
-import type { HomepageSectionKind, PromoBanner2Config } from "@/lib/content-types";
+import {
+  GALLERY_PRODUCT_COUNT,
+  SPREAD_PRODUCT_COUNT,
+  type HomepageSectionKind,
+  type ProductRailSource,
+  type PromoBanner2Config,
+  type ShowcaseLayout,
+  type ShowcaseSource,
+} from "@/lib/content-types";
 
 /**
  * The homepage, as an ordered list of sections the owner composes.
@@ -40,6 +48,7 @@ const label = "block text-xs font-medium text-ink-muted mb-1";
 const KIND_LABELS: Record<HomepageSectionKind, string> = {
   hero: "Hero / Μεγάλο banner",
   promo: "Προωθητικό banner",
+  showcase: "Editorial Showcase",
   category_grid: "Πλέγμα κατηγοριών",
   product_rail: "Λωρίδα προϊόντων",
   content: "Κείμενο & εικόνα",
@@ -50,6 +59,8 @@ const KIND_LABELS: Record<HomepageSectionKind, string> = {
 const KIND_HINTS: Record<HomepageSectionKind, string> = {
   hero: "Μεγάλη εικόνα με τίτλο και προαιρετικό κουμπί. Δύο ή περισσότερα διαδοχικά hero γίνονται carousel.",
   promo: "Μικρότερο banner εικόνας/κειμένου, σε δύο στήλες.",
+  showcase:
+    "Editorial ενότητα: μεγάλος τίτλος και πραγματικά προϊόντα από την πηγή που διαλέγεις (κατηγορία, συλλογή, προσφορές, νέες αφίξεις, best sellers ή δική σου επιλογή), με τιμές και κουμπί καλαθιού. Μπορείς να προσθέσεις όσες θέλεις.",
   category_grid: "Πλακίδια κατηγοριών. Άφησε τη λίστα κενή για όλες τις κύριες κατηγορίες.",
   product_rail: "Οριζόντια λωρίδα προϊόντων — αυτόματη επιλογή ή χειροκίνητη.",
   content: "Ελεύθερη ενότητα: εικόνα, τίτλος, κείμενο και προαιρετικό κουμπί.",
@@ -68,6 +79,7 @@ const IMAGE_SIZE_HINTS: Partial<Record<HomepageSectionKind, { desktop: string; t
   promo: SIZE_HINTS.homepage.promo,
   content: SIZE_HINTS.homepage.content,
   newsletter: SIZE_HINTS.homepage.newsletter,
+  showcase: SIZE_HINTS.homepage.showcase,
 };
 
 // Banner 2 only ever renders inside PromoBannerCard (EditorialBanner.tsx), a
@@ -84,6 +96,7 @@ const IMAGE_SLOTS_BY_KIND: Partial<Record<HomepageSectionKind, { desktop: Homepa
   promo: { desktop: "promo", mobile: "promo" },
   content: { desktop: "content", mobile: "content" },
   newsletter: { desktop: "newsletter", mobile: "newsletter" },
+  showcase: { desktop: "showcase", mobile: "showcase" },
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -94,6 +107,29 @@ const SOURCE_LABELS: Record<string, string> = {
   collection: "Από συλλογή",
   manual: "Χειροκίνητη επιλογή",
   best_sellers: "Best Sellers (αυτόματα, με βάση τις πωλήσεις)",
+};
+
+// A showcase's sources: the rail's minus "featured" (SHOWCASE_SOURCE_TYPES
+// in cms-actions.ts), category first — the most common use.
+const SHOWCASE_SOURCE_LABELS: Record<string, string> = {
+  category: SOURCE_LABELS.category,
+  collection: SOURCE_LABELS.collection,
+  sale: SOURCE_LABELS.sale,
+  newest: "Νέες αφίξεις",
+  best_sellers: SOURCE_LABELS.best_sellers,
+  manual: SOURCE_LABELS.manual,
+};
+
+const SHOWCASE_LAYOUT_LABELS: Record<ShowcaseLayout, string> = {
+  spread: "A · Spread",
+  gallery: "B · Gallery",
+  both: "A + B μαζί",
+};
+
+const SHOWCASE_LAYOUT_HINTS: Record<ShowcaseLayout, string> = {
+  spread: `Μεγάλη εικόνα δίπλα στον τίτλο και λίστα προϊόντων — έως ${SPREAD_PRODUCT_COUNT} προϊόντα (σε υπολογιστή το πρώτο κάθεται πάνω στη γωνία της εικόνας).`,
+  gallery: `Τα ίδια τα προϊόντα σε μεγάλες φωτογραφίες: ένα μεγάλο και δύο μικρότερα — έως ${GALLERY_PRODUCT_COUNT} προϊόντα. Δεν χρησιμοποιεί τη μεγάλη εικόνα.`,
+  both: `Το Spread και ακριβώς από κάτω το Gallery, ως μία ενότητα: τα πρώτα ${SPREAD_PRODUCT_COUNT} προϊόντα στο Spread και τα επόμενα ${GALLERY_PRODUCT_COUNT} στο Gallery, χωρίς επαναλήψεις. Αν η πηγή έχει έως ${SPREAD_PRODUCT_COUNT} προϊόντα, εμφανίζεται μόνο το Spread.`,
 };
 
 export type PickerOption = { slug: string; label: string };
@@ -335,8 +371,9 @@ export function HomepageSectionBuilder({
  * before that check existed doesn't sit invisible and undiagnosable.
  */
 function isDeadOnLive(s: AdminHomepageBlock): boolean {
-  if (!s.isPublished || s.kind !== "product_rail") return false;
-  const source = s.config.source;
+  if (!s.isPublished) return false;
+  if (s.kind !== "product_rail" && s.kind !== "showcase") return false;
+  const source = s.kind === "showcase" ? s.config.showcase?.source : s.config.source;
   if (!source) return true;
   if (source.type === "category") return !source.categorySlug;
   if (source.type === "collection") return !source.collectionSlug;
@@ -344,16 +381,23 @@ function isDeadOnLive(s: AdminHomepageBlock): boolean {
   return false;
 }
 
+// "Κατηγορία: kouzina", "3 επιλεγμένα προϊόντα"… — shared by rails and showcases.
+function describeSource(src: ProductRailSource | ShowcaseSource | undefined): string {
+  if (!src) return "Καμία πηγή προϊόντων";
+  if (src.type === "manual") return `${src.productSlugs?.length ?? 0} επιλεγμένα προϊόντα`;
+  if (src.type === "category") return `Κατηγορία: ${src.categorySlug || "—"}`;
+  if (src.type === "collection") return `Συλλογή: ${src.collectionSlug || "—"}`;
+  return SOURCE_LABELS[src.type] ?? src.type;
+}
+
 /** One-line summary of what a section will actually render. */
 function describeSection(s: AdminHomepageBlock): string {
   switch (s.kind) {
-    case "product_rail": {
-      const src = s.config.source;
-      if (!src) return "Καμία πηγή προϊόντων";
-      if (src.type === "manual") return `${src.productSlugs?.length ?? 0} επιλεγμένα προϊόντα`;
-      if (src.type === "category") return `Κατηγορία: ${src.categorySlug || "—"}`;
-      if (src.type === "collection") return `Συλλογή: ${src.collectionSlug || "—"}`;
-      return SOURCE_LABELS[src.type] ?? src.type;
+    case "product_rail":
+      return describeSource(s.config.source);
+    case "showcase": {
+      const sc = s.config.showcase;
+      return sc ? `${SHOWCASE_LAYOUT_LABELS[sc.layout]} · ${describeSource(sc.source)}` : describeSource(undefined);
     }
     case "category_grid": {
       const n = s.config.categorySlugs?.length ?? 0;
@@ -432,17 +476,22 @@ function SectionForm({
   onCancel: () => void;
   onSubmit: (data: FormData) => void;
 }) {
-  const [sourceType, setSourceType] = useState(section?.config.source?.type ?? "newest");
   const src = section?.config.source;
+  const showcase = section?.config.showcase;
+  const [layout, setLayout] = useState<ShowcaseLayout>(showcase?.layout ?? "spread");
   // `trust` has no free-text copy of its own (its content is the item list);
   // `newsletter` reuses the standard copy columns and an optional background
   // image, so it is NOT treated as fieldless.
   const isTrust = kind === "trust";
   const isNewsletter = kind === "newsletter";
+  const isShowcase = kind === "showcase";
   const hasCopy = !isTrust;
-  const hasBody = kind === "hero" || kind === "promo" || kind === "content" || isNewsletter;
-  const hasButton = kind === "hero" || kind === "promo" || kind === "content";
-  const hasImage = kind === "hero" || kind === "promo" || kind === "content" || isNewsletter;
+  const hasBody = kind === "hero" || kind === "promo" || kind === "content" || isNewsletter || isShowcase;
+  const hasButton = kind === "hero" || kind === "promo" || kind === "content" || isShowcase;
+  const hasImage = kind === "hero" || kind === "promo" || kind === "content" || isNewsletter || isShowcase;
+  // The Gallery uses no large image. Its fields stay in the form (hidden),
+  // so switching to Gallery and back doesn't lose an uploaded image.
+  const imageHidden = isShowcase && layout === "gallery";
 
   return (
     <form
@@ -465,12 +514,26 @@ function SectionForm({
           {kind !== "category_grid" && (
             <div>
               <label className={label} htmlFor="eyebrow">Μικρός τίτλος (eyebrow)</label>
-              <input id="eyebrow" name="eyebrow" defaultValue={section?.eyebrow ?? ""} className={field} />
+              <input
+                id="eyebrow"
+                name="eyebrow"
+                defaultValue={section?.eyebrow ?? ""}
+                placeholder={isShowcase ? "Κενό = αυτόματα, π.χ. «Κατηγορία · Κουζίνα»" : undefined}
+                className={field}
+              />
             </div>
           )}
           <div>
-            <label className={label} htmlFor="heading">Τίτλος</label>
-            <input id="heading" name="heading" defaultValue={section?.heading ?? ""} className={field} />
+            <label className={label} htmlFor="heading">
+              Τίτλος{isShowcase && " (υποχρεωτικό)"}
+            </label>
+            <input
+              id="heading"
+              name="heading"
+              defaultValue={section?.heading ?? ""}
+              required={isShowcase}
+              className={field}
+            />
           </div>
         </div>
       )}
@@ -482,10 +545,53 @@ function SectionForm({
         </div>
       )}
 
+      {isShowcase && (
+        <div className="rounded-md border border-border p-3">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div>
+              <label className={label} htmlFor="layout">Διάταξη</label>
+              <select
+                id="layout"
+                name="layout"
+                value={layout}
+                onChange={(e) => setLayout(e.target.value as ShowcaseLayout)}
+                className={field}
+              >
+                {(Object.keys(SHOWCASE_LAYOUT_LABELS) as ShowcaseLayout[]).map((value) => (
+                  <option key={value} value={value}>
+                    {SHOWCASE_LAYOUT_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* Both always submitted (hidden, not removed), like the image
+                fields below — each keeps its value across layout switches. */}
+            <div hidden={layout === "gallery"}>
+              <label className={label} htmlFor="imageSide">Πλευρά μεγάλης εικόνας (A)</label>
+              <select id="imageSide" name="imageSide" defaultValue={showcase?.imageSide ?? "left"} className={field}>
+                <option value="left">Αριστερά</option>
+                <option value="right">Δεξιά</option>
+              </select>
+            </div>
+            <div hidden={layout === "spread"}>
+              <label className={label} htmlFor="tone">Φόντο (B)</label>
+              <select id="tone" name="tone" defaultValue={showcase?.tone ?? "white"} className={field}>
+                <option value="white">Λευκό</option>
+                <option value="warm">Ζεστό (απαλό μπεζ)</option>
+              </select>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">{SHOWCASE_LAYOUT_HINTS[layout]}</p>
+        </div>
+      )}
+
       {hasImage && (
+        <div hidden={imageHidden}>
         <div className="grid gap-3 md:grid-cols-2">
           <div>
-            <label className={label} htmlFor="imagePath">Εικόνα (desktop)</label>
+            <label className={label} htmlFor="imagePath">
+              {isShowcase ? "Μεγάλη εικόνα (A · Spread)" : "Εικόνα (desktop)"}
+            </label>
             <ImageUploadField
               id="imagePath"
               name="imagePath"
@@ -532,6 +638,17 @@ function SectionForm({
             />
           </div>
         </div>
+        </div>
+      )}
+
+      {isShowcase && (
+        <ProductSourceFields
+          sources={SHOWCASE_SOURCE_LABELS}
+          defaultSource={showcase?.source}
+          categories={categories}
+          collections={collections}
+          note="Το πλήθος το ορίζει η διάταξη. Αν η πηγή μείνει χωρίς προϊόντα (π.χ. άδεια κατηγορία), η ενότητα κρύβεται μόνη της."
+        />
       )}
 
       {hasButton && (
@@ -547,8 +664,14 @@ function SectionForm({
           </label>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <div>
-              <label className={label} htmlFor="ctaLabel">Κείμενο κουμπιού</label>
-              <input id="ctaLabel" name="ctaLabel" defaultValue={section?.ctaLabel ?? ""} className={field} />
+              <label className={label} htmlFor="ctaLabel">{isShowcase ? "Κείμενο συνδέσμου" : "Κείμενο κουμπιού"}</label>
+              <input
+                id="ctaLabel"
+                name="ctaLabel"
+                defaultValue={section?.ctaLabel ?? ""}
+                placeholder={isShowcase ? "Κενό = αυτόματα, με το πραγματικό πλήθος προϊόντων" : undefined}
+                className={field}
+              />
             </div>
             <div>
               <label className={label} htmlFor="ctaHref">Προορισμός</label>
@@ -560,6 +683,13 @@ function SectionForm({
               />
             </div>
           </div>
+          {isShowcase && (
+            <p className="mt-2 text-xs text-ink-muted">
+              Κενός προορισμός = η σελίδα της πηγής (η κατηγορία, η συλλογή, οι Προσφορές ή οι Νέες αφίξεις). Για Best
+              Sellers και δική σου επιλογή δεν υπάρχει τέτοια σελίδα, οπότε ο σύνδεσμος εμφανίζεται μόνο αν ορίσεις
+              προορισμό.
+            </p>
+          )}
         </div>
       )}
 
@@ -592,103 +722,13 @@ function SectionForm({
       )}
 
       {kind === "product_rail" && (
-        <div className="rounded-md border border-border p-3">
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className={label} htmlFor="sourceType">Πηγή προϊόντων</label>
-              <select
-                id="sourceType"
-                name="sourceType"
-                value={sourceType}
-                onChange={(e) => setSourceType(e.target.value as typeof sourceType)}
-                className={field}
-              >
-                {Object.entries(SOURCE_LABELS).map(([value, text]) => (
-                  <option key={value} value={value}>
-                    {text}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {sourceType !== "manual" && (
-              <div>
-                <label className={label} htmlFor="limit">Πλήθος προϊόντων</label>
-                <input
-                  id="limit"
-                  name="limit"
-                  type="number"
-                  min={1}
-                  max={24}
-                  defaultValue={src && "limit" in src ? src.limit : 12}
-                  className={field}
-                />
-              </div>
-            )}
-          </div>
-
-          {sourceType === "category" && (
-            <div className="mt-3">
-              <label className={label} htmlFor="categorySlug">Κατηγορία</label>
-              <select
-                id="categorySlug"
-                name="categorySlug"
-                defaultValue={src?.type === "category" ? src.categorySlug : ""}
-                className={field}
-              >
-                <option value="">— Επίλεξε —</option>
-                {categories.map((c) => (
-                  <option key={c.slug} value={c.slug}>{c.label}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {sourceType === "collection" && (
-            <div className="mt-3">
-              <label className={label} htmlFor="collectionSlug">Συλλογή</label>
-              <select
-                id="collectionSlug"
-                name="collectionSlug"
-                defaultValue={src?.type === "collection" ? src.collectionSlug : ""}
-                className={field}
-              >
-                <option value="">— Επίλεξε —</option>
-                {collections.map((c) => (
-                  <option key={c.slug} value={c.slug}>{c.label}</option>
-                ))}
-              </select>
-              {collections.length === 0 && (
-                <p className="mt-1 text-xs text-ink-muted">
-                  Δεν υπάρχουν συλλογές ακόμα — δημιούργησε μία από τις Συλλογές.
-                </p>
-              )}
-            </div>
-          )}
-
-          {sourceType === "manual" && (
-            <div className="mt-3">
-              <p className={label}>Προϊόντα</p>
-              <ProductPicker
-                name="productSlugs"
-                defaultSlugs={src?.type === "manual" ? (src.productSlugs ?? []) : []}
-              />
-            </div>
-          )}
-
-          {sourceType === "best_sellers" && (
-            <div className="mt-3">
-              <p className={label}>Εφεδρικά προϊόντα (προαιρετικό)</p>
-              <p className="mb-2 text-xs text-ink-muted">
-                Εμφανίζονται μόνο όσο δεν υπάρχουν ακόμα αρκετές πωλήσεις για αυτόματη κατάταξη — π.χ. σε ένα νέο
-                κατάστημα. Μόλις υπάρξουν πραγματικές πωλήσεις, εμφανίζονται αυτές αντί για τα εφεδρικά.
-              </p>
-              <ProductPicker
-                name="fallbackProductSlugs"
-                defaultSlugs={src?.type === "best_sellers" ? (src.fallbackProductSlugs ?? []) : []}
-              />
-            </div>
-          )}
-
+        <ProductSourceFields
+          sources={SOURCE_LABELS}
+          defaultSource={src}
+          showLimit
+          categories={categories}
+          collections={collections}
+        >
           <div className="mt-3">
             <label className={label} htmlFor="viewAllHref">Σύνδεσμος «Δες όλα» (προαιρετικό)</label>
             <LinkPicker
@@ -698,7 +738,7 @@ function SectionForm({
               collections={collections}
             />
           </div>
-        </div>
+        </ProductSourceFields>
       )}
 
       <div className="flex flex-wrap items-center gap-4">
@@ -731,6 +771,138 @@ function SectionForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Where a rail's or a showcase's products come from. One picker for both,
+ * with the same field names — parsed in cms-actions.ts by the rail's and the
+ * showcase's own parsers — so a category, collection or hand-picked source
+ * looks and works the same in either. A showcase has no count field: its
+ * layout decides how many it shows.
+ */
+function ProductSourceFields({
+  sources,
+  defaultSource,
+  showLimit = false,
+  categories,
+  collections,
+  note,
+  children,
+}: {
+  // value → label, in the order offered; the first is the default.
+  sources: Record<string, string>;
+  defaultSource?: ProductRailSource | ShowcaseSource;
+  showLimit?: boolean;
+  categories: PickerOption[];
+  collections: PickerOption[];
+  note?: string;
+  children?: React.ReactNode;
+}) {
+  const [sourceType, setSourceType] = useState<string>(defaultSource?.type ?? Object.keys(sources)[0]);
+  const src = defaultSource;
+
+  return (
+    <div className="rounded-md border border-border p-3">
+      <div className="grid gap-3 md:grid-cols-2">
+        <div>
+          <label className={label} htmlFor="sourceType">Πηγή προϊόντων</label>
+          <select
+            id="sourceType"
+            name="sourceType"
+            value={sourceType}
+            onChange={(e) => setSourceType(e.target.value)}
+            className={field}
+          >
+            {Object.entries(sources).map(([value, text]) => (
+              <option key={value} value={value}>
+                {text}
+              </option>
+            ))}
+          </select>
+        </div>
+        {showLimit && sourceType !== "manual" && (
+          <div>
+            <label className={label} htmlFor="limit">Πλήθος προϊόντων</label>
+            <input
+              id="limit"
+              name="limit"
+              type="number"
+              min={1}
+              max={24}
+              defaultValue={src && "limit" in src ? src.limit : 12}
+              className={field}
+            />
+          </div>
+        )}
+      </div>
+
+      {sourceType === "category" && (
+        <div className="mt-3">
+          <label className={label} htmlFor="categorySlug">Κατηγορία</label>
+          <select
+            id="categorySlug"
+            name="categorySlug"
+            defaultValue={src?.type === "category" ? src.categorySlug : ""}
+            className={field}
+          >
+            <option value="">— Επίλεξε —</option>
+            {categories.map((c) => (
+              <option key={c.slug} value={c.slug}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {sourceType === "collection" && (
+        <div className="mt-3">
+          <label className={label} htmlFor="collectionSlug">Συλλογή</label>
+          <select
+            id="collectionSlug"
+            name="collectionSlug"
+            defaultValue={src?.type === "collection" ? src.collectionSlug : ""}
+            className={field}
+          >
+            <option value="">— Επίλεξε —</option>
+            {collections.map((c) => (
+              <option key={c.slug} value={c.slug}>{c.label}</option>
+            ))}
+          </select>
+          {collections.length === 0 && (
+            <p className="mt-1 text-xs text-ink-muted">
+              Δεν υπάρχουν συλλογές ακόμα — δημιούργησε μία από τις Συλλογές.
+            </p>
+          )}
+        </div>
+      )}
+
+      {sourceType === "manual" && (
+        <div className="mt-3">
+          <p className={label}>Προϊόντα</p>
+          <ProductPicker
+            name="productSlugs"
+            defaultSlugs={src?.type === "manual" ? (src.productSlugs ?? []) : []}
+          />
+        </div>
+      )}
+
+      {sourceType === "best_sellers" && (
+        <div className="mt-3">
+          <p className={label}>Εφεδρικά προϊόντα (προαιρετικό)</p>
+          <p className="mb-2 text-xs text-ink-muted">
+            Εμφανίζονται μόνο όσο δεν υπάρχουν ακόμα αρκετές πωλήσεις για αυτόματη κατάταξη — π.χ. σε ένα νέο
+            κατάστημα. Μόλις υπάρξουν πραγματικές πωλήσεις, εμφανίζονται αυτές αντί για τα εφεδρικά.
+          </p>
+          <ProductPicker
+            name="fallbackProductSlugs"
+            defaultSlugs={src?.type === "best_sellers" ? (src.fallbackProductSlugs ?? []) : []}
+          />
+        </div>
+      )}
+
+      {note && <p className="mt-3 text-xs text-ink-muted">{note}</p>}
+      {children}
+    </div>
   );
 }
 

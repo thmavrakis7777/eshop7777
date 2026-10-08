@@ -118,7 +118,10 @@ export type HomepageSectionKind =
   // Fixed-content sections: positionable and hideable from the admin, but
   // their copy stays curated in code — see migration 0005 for why.
   | "trust"
-  | "newsletter";
+  | "newsletter"
+  // Editorial Showcase (migration 0038): heading + real products from a
+  // source, in one of two editorial layouts — see ShowcaseConfig below.
+  | "showcase";
 
 /**
  * Icons available to a guarantee tile. A fixed set rather than free input:
@@ -183,6 +186,51 @@ export type PromoBanner2Config = {
   ctaHref: string | null;
 };
 
+/**
+ * Where an Editorial Showcase gets its products. The same sources and the
+ * same field names as a rail's (ProductRailSource), minus `featured` and
+ * minus `limit`: how many products a showcase shows is decided by its
+ * layout (SHOWCASE_PRODUCT_COUNT), not by the owner — the composition is
+ * drawn for that many.
+ */
+export type ShowcaseSource =
+  | { type: "category"; categorySlug: string }
+  | { type: "collection"; collectionSlug: string }
+  | { type: "sale" }
+  | { type: "newest" }
+  | { type: "best_sellers"; fallbackProductSlugs?: string[] }
+  | { type: "manual"; productSlugs: string[] };
+
+/**
+ * "spread" (A): a large image beside the heading and a list of products.
+ * "gallery" (B): the products themselves, as large staggered photos.
+ * "both": A, then B straight under it as one section — one heading, one
+ *   source, B continuing with the products after A's (never repeating them).
+ */
+export type ShowcaseLayout = "spread" | "gallery" | "both";
+
+export type ShowcaseConfig = {
+  layout: ShowcaseLayout;
+  /** spread/both: which side the large image sits on (desktop). */
+  imageSide: "left" | "right";
+  /** gallery/both: the gallery part on the page background, or the warm surface tone. */
+  tone: "white" | "warm";
+  source: ShowcaseSource;
+};
+
+// What each part of a showcase is drawn for: the Spread's one product over
+// the image's corner (desktop) + a list of four; the Gallery's one large +
+// two staggered.
+export const SPREAD_PRODUCT_COUNT = 5;
+export const GALLERY_PRODUCT_COUNT = 3;
+
+/** Products each layout shows at most — and so how many its source is asked for. */
+export const SHOWCASE_PRODUCT_COUNT: Record<ShowcaseLayout, number> = {
+  spread: SPREAD_PRODUCT_COUNT,
+  gallery: GALLERY_PRODUCT_COUNT,
+  both: SPREAD_PRODUCT_COUNT + GALLERY_PRODUCT_COUNT,
+};
+
 export type HomepageSectionConfig = {
   /** category_grid: which categories, in which order. Empty = every top-level category, nav order. */
   categorySlugs?: string[];
@@ -190,8 +238,10 @@ export type HomepageSectionConfig = {
   source?: ProductRailSource;
   /** product_rail: optional "see all" destination shown beside the heading. */
   viewAllHref?: string | null;
-  /** hero/promo/content: hide the CTA without losing its configured label/href. */
+  /** hero/promo/content/showcase: hide the CTA without losing its configured label/href. */
   showButton?: boolean;
+  /** showcase only: layout and product source. */
+  showcase?: ShowcaseConfig;
   /** trust: the guarantee tiles, in order. Absent = the built-in defaults. */
   items?: TrustItem[];
   /** promo only: the second, independently-configured banner. Absent/undefined = single-banner layout, unchanged. */

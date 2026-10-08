@@ -62,6 +62,13 @@ export default async function HomePage() {
 
   const groups = groupSections(sections);
 
+  // Editorial Showcases are numbered 01, 02, … down the page, in page order.
+  // Counted over the configured showcases, so one that resolves to no
+  // products (and hides) leaves a gap in the numbering rather than
+  // renumbering the rest from inside their own Suspense boundaries.
+  let showcaseCount = 0;
+  const showcaseNumbers = groups.map((group) => (group[0].kind === "showcase" ? ++showcaseCount : 0));
+
   return (
     <>
       {groups.length > 0 ? (
@@ -72,6 +79,7 @@ export default async function HomePage() {
             categories={categories}
             storeName={branding.storeName}
             isFirstGroup={index === 0}
+            showcaseNumber={showcaseNumbers[index]}
           />
         ))
       ) : (

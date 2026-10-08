@@ -11,8 +11,10 @@ import { trackAddToCart } from "@/lib/analytics/track";
 // Callers with `hasSingleVariant === false` should route to the PDP instead
 // of calling `quickAdd`. Shared by ProductCard and the search dropdown's
 // result row so the add-to-cart behavior/toast timing lives in exactly one
-// place rather than being copy-pasted per surface.
-export function useQuickAdd(product: Product) {
+// place rather than being copy-pasted per surface. Takes only the fields it
+// reads, so a caller can hand a Client Component just those (the homepage's
+// Editorial Showcase) instead of serializing whole products into the page.
+export function useQuickAdd(product: Pick<Product, "title" | "isAvailable" | "variants">) {
   const { showAddedToast, receiveCart } = useCartUI();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
