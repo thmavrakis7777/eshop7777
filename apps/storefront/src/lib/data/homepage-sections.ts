@@ -2,7 +2,6 @@ import { getHomepageSections } from "@/lib/db/content";
 import { getBestSellingProductSlugs } from "@/lib/db/catalog";
 import {
   getFeaturedProducts,
-  getFeaturedProductsPaged,
   getNewArrivals,
   getNewArrivalsPaged,
   getProductsByCategoryHandle,
@@ -45,13 +44,14 @@ export async function resolveRailProducts(source: ProductRailSource | undefined)
         return await getFeaturedProducts(clampLimit(source.limit));
 
       case "sale": {
-        // No dedicated "on sale" query exists — compareAtPrice is derived per
-        // product in the mapping layer, not a filterable column. Filtering a
-        // featured page here is honest and cheap at this catalogue size; it
-        // becomes a real WHERE clause if the catalogue grows.
-        const limit = clampLimit(source.limit);
-        const { products } = await getFeaturedProductsPaged({ limit: MAX_LIMIT * 2 });
-        return products.filter((p) => p.compareAtPrice).slice(0, limit);
+        // The same query /prosfores and the showcase's "sale" source use, so
+        // the rail can never disagree with the offers page. It used to filter
+        // the first 48 products A→Z by compareAtPrice in JS, which silently
+        // dropped every sale product past the 48th title, and judged "on
+        // sale" by the first variant only, where SALE_PREDICATE counts any
+        // active variant.
+        const { products } = await getSaleProductsPaged({ limit: clampLimit(source.limit) });
+        return products;
       }
 
       case "category": {
@@ -180,8 +180,8 @@ export async function resolveShowcase(
       }
 
       case "sale": {
-        // The real "on sale" query (the one /prosfores lists), not the rail's
-        // filtered featured page — a showcase needs the true total.
+        // The real "on sale" query (the one /prosfores lists), with its true
+        // total for the "see all N" link.
         const { products, count } = await getSaleProductsPaged({ limit });
         return { products, total: count, href: "/prosfores", label: "Προσφορές", imagePath: null };
       }
