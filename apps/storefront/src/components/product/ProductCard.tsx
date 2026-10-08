@@ -52,12 +52,18 @@ export function ProductCard({
           it, the wishlist heart included (ProductImage hoverZoom). */}
       <div className="group relative overflow-hidden rounded-md">
         <Link href={`/proionta/${product.handle}`} className="block" tabIndex={-1} aria-hidden="true">
+          {/* Phone cards are ~150px wide, so the badges there are smaller and
+              sit side by side (wrapping only if they don't fit beside the
+              heart, which `right-11` keeps clear) — stacked full-size they
+              covered the top third of the photo. `items-start` keeps each
+              badge as wide as its own label instead of stretching «Νέο» to
+              the width of «Προσφορά». */}
           {product.badges && product.badges.length > 0 && (
-            <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
+            <div className="absolute left-2 right-11 top-2 z-10 flex flex-wrap items-start gap-1 sm:right-auto sm:flex-col sm:flex-nowrap">
               {product.badges.map((b) => (
                 <span
                   key={b}
-                  className={`rounded-sm px-2 py-1 text-[11px] font-medium tracking-wide ${
+                  className={`rounded-sm px-1 py-0.5 text-[10px] font-medium leading-4 sm:px-2 sm:py-1 sm:text-[11px] sm:leading-normal sm:tracking-wide ${
                     b === "sale"
                       ? "bg-accent text-white"
                       : "bg-bg/90 text-ink backdrop-blur-sm"
@@ -96,7 +102,11 @@ export function ProductCard({
         <Link
           href={`/proionta/${product.handle}`}
           title={product.title}
-          className="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-ink hover:underline underline-offset-2"
+          // Two lines cut most titles short on a phone-width card, so phones
+          // get three (every current title fits). The title always reserves
+          // its full height, short titles included, so code, price and stock
+          // line up across the cards in a row.
+          className="line-clamp-3 min-h-15 text-sm font-medium leading-5 text-ink hover:underline underline-offset-2 sm:line-clamp-2 sm:min-h-10"
         >
           {product.title}
         </Link>
