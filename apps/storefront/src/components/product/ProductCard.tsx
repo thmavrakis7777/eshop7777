@@ -52,14 +52,12 @@ export function ProductCard({
           it, the wishlist heart included (ProductImage hoverZoom). */}
       <div className="group relative overflow-hidden rounded-md">
         <Link href={`/proionta/${product.handle}`} className="block" tabIndex={-1} aria-hidden="true">
-          {/* Phone cards are ~150px wide, so the badges there are smaller and
-              sit side by side (wrapping only if they don't fit beside the
-              heart, which `right-11` keeps clear) — stacked full-size they
-              covered the top third of the photo. `items-start` keeps each
-              badge as wide as its own label instead of stretching «Νέο» to
-              the width of «Προσφορά». */}
+          {/* Phone cards are ~150px wide, so the badges there are smaller —
+              full-size they covered the top third of the photo. `items-start`
+              keeps each badge as wide as its own label instead of stretching
+              «Νέο» to the width of «Προσφορά». */}
           {product.badges && product.badges.length > 0 && (
-            <div className="absolute left-2 right-11 top-2 z-10 flex flex-wrap items-start gap-1 sm:right-auto sm:flex-col sm:flex-nowrap">
+            <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1">
               {product.badges.map((b) => (
                 <span
                   key={b}
