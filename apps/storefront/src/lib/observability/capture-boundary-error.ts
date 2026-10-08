@@ -21,10 +21,12 @@
  * inside useEffect still got traced into every storefront and admin server
  * function, and in the browser it emitted a second, separately bundled copy
  * of the SDK instead of reusing the one already loaded. So the dependency is
- * inverted: src/instrumentation-client.ts — the one place the SDK is loaded —
- * registers a reporter here right after Sentry.init, and the boundaries call
- * through it. One SDK instance, no extra download when an error happens, and
- * nothing Sentry-related in any server bundle.
+ * inverted: src/instrumentation-client.ts — the one place the SDK is loaded,
+ * after the page has (lib/observability/deferred-sentry.ts) — registers a
+ * queueing reporter here at once and the real one right after Sentry.init,
+ * and the boundaries call through whichever is current. One SDK instance,
+ * no extra download when an error happens, and nothing Sentry-related in any
+ * server bundle.
  *
  * The reporter lives on globalThis rather than in a module variable so that
  * it does not depend on instrumentation-client.ts and the route chunks
@@ -56,7 +58,8 @@ export function sentryBoundaryReporter(
   };
 }
 
-/** Called once, by src/instrumentation-client.ts, right after Sentry.init. */
+/** Called by lib/observability/deferred-sentry.ts: a queueing reporter at
+ *  start-up, then the real one right after Sentry.init. */
 export function registerBoundaryErrorReporter(reporter: BoundaryErrorReporter): void {
   (globalThis as ReporterHost)[REPORTER_KEY] = reporter;
 }

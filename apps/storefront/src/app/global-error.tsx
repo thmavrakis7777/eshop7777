@@ -42,9 +42,10 @@ export default function GlobalError({
       message: error.message,
       digest: error.digest,
     });
-    // The SDK is initialised by instrumentation-client.ts before hydration,
+    // instrumentation-client.ts sets up error reporting before hydration,
     // independently of the root layout — so it is still there to report to
-    // even when that layout is what failed.
+    // even when that layout is what failed (queued until the SDK has loaded,
+    // see lib/observability/deferred-sentry.ts).
     captureBoundaryError(error, "root");
   }, [error]);
 
