@@ -37,6 +37,7 @@ async function RailSection({ section }: { section: HomepageSection }) {
       viewAllHref={section.config.viewAllHref ?? undefined}
       products={products}
       waitForPageLoad
+      size="large"
     />
   );
 }
@@ -139,7 +140,7 @@ export function HomepageSectionGroup({
 
     case "product_rail":
       return (
-        <Suspense fallback={<ProductRailSkeleton title={first.heading ?? ""} />}>
+        <Suspense fallback={<ProductRailSkeleton title={first.heading ?? ""} size="large" />}>
           <RailSection section={first} />
         </Suspense>
       );

@@ -5,20 +5,13 @@ import { useEffect, useRef, useState } from "react";
 import type { Product } from "@/lib/types";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ChevronDownIcon } from "@/components/ui/Icons";
+import { RAIL_CARD_SIZES, RAIL_CARD_WIDTH, type RailCardSize } from "@/components/home/rail-card-size";
 
 // Native CSS scroll-snap + native touch scrolling — no carousel library.
 // Desktop gets real, keyboard-operable arrow buttons that scroll the same
 // track; mobile relies on native touch/swipe (the track itself stays
 // natively focusable/scrollable via keyboard too). Reuses ProductCard
 // unchanged — no second card design.
-
-// Derived directly from the track item's own width classes below
-// (w-[45%] sm:w-[31%] md:w-[23%] lg:w-[18.5%]), the same way ProductCard's
-// own default `sizes` mirrors its 2/3/4-column grid fractions — not a
-// guess. A rail card is narrower than a grid column at every breakpoint, so
-// requesting the grid's sizes here would fetch a larger image than the
-// rail ever displays.
-const RAIL_CARD_SIZES = "(min-width: 1024px) 18.5vw, (min-width: 768px) 23vw, (min-width: 640px) 31vw, 45vw";
 export function ProductRail({
   title,
   viewAllHref,
@@ -27,11 +20,14 @@ export function ProductRail({
   // photos wait for the first screen (AfterPageLoad). The product page,
   // cart and Recently Viewed rails keep plain lazy loading.
   waitForPageLoad = false,
+  // "large" on the homepage only — see rail-card-size.ts.
+  size = "default",
 }: {
   title: string;
   viewAllHref?: string;
   products: Product[];
   waitForPageLoad?: boolean;
+  size?: RailCardSize;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [atStart, setAtStart] = useState(true);
@@ -89,12 +85,12 @@ export function ProductRail({
           className="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-4"
         >
           {products.map((p) => (
-            <div key={p.id} className="w-[45%] flex-none snap-start sm:w-[31%] md:w-[23%] lg:w-[18.5%]">
-              <ProductCard product={p} sizes={RAIL_CARD_SIZES} waitForPageLoad={waitForPageLoad} />
+            <div key={p.id} className={`flex-none snap-start ${RAIL_CARD_WIDTH[size]}`}>
+              <ProductCard product={p} sizes={RAIL_CARD_SIZES[size]} waitForPageLoad={waitForPageLoad} />
             </div>
           ))}
           {viewAllHref && (
-            <div className="w-[45%] flex-none snap-start sm:w-[31%] md:w-[23%] lg:w-[18.5%]">
+            <div className={`flex-none snap-start ${RAIL_CARD_WIDTH[size]}`}>
               <Link
                 href={viewAllHref}
                 className="group flex h-full flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border text-center transition-colors hover:border-accent hover:bg-surface"

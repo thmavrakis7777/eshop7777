@@ -101,46 +101,52 @@ export function ProductCard({
           href={`/proionta/${product.handle}`}
           title={product.title}
           // Two lines cut most titles short on a phone-width card, so phones
-          // get three (every current title fits). The title always reserves
-          // its full height, short titles included, so code, price and stock
-          // line up across the cards in a row.
-          className="line-clamp-3 min-h-15 text-sm font-medium leading-5 text-ink hover:underline underline-offset-2 sm:line-clamp-2 sm:min-h-10"
+          // get three (every current title fits).
+          className="line-clamp-3 min-h-10 text-sm font-medium leading-5 text-ink hover:underline underline-offset-2 sm:line-clamp-2"
         >
           {product.title}
         </Link>
         {product.rating !== undefined && (
           <Stars rating={product.rating} count={product.reviewCount} />
         )}
-        {product.code && <span className="text-xs text-ink-muted">Κωδικός: {product.code}</span>}
-        <div className="flex items-baseline gap-2">
-          <span className="text-sm font-semibold text-ink">
-            {product.priceRange ? formatPriceFrom(product.priceRange.min) : formatPrice(product.price)}
-          </span>
-          {!product.priceRange && product.compareAtPrice && (
-            <span className="text-xs text-ink-muted line-through">
-              {formatPrice(product.compareAtPrice)}
+
+        {/* Pinned to the card's bottom: every caller lays cards out in a grid
+            or flex row, which stretches the cards in a row to the tallest
+            one, so code, price, stock and button line up across the row
+            while any spare height sits under the shorter titles. A row
+            whose titles all fit in two lines gets no gap at all. */}
+        <div className="mt-auto flex flex-col gap-1">
+          {product.code && <span className="text-xs text-ink-muted">Κωδικός: {product.code}</span>}
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-semibold text-ink">
+              {product.priceRange ? formatPriceFrom(product.priceRange.min) : formatPrice(product.price)}
             </span>
+            {!product.priceRange && product.compareAtPrice && (
+              <span className="text-xs text-ink-muted line-through">
+                {formatPrice(product.compareAtPrice)}
+              </span>
+            )}
+          </div>
+          <StockStatus state={stockStateOf(product.variants)} className="mt-0.5" />
+
+          {hasSingleVariant ? (
+            <button
+              type="button"
+              className="w-full rounded-sm bg-ink px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={quickAdd}
+              disabled={isPending || isOutOfStock}
+            >
+              {isOutOfStock ? "Εξαντλήθηκε" : isPending ? "Προσθήκη…" : "Προσθήκη στο καλάθι"}
+            </button>
+          ) : (
+            <Link
+              href={`/proionta/${product.handle}`}
+              className="w-full rounded-sm bg-ink px-4 py-2.5 text-center text-xs font-medium text-white transition-colors hover:bg-accent"
+            >
+              Επιλογές
+            </Link>
           )}
         </div>
-        <StockStatus state={stockStateOf(product.variants)} className="mt-0.5" />
-
-        {hasSingleVariant ? (
-          <button
-            type="button"
-            className="mt-auto w-full rounded-sm bg-ink px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={quickAdd}
-            disabled={isPending || isOutOfStock}
-          >
-            {isOutOfStock ? "Εξαντλήθηκε" : isPending ? "Προσθήκη…" : "Προσθήκη στο καλάθι"}
-          </button>
-        ) : (
-          <Link
-            href={`/proionta/${product.handle}`}
-            className="mt-auto w-full rounded-sm bg-ink px-4 py-2.5 text-center text-xs font-medium text-white transition-colors hover:bg-accent"
-          >
-            Επιλογές
-          </Link>
-        )}
       </div>
     </article>
   );

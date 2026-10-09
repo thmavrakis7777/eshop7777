@@ -1,9 +1,11 @@
+import { RAIL_CARD_WIDTH, type RailCardSize } from "@/components/home/rail-card-size";
+
 // Suspense fallback for a ProductRail — same container/heading/card-track
 // dimensions as the real thing so streaming it in doesn't shift layout.
 // Title is real copy (not "Φόρτωση…"), since it's known before the
 // products are: the rail's own title never depends on the fetch it's
 // waiting on.
-export function ProductRailSkeleton({ title }: { title: string }) {
+export function ProductRailSkeleton({ title, size = "default" }: { title: string; size?: RailCardSize }) {
   return (
     <section className="container-shell mt-16 md:mt-24" aria-hidden="true">
       <div className="flex items-end justify-between">
@@ -13,7 +15,7 @@ export function ProductRailSkeleton({ title }: { title: string }) {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="aspect-square w-[45%] flex-none animate-pulse rounded-md bg-surface sm:w-[31%] md:w-[23%] lg:w-[18.5%]"
+            className={`aspect-square flex-none animate-pulse rounded-md bg-surface ${RAIL_CARD_WIDTH[size]}`}
           />
         ))}
       </div>

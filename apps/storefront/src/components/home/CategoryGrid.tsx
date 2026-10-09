@@ -14,13 +14,13 @@ const TONES = ["clay", "sage", "stone", "linen"] as const;
 // and on phones the grid ran taller than a whole screen. The count is set in
 // the admin, so any fixed column count would break again for some number.
 //
-// Widths per breakpoint:
-//   - phones 40%: two cards and a clearly cut-off third at the screen edge,
+// Widths per breakpoint — the same as the homepage product rails
+// (RAIL_CARD_WIDTH.large), so both rows show photos at one large size:
+//   - phones 75%: one card and a clearly cut-off second at the screen edge,
 //     so a swipe is the obvious next move;
-//   - sm 28% and md 22%: the same peek, with more cards visible;
-//   - lg: exactly six per row — the size the grid already used — so desktop
-//     cards look unchanged and anything past six sits behind the arrow.
-const CARD_WIDTH = "w-[40%] flex-none snap-start sm:w-[28%] md:w-[22%] lg:w-[calc((100%_-_5rem)/6)]";
+//   - sm 45%, md 31% and lg 23%: the same peek, with two, three and four
+//     cards visible; anything further sits behind the arrow.
+const CARD_WIDTH = "w-[75%] flex-none snap-start sm:w-[45%] md:w-[31%] lg:w-[23%]";
 
 // Below lg the track runs full-bleed, so the peeking card is cut off by the
 // screen edge rather than by the page padding: the negative margin cancels
@@ -31,8 +31,8 @@ const CARD_WIDTH = "w-[40%] flex-none snap-start sm:w-[28%] md:w-[22%] lg:w-[cal
 const TRACK_BLEED = "-mx-5 px-5 scroll-px-5 md:-mx-8 md:px-8 md:scroll-px-8 lg:mx-0 lg:px-0 lg:scroll-px-0";
 
 // Mirrors CARD_WIDTH, so the browser never downloads a larger image than the
-// card displays (at lg, six cards inside a max-90rem container come to ~16vw).
-const CARD_SIZES = "(min-width: 1024px) 16vw, (min-width: 768px) 22vw, (min-width: 640px) 28vw, 40vw";
+// card displays.
+const CARD_SIZES = "(min-width: 1024px) 23vw, (min-width: 768px) 31vw, (min-width: 640px) 45vw, 75vw";
 
 export function CategoryGrid({
   categories,
