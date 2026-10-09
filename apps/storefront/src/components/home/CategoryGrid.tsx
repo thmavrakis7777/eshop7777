@@ -60,7 +60,7 @@ export function CategoryGrid({
             // that shows this category, on the next cache revalidation.
             const imageUrl = publicImageUrl(cat.imagePath);
             return (
-              <Link key={cat.handle} href={`/${cat.handle}`} className={`group flex flex-col gap-2 ${CARD_WIDTH}`}>
+              <Link key={cat.handle} href={`/${cat.handle}`} className={`group relative block ${CARD_WIDTH}`}>
                 {imageUrl ? (
                   <div className="relative aspect-square w-full overflow-hidden rounded-md">
                     {/* Below the full-height Hero — waits for the first
@@ -74,6 +74,14 @@ export function CategoryGrid({
                         className="object-cover transition-transform duration-200 ease-out group-hover:scale-[1.02]"
                       />
                     </AfterPageLoad>
+                    {/* The name sits on the photo's lower part, white on a
+                        gradient (the header menu's promo tiles do the same)
+                        so it reads clearly on any photo while the top of
+                        the photo stays untouched. */}
+                    <div
+                      className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-ink/80 via-ink/30 to-transparent"
+                      aria-hidden="true"
+                    />
                   </div>
                 ) : (
                   <PlaceholderTile
@@ -82,7 +90,15 @@ export function CategoryGrid({
                     className="transition-transform duration-200 ease-out group-hover:scale-[1.02]"
                   />
                 )}
-                <span className="text-sm font-medium text-ink">{cat.name}</span>
+                {/* No gradient behind the name on the patterned placeholder:
+                    it is light and already legible in ink. */}
+                <span
+                  className={`absolute inset-x-0 bottom-0 p-3 text-sm font-semibold tracking-wide md:p-4 md:text-base ${
+                    imageUrl ? "text-white" : "text-ink"
+                  }`}
+                >
+                  {cat.name}
+                </span>
               </Link>
             );
           })}
