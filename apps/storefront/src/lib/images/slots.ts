@@ -58,8 +58,9 @@ export const IMAGE_SLOTS = {
   showcase: { folder: "homepage", width: 1200, height: 1500, formats: ["webp", "avif"], budgetKB: 180 },
   // Full-width background (~3:1) under a 70% dark overlay.
   newsletter: { folder: "homepage", width: 1920, height: 640, formats: ["webp", "avif"], budgetKB: 200 },
-  // Homepage grid (square), subcategory tiles (4:3, 326×245 at 1440),
-  // Landing banner (≤ ~700 px wide).
+  // Homepage grid (square, 312×312 at 1440 and up to ~292 px on phones),
+  // subcategory tiles (4:3, 326×245 at 1440), Landing banner (≤ ~700 px
+  // wide).
   category: { folder: "categories", width: 1000, height: 1000, formats: ["webp", "avif"], budgetKB: 120 },
   // Mega-menu tile, 442×548 at 1440.
   "mega-menu": { folder: "categories", width: 800, height: 1000, formats: ["webp", "avif"], budgetKB: 150 },

@@ -71,10 +71,12 @@ export const IMAGE_SIZE_HINTS = {
     },
   },
   category: {
-    // Three places: the homepage grid (square), subcategory tiles on
-    // category pages (4:3, 326×245 at 1440), and for Landing categories a
-    // full-width banner at its own shape (up to ~700 px).
-    image: "Τετράγωνη (π.χ. 1000×1000 px), με το θέμα στο κέντρο — εμφανίζεται τετράγωνη στις κάρτες κατηγοριών της αρχικής και κομμένη σε 4:3 στις κάρτες υποκατηγοριών των σελίδων κατηγορίας. Αν ο «Τύπος σελίδας» είναι Landing, εμφανίζεται και ως banner στην κορυφή της σελίδας στο δικό της σχήμα — τότε προτίμησε 4:3 (π.χ. 1400×1050 px).",
+    // Three places: the homepage grid (square — 312×312 at 1440, 262×262 on
+    // a 390 phone since 2026-10-09 — with the name in white over a dark fade
+    // on its lower part), subcategory tiles on category pages (4:3, 326×245
+    // at 1440), and for Landing categories a full-width banner at its own
+    // shape (up to ~700 px).
+    image: "Τετράγωνη (π.χ. 1000×1000 px), με το θέμα στο κέντρο ή λίγο πιο πάνω — εμφανίζεται τετράγωνη στις κάρτες κατηγοριών της αρχικής, με το όνομα της κατηγορίας γραμμένο πάνω στο κάτω μέρος της φωτογραφίας (σε σκούρο φόντο), οπότε μην έχεις σημαντικές λεπτομέρειες εκεί. Κομμένη σε 4:3 στις κάρτες υποκατηγοριών των σελίδων κατηγορίας. Αν ο «Τύπος σελίδας» είναι Landing, εμφανίζεται και ως banner στην κορυφή της σελίδας στο δικό της σχήμα — τότε προτίμησε 4:3 (π.χ. 1400×1050 px).",
     // Mega-menu promo tile: 442×548 at 1440 (~4:5); its height follows the
     // panel's content.
     megaMenu: "Κάθετη 4:5 (π.χ. 800×1000 px) — το πλακίδιο προβολής στο μενού κατηγοριών σε υπολογιστή. Το ύψος του αλλάζει με το πλήθος των υποκατηγοριών, οπότε κράτα το θέμα στο κέντρο.",
