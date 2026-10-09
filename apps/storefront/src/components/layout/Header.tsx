@@ -247,11 +247,21 @@ export function Header({
           </button>
 
           {/* Column 2. `justify-self-center` keeps it centred within a column
-              that is already centred in the header. */}
+              that is already centred in the header.
+              Size, measured against the icons beside it: on phones the
+              centred name has the menu button on one side and search + cart
+              (76 px) on the other, so it grows only as fast as that leaves
+              room — 13.5 px at 320, ~17 at 360, ~19 at 390, ~22 at 430, each
+              still ~10–20 px clear of the search icon — up to 24 px. From md
+              the row has room to spare (4 icons, 46 px clear at 768 px), so
+              the name steps up to 30 px there. Not before md: at 640–767 px
+              the four-icon cluster already appears, and 30 px would run into
+              it. The row's height is a fixed 4.5rem, so none of this moves
+              the header or the Hero below it. */}
           <StoreLogo
             storeName={storeName}
             logoUrl={logoUrl}
-            className={`font-display text-[clamp(0.84375rem,4vw,1.5rem)] tracking-tight whitespace-nowrap col-start-2 justify-self-center transition-colors duration-300 motion-reduce:transition-none ${
+            className={`font-display text-[clamp(0.84375rem,7.9vw_-_0.73rem,1.5rem)] md:text-3xl tracking-tight whitespace-nowrap col-start-2 justify-self-center transition-colors duration-300 motion-reduce:transition-none ${
               overlay ? "text-white" : "text-ink"
             }`}
           />

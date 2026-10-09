@@ -138,14 +138,35 @@ export function HeroSlide({
           at the very top, which the bottom-heavy gradient above doesn't
           cover. Renders regardless of imageUrl so the diagonal-pattern
           fallback (no image configured yet) still gives the overlaid header
-          text something dark enough to read against. */}
+          text something dark enough to read against.
+          Sized off --header-height (measured live by Header.tsx), not a fixed
+          height: on desktop the category nav can wrap to a second row, which
+          a fixed h-36 left sitting on the bare photo. The shade holds dark
+          across the header's own two thirds and fades out over the
+          remaining third below it, so the rest of the photo is untouched. */}
       {isFirstSection && (
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-ink/45 to-transparent md:h-36"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[calc(var(--header-height)*1.5)] bg-gradient-to-b from-ink/75 via-ink/60 via-60% to-transparent"
           aria-hidden="true"
         />
       )}
-      <div className="relative max-w-xl">
+      {/* From lg the Hero shows the wide desktop photo in a short box, so the
+          text climbs past the bottom scrim's dark half onto whatever is
+          light in the middle of the photo (measured on the opening Hero:
+          eyebrow 2.6–3.1:1, heading down to 2.1:1 at 1024–1920 px). A soft
+          dark patch right behind the text block (blurred, so it has no
+          edge) brings every line above the WCAG minimum without darkening
+          the rest of the photo. Phones and tablets show the portrait photo,
+          whose text already sits on the dark lower part — measured passing
+          there, so they are left as they are. `isolate` keeps the -z-10
+          patch above the photo and behind the text. */}
+      <div
+        className={`relative max-w-xl ${
+          imageUrl
+            ? "isolate lg:before:pointer-events-none lg:before:absolute lg:before:-inset-x-16 lg:before:-inset-y-12 lg:before:-z-10 lg:before:rounded-3xl lg:before:bg-ink/55 lg:before:blur-2xl"
+            : ""
+        }`}
+      >
         {eyebrow && (
           <p className={`text-xs font-medium uppercase tracking-[0.15em] ${imageUrl ? "text-white/90" : "text-accent"}`}>
             {eyebrow}
