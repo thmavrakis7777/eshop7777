@@ -91,13 +91,27 @@ export function ImageUploadField({
     setError(null);
     setSaved(null);
     startTransition(async () => {
-      // Only to fit the upload limit — the server makes the real files.
-      const file = await preparePhoto(picked, UPLOAD_ONLY);
+      // Only to fit the upload limit — the server makes the real files. If
+      // shrinking fails for any reason, the original goes up instead.
+      const file = await preparePhoto(picked, UPLOAD_ONLY).catch(() => picked);
       const formData = new FormData();
       formData.append("file", file);
       formData.append("slot", slot);
       formData.append("label", labelFromForm(fileInputRef.current?.form ?? null, nameFrom) || picked.name);
-      const result = await uploadMediaAction(formData);
+      // A call that never gets an answer (connection dropped, the site was
+      // redeployed while this page was open) rejects instead of returning a
+      // result — and a rejection inside a transition is thrown to the admin
+      // error boundary, which replaced the whole dashboard with «Κάτι πήγε
+      // στραβά» (reproduced live, 2026-10-10). Turned into a message under
+      // this field instead, the same way upload-product-photos.ts already
+      // handles it for product photos; reloading fixes the redeploy case.
+      const result = await uploadMediaAction(formData).catch((err: unknown) => {
+        console.error("[admin] IMAGE_UPLOAD_CALL_FAILED", { slot, fileName: picked.name, error: String(err) });
+        return {
+          ok: false as const,
+          error: "Η μεταφόρτωση δεν ολοκληρώθηκε. Δοκίμασε ξανά — αν συνεχίσει, ανανέωσε τη σελίδα.",
+        };
+      });
       if (result.ok && result.path) {
         setPath(result.path);
         if (result.result) setSaved(describeUpload(result.result, picked.size));
