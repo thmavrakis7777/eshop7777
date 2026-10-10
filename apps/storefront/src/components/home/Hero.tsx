@@ -150,20 +150,22 @@ export function HeroSlide({
           aria-hidden="true"
         />
       )}
-      {/* From lg the Hero shows the wide desktop photo in a short box, so the
-          text climbs past the bottom scrim's dark half onto whatever is
-          light in the middle of the photo (measured on the opening Hero:
-          eyebrow 2.6–3.1:1, heading down to 2.1:1 at 1024–1920 px). A soft
-          dark patch right behind the text block (blurred, so it has no
-          edge) brings every line above the WCAG minimum without darkening
-          the rest of the photo. Phones and tablets show the portrait photo,
-          whose text already sits on the dark lower part — measured passing
-          there, so they are left as they are. `isolate` keeps the -z-10
-          patch above the photo and behind the text. */}
+      {/* A soft dark patch right behind the text block (blurred, so it has
+          no edge): the bottom scrim alone can't promise legible text on a
+          photo the owner picks, because in a short box the text climbs onto
+          whatever is light in the middle of the picture. Measured: the
+          opening Hero's eyebrow 2.6–3.1:1 and heading down to 2.1:1 at
+          1024–1920 px; the «ΠΡΟΣΦΟΡΕΣ» Hero (a bright kitchen counter, in a
+          390×416 box on phones) 1.6–3.1:1 on phones and tablets. With the
+          patch every line of both passes WCAG at 360–1920 px (5.2:1 and up).
+          It reaches 4rem above the text, not 3: the small eyebrow sits at
+          the top, where a blurred edge is already fading. The rest of the
+          photo stays as it is. `isolate` keeps the -z-10 patch above the
+          photo and behind the text. */}
       <div
         className={`relative max-w-xl ${
           imageUrl
-            ? "isolate lg:before:pointer-events-none lg:before:absolute lg:before:-inset-x-16 lg:before:-inset-y-12 lg:before:-z-10 lg:before:rounded-3xl lg:before:bg-ink/55 lg:before:blur-2xl"
+            ? "isolate before:pointer-events-none before:absolute before:-inset-x-16 before:-top-16 before:-bottom-12 before:-z-10 before:rounded-3xl before:bg-ink/60 before:blur-2xl"
             : ""
         }`}
       >
