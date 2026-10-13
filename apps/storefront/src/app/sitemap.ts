@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { isEmptyListing } from "@/lib/category-visibility";
-import { getCategoryLastModified, getNavCategories } from "@/lib/data/categories";
+import { getCategoryLastModified, getNavCategories, getNoindexCategoryIds } from "@/lib/data/categories";
 import { getContentPage } from "@/lib/data/content-pages";
 import { getJournalSitemapEntries } from "@/lib/data/journal";
 import { getAllCollectionHandles, getAllProductHandles } from "@/lib/data/products";
@@ -46,28 +46,34 @@ const baseRoutes: MetadataRoute.Sitemap = [
 // catalog grows past a few thousand SKUs, split into paginated sitemap
 // files (Next supports generateSitemaps) to stay under the 50k-URL limit.
 //
-// `next build` runs this function at build time (every other page is
-// request-time rendered) — an unreachable database must degrade to the
-// always-available static routes instead of failing the whole production
-// build.
+// Built from the database on every request, so a product or category added,
+// edited, hidden or deleted in the dashboard is in the next fetch, with its
+// real lastmod. It used to be `revalidate = 3600` (ISR). The build listed it
+// as revalidating every minute, yet production kept serving the build-time
+// copy: on 2026-10-13 it still lacked a product added 3.7 days earlier, plus
+// that product's newly non-empty category and the lastmod of every product
+// edited since. Even the dashboard's revalidatePath("/", "layout") after a
+// save didn't refresh it. Crawlers fetch it a few times a day, and each
+// fetch is a handful of indexed queries, so caching saved nothing worth that
+// risk.
 //
-// Regenerated at most once an hour after that. Without `revalidate` the
-// build-time copy was served until the next deployment, so a product or
-// category added in the dashboard (or a category leaving the empty state)
-// never reached the sitemap until someone happened to deploy.
-export const revalidate = 3600;
+// An unreachable database still degrades to the always-available static
+// routes rather than an error page.
+export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let navCategories: Awaited<ReturnType<typeof getNavCategories>>;
   let categoryLastModified: Awaited<ReturnType<typeof getCategoryLastModified>>;
+  let noindexCategoryIds: Awaited<ReturnType<typeof getNoindexCategoryIds>>;
   let productHandles: Awaited<ReturnType<typeof getAllProductHandles>>;
   let collectionHandles: Awaited<ReturnType<typeof getAllCollectionHandles>>;
   let contentPages: { slug: (typeof CONTENT_PAGE_SLUGS)[number]; page: unknown }[];
   let journal: Awaited<ReturnType<typeof getJournalSitemapEntries>>;
   try {
-    [navCategories, categoryLastModified, productHandles, collectionHandles, contentPages, journal] = await Promise.all([
+    [navCategories, categoryLastModified, noindexCategoryIds, productHandles, collectionHandles, contentPages, journal] = await Promise.all([
       getNavCategories(),
       getCategoryLastModified(),
+      getNoindexCategoryIds(),
       getAllProductHandles(),
       getAllCollectionHandles(),
       Promise.all(CONTENT_PAGE_SLUGS.map(async (slug) => ({ slug, page: await getContentPage(slug) }))),
@@ -97,9 +103,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // noindex until the first product arrives (isEmptyListing), and a sitemap
   // must only offer pages that may be indexed (Search Console reports a
   // listed noindex URL as an error). That is the difference from /prosfores
-  // above, which stays indexable while empty. The walk still descends into
-  // it; its children are empty too, but the rule stays per-category rather
-  // than assuming that.
+  // above, which stays indexable while empty. The same goes for a category
+  // the owner set to noindex in its SEO editor, the other way
+  // categoryMetadata makes a page noindex. The walk still descends into both;
+  // their children are judged on their own, since the rule is per-category.
   //
   // lastModified is when the page's content last really changed
   // (getCategoryLastModified) — never the build or request time, which would
@@ -108,7 +115,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const walk = (nodes: CategoryNode[], prefix: string, depth: number) => {
     for (const node of nodes) {
       const url = `${prefix}/${node.handle}`;
-      if (!isEmptyListing(node)) {
+      if (!isEmptyListing(node) && !noindexCategoryIds.has(node.id)) {
         const lastModified = categoryLastModified.get(node.id);
         categoryRoutes.push({
           url: `${siteUrl}${url}`,

@@ -379,7 +379,7 @@ export async function getEmptyListingCategoryIds(): Promise<string[]> {
  *   live on product_variant, so a sale doesn't move this).
  *
  * All of it comes from the database, so a deployment never moves a date.
- * Not cached: only the sitemap reads it, and the sitemap itself is.
+ * Not cached: only the sitemap reads it, a few times a day.
  */
 export async function getCategoryLastModified(): Promise<Map<string, Date>> {
   const rows = await sql<{ id: string; last_modified: Date }[]>`
@@ -417,6 +417,18 @@ export async function getCategoryLastModified(): Promise<Map<string, Date>> {
       LEFT JOIN product_changes pc ON pc.root_id = c.id
      WHERE c.is_active`;
   return new Map(rows.map((r) => [r.id, r.last_modified]));
+}
+
+/**
+ * Categories the owner set to noindex in their SEO editor — the sitemap
+ * leaves them out, as it does empty ones. One query for all of them, rather
+ * than a getSeoOverride lookup per category.
+ */
+export async function getNoindexCategoryIds(): Promise<Set<string>> {
+  const rows = await sql<{ resource_id: string }[]>`
+    SELECT resource_id FROM shop.seo_meta
+     WHERE resource_type = 'category' AND robots = 'noindex'`;
+  return new Set(rows.map((r) => r.resource_id));
 }
 
 /** The canonical path for a category, given its ancestor chain. */

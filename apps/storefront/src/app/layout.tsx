@@ -41,7 +41,11 @@ export const metadata: Metadata = {
     title: siteDefaultTitle,
     description: "Ποιοτικά είδη κουζίνας, μπάνιου, αποθήκευσης και κήπου για το σπίτι σου.",
   },
-  alternates: { canonical: "/" },
+  // Deliberately no `alternates.canonical`. A default here is inherited by
+  // every page that doesn't set its own, which made each 404 (and any page
+  // whose generateMetadata returns {}) declare the homepage as its canonical,
+  // telling Google to fold that URL into the homepage. Each indexable page
+  // sets its own self-canonical; the homepage does so in its generateMetadata.
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

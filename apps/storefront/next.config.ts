@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
+import { HTML_LIMITED_BOTS } from "./src/lib/seo-bots";
 
 // Baseline security headers. Content-Security-Policy is deliberately not
 // here — it needs a fresh nonce per request, which a static header list
@@ -36,6 +37,9 @@ if (supabaseUrl) {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Googlebot gets every page's title, description and canonical in <head>
+  // instead of streamed into <body>; see src/lib/seo-bots.ts.
+  htmlLimitedBots: HTML_LIMITED_BOTS,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

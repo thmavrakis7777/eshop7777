@@ -857,9 +857,34 @@ export const getSearchSynonymGroups = unstable_cache(
   { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
 );
 
+/**
+ * Every product page the sitemap may offer, with its <lastmod>.
+ *
+ * Active products only, minus any the owner set to noindex in the product
+ * editor: the page then carries a noindex tag, and Search Console reports a
+ * listed noindex URL as an error.
+ *
+ * lastmod is the latest of the product row's updated_at (every product-form
+ * save, the AI SEO tool, activating or hiding it), its SEO row's
+ * content_updated_at (moves only when a title/meta/robots field really
+ * changed; migration 0035), and its newest photo. Not product_variant's
+ * updated_at: checkout moves that on every sale, and the page shows only
+ * in stock / on order / sold out, so each sale would claim a change nobody
+ * can see. A price-only edit, a removed or reordered photo, or a stock
+ * change that flips that label therefore doesn't move it yet.
+ */
 export async function getAllProductSlugs(): Promise<{ handle: string; updatedAt: string }[]> {
   const rows = await sql<{ slug: string; updated_at: Date }[]>`
-    SELECT slug, updated_at FROM shop.product WHERE is_active ORDER BY slug`;
+    SELECT p.slug,
+           GREATEST(p.updated_at, seo.content_updated_at, img.at) AS updated_at
+      FROM shop.product p
+      LEFT JOIN shop.seo_meta seo ON seo.resource_type = 'product' AND seo.resource_id = p.id::text
+      LEFT JOIN LATERAL (
+        SELECT MAX(created_at) AS at FROM shop.product_image WHERE product_id = p.id
+      ) img ON true
+     WHERE p.is_active
+       AND seo.robots IS DISTINCT FROM 'noindex'
+     ORDER BY p.slug`;
   return rows.map((r) => ({ handle: r.slug, updatedAt: new Date(r.updated_at).toISOString() }));
 }
 
