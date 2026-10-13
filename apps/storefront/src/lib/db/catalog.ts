@@ -566,6 +566,29 @@ export const getActiveProductSlugs = unstable_cache(
   { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
 );
 
+/**
+ * The current slug of the active product that used to live at `oldSlug`
+ * (shop.product_slug_redirect, migration 0040), or undefined. Only asked
+ * once a request's slug turned out not to be a live product, so the normal
+ * product page never pays for it.
+ *
+ * Any failure answers undefined, which means the 404 the URL got before old
+ * slugs were remembered — never an error page in place of a not-found.
+ */
+export async function getRenamedProductSlug(oldSlug: string): Promise<string | undefined> {
+  try {
+    const rows = await sql<{ slug: string }[]>`
+      SELECT p.slug
+        FROM shop.product_slug_redirect r
+        JOIN shop.product p ON p.id = r.product_id AND p.is_active
+       WHERE r.old_slug = ${oldSlug}`;
+    return rows[0]?.slug;
+  } catch (error) {
+    console.error("getRenamedProductSlug failed; answering 404.", error);
+    return undefined;
+  }
+}
+
 export type GalleryImage = { url: string; alt: string | null };
 
 /**
@@ -864,24 +887,21 @@ export const getSearchSynonymGroups = unstable_cache(
  * editor: the page then carries a noindex tag, and Search Console reports a
  * listed noindex URL as an error.
  *
- * lastmod is the latest of the product row's updated_at (every product-form
- * save, the AI SEO tool, activating or hiding it), its SEO row's
+ * lastmod is the later of the product's updated_at and its SEO row's
  * content_updated_at (moves only when a title/meta/robots field really
- * changed; migration 0035), and its newest photo. Not product_variant's
- * updated_at: checkout moves that on every sale, and the page shows only
- * in stock / on order / sold out, so each sale would claim a change nobody
- * can see. A price-only edit, a removed or reordered photo, or a stock
- * change that flips that label therefore doesn't move it yet.
+ * changed; migration 0035). updated_at moves on every product-form save,
+ * the AI SEO tool, activating or hiding it, and, through migration 0039's
+ * triggers, on a price, code or variant change and on any photo added,
+ * removed, reordered or re-described. Not on a sale: checkout writes only
+ * stock, and the page shows no stock count. So a stock change that flips
+ * in stock / sold out doesn't move it either.
  */
 export async function getAllProductSlugs(): Promise<{ handle: string; updatedAt: string }[]> {
   const rows = await sql<{ slug: string; updated_at: Date }[]>`
     SELECT p.slug,
-           GREATEST(p.updated_at, seo.content_updated_at, img.at) AS updated_at
+           GREATEST(p.updated_at, seo.content_updated_at) AS updated_at
       FROM shop.product p
       LEFT JOIN shop.seo_meta seo ON seo.resource_type = 'product' AND seo.resource_id = p.id::text
-      LEFT JOIN LATERAL (
-        SELECT MAX(created_at) AS at FROM shop.product_image WHERE product_id = p.id
-      ) img ON true
      WHERE p.is_active
        AND seo.robots IS DISTINCT FROM 'noindex'
      ORDER BY p.slug`;

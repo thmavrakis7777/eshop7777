@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { notFound } from "next/navigation";
-import { productExists } from "@/lib/data/products";
+import { notFound, permanentRedirect } from "next/navigation";
+import { getRenamedProductSlug, productExists } from "@/lib/data/products";
 
 /**
  * Exists only to keep a missing product a real HTTP 404.
@@ -14,6 +14,11 @@ import { productExists } from "@/lib/data/products";
  * The page keeps its own notFound() as a safety net for the few seconds a
  * just-deactivated product can still be in the cached slug list.
  *
+ * The same holds for a product whose slug was changed in the dashboard: its
+ * old URL gets a real 308 to the current one (migration 0040), sent from
+ * here for the same reason, so search engines move the page's standing
+ * across instead of dropping it as a 404.
+ *
  * Prefetches of product links run this too, which is why it reads the
  * cached slug list rather than the product itself — see productExists().
  */
@@ -25,6 +30,10 @@ export default async function ProductExistsLayout({
   params: Promise<{ handle: string }>;
 }) {
   const { handle } = await params;
-  if (!(await productExists(handle))) notFound();
+  if (!(await productExists(handle))) {
+    const currentSlug = await getRenamedProductSlug(handle);
+    if (currentSlug) permanentRedirect(`/proionta/${currentSlug}`);
+    notFound();
+  }
   return children;
 }

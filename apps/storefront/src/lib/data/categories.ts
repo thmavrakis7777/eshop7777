@@ -375,8 +375,9 @@ export async function getEmptyListingCategoryIds(): Promise<string[]> {
  * - its SEO row's content_updated_at (title, meta description, robots…),
  * - the newest updated_at of any product in it or below it, active or not —
  *   adding, editing or deactivating a product changes what the listing
- *   shows. Every write to shop.product is an admin action (prices and stock
- *   live on product_variant, so a sale doesn't move this).
+ *   shows. Every write to shop.product is an admin action; price and photo
+ *   edits reach it too (migration 0039), a sale doesn't (stock lives on
+ *   product_variant and isn't one of the touched columns).
  *
  * All of it comes from the database, so a deployment never moves a date.
  * Not cached: only the sitemap reads it, a few times a day.

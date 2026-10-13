@@ -73,9 +73,12 @@ const nextConfig: NextConfig = {
       { source: "/banio/petsetes-yfasmata", destination: "/banio", permanent: true },
       // Ηλεκτρολογικά kept its old "fotismos" ("lighting") slug when it was
       // renamed from Φωτισμός during the same taxonomy fix — cosmetic, but a
-      // real mismatch. Children first, same first-match-wins reasoning above.
-      { source: "/ergaleia/fotismos/:path*", destination: "/ergaleia/ilektrologika/:path*", permanent: true },
+      // real mismatch. The exact rule comes first: `:path*` also matches zero
+      // segments, so with the catch-all first /ergaleia/fotismos itself went
+      // to "/ergaleia/ilektrologika/" and took a second redirect to drop the
+      // trailing slash (seen live 2026-10-13).
       { source: "/ergaleia/fotismos", destination: "/ergaleia/ilektrologika", permanent: true },
+      { source: "/ergaleia/fotismos/:path*", destination: "/ergaleia/ilektrologika/:path*", permanent: true },
     ];
   },
   // AVIF first, WebP as the fallback modern format — next/image already

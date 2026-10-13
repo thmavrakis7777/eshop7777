@@ -10,6 +10,7 @@ import {
   getSaleProductsPaged as dbGetSaleProductsPaged,
   getProductBySlug,
   getProductGallery,
+  getRenamedProductSlug,
   getProductsByCategorySlug,
   getProductsByCollectionSlug,
   getProductsBySlugs,
@@ -82,6 +83,9 @@ export async function productExists(handle: string): Promise<boolean> {
   if ((await getActiveProductSlugs()).includes(handle)) return true;
   return (await getProductByHandle(handle)) !== undefined;
 }
+
+/** Where a product's old URL now lives, if anywhere — see getRenamedProductSlug. */
+export { getRenamedProductSlug };
 
 export async function getNewArrivalsPaged(
   opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
