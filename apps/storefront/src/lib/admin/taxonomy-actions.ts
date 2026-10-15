@@ -9,7 +9,9 @@ import {
   deleteCollection,
   listStockMovements,
   moveCategory,
+  resetCategoryProductOrder,
   saveCategory,
+  saveCategoryProductOrder,
   saveCategoryMegaMenuPromo,
   saveCategorySecondaryParents,
   saveCategoryViewAllButton,
@@ -201,6 +203,60 @@ export async function moveCategoryAction(id: string, direction: "up" | "down"): 
   revalidateStorefront();
   updateTag(CATEGORY_CACHE_TAG);
   return { ok: true };
+}
+
+// A category page lists at most a few hundred products; the cap only stops a
+// direct call (every Server Action is a public endpoint) from sending an
+// unbounded array.
+const productOrderSchema = z.object({
+  categoryId: z.guid(),
+  productIds: z.array(z.guid()).max(2000),
+});
+
+export async function saveCategoryProductOrderAction(
+  categoryId: string,
+  productIds: string[]
+): Promise<ActionResult> {
+  let admin;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+  const parsed = productOrderSchema.safeParse({ categoryId, productIds });
+  if (!parsed.success) return { ok: false, error: "Κάτι πήγε στραβά. Δοκίμασε ξανά." };
+  try {
+    await saveCategoryProductOrder(parsed.data.categoryId, [...new Set(parsed.data.productIds)]);
+    await auditLog(admin.id, "category.product_order", "category", parsed.data.categoryId, {
+      productCount: parsed.data.productIds.length,
+    });
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
+  revalidatePath(`/admin/categories/${parsed.data.categoryId}/products-order`);
+  revalidatePath("/admin/categories");
+  revalidateStorefront();
+  return { ok: true, message: "Η σειρά αποθηκεύτηκε." };
+}
+
+export async function resetCategoryProductOrderAction(categoryId: string): Promise<ActionResult> {
+  let admin;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+  if (!z.guid().safeParse(categoryId).success) return { ok: false, error: "Δεν βρέθηκε." };
+  try {
+    await resetCategoryProductOrder(categoryId);
+    await auditLog(admin.id, "category.product_order_reset", "category", categoryId);
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
+  revalidatePath(`/admin/categories/${categoryId}/products-order`);
+  revalidatePath("/admin/categories");
+  revalidateStorefront();
+  return { ok: true, message: "Επανήλθε η αυτόματη σειρά." };
 }
 
 // ---------------------------------------------------------------------------

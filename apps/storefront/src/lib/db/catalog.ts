@@ -339,17 +339,21 @@ function orderBy(sort: ProductSort) {
   }
 }
 
-// Category listings' default order: newest first, but with sold-out products
-// (no active variant that can be bought — VARIANT_AVAILABLE_PREDICATE, the
-// same rule as the storefront's isAvailable) after everything that can be
-// bought. They stay listed and indexable — just not ahead of what a shopper
-// can actually order. Default sort only: a price/title sort the shopper
+// Category listings' default order («Προεπιλογή»): sold-out products (no
+// active variant that can be bought — VARIANT_AVAILABLE_PREDICATE, the same
+// rule as the storefront's isAvailable) after everything that can be bought.
+// They stay listed and indexable — just not ahead of what a shopper can
+// actually order. Within each of those two groups: the products the owner
+// placed for this category (Admin → Κατηγορίες → «Σειρά προϊόντων»,
+// shop.category_product_position joined as `cpp`) in their order, then every
+// unplaced product newest first — exactly the old order when the category has
+// no placed products. Default sort only: a price/title sort the shopper
 // picked is honored exactly as chosen.
-const SOLD_OUT_LAST_NEWEST = sql`
+const SOLD_OUT_LAST_MANUAL_THEN_NEWEST = sql`
   ORDER BY NOT EXISTS (
     SELECT 1 FROM shop.product_variant v
      WHERE v.product_id = p.id AND v.is_active AND ${VARIANT_AVAILABLE_PREDICATE}
-  ), p.created_at DESC`;
+  ), cpp.position ASC NULLS LAST, p.created_at DESC`;
 
 /**
  * Products in a category, including its descendants — browsing "Κουζίνα"
@@ -389,13 +393,19 @@ export async function getProductsByCategorySlug(
     SELECT ${productFields}, COUNT(*) OVER () AS total_count
       FROM shop.product p
       LEFT JOIN shop.category c ON c.id = p.category_id
+      -- This page's own manual order (one row per placed product at most:
+      -- the primary key is (category_id, product_id)), keyed by the page's
+      -- category — not the product's — so each level keeps its own order.
+      LEFT JOIN shop.category_product_position cpp
+        ON cpp.product_id = p.id
+       AND cpp.category_id = (SELECT id FROM shop.category WHERE slug = ${slug})
      -- IN (SELECT id FROM tree) is a set-membership test — a category id
      -- reachable more than once in the recursive walk (unlikely given the
      -- cycle check on save, but not load-bearing here either way) still
      -- selects each real product row exactly once.
      WHERE p.is_active AND p.category_id IN (SELECT id FROM tree)
      ${whereFilters(filters)}
-     ${sort === "newest" ? SOLD_OUT_LAST_NEWEST : orderBy(sort)}
+     ${sort === "newest" ? SOLD_OUT_LAST_MANUAL_THEN_NEWEST : orderBy(sort)}
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;
 

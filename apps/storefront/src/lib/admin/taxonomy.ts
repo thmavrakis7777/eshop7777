@@ -433,6 +433,88 @@ export async function moveCategory(id: string, direction: "up" | "down"): Promis
 }
 
 // ---------------------------------------------------------------------------
+// «Σειρά προϊόντων» — each category page's manual product order
+// (shop.category_product_position, migration 0042). The list being ordered is
+// the storefront's own listing for that page (getProductsByCategorySlug), so
+// the admin always arranges exactly what shoppers see.
+// ---------------------------------------------------------------------------
+
+export type CategoryForOrdering = {
+  id: string;
+  slug: string;
+  name: string;
+  isActive: boolean;
+  pageType: "products" | "landing";
+  // Names from the top-level category down to this one's parent.
+  ancestorNames: string[];
+  // Saved manual order: product ids, first to last. May include products no
+  // longer listed here (moved to another category, deactivated) — the
+  // storefront ignores those, and so does the editor.
+  placedProductIds: string[];
+};
+
+export async function getCategoryForOrdering(id: string): Promise<CategoryForOrdering | undefined> {
+  const [row] = await sql<
+    {
+      id: string;
+      slug: string;
+      name: string;
+      is_active: boolean;
+      page_type: string;
+      ancestor_names: string[];
+      placed_product_ids: string[];
+    }[]
+  >`
+    WITH RECURSIVE up AS (
+      SELECT id, parent_id, name, 0 AS lvl FROM shop.category WHERE id = ${id}
+      UNION ALL
+      SELECT c.id, c.parent_id, c.name, up.lvl + 1
+        FROM shop.category c JOIN up ON c.id = up.parent_id
+    )
+    SELECT c.id, c.slug, c.name, c.is_active, c.page_type,
+           COALESCE((SELECT array_agg(name ORDER BY lvl DESC) FROM up WHERE lvl > 0), '{}') AS ancestor_names,
+           COALESCE((SELECT array_agg(product_id ORDER BY position)
+                       FROM shop.category_product_position WHERE category_id = c.id), '{}') AS placed_product_ids
+      FROM shop.category c
+     WHERE c.id = ${id}`;
+  if (!row) return undefined;
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    isActive: row.is_active,
+    pageType: row.page_type === "landing" ? "landing" : "products",
+    ancestorNames: row.ancestor_names,
+    placedProductIds: row.placed_product_ids,
+  };
+}
+
+/**
+ * Replaces the category's whole order with `productIds`, first to last. Ids
+ * that no longer exist (a product deleted in another tab) are skipped rather
+ * than failing the save. Products left out — added after the page was
+ * opened — stay unplaced and list after the placed ones, newest first.
+ */
+export async function saveCategoryProductOrder(categoryId: string, productIds: string[]): Promise<void> {
+  await transaction(async (tx) => {
+    const [cat] = await tx<{ id: string }[]>`SELECT id FROM shop.category WHERE id = ${categoryId} FOR UPDATE`;
+    if (!cat) throw new TaxonomyError("Category not found", "not_found");
+    await tx`DELETE FROM shop.category_product_position WHERE category_id = ${categoryId}`;
+    if (productIds.length === 0) return;
+    await tx`
+      INSERT INTO shop.category_product_position (category_id, product_id, position)
+      SELECT ${categoryId}, ids.product_id, ids.ord::int - 1
+        FROM unnest(${productIds}::uuid[]) WITH ORDINALITY AS ids(product_id, ord)
+        JOIN shop.product p ON p.id = ids.product_id`;
+  });
+}
+
+/** Back to the automatic order (newest first, sold-out last). */
+export async function resetCategoryProductOrder(categoryId: string): Promise<void> {
+  await sql`DELETE FROM shop.category_product_position WHERE category_id = ${categoryId}`;
+}
+
+// ---------------------------------------------------------------------------
 // Collections
 // ---------------------------------------------------------------------------
 

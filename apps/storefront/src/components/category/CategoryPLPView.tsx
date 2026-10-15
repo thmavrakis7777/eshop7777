@@ -153,7 +153,11 @@ export async function CategoryPLPView({
           <span className="text-sm text-ink-muted">{count} προϊόντα</span>
           <div className="flex items-center gap-3">
             {facets && filters && <CategoryFilterDrawer facets={facets} filters={filters} />}
-            {sortable && <SortControl current={sort} />}
+            {sortable && (
+              // Category pages default to the owner's manual order (then newest
+              // first), so "Νεότερα πρώτα" would mislabel it there.
+              <SortControl current={sort} defaultLabel={source.type === "category" ? "Προεπιλογή" : undefined} />
+            )}
           </div>
         </div>
 

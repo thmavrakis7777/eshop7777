@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
@@ -160,6 +161,16 @@ export function CategoryManager({
                   >
                     ↓
                   </IconButton>
+                  {/* Landing categories show curated content, not a product
+                      grid, so there's no product order to set. */}
+                  {c.pageType === "products" && (
+                    <Link
+                      href={`/admin/categories/${c.id}/products-order`}
+                      className="rounded-md border border-border px-2.5 py-1 text-sm hover:bg-surface"
+                    >
+                      Σειρά προϊόντων
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={() => setEditing(c.id)}

@@ -10,7 +10,10 @@ const OPTIONS: Array<{ value: ProductSort; label: string }> = [
   { value: "price-desc", label: "Τιμή: Υψηλή προς Χαμηλή" },
 ];
 
-export function SortControl({ current }: { current: ProductSort }) {
+// `defaultLabel` renames the "newest" option where the listing's default
+// isn't purely newest-first (category pages: the owner's manual order first).
+// The URL value stays "newest" so existing ?sort=newest links keep working.
+export function SortControl({ current, defaultLabel }: { current: ProductSort; defaultLabel?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -32,7 +35,7 @@ export function SortControl({ current }: { current: ProductSort }) {
       >
         {OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
-            {o.label}
+            {o.value === "newest" && defaultLabel ? defaultLabel : o.label}
           </option>
         ))}
       </select>
