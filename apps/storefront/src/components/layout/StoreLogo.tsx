@@ -26,11 +26,15 @@ export function StoreLogo({
   // no overflow-hidden, so the name can never be silently cut.
   className = "font-display text-[clamp(1rem,4.2vw,1.5rem)] tracking-tight text-ink whitespace-nowrap",
   href = "/",
+  onClick,
 }: {
   storeName: string;
   logoUrl: string | null;
   className?: string;
   href?: string | null;
+  // The mobile menu passes its close handler, so tapping the logo there both
+  // goes home and closes the drawer.
+  onClick?: () => void;
 }) {
   const content = logoUrl ? (
     // Unoptimized: the logo is a single small asset rendered on every page,
@@ -52,7 +56,7 @@ export function StoreLogo({
 
   if (href === null) return <span className={className}>{content}</span>;
   return (
-    <Link href={href} className={className}>
+    <Link href={href} className={className} onClick={onClick}>
       {content}
     </Link>
   );

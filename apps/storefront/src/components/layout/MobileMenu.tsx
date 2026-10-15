@@ -156,7 +156,7 @@ function MenuDrawer({
       <div className="absolute inset-0 bg-ink/40" aria-hidden="true" onClick={onClose} />
       <div className="absolute inset-y-0 left-0 flex w-[85%] max-w-sm flex-col bg-bg shadow-xl">
         <div className="flex shrink-0 items-center justify-between border-b border-border p-4">
-          <StoreLogo storeName={storeName} logoUrl={logoUrl} href={null} className="font-display text-xl" />
+          <StoreLogo storeName={storeName} logoUrl={logoUrl} onClick={onClose} className="font-display text-xl" />
           <button ref={closeButtonRef} type="button" className="p-2" aria-label="Κλείσιμο μενού" onClick={onClose}>
             <CloseIcon />
           </button>
