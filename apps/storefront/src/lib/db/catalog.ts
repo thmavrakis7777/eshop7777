@@ -103,8 +103,8 @@ export const VARIANT_AVAILABLE_PREDICATE = sql`(v.allow_backorder OR v.stock_qua
 /**
  * A "real" (non-cancelled) order — the one exclusion every revenue/order-count
  * figure in the codebase already applies, now in one place instead of
- * independently re-typed in lib/admin/dashboard.ts, lib/admin/customers.ts,
- * and this file's own getBestSellingProductSlugs. No table prefix: every
+ * independently re-typed in lib/admin/dashboard.ts and
+ * lib/admin/customers.ts. No table prefix: every
  * current use has exactly one table with a `status` column in scope
  * (shop.orders, aliased or not), so it resolves correctly either way.
  */
@@ -411,7 +411,7 @@ export async function getProductsByCategorySlug(
  * right now — computed from real product/variant data, not a fixed list. See
  * CategoryFacets for the "only if it can actually narrow something" rule.
  */
-// Cached like getBestSellingProductSlugs/getCachedSearchCatalog above: a
+// Cached like getActiveProductSlugs/getCachedSearchCatalog: a
 // live recursive-category-walk + aggregate on every category-page view is
 // unnecessary for filter bounds that only need to be a few seconds fresh.
 // `slug` is part of the cache key automatically (unstable_cache keys on the
@@ -649,12 +649,11 @@ export async function getNewArrivalsPaged(
 }
 
 /**
- * "Recommended". There is still no order history, so this stays an honest
- * curated slice (alphabetical by default) rather than a fabricated
- * popularity ranking — the same decision the Medusa version documented.
- * Once real orders exist this becomes a genuine best-seller query.
+ * "Best sellers": the products the owner ticked in the product editor
+ * (shop.product.is_best_seller). Feeds /best-sellers and the homepage's
+ * "best_sellers" rail and showcase source, so all three always agree.
  */
-export async function getFeaturedProductsPaged(
+export async function getBestSellerProductsPaged(
   opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
 ): Promise<{ products: Product[]; count: number }> {
   const { sort = "title-asc", limit = 24, offset = 0 } = opts;
@@ -663,7 +662,7 @@ export async function getFeaturedProductsPaged(
     SELECT ${productFields}, COUNT(*) OVER () AS total_count
       FROM shop.product p
       LEFT JOIN shop.category c ON c.id = p.category_id
-     WHERE p.is_active
+     WHERE p.is_active AND p.is_best_seller
      ${orderBy(sort)}
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;
@@ -693,49 +692,6 @@ export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
     return r ? [toDomainProduct(r, newArrivalWindowDays)] : [];
   });
 }
-
-/**
- * Best Sellers, ranked by real completed sales — used by the homepage's
- * "best_sellers" product-rail source (lib/data/homepage-sections.ts).
- *
- * "Completed sale" mirrors the one exclusion rule already established for
- * every other real-sales figure in this codebase (LIVE_ORDER_PREDICATE
- * above, shared with lib/admin/dashboard.ts and lib/admin/customers.ts): no
- * separate notion of "failed" exists on shop.orders, and payment_status/
- * fulfillment_status are never part of that definition anywhere else
- * either, so this doesn't invent a second one.
- * Never views/favourites/clicks/stock/manual popularity — only actual sold
- * quantity from shop.order_item.
- *
- * All-time, not the admin dashboard's 90-day trend window (lib/admin/
- * dashboard.ts's getBestSellers): a brand-new or low-traffic store is
- * exactly the case this homepage section's fallback exists for, and a
- * rolling window would only make "not enough data yet" more likely, not
- * less. Joins to product_id (indexed — order_item_product_idx) rather than
- * grouping by the unindexed product_slug column, and filters p.is_active
- * directly so a since-deactivated product never occupies one of the
- * requested `limit` slots.
- *
- * Cached: a live GROUP BY on every homepage request is unnecessary for a
- * ranking that only needs to be a few minutes fresh (no new infrastructure —
- * the same unstable_cache pattern lib/db/content.ts already uses elsewhere).
- */
-export const getBestSellingProductSlugs = unstable_cache(
-  async (limit: number): Promise<string[]> => {
-    const rows = await sql<{ slug: string }[]>`
-      SELECT p.slug AS slug
-        FROM shop.order_item i
-        JOIN shop.orders o ON o.id = i.order_id
-        JOIN shop.product p ON p.id = i.product_id
-       WHERE ${LIVE_ORDER_PREDICATE} AND p.is_active
-       GROUP BY p.id, p.slug
-       ORDER BY SUM(i.quantity) DESC
-       LIMIT ${limit}`;
-    return rows.map((r) => r.slug);
-  },
-  ["best-selling-product-slugs"],
-  { revalidate: 300 }
-);
 
 /**
  * Related products. Same-category is a real, honest signal; "customers also

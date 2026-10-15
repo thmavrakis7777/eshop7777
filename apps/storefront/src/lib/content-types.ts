@@ -149,19 +149,15 @@ export type TrustItem = {
 
 export type ProductRailSource =
   | { type: "newest"; limit: number }
-  | { type: "featured"; limit: number }
   | { type: "sale"; limit: number }
   | { type: "category"; categorySlug: string; limit: number }
   | { type: "collection"; collectionSlug: string; limit: number }
   // Exact products, in the order the owner arranged them — the "Summer
   // Essentials, and I pick precisely these" case.
   | { type: "manual"; productSlugs: string[] }
-  // Ranked by real sold quantity (lib/db/catalog.ts's getBestSellingProductSlugs
-  // — completed order_item rows only, cancelled orders excluded). Launch-day
-  // reality: a brand-new store has no sales yet, so `fallbackProductSlugs`
-  // (optional, same picker as "manual") stands in whenever the ranking
-  // comes back empty — see resolveRailProducts's "best_sellers" case.
-  | { type: "best_sellers"; limit: number; fallbackProductSlugs?: string[] };
+  // The products ticked «Best sellers» in the product editor — the same list
+  // /best-sellers shows (lib/db/catalog.ts's getBestSellerProductsPaged).
+  | { type: "best_sellers"; limit: number };
 
 /**
  * The Promotional Banner's optional second banner. Lives in `config`
@@ -188,8 +184,7 @@ export type PromoBanner2Config = {
 
 /**
  * Where an Editorial Showcase gets its products. The same sources and the
- * same field names as a rail's (ProductRailSource), minus `featured` and
- * minus `limit`: how many products a showcase shows is decided by its
+ * same field names as a rail's (ProductRailSource), minus `limit`: how many products a showcase shows is decided by its
  * layout (SHOWCASE_PRODUCT_COUNT), not by the owner — the composition is
  * drawn for that many.
  */
@@ -198,7 +193,7 @@ export type ShowcaseSource =
   | { type: "collection"; collectionSlug: string }
   | { type: "sale" }
   | { type: "newest" }
-  | { type: "best_sellers"; fallbackProductSlugs?: string[] }
+  | { type: "best_sellers" }
   | { type: "manual"; productSlugs: string[] };
 
 /**

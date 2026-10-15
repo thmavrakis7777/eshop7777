@@ -1,7 +1,7 @@
 "use server";
 
 import {
-  getFeaturedProductsPaged,
+  getBestSellerProductsPaged,
   getNewArrivalsPaged,
   getSaleProductsPaged,
   getProductsByCategoryHandle,
@@ -69,12 +69,12 @@ export async function loadMoreSaleProductsAction(
   return getSaleProductsPaged({ sort, limit: clampLimit(limit), offset: clampOffset(offset) });
 }
 
-export async function loadMoreFeaturedProductsAction(
+export async function loadMoreBestSellerProductsAction(
   sort: ProductSort,
   offset: number,
   limit: number
 ): Promise<{ products: Product[]; count: number }> {
-  return getFeaturedProductsPaged({ sort, limit: clampLimit(limit), offset: clampOffset(offset) });
+  return getBestSellerProductsPaged({ sort, limit: clampLimit(limit), offset: clampOffset(offset) });
 }
 
 export async function loadMoreSearchProductsAction(

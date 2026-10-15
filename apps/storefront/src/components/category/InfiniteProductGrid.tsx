@@ -7,9 +7,9 @@ import type { Product } from "@/lib/types";
 import type { CategoryFilters, ProductSort } from "@/lib/data/products";
 import { filtersToSearchEntries } from "@/lib/search-params";
 import {
+  loadMoreBestSellerProductsAction,
   loadMoreCategoryProductsAction,
   loadMoreCollectionProductsAction,
-  loadMoreFeaturedProductsAction,
   loadMoreNewArrivalsAction,
   loadMoreSaleProductsAction,
   loadMoreSearchProductsAction,
@@ -20,7 +20,7 @@ export type ProductSource =
   | { type: "collection"; collectionHandle: string }
   | { type: "new-arrivals" }
   | { type: "sale" }
-  | { type: "featured" }
+  | { type: "best-sellers" }
   | { type: "search"; query: string };
 
 // The grid below is 2 / 3 / 4 columns (base / md / lg), and which of those is
@@ -49,7 +49,7 @@ function fetchNextPage(
   if (source.type === "collection")
     return loadMoreCollectionProductsAction(source.collectionHandle, sort, offset, limit);
   if (source.type === "search") return loadMoreSearchProductsAction(source.query, offset, limit);
-  if (source.type === "featured") return loadMoreFeaturedProductsAction(sort, offset, limit);
+  if (source.type === "best-sellers") return loadMoreBestSellerProductsAction(sort, offset, limit);
   if (source.type === "sale") return loadMoreSaleProductsAction(sort, offset, limit);
   return loadMoreNewArrivalsAction(sort, offset, limit);
 }

@@ -34,7 +34,7 @@ const baseRoutes: MetadataRoute.Sitemap = [
   // destination whose emptiness is temporary, and dropping it from the
   // sitemap on stock levels teaches crawlers the URL is unreliable.
   { url: `${siteUrl}/prosfores`, changeFrequency: "daily", priority: 0.8 },
-  { url: `${siteUrl}/protainomena`, changeFrequency: "weekly", priority: 0.7 },
+  { url: `${siteUrl}/best-sellers`, changeFrequency: "weekly", priority: 0.7 },
   // The Journal landing page is a permanent, footer-linked destination and
   // stays listed even before the first article exists, for the same reason
   // /prosfores does — dropping a real URL from the sitemap on content levels

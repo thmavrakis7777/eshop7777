@@ -35,8 +35,8 @@ export type DashboardMetrics = {
 
 // Cancelled orders are excluded from every money figure — counting revenue
 // the store will never receive is the kind of flattering-but-wrong number a
-// dashboard exists to avoid. Shared with lib/admin/customers.ts and
-// lib/db/catalog.ts's best-sellers query — see LIVE_ORDER_PREDICATE there.
+// dashboard exists to avoid. Shared with lib/admin/customers.ts — see
+// LIVE_ORDER_PREDICATE in lib/db/catalog.ts.
 const LIVE = LIVE_ORDER_PREDICATE;
 
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {

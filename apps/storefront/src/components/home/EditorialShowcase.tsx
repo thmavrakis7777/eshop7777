@@ -213,14 +213,14 @@ const DEFAULT_CTA_LABEL: Record<ShowcaseConfig["source"]["type"], string> = {
   collection: "Δείτε όλα",
   sale: "Όλες οι προσφορές",
   newest: "Όλες οι νέες αφίξεις",
-  best_sellers: "Δείτε περισσότερα",
+  best_sellers: "Όλα τα best sellers",
   manual: "Δείτε περισσότερα",
 };
 
 /**
  * The link under the copy. The owner's own label and destination win; left
- * blank, it goes to the source's listing page (none for best sellers and
- * hand-picked, so no link at all unless the owner sets one). For a category
+ * blank, it goes to the source's listing page (none for hand-picked, so no
+ * link at all unless the owner sets one). For a category
  * or collection with more products than the section shows, the default
  * label carries the real total — "Δείτε και τα 9 προϊόντα" — never a
  * guessed one, and only when the link really goes to that listing.

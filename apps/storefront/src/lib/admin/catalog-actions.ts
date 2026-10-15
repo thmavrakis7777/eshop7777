@@ -179,6 +179,7 @@ export async function saveProductAction(productId: string, formData: FormData): 
       categoryId: optionalText(formData.get("categoryId")),
       isActive: formData.get("isActive") === "on",
       isNewOverride: formData.get("isNewOverride") === "on",
+      isBestSeller: formData.get("isBestSeller") === "on",
       internalCode: internalCodeResult.code,
       brand: optionalText(formData.get("brand")),
       material: optionalText(formData.get("material")),

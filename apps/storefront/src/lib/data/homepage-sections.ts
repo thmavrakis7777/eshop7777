@@ -1,7 +1,7 @@
 import { getHomepageSections } from "@/lib/db/content";
-import { getBestSellingProductSlugs } from "@/lib/db/catalog";
 import {
-  getFeaturedProducts,
+  getBestSellerProducts,
+  getBestSellerProductsPaged,
   getNewArrivals,
   getNewArrivalsPaged,
   getProductsByCategoryHandle,
@@ -40,9 +40,6 @@ export async function resolveRailProducts(source: ProductRailSource | undefined)
       case "newest":
         return await getNewArrivals(clampLimit(source.limit));
 
-      case "featured":
-        return await getFeaturedProducts(clampLimit(source.limit));
-
       case "sale": {
         // The same query /prosfores and the showcase's "sale" source use, so
         // the rail can never disagree with the offers page. It used to filter
@@ -77,18 +74,10 @@ export async function resolveRailProducts(source: ProductRailSource | undefined)
           ? await getProductsByHandles(source.productSlugs.slice(0, MAX_LIMIT))
           : [];
 
-      case "best_sellers": {
-        const slugs = await getBestSellingProductSlugs(clampLimit(source.limit));
-        if (slugs.length > 0) return await getProductsByHandles(slugs);
-        // Not enough real sales yet (a new store, or simply no completed
-        // orders today) — fall back to the owner's manually curated list
-        // rather than an error or a fabricated ranking. No fallback
-        // configured either => empty array => RailSection already renders
-        // nothing for an empty rail, exactly like a deleted category would.
-        return source.fallbackProductSlugs?.length
-          ? await getProductsByHandles(source.fallbackProductSlugs.slice(0, MAX_LIMIT))
-          : [];
-      }
+      case "best_sellers":
+        // The same list /best-sellers shows. Nothing ticked yet => empty
+        // array => RailSection renders nothing, like a deleted category.
+        return await getBestSellerProducts(clampLimit(source.limit));
     }
   } catch (err) {
     // A rail that can't resolve must not break the homepage, but swallowing
@@ -103,8 +92,8 @@ export async function resolveRailProducts(source: ProductRailSource | undefined)
 export type ShowcaseData = {
   products: Product[];
   // How many products the source holds in total — for the "see all N" link.
-  // null where there's no listing page to send anyone to (best sellers,
-  // hand-picked), so no count is ever shown for those.
+  // null where there's no listing page to send anyone to (hand-picked),
+  // so no count is ever shown for those.
   total: number | null;
   // The source's own listing page, or null when it has none.
   href: string | null;
@@ -192,16 +181,8 @@ export async function resolveShowcase(
       }
 
       case "best_sellers": {
-        // Same fallback rule as the rail: real sales ranking first; the
-        // owner's own picks only while there are no sales to rank.
-        const slugs = await getBestSellingProductSlugs(limit);
-        const products =
-          slugs.length > 0
-            ? await getProductsByHandles(slugs)
-            : source.fallbackProductSlugs?.length
-              ? await getProductsByHandles(source.fallbackProductSlugs.slice(0, limit))
-              : [];
-        return { products, total: null, href: null, label: "Best Sellers", imagePath: null };
+        const { products, count } = await getBestSellerProductsPaged({ limit });
+        return { products, total: count, href: "/best-sellers", label: "Best Sellers", imagePath: null };
       }
 
       case "manual": {

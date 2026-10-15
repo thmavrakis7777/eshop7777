@@ -5,7 +5,7 @@ import {
   getAllProductSlugs,
   getCartCrossSell as dbGetCartCrossSell,
   getCategoryFilterFacets as dbGetCategoryFilterFacets,
-  getFeaturedProductsPaged as dbGetFeaturedProductsPaged,
+  getBestSellerProductsPaged as dbGetBestSellerProductsPaged,
   getNewArrivalsPaged as dbGetNewArrivalsPaged,
   getSaleProductsPaged as dbGetSaleProductsPaged,
   getProductBySlug,
@@ -104,14 +104,14 @@ export async function getSaleProductsPaged(
   return dbGetSaleProductsPaged(opts);
 }
 
-export async function getFeaturedProductsPaged(
+export async function getBestSellerProductsPaged(
   opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
 ): Promise<{ products: Product[]; count: number }> {
-  return dbGetFeaturedProductsPaged(opts);
+  return dbGetBestSellerProductsPaged(opts);
 }
 
-export async function getFeaturedProducts(limit = 4): Promise<Product[]> {
-  const { products } = await dbGetFeaturedProductsPaged({ limit });
+export async function getBestSellerProducts(limit = 4): Promise<Product[]> {
+  const { products } = await dbGetBestSellerProductsPaged({ limit });
   return products;
 }
 

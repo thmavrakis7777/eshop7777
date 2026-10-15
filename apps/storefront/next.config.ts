@@ -79,6 +79,10 @@ const nextConfig: NextConfig = {
       // trailing slash (seen live 2026-10-13).
       { source: "/ergaleia/fotismos", destination: "/ergaleia/ilektrologika", permanent: true },
       { source: "/ergaleia/fotismos/:path*", destination: "/ergaleia/ilektrologika/:path*", permanent: true },
+      // «Προτεινόμενα» was replaced by «Best sellers» (2026-10-15). The old
+      // page was in the sitemap and the Hero linked to it, so the URL may be
+      // indexed or bookmarked.
+      { source: "/protainomena", destination: "/best-sellers", permanent: true },
     ];
   },
   // AVIF first, WebP as the fallback modern format — next/image already

@@ -101,16 +101,15 @@ const IMAGE_SLOTS_BY_KIND: Partial<Record<HomepageSectionKind, { desktop: Homepa
 
 const SOURCE_LABELS: Record<string, string> = {
   newest: "Νεότερα προϊόντα",
-  featured: "Προτεινόμενα",
   sale: "Σε προσφορά",
   category: "Από κατηγορία",
   collection: "Από συλλογή",
   manual: "Χειροκίνητη επιλογή",
-  best_sellers: "Best Sellers (αυτόματα, με βάση τις πωλήσεις)",
+  best_sellers: "Best sellers (όσα έχουν τσεκαρισμένο το «Best sellers» στο προϊόν)",
 };
 
-// A showcase's sources: the rail's minus "featured" (SHOWCASE_SOURCE_TYPES
-// in cms-actions.ts), category first — the most common use.
+// A showcase's sources: the rail's (SHOWCASE_SOURCE_TYPES in
+// cms-actions.ts), category first — the most common use.
 const SHOWCASE_SOURCE_LABELS: Record<string, string> = {
   category: SOURCE_LABELS.category,
   collection: SOURCE_LABELS.collection,
@@ -685,8 +684,8 @@ function SectionForm({
           </div>
           {isShowcase && (
             <p className="mt-2 text-xs text-ink-muted">
-              Κενός προορισμός = η σελίδα της πηγής (η κατηγορία, η συλλογή, οι Προσφορές ή οι Νέες αφίξεις). Για Best
-              Sellers και δική σου επιλογή δεν υπάρχει τέτοια σελίδα, οπότε ο σύνδεσμος εμφανίζεται μόνο αν ορίσεις
+              Κενός προορισμός = η σελίδα της πηγής (η κατηγορία, η συλλογή, οι Προσφορές, οι Νέες αφίξεις ή τα Best
+              sellers). Για δική σου επιλογή δεν υπάρχει τέτοια σελίδα, οπότε ο σύνδεσμος εμφανίζεται μόνο αν ορίσεις
               προορισμό.
             </p>
           )}
@@ -887,17 +886,10 @@ function ProductSourceFields({
       )}
 
       {sourceType === "best_sellers" && (
-        <div className="mt-3">
-          <p className={label}>Εφεδρικά προϊόντα (προαιρετικό)</p>
-          <p className="mb-2 text-xs text-ink-muted">
-            Εμφανίζονται μόνο όσο δεν υπάρχουν ακόμα αρκετές πωλήσεις για αυτόματη κατάταξη — π.χ. σε ένα νέο
-            κατάστημα. Μόλις υπάρξουν πραγματικές πωλήσεις, εμφανίζονται αυτές αντί για τα εφεδρικά.
-          </p>
-          <ProductPicker
-            name="fallbackProductSlugs"
-            defaultSlugs={src?.type === "best_sellers" ? (src.fallbackProductSlugs ?? []) : []}
-          />
-        </div>
+        <p className="mt-3 text-xs text-ink-muted">
+          Τα προϊόντα τα επιλέγεις από τον επεξεργαστή κάθε προϊόντος, με το «Best sellers» στην Κατάσταση. Ίδια
+          λίστα με τη σελίδα /best-sellers.
+        </p>
       )}
 
       {note && <p className="mt-3 text-xs text-ink-muted">{note}</p>}
@@ -1053,7 +1045,7 @@ function LinkPicker({
         )}
         <optgroup label="Σελίδες">
           <option value="/nea-afiksi">Νέες αφίξεις</option>
-          <option value="/protainomena">Προτεινόμενα</option>
+          <option value="/best-sellers">Best sellers</option>
         </optgroup>
       </select>
     </div>

@@ -327,6 +327,12 @@ export function ProductEditor({
               label="Σήμανση ως «Νέο»"
               hint={`Τα προϊόντα εμφανίζονται αυτόματα ως νέα για ${product.newArrivalWindowDays} ημέρες.`}
             />
+            <Toggle
+              name="isBestSeller"
+              defaultChecked={product.isBestSeller}
+              label="Best sellers"
+              hint="Εμφανίζεται στη σελίδα Best sellers και στις ενότητες Best Sellers της αρχικής."
+            />
           </Panel>
 
           <Panel title="Αυτόματες κατηγορίες">

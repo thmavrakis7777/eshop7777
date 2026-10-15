@@ -124,7 +124,6 @@ const MAX_TRUST_ITEMS = 8;
 
 const RAIL_SOURCE_TYPES = [
   "newest",
-  "featured",
   "sale",
   "category",
   "collection",
@@ -132,9 +131,8 @@ const RAIL_SOURCE_TYPES = [
   "best_sellers",
 ] as const;
 
-// The rail's sources minus "featured" — the Editorial Showcase brief lists
-// these six. Same form field names as the rail, so the admin form shares
-// one source picker between the two.
+// The same six sources as the rail. Same form field names as the rail, so
+// the admin form shares one source picker between the two.
 const SHOWCASE_SOURCE_TYPES = ["category", "collection", "sale", "newest", "best_sellers", "manual"] as const;
 
 // Reuses the exact same "one slug per line or comma" wire format ProductPicker
@@ -214,11 +212,6 @@ function parseConfig(kind: HomepageSectionKind, formData: FormData): HomepageSec
       case "manual":
         config.source = { type, productSlugs: parseSlugList(formData.get("productSlugs"), 24) };
         break;
-      case "best_sellers": {
-        const fallback = parseSlugList(formData.get("fallbackProductSlugs"), 24);
-        config.source = { type, limit, ...(fallback.length ? { fallbackProductSlugs: fallback } : {}) };
-        break;
-      }
       default:
         config.source = { type, limit };
     }
@@ -287,10 +280,6 @@ function parseShowcaseSource(formData: FormData): ShowcaseSource {
       // Up to the rail's 24 — only the first the layout shows are used, but
       // keeping the rest means switching to a larger layout needs no re-picking.
       return { type, productSlugs: parseSlugList(formData.get("productSlugs"), 24) };
-    case "best_sellers": {
-      const fallback = parseSlugList(formData.get("fallbackProductSlugs"), 24);
-      return { type, ...(fallback.length ? { fallbackProductSlugs: fallback } : {}) };
-    }
     default:
       return { type };
   }

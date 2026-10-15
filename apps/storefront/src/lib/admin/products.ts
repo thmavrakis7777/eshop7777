@@ -183,6 +183,7 @@ export type AdminProductDetail = {
   categoryId: string | null;
   isActive: boolean;
   isNewOverride: boolean;
+  isBestSeller: boolean;
   // Internal, business-only identifier (e.g. "MH-00125") — separate from
   // variant SKU, never customer-facing. Nullable/unset for most products.
   internalCode: string | null;
@@ -276,6 +277,7 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
     categoryId: (r.category_id as string) ?? null,
     isActive: r.is_active as boolean,
     isNewOverride: r.is_new_override as boolean,
+    isBestSeller: r.is_best_seller as boolean,
     internalCode: (r.internal_code as string) ?? null,
     vatRate: r.vat_rate != null ? Number(r.vat_rate) : null,
     brand: (r.brand as string) ?? null,
@@ -420,6 +422,7 @@ export type ProductInput = {
   categoryId: string | null;
   isActive: boolean;
   isNewOverride: boolean;
+  isBestSeller: boolean;
   internalCode: string | null;
   brand: string | null;
   material: string | null;
@@ -466,7 +469,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<vo
       UPDATE shop.product SET
         title = ${input.title}, slug = ${input.slug}, description = ${input.description},
         category_id = ${input.categoryId}, is_active = ${input.isActive},
-        is_new_override = ${input.isNewOverride}, internal_code = ${input.internalCode}, brand = ${input.brand}, material = ${input.material},
+        is_new_override = ${input.isNewOverride}, is_best_seller = ${input.isBestSeller}, internal_code = ${input.internalCode}, brand = ${input.brand}, material = ${input.material},
         weight_grams = ${input.weightGrams}, length_cm = ${input.lengthCm},
         width_cm = ${input.widthCm}, height_cm = ${input.heightCm},
         origin_country = ${input.originCountry}, badge_label = ${input.badgeLabel},

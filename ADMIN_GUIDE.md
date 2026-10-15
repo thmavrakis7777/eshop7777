@@ -69,7 +69,7 @@ come from:
 | Source | What it shows |
 |---|---|
 | Νεότερα προϊόντα | most recently added |
-| Προτεινόμενα | a curated slice of the catalogue |
+| Best sellers | the products ticked **Best sellers** in the product editor (same list as `/best-sellers`) |
 | Σε προσφορά | **only products that actually have a discount** |
 | Από κατηγορία | everything in a category you pick |
 | Από συλλογή | everything in a collection you pick |
