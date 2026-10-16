@@ -74,14 +74,6 @@ export function CategoryGrid({
                         className="object-cover transition-transform duration-200 ease-out group-hover:scale-[1.02]"
                       />
                     </AfterPageLoad>
-                    {/* The name sits on the photo's lower part, white on a
-                        gradient (the header menu's promo tiles do the same)
-                        so it reads clearly on any photo while the top of
-                        the photo stays untouched. */}
-                    <div
-                      className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-ink/80 via-ink/30 to-transparent"
-                      aria-hidden="true"
-                    />
                   </div>
                 ) : (
                   <PlaceholderTile
@@ -90,13 +82,18 @@ export function CategoryGrid({
                     className="transition-transform duration-200 ease-out group-hover:scale-[1.02]"
                   />
                 )}
-                {/* No gradient behind the name on the patterned placeholder:
-                    it is light and already legible in ink. Centred and large
-                    (owner, 2026-10-16); text-balance splits a long name like
-                    «ΕΡΓΑΛΕΙΑ - ΗΛΕΚΤΡΟΛΟΓΙΚΑ» into two even lines. */}
+                {/* Centred and large (owner, 2026-10-16); text-balance splits
+                    a long name like «ΕΡΓΑΛΕΙΑ - ΗΛΕΚΤΡΟΛΟΓΙΚΑ» into two even
+                    lines. On a photo the name sits on a frosted-glass panel
+                    (owner, 2026-10-16): the blur plus a light dark tint keeps
+                    white text readable on bright photos too. The patterned
+                    placeholder is light and already legible in ink, so it
+                    gets no panel. */}
                 <span
-                  className={`absolute inset-x-0 bottom-0 text-balance p-4 text-center text-xl font-semibold leading-tight tracking-wide md:p-5 md:text-2xl ${
-                    imageUrl ? "text-white" : "text-ink"
+                  className={`absolute text-balance text-center text-xl font-semibold leading-tight tracking-wide md:text-2xl ${
+                    imageUrl
+                      ? "inset-x-3 bottom-3 rounded-md border border-white/30 bg-ink/25 px-3 py-3 text-white shadow-lg backdrop-blur-md backdrop-saturate-150 [text-shadow:0_1px_2px_rgb(0_0_0/0.3)] md:inset-x-4 md:bottom-4"
+                      : "inset-x-0 bottom-0 p-4 text-ink md:p-5"
                   }`}
                 >
                   {cat.name}
