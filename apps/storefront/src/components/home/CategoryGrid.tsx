@@ -91,9 +91,11 @@ export function CategoryGrid({
                   />
                 )}
                 {/* No gradient behind the name on the patterned placeholder:
-                    it is light and already legible in ink. */}
+                    it is light and already legible in ink. Centred and large
+                    (owner, 2026-10-16); text-balance splits a long name like
+                    «ΕΡΓΑΛΕΙΑ - ΗΛΕΚΤΡΟΛΟΓΙΚΑ» into two even lines. */}
                 <span
-                  className={`absolute inset-x-0 bottom-0 p-3 text-sm font-semibold tracking-wide md:p-4 md:text-base ${
+                  className={`absolute inset-x-0 bottom-0 text-balance p-4 text-center text-xl font-semibold leading-tight tracking-wide md:p-5 md:text-2xl ${
                     imageUrl ? "text-white" : "text-ink"
                   }`}
                 >
