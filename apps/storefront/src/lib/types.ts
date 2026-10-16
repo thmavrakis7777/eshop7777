@@ -55,6 +55,12 @@ export type ProductVariant = {
   // lib/stock.ts's isQuantityAvailable, the single rule this and the
   // server-side cart mutations both implement.
   allowBackorder: boolean;
+  // Colour variants (COLOR_VARIANTS_SPEC.md): the dot's colour (#rrggbb) and
+  // the photo that shows this colour. Absent on ordinary variants — a product
+  // is a "colour product" only when every one of its variants has a swatch
+  // (see colourVariantsOf in lib/colour-variants.ts).
+  swatchHex?: string;
+  imageUrl?: string;
 };
 
 // Medusa's native product attribute fields, mapped through only when
@@ -178,6 +184,10 @@ export type CartLineItem = {
   lineTotal: Money;
   placeholderTone: Tone;
   imageUrl: string | null;
+  // Colour variants (COLOR_VARIANTS_SPEC.md): which colour this line is, so
+  // a red and a blue of the same product don't read as two identical lines.
+  // Absent for every product without colours.
+  colour?: { name: string; hex: string };
   // Snapshotted variant SKU, copied onto the line at order time so it stays
   // correct if the variant is later edited. (Pre-migration this pointed at
   // MedusaLineItem.variant_sku in lib/medusa.ts; that file no longer exists.)

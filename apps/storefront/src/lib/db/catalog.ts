@@ -137,6 +137,8 @@ type VariantRow = {
   compare_at_price_cents: number | null;
   stock_quantity: number;
   allow_backorder: boolean;
+  swatch_hex: string | null;
+  image_path: string | null;
 };
 
 type ProductRow = {
@@ -203,6 +205,8 @@ export function toDomainProduct(r: ProductRow, newArrivalWindowDays: number): Pr
     code: v.sku,
     isAvailable: isVariantAvailable(v),
     allowBackorder: v.allow_backorder,
+    ...(v.swatch_hex ? { swatchHex: v.swatch_hex } : {}),
+    ...(v.image_path ? { imageUrl: publicImageUrl(v.image_path) ?? undefined } : {}),
   }));
 
   const first = r.variants[0];
@@ -258,7 +262,11 @@ const productFields = sql`
       'price_cents', v.price_cents,
       'compare_at_price_cents', v.compare_at_price_cents,
       'stock_quantity', v.stock_quantity,
-      'allow_backorder', v.allow_backorder
+      'allow_backorder', v.allow_backorder,
+      'swatch_hex', v.swatch_hex,
+      -- The colour's photo (0043) — one path per variant, NULL for every
+      -- variant that isn't a colour, so cards stay one row per product.
+      'image_path', (SELECT i.storage_path FROM shop.product_image i WHERE i.id = v.image_id)
     ) ORDER BY v.position, v.created_at)
     FROM shop.product_variant v WHERE v.product_id = p.id AND v.is_active
   ), '[]'::json) AS variants,

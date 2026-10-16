@@ -102,6 +102,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                         ) : (
                           <span className="font-medium text-ink">{item.title}</span>
                         )}
+                        {/* The colour the customer chose (COLOR_VARIANTS_SPEC.md)
+                            — what to pick off the shelf. Older orders saved
+                            the placeholder «Default», never a real choice. */}
+                        {item.variantTitle && item.variantTitle !== "Default" && (
+                          <div className="text-sm text-ink">Χρώμα: {item.variantTitle}</div>
+                        )}
                         {item.sku && <div className="font-mono text-xs text-ink-muted">{item.sku}</div>}
                         {/* Units sold at stock 0 on a «Κατόπιν παραγγελίας»
                             product: to order from the supplier, and the

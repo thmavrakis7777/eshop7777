@@ -12,6 +12,7 @@ import { ProductImageManager } from "@/components/admin/ProductImageManager";
 import { InternalCodeField } from "@/components/admin/InternalCodeField";
 import { AiSeoGenerator } from "@/components/admin/AiSeoGenerator";
 import { money, centsToPriceInput } from "@/components/admin/ui/primitives";
+import { publicImageUrl } from "@/lib/storage/urls";
 
 /**
  * The product editor — the screen the store owner spends most of their time in.
@@ -516,6 +517,7 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
             <VariantForm
               key={v.id}
               variant={v}
+              images={product.images}
               pending={pending}
               onCancel={() => setEditing(null)}
               onSubmit={(data) => save(v.id, data)}
@@ -526,9 +528,20 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
               key={v.id}
               className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border px-4 py-3"
             >
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-ink">{isSingle ? "Προεπιλογή" : v.title}</div>
-                <div className={hint}>{v.sku}</div>
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                {v.swatchHex && (
+                  <span
+                    aria-hidden="true"
+                    className="h-5 w-5 shrink-0 rounded-full border border-black/15"
+                    style={{ backgroundColor: v.swatchHex }}
+                  />
+                )}
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-ink">
+                    {isSingle && !v.swatchHex ? "Προεπιλογή" : v.title}
+                  </div>
+                  <div className={hint}>{v.sku}</div>
+                </div>
               </div>
               <div className="text-sm tabular-nums">
                 {money(v.priceCents)}
@@ -562,6 +575,8 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
 
         {editing === "new" && (
           <VariantForm
+            images={product.images}
+            newDefaults={newVariantDefaults(product.variants)}
             pending={pending}
             onCancel={() => setEditing(null)}
             onSubmit={(data) => save(null, data)}
@@ -573,6 +588,46 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
 }
 
 /**
+ * A new variant of a product is almost always another colour at the same
+ * price, so the form opens with the first variant's prices and the next
+ * free «-N» code after its SKU (00013 → 00013-2, 00013-3…). The suffix keeps
+ * suggestNextSku's all-digit sequence untouched. Only suggestions — every
+ * field stays editable.
+ */
+function newVariantDefaults(variants: AdminProductDetail["variants"]) {
+  const base = variants[0];
+  if (!base) return undefined;
+  const root = base.sku.replace(/-\d+$/, "");
+  const taken = new Set(variants.map((v) => v.sku));
+  let n = 2;
+  while (taken.has(`${root}-${n}`)) n++;
+  return {
+    sku: `${root}-${n}`,
+    priceCents: base.priceCents,
+    compareAtPriceCents: base.compareAtPriceCents,
+    // Once one variant is a colour, the next one is too — open with the
+    // colour field on (the owner still picks which colour).
+    hasColour: variants.some((v) => v.swatchHex),
+  };
+}
+
+// The usual colours, one click each; the picker next to them covers the rest.
+const PRESET_COLOURS: { name: string; hex: string }[] = [
+  { name: "Μαύρο", hex: "#1a1a1a" },
+  { name: "Λευκό", hex: "#f5f5f5" },
+  { name: "Γκρι", hex: "#8a8a8a" },
+  { name: "Ασημί", hex: "#c0c0c0" },
+  { name: "Κόκκινο", hex: "#d61f1f" },
+  { name: "Μπλε", hex: "#1f3fbf" },
+  { name: "Πράσινο", hex: "#2e8b3e" },
+  { name: "Κίτρινο", hex: "#f2c200" },
+  { name: "Πορτοκαλί", hex: "#f07a1a" },
+  { name: "Ροζ", hex: "#e86aa6" },
+  { name: "Μωβ", hex: "#7a3fb0" },
+  { name: "Καφέ", hex: "#7a4a26" },
+];
+
+/**
  * Fully controlled, and builds its FormData explicitly rather than reading a
  * DOM form. Variants live visually inside the product form, and nesting a
  * <form> inside another is invalid HTML that browsers silently un-nest — so
@@ -580,23 +635,43 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
  */
 function VariantForm({
   variant,
+  images,
+  newDefaults,
   pending,
   onCancel,
   onSubmit,
   onDelete,
 }: {
   variant?: AdminProductDetail["variants"][number];
+  images: AdminProductDetail["images"];
+  newDefaults?: ReturnType<typeof newVariantDefaults>;
   pending: boolean;
   onCancel: () => void;
   onSubmit: (data: FormData) => void;
   onDelete?: () => void;
 }) {
-  const [sku, setSku] = useState(variant?.sku ?? "");
-  const [title, setTitle] = useState(variant?.title ?? "Default");
-  const [price, setPrice] = useState(centsToPriceInput(variant?.priceCents ?? null));
-  const [compareAt, setCompareAt] = useState(centsToPriceInput(variant?.compareAtPriceCents ?? null));
+  const [sku, setSku] = useState(variant?.sku ?? newDefaults?.sku ?? "");
+  const [title, setTitle] = useState(variant?.title ?? (newDefaults?.hasColour ? "" : "Default"));
+  const [price, setPrice] = useState(
+    centsToPriceInput(variant?.priceCents ?? newDefaults?.priceCents ?? null)
+  );
+  const [compareAt, setCompareAt] = useState(
+    centsToPriceInput(variant?.compareAtPriceCents ?? newDefaults?.compareAtPriceCents ?? null)
+  );
   const [stock, setStock] = useState(String(variant?.stockQuantity ?? 0));
   const [onOrder, setOnOrder] = useState(variant?.allowBackorder ?? false);
+  const [swatchHex, setSwatchHex] = useState<string | null>(
+    variant ? variant.swatchHex : newDefaults?.hasColour ? PRESET_COLOURS[0].hex : null
+  );
+  const [imageId, setImageId] = useState<string | null>(variant?.imageId ?? null);
+
+  // Picking a preset also names the variant, unless a name was already typed
+  // (or the name is just another preset's — then it follows the new pick).
+  function pickPreset(c: (typeof PRESET_COLOURS)[number]) {
+    setSwatchHex(c.hex);
+    const t = title.trim();
+    if (!t || t === "Default" || PRESET_COLOURS.some((p) => p.name === t)) setTitle(c.name);
+  }
 
   function buildFormData(): FormData {
     const data = new FormData();
@@ -606,6 +681,8 @@ function VariantForm({
     data.set("compareAtPrice", compareAt);
     data.set("stock", stock);
     data.set("allowBackorder", onOrder ? "on" : "off");
+    data.set("swatchHex", swatchHex ?? "");
+    data.set("imageId", imageId ?? "");
     // What this form showed on opening: unchanged means "leave stock as it
     // is now", so a sale made meanwhile isn't overwritten (saveVariant).
     if (variant) data.set("stockBefore", String(variant.stockQuantity));
@@ -642,9 +719,90 @@ function VariantForm({
           <input value={sku} onChange={(e) => setSku(e.target.value)} required className={field} />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className={labelCls}>Ονομασία παραλλαγής</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} />
+          <label className={labelCls}>{swatchHex ? "Όνομα χρώματος" : "Ονομασία παραλλαγής"}</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={swatchHex ? "π.χ. Κόκκινο" : undefined}
+            className={field}
+          />
         </div>
+
+        {/* Colour (0043): the dot shoppers pick on the card and the product
+            page. Off = an ordinary variant, exactly as before. */}
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-ink">
+            <input
+              type="checkbox"
+              checked={swatchHex != null}
+              onChange={(e) => {
+                if (e.target.checked) pickPreset(PRESET_COLOURS[0]);
+                else setSwatchHex(null);
+              }}
+              className="h-4 w-4 accent-ink"
+            />
+            Χρώμα
+          </label>
+          {swatchHex != null && (
+            <div className="flex flex-wrap items-center gap-2">
+              {PRESET_COLOURS.map((c) => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  title={c.name}
+                  aria-label={c.name}
+                  aria-pressed={swatchHex === c.hex}
+                  onClick={() => pickPreset(c)}
+                  className={`h-7 w-7 rounded-full border border-black/15 ${
+                    swatchHex === c.hex ? "ring-2 ring-ink ring-offset-2" : ""
+                  }`}
+                  style={{ backgroundColor: c.hex }}
+                />
+              ))}
+              <label className="ml-1 flex items-center gap-1.5 text-xs text-ink-muted">
+                Άλλο:
+                <input
+                  type="color"
+                  value={swatchHex}
+                  onChange={(e) => setSwatchHex(e.target.value.toLowerCase())}
+                  className="h-7 w-10 cursor-pointer rounded border border-border bg-bg p-0.5"
+                />
+              </label>
+            </div>
+          )}
+        </div>
+
+        {swatchHex != null && images.length > 0 && (
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <span className={labelCls}>Φωτογραφία του χρώματος</span>
+            <div className="flex flex-wrap gap-2">
+              {images.map((img) => {
+                const url = publicImageUrl(img.storagePath);
+                const selected = imageId === img.id;
+                return (
+                  <button
+                    key={img.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setImageId(selected ? null : img.id)}
+                    className={`relative h-16 w-16 overflow-hidden rounded-md border-2 ${
+                      selected ? "border-ink" : "border-transparent opacity-70 hover:opacity-100"
+                    }`}
+                  >
+                    {url && (
+                      // eslint-disable-next-line @next/next/no-img-element -- admin thumbnail, same as ProductImageManager
+                      <img src={url} alt="" className="h-full w-full object-cover" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <p className={hint}>
+              Η φωτογραφία που εμφανίζεται όταν ο πελάτης διαλέγει αυτό το χρώμα. Ανέβασέ την πρώτα στις
+              Φωτογραφίες του προϊόντος. Χωρίς επιλογή, εμφανίζεται η κύρια φωτογραφία.
+            </p>
+          </div>
+        )}
         <div className="flex flex-col gap-1.5">
           <label className={labelCls}>Τιμή πώλησης (€)</label>
           <input

@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { CartLineItem } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
+import { LineColour } from "@/components/cart/LineColour";
 import { QuantityStepper, useMaxReachedNotice } from "@/components/cart/QuantityStepper";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
 import { CloseIcon } from "@/components/ui/Icons";
@@ -59,6 +60,7 @@ export function CartDrawerLineItem({
             <CloseIcon className="h-4 w-4" />
           </button>
         </div>
+        <LineColour colour={item.colour} className="-mt-1" />
         {onOrder && <span className="-mt-1 text-xs text-accent">{ON_ORDER_LABEL}</span>}
 
         <div className="mt-auto flex items-end justify-between gap-2">

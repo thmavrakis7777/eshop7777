@@ -166,6 +166,10 @@ export type AdminVariant = {
   allowBackorder: boolean;
   position: number;
   isActive: boolean;
+  /** Colour dot (#rrggbb) — set means this variant is a colour (0043). */
+  swatchHex: string | null;
+  /** The product photo that shows this colour, if one was picked. */
+  imageId: string | null;
 };
 
 export type AdminProductImage = {
@@ -238,7 +242,8 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
         SELECT json_agg(json_build_object(
           'id', v.id, 'sku', v.sku, 'title', v.title, 'priceCents', v.price_cents,
           'compareAtPriceCents', v.compare_at_price_cents, 'stockQuantity', v.stock_quantity,
-          'allowBackorder', v.allow_backorder, 'position', v.position, 'isActive', v.is_active
+          'allowBackorder', v.allow_backorder, 'position', v.position, 'isActive', v.is_active,
+          'swatchHex', v.swatch_hex, 'imageId', v.image_id
         ) ORDER BY v.position, v.created_at)
         FROM shop.product_variant v WHERE v.product_id = p.id), '[]'::json) AS variants,
       COALESCE((
@@ -690,10 +695,20 @@ export async function saveVariant(
     stockBefore?: number;
     allowBackorder: boolean;
     isActive: boolean;
+    swatchHex: string | null;
+    imageId: string | null;
   },
   adminUserId: string
 ): Promise<void> {
   await transaction(async (tx) => {
+    // The colour's photo must be one of this product's own photos — the id
+    // comes from the browser, and the FK alone would accept any product's.
+    if (variant.imageId) {
+      const own = await tx`
+        SELECT 1 FROM shop.product_image WHERE id = ${variant.imageId} AND product_id = ${productId}`;
+      if (own.length === 0) throw new CatalogError("Image not found", "not_found");
+    }
+
     const dupe = await tx<{ id: string }[]>`
       SELECT id FROM shop.product_variant
        WHERE sku = ${variant.sku} ${variant.id ? tx`AND id <> ${variant.id}` : tx``}`;
@@ -712,7 +727,8 @@ export async function saveVariant(
           sku = ${variant.sku}, title = ${variant.title}, price_cents = ${variant.priceCents},
           compare_at_price_cents = ${variant.compareAtPriceCents},
           stock_quantity = ${stock}, allow_backorder = ${variant.allowBackorder},
-          is_active = ${variant.isActive}
+          is_active = ${variant.isActive},
+          swatch_hex = ${variant.swatchHex}, image_id = ${variant.imageId}
         WHERE id = ${variant.id}`;
       if (stock !== current.stock_quantity) {
         await tx`
@@ -726,10 +742,11 @@ export async function saveVariant(
       SELECT COALESCE(MAX(position), -1) + 1 AS next FROM shop.product_variant WHERE product_id = ${productId}`;
     const [created] = await tx<{ id: string }[]>`
       INSERT INTO shop.product_variant (product_id, sku, title, price_cents,
-        compare_at_price_cents, stock_quantity, allow_backorder, is_active, position)
+        compare_at_price_cents, stock_quantity, allow_backorder, is_active, position,
+        swatch_hex, image_id)
       VALUES (${productId}, ${variant.sku}, ${variant.title}, ${variant.priceCents},
         ${variant.compareAtPriceCents}, ${variant.stockQuantity}, ${variant.allowBackorder},
-        ${variant.isActive}, ${next})
+        ${variant.isActive}, ${next}, ${variant.swatchHex}, ${variant.imageId})
       RETURNING id`;
     await logStartingStock(tx, created.id, variant.stockQuantity, adminUserId);
   });

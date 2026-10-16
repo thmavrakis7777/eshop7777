@@ -258,7 +258,12 @@ export async function completeOrder(
           product_slug, quantity, unit_price_cents, line_total_cents, backordered_quantity)
         VALUES (
           ${order.id}, ${item.variant_id}, ${item.product_id}, ${item.title},
-          ${item.variant_title}, ${item.sku}, ${item.slug}, ${item.quantity},
+          ${/* «Default» is the placeholder name of a product's only variant,
+               not something a customer chose — saved as it was, the order
+               email, confirmation page and admin order printed "Default"
+               under every line. A real name (a colour, «Κόκκινο») is kept. */
+            item.variant_title === "Default" ? null : item.variant_title},
+          ${item.sku}, ${item.slug}, ${item.quantity},
           ${item.price_cents}, ${item.price_cents * item.quantity}, ${item.quantity - fromShelf})`;
 
       // Audit trail, so "why is this product at 3?" has an answer. Only the

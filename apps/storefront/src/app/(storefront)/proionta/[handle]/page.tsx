@@ -7,7 +7,11 @@ import { AddToCartButton } from "@/components/product/AddToCartButton";
 import { RecentlyViewed } from "@/components/product/RecentlyViewed";
 import { RecentlyViewedTracker } from "@/components/product/RecentlyViewedTracker";
 import { ViewContentTracker } from "@/components/product/ViewContentTracker";
-import { StockStatus } from "@/components/product/StockStatus";
+import {
+  ColourSelectionProvider,
+  SelectedStockStatus,
+  SelectedVariantCode,
+} from "@/components/product/ColourSelection";
 import { ProductCharacteristics } from "@/components/product/ProductCharacteristics";
 import { ProductWarranty } from "@/components/product/ProductWarranty";
 import { ProductRail } from "@/components/home/ProductRail";
@@ -200,6 +204,9 @@ export default async function ProductPage({ params }: Props) {
       <ViewContentTracker id={product.id} title={product.title} priceAmount={product.price.amount} />
       <Breadcrumbs items={breadcrumbItems} />
 
+      {/* Colour products: the chosen colour drives the gallery, the dots,
+          the stock line and the code below (COLOR_VARIANTS_SPEC.md). */}
+      <ColourSelectionProvider handle={product.handle} variants={product.variants}>
       <div className="container-shell mt-4 grid grid-cols-1 gap-8 md:mt-8 md:grid-cols-2 md:gap-12">
         <div className="relative md:sticky md:top-24 md:self-start">
           {gallery.length > 0 ? (
@@ -253,7 +260,7 @@ export default async function ProductPage({ params }: Props) {
             )}
           </div>
 
-          <StockStatus state={stockState} className="mt-4" />
+          <SelectedStockStatus fallback={stockState} className="mt-4" />
 
           <div className="mt-3">
             <AddToCartButton
@@ -267,7 +274,9 @@ export default async function ProductPage({ params }: Props) {
             {product.code && (
               <div>
                 <dt className="inline text-ink-muted">Κωδικός προϊόντος:</dt>{" "}
-                <dd className="inline text-ink">{product.code}</dd>
+                <dd className="inline text-ink">
+                  <SelectedVariantCode fallback={product.code} />
+                </dd>
               </div>
             )}
             <div>
@@ -288,6 +297,7 @@ export default async function ProductPage({ params }: Props) {
           </dl>
         </div>
       </div>
+      </ColourSelectionProvider>
 
       {product.shortDescription && (
         <section className="container-shell mt-12 max-w-2xl md:mt-16">

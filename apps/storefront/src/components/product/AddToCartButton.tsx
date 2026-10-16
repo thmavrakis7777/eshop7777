@@ -10,6 +10,9 @@ import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
 import { NotifyWhenAvailableForm } from "@/components/product/NotifyWhenAvailableForm";
 import { isQuantityAvailable, quantityCap } from "@/lib/stock";
 import type { StockInquiryContact } from "@/lib/whatsapp";
+import { useColourSelection } from "@/components/product/ColourSelection";
+import { ColourSwatches } from "@/components/product/ColourSwatches";
+import { rememberColourChoice } from "@/lib/colour-variants";
 
 // Handles both today's catalog (always exactly one variant) and a future
 // multi-variant product: with >1 variant, a choice is required before the
@@ -32,9 +35,15 @@ export function AddToCartButton({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const hasMultipleVariants = product.variants.length > 1;
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
+  const [ownSelectedId, setSelectedVariantId] = useState<string | null>(
     hasMultipleVariants ? null : (product.variants[0]?.id ?? null)
   );
+  // A colour product's choice lives in ColourSelectionProvider, shared with
+  // the gallery and the stock line; it always has one (first in stock by
+  // default), so the button is ready without a pick. Every other product
+  // keeps its own state and the no-guessing rule above.
+  const colourSelection = useColourSelection();
+  const selectedVariantId = colourSelection ? colourSelection.selected.id : ownSelectedId;
   const [quantity, setQuantity] = useState(1);
   // Adjusting state during render (React's documented pattern for deriving
   // state from a prop/state change — same pattern CartDrawer.tsx already
@@ -104,7 +113,24 @@ export function AddToCartButton({
 
   return (
     <div className="flex flex-col gap-3">
-      {hasMultipleVariants && (
+      {colourSelection ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-ink">
+            <span className="text-ink-muted">Χρώμα:</span>{" "}
+            <span className="font-medium">{colourSelection.selected.title}</span>
+            {!colourSelection.selected.isAvailable && <span className="text-ink-muted"> — Εξαντλήθηκε</span>}
+          </p>
+          <ColourSwatches
+            colours={colourSelection.colours}
+            selectedId={colourSelection.selected.id}
+            onSelect={(v) => {
+              colourSelection.pick(v.id);
+              rememberColourChoice(product.handle, v.id);
+            }}
+            size="md"
+          />
+        </div>
+      ) : hasMultipleVariants && (
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-medium text-ink">Επίλεξε παραλλαγή</legend>
           <div className="flex flex-wrap gap-2">

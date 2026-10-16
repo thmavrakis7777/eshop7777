@@ -115,10 +115,12 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
                'image_path', img.storage_path
              ) ORDER BY i.id)
              FROM shop.order_item i
+             -- The ordered colour's photo when it has one (0043), else the main.
+             LEFT JOIN shop.product_variant ov ON ov.id = i.variant_id
              LEFT JOIN LATERAL (
                SELECT storage_path FROM shop.product_image
                 WHERE product_id = i.product_id
-                ORDER BY position LIMIT 1
+                ORDER BY (id = ov.image_id) IS TRUE DESC, position LIMIT 1
              ) img ON true
              WHERE i.order_id = o.id
            ), '[]'::json) AS items

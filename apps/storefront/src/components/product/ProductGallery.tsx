@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import type { GalleryImage } from "@/lib/data/products";
 import { ProductLightbox } from "@/components/product/ProductLightbox";
+import { useColourSelection } from "@/components/product/ColourSelection";
 
 /**
  * The product page's photos: one large photo, thumbnails under it when
@@ -38,10 +39,25 @@ export function ProductGallery({
   title: string;
   sizes: string;
 }) {
-  const [active, setActive] = useState(0);
+  const count = images.length;
+  // A colour product (COLOR_VARIANTS_SPEC.md) opens on, and jumps to, the
+  // chosen colour's photo; picking a thumbnail afterwards still works as
+  // before. Adjusted during render (React's documented pattern, as in
+  // AddToCartButton) so the right photo shows on the very first paint.
+  const colourPhoto = useColourSelection()?.selected.imageUrl;
+  const photoIndex = (url: string | undefined) => {
+    const i = url ? images.findIndex((img) => img.url === url) : -1;
+    return i >= 0 ? i : null;
+  };
+  const [active, setActive] = useState(() => photoIndex(colourPhoto) ?? 0);
+  const [shownColourPhoto, setShownColourPhoto] = useState(colourPhoto);
+  if (colourPhoto !== shownColourPhoto) {
+    setShownColourPhoto(colourPhoto);
+    const i = photoIndex(colourPhoto);
+    if (i != null) setActive(i);
+  }
   const [viewerOpen, setViewerOpen] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const count = images.length;
 
   function go(delta: number) {
     setActive((i) => (i + delta + count) % count);

@@ -74,6 +74,9 @@ type ItemRow = {
   // Live variant stock — see CartLineItem.stockQuantity in lib/types.ts.
   stock_quantity: number;
   allow_backorder: boolean;
+  // Colour variants (0043): the line's colour, live from the variant.
+  variant_title: string | null;
+  swatch_hex: string | null;
 };
 
 export type AddressJson = {
@@ -143,15 +146,18 @@ const cartQuery = (id: string) => sql<CartRow[]>`
              'shipping_cost_cents', p.shipping_cost_cents,
              'image_path', img.storage_path,
              'stock_quantity', v.stock_quantity,
-             'allow_backorder', v.allow_backorder
+             'allow_backorder', v.allow_backorder,
+             'variant_title', v.title,
+             'swatch_hex', v.swatch_hex
            ) ORDER BY i.created_at)
            FROM shop.cart_item i
            LEFT JOIN shop.product_variant v ON v.id = i.variant_id
            LEFT JOIN shop.product p ON p.id = v.product_id
+           -- The line's colour photo when it has one (0043), else the main.
            LEFT JOIN LATERAL (
              SELECT storage_path FROM shop.product_image
               WHERE product_id = p.id
-              ORDER BY position LIMIT 1
+              ORDER BY (id = v.image_id) IS TRUE DESC, position LIMIT 1
            ) img ON true
           WHERE i.cart_id = c.id
          ), '[]'::json) AS items
@@ -181,6 +187,7 @@ function toDomainCart(r: CartRow): Cart {
     shippingCostCents: i.shipping_cost_cents,
     stockQuantity: i.stock_quantity,
     allowBackorder: i.allow_backorder,
+    ...(i.swatch_hex && i.variant_title ? { colour: { name: i.variant_title, hex: i.swatch_hex } } : {}),
   }));
 
   // Built once, used twice: to price this snapshot, and handed to the

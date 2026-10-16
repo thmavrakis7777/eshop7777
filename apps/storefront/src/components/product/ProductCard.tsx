@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import type { Product } from "@/lib/types";
 import { formatPrice, formatPriceFrom } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
@@ -9,6 +10,13 @@ import { StockStatus } from "@/components/product/StockStatus";
 import { useQuickAdd } from "@/lib/hooks/use-quick-add";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
 import { stockStateOf } from "@/lib/stock";
+import { ColourSwatches } from "@/components/product/ColourSwatches";
+import {
+  colourVariantsOf,
+  defaultColourVariant,
+  recallColourChoice,
+  rememberColourChoice,
+} from "@/lib/colour-variants";
 
 const BADGE_LABEL: Record<NonNullable<Product["badges"]>[number], string> = {
   new: "Νέο",
@@ -44,7 +52,23 @@ export function ProductCard({
   priority?: boolean;
   waitForPageLoad?: boolean;
 }) {
-  const { hasSingleVariant, isOutOfStock, isPending, error, quickAdd } = useQuickAdd(product);
+  const { hasSingleVariant, isOutOfStock: productSoldOut, isPending, error, quickAdd, addVariant } =
+    useQuickAdd(product);
+
+  // Colour products (COLOR_VARIANTS_SPEC.md): the dots pick a colour, and
+  // the photo, stock line and button follow it. The code stays the
+  // product's main one (00017): the dots share its line, and a colour's
+  // longer code (00017-2) would push four dots off a phone-width card. The
+  // colour's own code shows on the product page, in the cart and on the
+  // order. The first colour
+  // in stock starts selected (owner's choice) unless this product's colour
+  // was already picked during the visit — see rememberColourChoice.
+  const colours = colourVariantsOf(product.variants);
+  const [pickedId, setPickedId] = useState<string | null>(() => recallColourChoice(product.handle));
+  const colour = colours ? (colours.find((v) => v.id === pickedId) ?? defaultColourVariant(colours)) : null;
+
+  const isOutOfStock = colour ? !colour.isAvailable : productSoldOut;
+  const imageUrl = colour?.imageUrl ?? product.imageUrl;
 
   return (
     <article className="flex h-full flex-col">
@@ -74,7 +98,7 @@ export function ProductCard({
           )}
           <div className={isOutOfStock ? "opacity-70" : ""}>
             <ProductImage
-              imageUrl={product.imageUrl}
+              imageUrl={imageUrl}
               label={product.title}
               tone={product.placeholderTone}
               sizes={sizes}
@@ -116,10 +140,38 @@ export function ProductCard({
             while any spare height sits under the shorter titles. A row
             whose titles all fit in two lines gets no gap at all. */}
         <div className="mt-auto flex flex-col gap-1">
-          {product.code && <span className="text-xs text-ink-muted">Κωδικός: {product.code}</span>}
+          {colours && colour ? (
+            // The dots on the code's line, not a line of their own — a
+            // colour card stays as tall as the others in its row (owner,
+            // 2026-10-16).
+            <div className="flex items-center justify-between gap-1.5">
+              {product.code && (
+                <span className="min-w-0 truncate text-xs text-ink-muted">Κωδικός: {product.code}</span>
+              )}
+              <ColourSwatches
+                colours={colours}
+                selectedId={colour.id}
+                onSelect={(v) => {
+                  setPickedId(v.id);
+                  rememberColourChoice(product.handle, v.id);
+                }}
+                size="sm"
+                maxVisible={4}
+                moreHref={`/proionta/${product.handle}`}
+              />
+            </div>
+          ) : (
+            product.code && <span className="text-xs text-ink-muted">Κωδικός: {product.code}</span>
+          )}
           <div className="flex items-baseline gap-2">
             <span className="text-sm font-semibold text-ink">
-              {product.priceRange ? formatPriceFrom(product.priceRange.min) : formatPrice(product.price)}
+              {/* A colour priced differently from the others shows its own
+                  price — the one the button below will charge. */}
+              {colour && product.priceRange
+                ? formatPrice(colour.price)
+                : product.priceRange
+                  ? formatPriceFrom(product.priceRange.min)
+                  : formatPrice(product.price)}
             </span>
             {!product.priceRange && product.compareAtPrice && (
               <span className="text-xs text-ink-muted line-through">
@@ -127,13 +179,13 @@ export function ProductCard({
               </span>
             )}
           </div>
-          <StockStatus state={stockStateOf(product.variants)} className="mt-0.5" />
+          <StockStatus state={stockStateOf(colour ? [colour] : product.variants)} className="mt-0.5" />
 
-          {hasSingleVariant ? (
+          {hasSingleVariant || colour ? (
             <button
               type="button"
               className="w-full rounded-sm bg-ink px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-              onClick={quickAdd}
+              onClick={colour ? () => addVariant(colour) : quickAdd}
               disabled={isPending || isOutOfStock}
             >
               {isOutOfStock ? "Εξαντλήθηκε" : isPending ? "Προσθήκη…" : "Προσθήκη στο καλάθι"}

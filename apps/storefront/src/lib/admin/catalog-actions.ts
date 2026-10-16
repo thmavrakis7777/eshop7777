@@ -392,13 +392,29 @@ export async function saveVariantAction(productId: string, formData: FormData): 
   const stockBeforeRaw = optionalText(formData.get("stockBefore"));
   const stockBefore = stockBeforeRaw != null && /^\d+$/.test(stockBeforeRaw) ? Number(stockBeforeRaw) : undefined;
 
+  // Colour variants (COLOR_VARIANTS_SPEC.md). Lower-cased to match 0043's
+  // CHECK. A colour's title is the name shoppers read next to the dot, so
+  // the placeholder «Default» isn't allowed on one.
+  const swatchHex = optionalText(formData.get("swatchHex"))?.toLowerCase() ?? null;
+  if (swatchHex != null && !/^#[0-9a-f]{6}$/.test(swatchHex)) {
+    return { ok: false, error: "Μη έγκυρο χρώμα." };
+  }
+  const variantTitle = optionalText(formData.get("variantTitle")) ?? "Default";
+  if (swatchHex != null && variantTitle === "Default") {
+    return { ok: false, error: "Γράψε το όνομα του χρώματος στην «Ονομασία παραλλαγής» (π.χ. Κόκκινο)." };
+  }
+  const imageId = optionalText(formData.get("imageId"));
+  if (imageId != null && !/^[0-9a-f-]{36}$/i.test(imageId)) {
+    return { ok: false, error: "Μη έγκυρη φωτογραφία." };
+  }
+
   try {
     await saveVariant(
       productId,
       {
         id: optionalText(formData.get("variantId")) ?? undefined,
         sku,
-        title: optionalText(formData.get("variantTitle")) ?? "Default",
+        title: variantTitle,
         priceCents,
         compareAtPriceCents: compareAt,
         stockQuantity,
@@ -407,6 +423,8 @@ export async function saveVariantAction(productId: string, formData: FormData): 
         // 0033's ban). Only takes effect at stock 0 — lib/stock.ts.
         allowBackorder: formData.get("allowBackorder") === "on",
         isActive: formData.get("variantActive") !== "off",
+        swatchHex,
+        imageId,
       },
       admin.id
     );

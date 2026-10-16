@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { CartLineItem } from "@/lib/types";
 import { formatPrice, discountPercent } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
+import { LineColour } from "@/components/cart/LineColour";
 import { QuantityStepper, useMaxReachedNotice } from "@/components/cart/QuantityStepper";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
 import { isLineItemOverstocked, isOnOrder, quantityCap, ON_ORDER_DELIVERY_TEXT } from "@/lib/stock";
@@ -50,6 +51,7 @@ export function CartLineItemTableRow({
           >
             {item.title}
           </Link>
+          <LineColour colour={item.colour} />
           {item.code && <span className="text-xs text-ink-muted">Κωδικός: {item.code}</span>}
           {onOrder && <span className="text-xs text-accent">{ON_ORDER_DELIVERY_TEXT}</span>}
           <button

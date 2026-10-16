@@ -1,6 +1,7 @@
 import type { Cart } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
+import { LineColour } from "@/components/cart/LineColour";
 import { CartTotals } from "@/components/cart/CartTotals";
 import { CloseIcon } from "@/components/ui/Icons";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
@@ -89,6 +90,7 @@ function OrderSummaryContent({
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-sm text-ink">{item.title}</span>
+                <LineColour colour={item.colour} />
                 <span className="text-xs text-ink-muted">Ποσ.: {item.quantity}</span>
                 {isOnOrder(item.stockQuantity, item.allowBackorder) && (
                   <span className="text-xs text-accent">{ON_ORDER_DELIVERY_TEXT}</span>
