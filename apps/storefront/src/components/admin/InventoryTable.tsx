@@ -6,6 +6,7 @@ import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { changeStockByAction, getStockHistoryAction, setStockAction } from "@/lib/admin/taxonomy-actions";
 import type { InventoryRow, StockMovement } from "@/lib/admin/taxonomy";
 import { SHOP_TIME_ZONE } from "@/lib/dates";
+import { formatMetres, metresToSteps, stepsToMetres } from "@/lib/length";
 
 /**
  * Inventory: edit stock inline, without opening each product.
@@ -139,9 +140,18 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
   );
 
   function save(variantId: string) {
-    const quantity = Number(value);
+    // A length product (LENGTH_SALES_SPEC.md) is typed in metres and stored
+    // in steps; everything else is whole pieces, as before.
+    const stepCm = rows.find((r) => r.variantId === variantId)?.lengthStepCm ?? null;
+    const quantity = stepCm != null ? (metresToSteps(value, stepCm) ?? Number.NaN) : Number(value);
     if (!Number.isInteger(quantity) || quantity < 0) {
-      setMsg({ ok: false, text: "Το απόθεμα πρέπει να είναι μη αρνητικός ακέραιος." });
+      setMsg({
+        ok: false,
+        text:
+          stepCm != null
+            ? `Το απόθεμα σε μέτρα πρέπει να είναι πολλαπλάσιο του ${formatMetres(1, stepCm)}.`
+            : "Το απόθεμα πρέπει να είναι μη αρνητικός ακέραιος.",
+      });
       return;
     }
     startTransition(async () => {
@@ -201,7 +211,11 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
                   </td>
                   <td className="border-b border-border px-4 py-2.5 font-mono text-xs text-ink-muted">{r.sku}</td>
                   <td className="border-b border-border px-4 py-2.5 text-right tabular-nums text-ink-muted">
-                    {r.reservedInCarts > 0 ? r.reservedInCarts : "—"}
+                    {r.reservedInCarts > 0
+                      ? r.lengthStepCm != null
+                        ? formatMetres(r.reservedInCarts, r.lengthStepCm)
+                        : r.reservedInCarts
+                      : "—"}
                   </td>
                   <td className={`border-b border-border px-4 py-2 text-right tabular-nums ${tone}`}>
                     {editing === r.variantId ? (
@@ -213,8 +227,8 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
                           if (e.key === "Escape") setEditing(null);
                         }}
                         autoFocus
-                        inputMode="numeric"
-                        aria-label={`Απόθεμα για ${r.sku}`}
+                        inputMode={r.lengthStepCm != null ? "decimal" : "numeric"}
+                        aria-label={r.lengthStepCm != null ? `Απόθεμα σε μέτρα για ${r.sku}` : `Απόθεμα για ${r.sku}`}
                         className="w-20 rounded-md border border-ink bg-bg px-2 py-1 text-right text-sm outline-none"
                       />
                     ) : (
@@ -226,7 +240,9 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
                         >
                           −
                         </StepButton>
-                        <span className="min-w-[3ch] text-center font-medium">{shown}</span>
+                        <span className="min-w-[3ch] text-center font-medium">
+                          {r.lengthStepCm != null ? formatMetres(shown, r.lengthStepCm) : shown}
+                        </span>
                         <StepButton
                           label={`Αύξηση αποθέματος για ${r.sku}`}
                           onClick={() => stock.nudge(r.variantId, 1, shown)}
@@ -279,7 +295,11 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
                           disabled={saving}
                           onClick={() => {
                             setEditing(r.variantId);
-                            setValue(String(shown));
+                            setValue(
+                              r.lengthStepCm != null
+                                ? stepsToMetres(shown, r.lengthStepCm).toLocaleString("el-GR", { maximumFractionDigits: 2 })
+                                : String(shown)
+                            );
                           }}
                           className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-surface disabled:opacity-50"
                         >

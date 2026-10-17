@@ -15,12 +15,15 @@ import { trackAddToCart } from "@/lib/analytics/track";
 // place rather than being copy-pasted per surface. Takes only the fields it
 // reads, so a caller can hand a Client Component just those (the homepage's
 // Editorial Showcase) instead of serializing whole products into the page.
-export function useQuickAdd(product: Pick<Product, "title" | "isAvailable" | "variants">) {
+export function useQuickAdd(product: Pick<Product, "title" | "isAvailable" | "variants" | "length">) {
   const { showAddedToast, receiveCart } = useCartUI();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const hasSingleVariant = product.variants.length === 1;
+  // A product sold by length (LENGTH_SALES_SPEC.md) is never quick-added:
+  // its length is chosen on the product page, so every caller that routes a
+  // multi-variant product there does the same for it.
+  const hasSingleVariant = product.variants.length === 1 && !product.length;
   const isOutOfStock = !product.isAvailable;
 
   // Two functions rather than one with an optional argument: callers hand

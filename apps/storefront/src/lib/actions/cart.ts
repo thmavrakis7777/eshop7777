@@ -70,6 +70,8 @@ function mapCartError(err: unknown): string {
         return "Αυτό το προϊόν δεν είναι πλέον διαθέσιμο.";
       case "invalid_quantity":
         return "Μη έγκυρη ποσότητα.";
+      case "length_out_of_range":
+        return "Επίλεξε μήκος μέσα στα επιτρεπτά όρια του προϊόντος.";
     }
   }
   return "Κάτι πήγε στραβά. Δοκίμασε ξανά.";

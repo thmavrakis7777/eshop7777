@@ -179,6 +179,20 @@ export default async function ProductPage({ params }: Props) {
           "@type": "Offer",
           priceCurrency: product.price.currencyCode,
           price: product.price.amount,
+          // Sold by the metre (LENGTH_SALES_SPEC.md): the price is per metre
+          // (UN/CEFACT unit code MTR), so Google doesn't read 3,00 € as the
+          // price of the whole product.
+          ...(product.length
+            ? {
+                priceSpecification: {
+                  "@type": "UnitPriceSpecification",
+                  price: product.price.amount,
+                  priceCurrency: product.price.currencyCode,
+                  unitCode: "MTR",
+                  referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MTR" },
+                },
+              }
+            : {}),
           availability: SCHEMA_AVAILABILITY[stockState],
           url: `${siteUrl}/proionta/${product.handle}`,
         },
@@ -254,6 +268,7 @@ export default async function ProductPage({ params }: Props) {
           <div className="mt-4 flex items-baseline gap-3">
             <span className="text-2xl font-semibold text-ink">
               {product.priceRange ? formatPriceFrom(product.priceRange.min) : formatPrice(product.price)}
+              {product.length && <span className="text-base font-normal text-ink-muted"> / μέτρο</span>}
             </span>
             {!product.priceRange && product.compareAtPrice && (
               <span className="text-base text-ink-muted line-through">{formatPrice(product.compareAtPrice)}</span>

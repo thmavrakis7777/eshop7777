@@ -5,10 +5,11 @@ import type { CartLineItem } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { LineColour } from "@/components/cart/LineColour";
+import { lineMax } from "@/components/cart/line-length";
 import { QuantityStepper, useMaxReachedNotice } from "@/components/cart/QuantityStepper";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
 import { CloseIcon } from "@/components/ui/Icons";
-import { isLineItemOverstocked, isOnOrder, quantityCap, ON_ORDER_LABEL } from "@/lib/stock";
+import { isLineItemOverstocked, isOnOrder, ON_ORDER_LABEL } from "@/lib/stock";
 import type { StockInquiryContact } from "@/lib/whatsapp";
 
 // Compact, unlabeled row for the drawer only — sized so 2–2.5 products fit
@@ -30,10 +31,11 @@ export function CartDrawerLineItem({
   onRemove: () => void;
 }) {
   const overstocked = isLineItemOverstocked(item);
-  const maxQuantity = quantityCap(item.stockQuantity, item.allowBackorder);
+  // Stock, or for a hose line the lower of stock and 20 μ (line-length.ts).
+  const { max: maxQuantity, capIsLength } = lineMax(item);
   const onOrder = isOnOrder(item.stockQuantity, item.allowBackorder);
   // "+" pressed at the stock limit shows the same notice (QuantityStepper).
-  const maxReached = useMaxReachedNotice(item.quantity, maxQuantity);
+  const maxReached = useMaxReachedNotice(item.quantity, capIsLength ? undefined : maxQuantity);
 
   return (
     <div className="flex gap-3 py-4">
@@ -71,7 +73,8 @@ export function CartDrawerLineItem({
             disabled={pending}
             max={maxQuantity}
             onChange={onQuantityChange}
-            onMaxReached={maxReached.onMaxReached}
+            onMaxReached={capIsLength ? undefined : maxReached.onMaxReached}
+            length={item.length}
             onRemove={onRemove}
           />
           {/* Same order as ProductCard: discounted price, then the original

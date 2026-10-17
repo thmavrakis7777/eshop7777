@@ -172,6 +172,8 @@ export function ProductCard({
                 : product.priceRange
                   ? formatPriceFrom(product.priceRange.min)
                   : formatPrice(product.price)}
+              {/* Sold by the metre (LENGTH_SALES_SPEC.md): the price is per metre. */}
+              {product.length && <span className="font-normal text-ink-muted"> / μέτρο</span>}
             </span>
             {!product.priceRange && product.compareAtPrice && (
               <span className="text-xs text-ink-muted line-through">
@@ -195,7 +197,9 @@ export function ProductCard({
               href={`/proionta/${product.handle}`}
               className="w-full rounded-sm bg-ink px-4 py-2.5 text-center text-xs font-medium text-white transition-colors hover:bg-accent"
             >
-              Επιλογές
+              {/* A length product picks its length on the product page (owner,
+                  2026-10-17) — never a silent 1 μ add from the card. */}
+              {product.length ? "Επίλεξε μήκος" : "Επιλογές"}
             </Link>
           )}
         </div>

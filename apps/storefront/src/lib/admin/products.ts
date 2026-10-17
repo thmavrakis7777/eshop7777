@@ -2,6 +2,7 @@ import "server-only";
 import { sql, transaction, type Tx } from "@/lib/db/client";
 import { normalizeSearchText } from "@/lib/search";
 import { daysSince } from "@/lib/dates";
+import { stepPriceCents, type LengthRule } from "@/lib/length";
 import {
   NEW_ARRIVAL_PREDICATE,
   SALE_PREDICATE,
@@ -30,6 +31,8 @@ export type AdminProductRow = {
   maxPriceCents: number | null;
   onSale: boolean;
   totalStock: number;
+  /** Sold by length: totalStock is in steps of this many cm. */
+  lengthStepCm: number | null;
   imageCount: number;
   createdAt: string;
 };
@@ -88,6 +91,7 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
              WHERE v.product_id = p.id AND v.compare_at_price_cents > v.price_cents) AS on_sale,
            COALESCE((SELECT SUM(v.stock_quantity) FROM shop.product_variant v WHERE v.product_id = p.id), 0)::int AS total_stock,
            (SELECT COUNT(*) FROM shop.product_image i WHERE i.product_id = p.id)::int AS image_count,
+           p.length_step_cm,
            COUNT(*) OVER () AS total_count
       FROM shop.product p
       LEFT JOIN shop.category c ON c.id = p.category_id
@@ -127,7 +131,7 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
     id: string; slug: string; title: string; is_active: boolean; created_at: Date;
     category_name: string | null; category_slug: string | null; variant_count: number;
     min_price_cents: number | null; max_price_cents: number | null; on_sale: boolean;
-    total_stock: number; image_count: number; total_count: string;
+    total_stock: number; image_count: number; total_count: string; length_step_cm: number | null;
   }>;
 
   return {
@@ -143,6 +147,7 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
       maxPriceCents: r.max_price_cents,
       onSale: r.on_sale,
       totalStock: r.total_stock,
+      lengthStepCm: r.length_step_cm,
       imageCount: r.image_count,
       createdAt: new Date(r.created_at).toISOString(),
     })),
@@ -188,6 +193,9 @@ export type AdminProductDetail = {
   isActive: boolean;
   isNewOverride: boolean;
   isBestSeller: boolean;
+  /** Sold by length (0044, LENGTH_SALES_SPEC.md): variant prices are per
+   *  metre and stock is in steps of `stepCm`. Null = sold by the piece. */
+  length: LengthRule | null;
   // Internal, business-only identifier (e.g. "MH-00125") — separate from
   // variant SKU, never customer-facing. Nullable/unset for most products.
   internalCode: string | null;
@@ -283,6 +291,14 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
     isActive: r.is_active as boolean,
     isNewOverride: r.is_new_override as boolean,
     isBestSeller: r.is_best_seller as boolean,
+    length:
+      r.length_step_cm != null
+        ? {
+            stepCm: r.length_step_cm as number,
+            minCm: r.length_min_cm as number,
+            maxCm: r.length_max_cm as number,
+          }
+        : null,
     internalCode: (r.internal_code as string) ?? null,
     vatRate: r.vat_rate != null ? Number(r.vat_rate) : null,
     brand: (r.brand as string) ?? null,
@@ -398,6 +414,10 @@ export class CatalogError extends Error {
       | "not_found"
       | "last_variant"
       | "stale_images"
+      // Sold by length: a variant price that doesn't split into whole-cent
+      // steps (2,99 €/μ in 0,5 μ steps), or limits that don't fit the step.
+      | "price_not_divisible"
+      | "invalid_length_rule"
   ) {
     super(message);
   }
@@ -750,6 +770,81 @@ export async function saveVariant(
       RETURNING id`;
     await logStartingStock(tx, created.id, variant.stockQuantity, adminUserId);
   });
+}
+
+/**
+ * «Πώληση με το μέτρο» (LENGTH_SALES_SPEC.md): switches a product between
+ * sold by the piece (`rule` null) and sold by length, or changes its step
+ * and limits.
+ *
+ * Stock is counted in steps, so when the unit changes, the number has to
+ * follow it:
+ * - from one step size to another (0,5 μ → 0,25 μ), stock is rescaled to
+ *   the same length, rounded down to whole steps;
+ * - between pieces and metres the old number means something else (3
+ *   pieces is not 3 metres), so stock goes to 0 and the owner enters it in
+ *   metres. Both are written to the stock history like any other change.
+ *
+ * Open carts lose this product when the unit or step changes: their lines
+ * were priced and counted in the old unit, and charging an old step price
+ * for a new length is exactly what must never happen. Changing only the
+ * min/max keeps carts; the cart and checkout re-check limits anyway.
+ */
+export async function saveLengthRule(productId: string, rule: LengthRule | null, adminUserId: string): Promise<void> {
+  await transaction(async (tx) => {
+    const [p] = await tx<{ length_step_cm: number | null }[]>`
+      SELECT length_step_cm FROM shop.product WHERE id = ${productId} FOR UPDATE`;
+    if (!p) throw new CatalogError("Product not found", "not_found");
+
+    if (rule) {
+      const { stepCm, minCm, maxCm } = rule;
+      if (
+        !Number.isInteger(stepCm) || stepCm <= 0 || minCm < stepCm || maxCm < minCm ||
+        minCm % stepCm !== 0 || maxCm % stepCm !== 0
+      ) {
+        throw new CatalogError("Invalid length rule", "invalid_length_rule");
+      }
+      const prices = await tx<{ price_cents: number; compare_at_price_cents: number | null }[]>`
+        SELECT price_cents, compare_at_price_cents FROM shop.product_variant WHERE product_id = ${productId}`;
+      const splits = (c: number | null) => c == null || stepPriceCents(c, stepCm) != null;
+      if (!prices.every((v) => splits(v.price_cents) && splits(v.compare_at_price_cents))) {
+        throw new CatalogError("Price does not split into steps", "price_not_divisible");
+      }
+    }
+
+    const oldStep = p.length_step_cm;
+    const newStep = rule?.stepCm ?? null;
+    if (oldStep !== newStep) {
+      const variants = await tx<{ id: string; stock_quantity: number }[]>`
+        SELECT id, stock_quantity FROM shop.product_variant WHERE product_id = ${productId} FOR UPDATE`;
+      for (const v of variants) {
+        const next = oldStep != null && newStep != null ? Math.floor((v.stock_quantity * oldStep) / newStep) : 0;
+        if (next === v.stock_quantity) continue;
+        await tx`UPDATE shop.product_variant SET stock_quantity = ${next} WHERE id = ${v.id}`;
+        await tx`
+          INSERT INTO shop.inventory_movement (variant_id, delta, reason, admin_user_id, note)
+          VALUES (${v.id}, ${next - v.stock_quantity}, 'correction', ${adminUserId}, 'Αλλαγή μονάδας πώλησης')`;
+      }
+      await tx`
+        DELETE FROM shop.cart_item i USING shop.cart c, shop.product_variant v
+         WHERE c.id = i.cart_id AND c.status = 'active'
+           AND v.id = i.variant_id AND v.product_id = ${productId}`;
+    }
+
+    await tx`
+      UPDATE shop.product SET
+        length_step_cm = ${rule?.stepCm ?? null},
+        length_min_cm = ${rule?.minCm ?? null},
+        length_max_cm = ${rule?.maxCm ?? null}
+      WHERE id = ${productId}`;
+  });
+}
+
+/** The product's step in cm when it's sold by length, else null. */
+export async function getLengthStepCm(productId: string): Promise<number | null> {
+  const [row] = await sql<{ length_step_cm: number | null }[]>`
+    SELECT length_step_cm FROM shop.product WHERE id = ${productId}`;
+  return row?.length_step_cm ?? null;
 }
 
 export async function deleteVariant(productId: string, variantId: string): Promise<void> {

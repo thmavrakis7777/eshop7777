@@ -5,6 +5,7 @@ import { getOrderDetail } from "@/lib/admin/orders";
 import { OrderStatusControls } from "@/components/admin/OrderStatusControls";
 import { ShipmentControls } from "@/components/admin/ShipmentControls";
 import { DeleteOrderControls } from "@/components/admin/DeleteOrderControls";
+import { formatMetres, perMetreCents } from "@/lib/length";
 import {
   Card,
   PageHeader,
@@ -47,7 +48,9 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const [order, admin] = await Promise.all([getOrderDetail(id), getAdminUser()]);
   if (!order) notFound();
 
-  const itemCount = order.items.reduce((sum, i) => sum + i.quantity, 0);
+  // A length line (LENGTH_SALES_SPEC.md) is one piece of hose, whatever its
+  // step count — «5 τεμάχια» for 2,5 μ would misread.
+  const itemCount = order.items.reduce((sum, i) => sum + (i.lengthStepCm != null ? 1 : i.quantity), 0);
   // Prices are VAT-inclusive, so this is the net figure implied by the total,
   // shown alongside the VAT line rather than instead of it.
   const netCents = order.totalCents - order.vatCents;
@@ -114,13 +117,27 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                             customer is waiting for a call about the date. */}
                         {item.backorderedQuantity > 0 && (
                           <div className="mt-1 inline-block rounded-sm bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent">
-                            Κατόπιν παραγγελίας: {item.backorderedQuantity} τεμ. — παράγγειλέ τα από τον προμηθευτή
+                            Κατόπιν παραγγελίας:{" "}
+                            {item.lengthStepCm != null
+                              ? formatMetres(item.backorderedQuantity, item.lengthStepCm)
+                              : `${item.backorderedQuantity} τεμ.`}{" "}
+                            — παράγγειλέ τα από τον προμηθευτή
                           </div>
                         )}
                       </td>
-                      <td className="border-b border-border px-4 py-3 text-right tabular-nums">{item.quantity}</td>
+                      {/* Sold by length (LENGTH_SALES_SPEC.md): the line counts
+                          steps; what to cut is the length in metres. */}
+                      <td className="border-b border-border px-4 py-3 text-right tabular-nums">
+                        {item.lengthStepCm != null ? (
+                          <strong>{formatMetres(item.quantity, item.lengthStepCm)}</strong>
+                        ) : (
+                          item.quantity
+                        )}
+                      </td>
                       <td className="border-b border-border px-4 py-3 text-right tabular-nums text-ink-muted">
-                        {money(item.unitPriceCents)}
+                        {item.lengthStepCm != null
+                          ? `${money(perMetreCents(item.unitPriceCents, item.lengthStepCm))}/μ`
+                          : money(item.unitPriceCents)}
                       </td>
                       <td className="border-b border-border px-4 py-3 text-right font-medium tabular-nums">
                         {money(item.lineTotalCents)}

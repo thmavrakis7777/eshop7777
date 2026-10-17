@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { bulkProductAction, type BulkOperation } from "@/lib/admin/catalog-actions";
 import type { AdminProductRow } from "@/lib/admin/products";
 import { money } from "@/components/admin/ui/primitives";
+import { formatMetres } from "@/lib/length";
 
 /**
  * The product list, with bulk selection.
@@ -256,7 +257,7 @@ export function ProductListTable({
                       p.totalStock <= 0 ? "text-danger" : p.totalStock <= 5 ? "text-accent" : ""
                     }`}
                   >
-                    {p.totalStock}
+                    {p.lengthStepCm != null ? formatMetres(p.totalStock, p.lengthStepCm) : p.totalStock}
                   </td>
                   <td className="border-b border-border px-4 py-3">
                     <span

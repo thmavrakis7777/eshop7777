@@ -149,6 +149,10 @@ type ProductRow = {
   created_at: Date;
   is_new_override: boolean;
   brand: string | null;
+  // Sold by length (0044) — NULL for products sold by the piece.
+  length_step_cm: number | null;
+  length_min_cm: number | null;
+  length_max_cm: number | null;
   material: string | null;
   weight_grams: number | null;
   length_cm: number | null;
@@ -244,6 +248,9 @@ export function toDomainProduct(r: ProductRow, newArrivalWindowDays: number): Pr
     isAvailable: variants.some((v) => v.isAvailable),
     characteristics: toCharacteristics(r),
     ...(r.brand ? { brand: r.brand } : {}),
+    ...(r.length_step_cm != null && r.length_min_cm != null && r.length_max_cm != null
+      ? { length: { stepCm: r.length_step_cm, minCm: r.length_min_cm, maxCm: r.length_max_cm } }
+      : {}),
   };
 }
 
@@ -253,6 +260,7 @@ export function toDomainProduct(r: ProductRow, newArrivalWindowDays: number): Pr
 const productFields = sql`
   p.id, p.slug, p.title, p.description, p.created_at, p.is_new_override,
   p.brand, p.material, p.weight_grams, p.length_cm, p.width_cm, p.height_cm, p.origin_country,
+  p.length_step_cm, p.length_min_cm, p.length_max_cm,
   c.slug AS category_slug,
   (SELECT i.storage_path FROM shop.product_image i
     WHERE i.product_id = p.id ORDER BY i.position LIMIT 1) AS image_path,

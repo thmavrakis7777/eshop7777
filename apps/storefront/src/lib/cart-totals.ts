@@ -111,6 +111,15 @@ export function computeTotals(input: {
 }
 
 /**
+ * The cart badge's number: pieces for products sold by the piece, but one
+ * per line for a length product (LENGTH_SALES_SPEC.md) — 2,5 μ of hose is a
+ * quantity of 5 steps, and «5» on the badge would read as five hoses.
+ */
+export function cartItemCount(items: Array<{ quantity: number; length?: unknown }>): number {
+  return items.reduce((sum, i) => sum + (i.length ? 1 : i.quantity), 0);
+}
+
+/**
  * The browser's prediction of what the server will answer after an
  * optimistic edit (useCartController's quantity change or removal): every
  * money field and the item count, rebuilt from the cart's current lines and
@@ -142,7 +151,7 @@ export function recomputeTotals(cart: Cart): Cart {
   return {
     ...cart,
     items: items.map(({ line, unitCents }) => ({ ...line, lineTotal: eur(unitCents * line.quantity) })),
-    itemCount: cart.items.reduce((sum, i) => sum + i.quantity, 0),
+    itemCount: cartItemCount(cart.items),
     subtotal: eur(t.subtotalCents),
     discountTotal: eur(t.discountCents),
     shippingTotal: eur(t.shippingCents),

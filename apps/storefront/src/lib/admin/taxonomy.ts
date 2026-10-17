@@ -599,6 +599,9 @@ export type InventoryRow = {
   // products carry a meaningless inherited title ("Μόνη επιλογή" from the
   // Medusa import, "Default" for new ones) that would be noise on every row.
   hasSiblings: boolean;
+  // Sold by length (LENGTH_SALES_SPEC.md): stock is in steps of this many
+  // cm and shown in metres. Null = pieces.
+  lengthStepCm: number | null;
 };
 
 export async function listInventory(filters: { q?: string; view?: "all" | "low" | "out" } = {}): Promise<InventoryRow[]> {
@@ -612,7 +615,8 @@ export async function listInventory(filters: { q?: string; view?: "all" | "low" 
              SELECT SUM(ci.quantity) FROM shop.cart_item ci
                JOIN shop.cart c ON c.id = ci.cart_id
               WHERE ci.variant_id = v.id AND c.status = 'active'), 0)::int AS reserved_in_carts,
-           (SELECT COUNT(*) > 1 FROM shop.product_variant v2 WHERE v2.product_id = p.id) AS has_siblings
+           (SELECT COUNT(*) > 1 FROM shop.product_variant v2 WHERE v2.product_id = p.id) AS has_siblings,
+           p.length_step_cm
       FROM shop.product_variant v
       JOIN shop.product p ON p.id = v.product_id
      WHERE TRUE
@@ -628,7 +632,7 @@ export async function listInventory(filters: { q?: string; view?: "all" | "low" 
      LIMIT 300`) as unknown as Array<{
     variant_id: string; product_id: string; product_title: string; variant_title: string;
     sku: string; stock_quantity: number; allow_backorder: boolean; is_active: boolean;
-    reserved_in_carts: number; has_siblings: boolean;
+    reserved_in_carts: number; has_siblings: boolean; length_step_cm: number | null;
   }>;
 
   return rows.map((r) => ({
@@ -638,6 +642,7 @@ export async function listInventory(filters: { q?: string; view?: "all" | "low" 
     variantTitle: r.variant_title,
     sku: r.sku,
     stock: r.stock_quantity,
+    lengthStepCm: r.length_step_cm,
     allowBackorder: r.allow_backorder,
     isActive: r.is_active,
     reservedInCarts: r.reserved_in_carts,

@@ -4,6 +4,7 @@ import { sql } from "@/lib/db/client";
 import { computeTotals } from "@/lib/cart-totals";
 import { isHeraklionAddress } from "@/lib/heraklion";
 import { isQuantityAvailable } from "@/lib/stock";
+import { maxSteps, minSteps, stepPriceCents } from "@/lib/length";
 import {
   LOYALTY_REWARD_DEFAULT_EXPIRY_DAYS,
   LOYALTY_REWARD_THRESHOLD_CENTS,
@@ -117,10 +118,14 @@ export async function completeOrder(
         // explicitly exercises "Heraklion + heavy product" through this exact
         // function.
         shipping_cost_cents: number | null;
+        length_step_cm: number | null;
+        length_min_cm: number | null;
+        length_max_cm: number | null;
       }[]
     >`SELECT i.variant_id, v.product_id, i.quantity,
              p.title, v.title AS variant_title, v.sku, p.slug,
-             v.price_cents, v.stock_quantity, v.allow_backorder, p.shipping_cost_cents
+             v.price_cents, v.stock_quantity, v.allow_backorder, p.shipping_cost_cents,
+             p.length_step_cm, p.length_min_cm, p.length_max_cm
         FROM shop.cart_item i
         JOIN shop.product_variant v ON v.id = i.variant_id
         JOIN shop.product p ON p.id = v.product_id
@@ -128,6 +133,26 @@ export async function completeOrder(
        ORDER BY i.created_at`;
 
     if (items.length === 0) throw new CheckoutError("Cart is empty", "empty_cart");
+
+    // Sold by length (LENGTH_SALES_SPEC.md): the variant is priced per metre
+    // and the line counts steps, so from here on `price_cents` is the price
+    // of ONE STEP — the totals, the order line's unit price and line total
+    // below all multiply it by the step count, exactly as for a piece. The
+    // per-order limits are re-checked here too: the cart enforces them, but
+    // this is the last gate before money changes hands.
+    for (const i of items) {
+      if (i.length_step_cm == null) continue;
+      const step = stepPriceCents(i.price_cents, i.length_step_cm);
+      const rule =
+        i.length_min_cm != null && i.length_max_cm != null
+          ? { stepCm: i.length_step_cm, minCm: i.length_min_cm, maxCm: i.length_max_cm }
+          : null;
+      if (step == null || !rule || i.quantity < minSteps(rule) || i.quantity > maxSteps(rule)) {
+        // Shown as «…δεν είναι πλέον διαθέσιμο στην ποσότητα που ζήτησες».
+        throw new CheckoutError("Length line out of range", "insufficient_inventory");
+      }
+      i.price_cents = step;
+    }
 
     // Re-validate the discount at completion time: a code can expire, be
     // deactivated, or hit its redemption cap between adding it to the cart
@@ -255,7 +280,8 @@ export async function completeOrder(
       await tx`
         INSERT INTO shop.order_item (
           order_id, variant_id, product_id, title, variant_title, sku,
-          product_slug, quantity, unit_price_cents, line_total_cents, backordered_quantity)
+          product_slug, quantity, unit_price_cents, line_total_cents, backordered_quantity,
+          length_step_cm)
         VALUES (
           ${order.id}, ${item.variant_id}, ${item.product_id}, ${item.title},
           ${/* «Default» is the placeholder name of a product's only variant,
@@ -264,7 +290,8 @@ export async function completeOrder(
                under every line. A real name (a colour, «Κόκκινο») is kept. */
             item.variant_title === "Default" ? null : item.variant_title},
           ${item.sku}, ${item.slug}, ${item.quantity},
-          ${item.price_cents}, ${item.price_cents * item.quantity}, ${item.quantity - fromShelf})`;
+          ${item.price_cents}, ${item.price_cents * item.quantity}, ${item.quantity - fromShelf},
+          ${item.length_step_cm})`;
 
       // Audit trail, so "why is this product at 3?" has an answer. Only the
       // units that really left the shelf; on-order units never touched it.

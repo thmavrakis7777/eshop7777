@@ -3,9 +3,10 @@ import { sql, type Tx } from "@/lib/db/client";
 import { toneFor } from "@/lib/db/catalog";
 import { publicImageUrl } from "@/lib/storage/urls";
 import { isHeraklionAddress } from "@/lib/heraklion";
-import { computeTotals, eur } from "@/lib/cart-totals";
+import { cartItemCount, computeTotals, eur } from "@/lib/cart-totals";
 import type { Cart, CartLineItem } from "@/lib/types";
 import { isQuantityAvailable } from "@/lib/stock";
+import { maxSteps, minSteps, stepPriceCents } from "@/lib/length";
 
 /**
  * The cart engine. Replaces Medusa's cart module, its line-item adjustments,
@@ -77,6 +78,10 @@ type ItemRow = {
   // Colour variants (0043): the line's colour, live from the variant.
   variant_title: string | null;
   swatch_hex: string | null;
+  // Sold by length (0044): the line's quantity is in these steps.
+  length_step_cm: number | null;
+  length_min_cm: number | null;
+  length_max_cm: number | null;
 };
 
 export type AddressJson = {
@@ -148,7 +153,10 @@ const cartQuery = (id: string) => sql<CartRow[]>`
              'stock_quantity', v.stock_quantity,
              'allow_backorder', v.allow_backorder,
              'variant_title', v.title,
-             'swatch_hex', v.swatch_hex
+             'swatch_hex', v.swatch_hex,
+             'length_step_cm', p.length_step_cm,
+             'length_min_cm', p.length_min_cm,
+             'length_max_cm', p.length_max_cm
            ) ORDER BY i.created_at)
            FROM shop.cart_item i
            LEFT JOIN shop.product_variant v ON v.id = i.variant_id
@@ -188,6 +196,9 @@ function toDomainCart(r: CartRow): Cart {
     stockQuantity: i.stock_quantity,
     allowBackorder: i.allow_backorder,
     ...(i.swatch_hex && i.variant_title ? { colour: { name: i.variant_title, hex: i.swatch_hex } } : {}),
+    ...(i.length_step_cm != null && i.length_min_cm != null && i.length_max_cm != null
+      ? { length: { stepCm: i.length_step_cm, minCm: i.length_min_cm, maxCm: i.length_max_cm } }
+      : {}),
   }));
 
   // Built once, used twice: to price this snapshot, and handed to the
@@ -218,7 +229,7 @@ function toDomainCart(r: CartRow): Cart {
     id: r.id,
     email: r.email ?? undefined,
     items,
-    itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
+    itemCount: cartItemCount(items),
     subtotal: eur(totals.subtotalCents),
     discountTotal: eur(totals.discountCents),
     shippingTotal: eur(totals.shippingCents),
@@ -334,7 +345,26 @@ export type CartErrorCode =
   | "invalid_code"
   | "expired_code"
   | "min_subtotal"
-  | "invalid_quantity";
+  | "invalid_quantity"
+  // A length product (LENGTH_SALES_SPEC.md) asked for below its minimum or
+  // above its per-order maximum — e.g. a 0,5 μ quick add of a 1 μ minimum.
+  | "length_out_of_range";
+
+/**
+ * A length product's limits (0044), checked by addItem and
+ * updateItemQuantity against the line's total steps. Sold-by-the-piece
+ * products (step NULL) pass straight through.
+ */
+function assertLengthInRange(
+  steps: number,
+  p: { length_step_cm: number | null; length_min_cm: number | null; length_max_cm: number | null }
+) {
+  if (p.length_step_cm == null || p.length_min_cm == null || p.length_max_cm == null) return;
+  const rule = { stepCm: p.length_step_cm, minCm: p.length_min_cm, maxCm: p.length_max_cm };
+  if (steps < minSteps(rule) || steps > maxSteps(rule)) {
+    throw new CartError("Length out of range", "length_out_of_range");
+  }
+}
 
 /**
  * Adds a variant to the cart, or increases the quantity if it is already
@@ -368,10 +398,13 @@ export async function addItem(cartId: string, variantId: string, quantity: numbe
         title: string;
         variant_title: string;
         slug: string;
+        length_step_cm: number | null;
+        length_min_cm: number | null;
+        length_max_cm: number | null;
       }[]
     >`SELECT v.id, v.sku, v.price_cents, v.compare_at_price_cents,
              v.stock_quantity, v.allow_backorder, v.title AS variant_title,
-             p.title, p.slug
+             p.title, p.slug, p.length_step_cm, p.length_min_cm, p.length_max_cm
         FROM shop.product_variant v
         JOIN shop.product p ON p.id = v.product_id
        WHERE v.id = ${variantId} AND v.is_active AND p.is_active`;
@@ -381,6 +414,21 @@ export async function addItem(cartId: string, variantId: string, quantity: numbe
     const [existing] = await tx<{ quantity: number }[]>`
       SELECT quantity FROM shop.cart_item WHERE cart_id = ${cartId} AND variant_id = ${variantId}`;
     const desired = (existing?.quantity ?? 0) + quantity;
+    assertLengthInRange(desired, v);
+
+    // A length product's variant is priced per metre; the cart line is
+    // priced per step (lib/length.ts), so unit × quantity stays the total.
+    // A price that doesn't split into whole-cent steps is refused by the
+    // dashboard — reaching here with one is a data error, never rounded.
+    let unitCents = v.price_cents;
+    let compareAtCents = v.compare_at_price_cents;
+    if (v.length_step_cm != null) {
+      const unit = stepPriceCents(v.price_cents, v.length_step_cm);
+      if (unit == null) throw new CartError("Price does not split into steps", "not_found");
+      unitCents = unit;
+      compareAtCents =
+        v.compare_at_price_cents != null ? stepPriceCents(v.compare_at_price_cents, v.length_step_cm) : null;
+    }
 
     // lib/stock.ts: the stock is the limit, except a «Κατόπιν παραγγελίας»
     // product at stock 0, which can be ordered in any quantity.
@@ -394,7 +442,7 @@ export async function addItem(cartId: string, variantId: string, quantity: numbe
         unit_price_cents, compare_at_price_cents)
       VALUES (
         ${cartId}, ${variantId}, ${quantity}, ${v.title}, ${v.sku}, ${v.slug},
-        ${v.price_cents}, ${v.compare_at_price_cents})
+        ${unitCents}, ${compareAtCents})
       ON CONFLICT (cart_id, variant_id) DO UPDATE SET
         quantity = shop.cart_item.quantity + EXCLUDED.quantity,
         unit_price_cents = EXCLUDED.unit_price_cents,
@@ -416,12 +464,23 @@ export async function updateItemQuantity(cartId: string, itemId: string, quantit
   if (quantity <= 0) return removeItem(cartId, itemId);
 
   await sql.begin(async (tx: Tx) => {
-    const [row] = await tx<{ stock_quantity: number; allow_backorder: boolean }[]>`
-      SELECT v.stock_quantity, v.allow_backorder
-        FROM shop.cart_item i JOIN shop.product_variant v ON v.id = i.variant_id
+    const [row] = await tx<
+      {
+        stock_quantity: number;
+        allow_backorder: boolean;
+        length_step_cm: number | null;
+        length_min_cm: number | null;
+        length_max_cm: number | null;
+      }[]
+    >`
+      SELECT v.stock_quantity, v.allow_backorder, p.length_step_cm, p.length_min_cm, p.length_max_cm
+        FROM shop.cart_item i
+        JOIN shop.product_variant v ON v.id = i.variant_id
+        JOIN shop.product p ON p.id = v.product_id
        WHERE i.id = ${itemId} AND i.cart_id = ${cartId}`;
 
     if (!row) throw new CartError("Line item not found", "not_found");
+    assertLengthInRange(quantity, row);
     if (!isQuantityAvailable(quantity, row.stock_quantity, row.allow_backorder)) {
       throw new CartError("Not enough stock", "insufficient_inventory");
     }

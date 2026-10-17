@@ -21,6 +21,8 @@ import {
   listProducts,
   reorderProductImages,
   saveVariant,
+  saveLengthRule,
+  getLengthStepCm,
   slugify,
   updateProduct,
   updateProductImageAlt,
@@ -29,6 +31,7 @@ import { createMediaAsset } from "@/lib/admin/cms";
 import { uploadOptimizedImage, UploadError } from "@/lib/storage/upload";
 import { SEARCH_CACHE_TAG } from "@/lib/db/catalog";
 import { META_FEED_CACHE_TAG } from "@/lib/db/meta-feed";
+import { formatMetres, metresToSteps, stepPriceCents } from "@/lib/length";
 import { scheduleRestockNotifications } from "@/lib/stock-notifications";
 
 /**
@@ -86,6 +89,10 @@ function mapError(err: unknown): string {
       case "last_variant": return "Δεν μπορείς να διαγράψεις τη μοναδική παραλλαγή ενός προϊόντος.";
       case "not_found": return "Δεν βρέθηκε.";
       case "stale_images": return "Οι εικόνες άλλαξαν σε άλλη καρτέλα. Ανανέωσε τη σελίδα και δοκίμασε ξανά.";
+      case "price_not_divisible":
+        return "Μια τιμή του προϊόντος δεν μοιράζεται ακριβώς στο βήμα (π.χ. 2,99 € ανά μέτρο σε 0,5 μ). Άλλαξέ την πρώτα.";
+      case "invalid_length_rule":
+        return "Το ελάχιστο και το μέγιστο μήκος πρέπει να είναι πολλαπλάσια του βήματος, με ελάχιστο ≤ μέγιστο.";
     }
   }
   if (err instanceof Error && err.message === "Not authenticated") {
@@ -383,12 +390,34 @@ export async function saveVariantAction(productId: string, formData: FormData): 
   // was the one path that didn't, so a typo like "-3" saved straight through
   // (found in a full project audit; db/migrations/0026 adds the matching
   // CHECK constraint as defense in depth).
-  const stockQuantity = Number(formData.get("stock") ?? 0) || 0;
-  if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
-    return { ok: false, error: "Το απόθεμα πρέπει να είναι μη αρνητικός ακέραιος." };
+  //
+  // Sold by length (LENGTH_SALES_SPEC.md): the form shows and sends metres
+  // («37,5»), stored as steps; the price is per metre and must split into
+  // whole-cent steps. Both are read against the product's step as saved
+  // now, never a step the browser claims.
+  const stepCm = await getLengthStepCm(productId);
+  let stockQuantity: number;
+  if (stepCm != null) {
+    const steps = metresToSteps(String(formData.get("stock") ?? "0"), stepCm);
+    if (steps == null || steps < 0) {
+      return { ok: false, error: `Το απόθεμα σε μέτρα πρέπει να είναι πολλαπλάσιο του ${formatMetres(1, stepCm)}.` };
+    }
+    stockQuantity = steps;
+    if (stepPriceCents(priceCents, stepCm) == null || (compareAt != null && stepPriceCents(compareAt, stepCm) == null)) {
+      return {
+        ok: false,
+        error: `Η τιμή ανά μέτρο πρέπει να μοιράζεται ακριβώς σε κομμάτια των ${formatMetres(1, stepCm)} (π.χ. 3,00 € ή 3,10 €, όχι 2,99 €).`,
+      };
+    }
+  } else {
+    stockQuantity = Number(formData.get("stock") ?? 0) || 0;
+    if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
+      return { ok: false, error: "Το απόθεμα πρέπει να είναι μη αρνητικός ακέραιος." };
+    }
   }
   // The number the form opened with — lets saveVariant leave stock alone
-  // when only the price or SKU was edited (see its comment).
+  // when only the price or SKU was edited (see its comment). Always sent in
+  // the stored unit (steps for a length product), so it compares as is.
   const stockBeforeRaw = optionalText(formData.get("stockBefore"));
   const stockBefore = stockBeforeRaw != null && /^\d+$/.test(stockBeforeRaw) ? Number(stockBeforeRaw) : undefined;
 
@@ -441,6 +470,50 @@ export async function saveVariantAction(productId: string, formData: FormData): 
   updateTag(META_FEED_CACHE_TAG);
   scheduleRestockNotifications();
   return { ok: true, message: "Η παραλλαγή αποθηκεύτηκε." };
+}
+
+/**
+ * «Πώληση με το μέτρο» panel (LENGTH_SALES_SPEC.md). The form sends metres
+ * («0,5», «1», «20»); stored as whole centimetres. See saveLengthRule for
+ * what a change of unit does to stock and open carts.
+ */
+export async function saveLengthRuleAction(productId: string, formData: FormData): Promise<ActionResult> {
+  let admin;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+
+  const enabled = formData.get("enabled") === "on";
+  const cm = (name: string) => {
+    const n = Number(String(formData.get(name) ?? "").trim().replace(",", "."));
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null;
+  };
+  let rule = null;
+  if (enabled) {
+    const stepCm = cm("step");
+    const minCm = cm("min");
+    const maxCm = cm("max");
+    if (stepCm == null || minCm == null || maxCm == null) {
+      return { ok: false, error: "Συμπλήρωσε βήμα, ελάχιστο και μέγιστο μήκος σε μέτρα (π.χ. 0,5 — 1 — 20)." };
+    }
+    rule = { stepCm, minCm, maxCm };
+  }
+
+  try {
+    await saveLengthRule(productId, rule, admin.id);
+    await auditLog(admin.id, "product.length_rule", "product", productId, { rule });
+  } catch (err) {
+    return { ok: false, error: mapError(err) };
+  }
+
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath("/admin/products");
+  revalidatePath("/", "layout");
+  updateTag(SEARCH_CACHE_TAG);
+  updateTag(META_FEED_CACHE_TAG);
+  return { ok: true, message: "Αποθηκεύτηκε." };
 }
 
 export async function deleteVariantAction(productId: string, variantId: string): Promise<ActionResult> {

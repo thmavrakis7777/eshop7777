@@ -143,6 +143,8 @@ export type AdminOrderDetail = {
     sku: string | null;
     productSlug: string | null;
     quantity: number;
+    // Sold by length: `quantity` is in steps of this many cm (LENGTH_SALES_SPEC.md).
+    lengthStepCm: number | null;
     // Units the shop must order from the supplier («Κατόπιν παραγγελίας»,
     // fixed at checkout — lib/db/checkout.ts). 0 for ordinary lines.
     backorderedQuantity: number;
@@ -162,6 +164,7 @@ export async function getOrderDetail(id: string): Promise<AdminOrderDetail | nul
           'id', i.id, 'productId', i.product_id, 'title', i.title,
           'variantTitle', i.variant_title, 'sku', i.sku, 'productSlug', i.product_slug,
           'quantity', i.quantity, 'backorderedQuantity', i.backordered_quantity,
+          'lengthStepCm', i.length_step_cm,
           'unitPriceCents', i.unit_price_cents,
           'lineTotalCents', i.line_total_cents) ORDER BY i.id)
         FROM shop.order_item i WHERE i.order_id = o.id), '[]'::json) AS items,

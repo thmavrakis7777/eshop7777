@@ -5,9 +5,10 @@ import type { CartLineItem } from "@/lib/types";
 import { formatPrice, discountPercent } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { LineColour } from "@/components/cart/LineColour";
+import { formatLineUnitPrice, lineMax } from "@/components/cart/line-length";
 import { QuantityStepper, useMaxReachedNotice } from "@/components/cart/QuantityStepper";
 import { StockInquiryNotice } from "@/components/ui/StockInquiryNotice";
-import { isLineItemOverstocked, isOnOrder, quantityCap, ON_ORDER_DELIVERY_TEXT } from "@/lib/stock";
+import { isLineItemOverstocked, isOnOrder, ON_ORDER_DELIVERY_TEXT } from "@/lib/stock";
 import type { StockInquiryContact } from "@/lib/whatsapp";
 import { CART_TABLE_GRID_COLS } from "@/components/cart/cart-table-grid";
 
@@ -33,10 +34,11 @@ export function CartLineItemTableRow({
 }) {
   const pct = discountPercent(item.unitPrice, item.compareAtUnitPrice);
   const overstocked = isLineItemOverstocked(item);
-  const maxQuantity = quantityCap(item.stockQuantity, item.allowBackorder);
+  // Stock, or for a hose line the lower of stock and 20 μ (line-length.ts).
+  const { max: maxQuantity, capIsLength } = lineMax(item);
   const onOrder = isOnOrder(item.stockQuantity, item.allowBackorder);
   // "+" pressed at the stock limit shows the same notice (QuantityStepper).
-  const maxReached = useMaxReachedNotice(item.quantity, maxQuantity);
+  const maxReached = useMaxReachedNotice(item.quantity, capIsLength ? undefined : maxQuantity);
 
   return (
     <div className={`hidden lg:grid ${CART_TABLE_GRID_COLS} items-center gap-4 py-6`}>
@@ -66,11 +68,11 @@ export function CartLineItemTableRow({
       </div>
 
       <div className="text-center text-sm text-ink-muted tabular-nums">
-        {item.compareAtUnitPrice ? <span className="line-through">{formatPrice(item.compareAtUnitPrice)}</span> : "–"}
+        {item.compareAtUnitPrice ? <span className="line-through">{formatLineUnitPrice(item.compareAtUnitPrice, item)}</span> : "–"}
       </div>
 
       <div className="flex flex-col items-center gap-1">
-        <span className="text-sm font-semibold text-ink tabular-nums">{formatPrice(item.unitPrice)}</span>
+        <span className="text-sm font-semibold text-ink tabular-nums">{formatLineUnitPrice(item.unitPrice, item)}</span>
         {pct !== null && (
           <span className="rounded-sm bg-accent px-1.5 py-0.5 text-[11px] font-medium tracking-wide text-white">
             -{pct}%
@@ -86,7 +88,8 @@ export function CartLineItemTableRow({
           disabled={pending}
           max={maxQuantity}
           onChange={onQuantityChange}
-          onMaxReached={maxReached.onMaxReached}
+          onMaxReached={capIsLength ? undefined : maxReached.onMaxReached}
+            length={item.length}
           onRemove={onRemove}
         />
       </div>

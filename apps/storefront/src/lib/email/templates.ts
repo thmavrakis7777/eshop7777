@@ -3,6 +3,7 @@ import { escapeHtml } from "@/lib/email/send-core";
 import { siteUrl } from "@/lib/site-config";
 import type { OrderEmailData } from "@/lib/db/order-email";
 import { ON_ORDER_DELIVERY_TEXT } from "@/lib/stock";
+import { formatMetres, perMetreCents } from "@/lib/length";
 
 /**
  * HTML builders for the two transactional emails. Split out of send.ts
@@ -47,7 +48,12 @@ function productRow(item: OrderEmailData["items"][number]): string {
     <td style="padding:12px 0 12px 12px;border-bottom:1px solid ${BORDER};font-size:14px;color:${INK}">
       ${escapeHtml(item.title)}${item.variantTitle ? `<br><span style="font-size:12px;color:${MUTED}">${escapeHtml(item.variantTitle)}</span>` : ""}
       ${item.sku ? `<br><span style="font-size:11px;color:${MUTED}">SKU: ${escapeHtml(item.sku)}</span>` : ""}
-      <br><span style="font-size:12px;color:${MUTED}">Ποσότητα: ${item.quantity} × ${money(item.unitPriceCents)}</span>
+      <br><span style="font-size:12px;color:${MUTED}">${
+        // Sold by length: «Μήκος: 2,5 μ × 3,00 €/μ», not «Ποσότητα: 5 × 1,50 €».
+        item.lengthStepCm != null
+          ? `Μήκος: ${formatMetres(item.quantity, item.lengthStepCm)} × ${money(perMetreCents(item.unitPriceCents, item.lengthStepCm))}/μ`
+          : `Ποσότητα: ${item.quantity} × ${money(item.unitPriceCents)}`
+      }</span>
       ${item.onOrderQuantity > 0 ? `<br><span style="font-size:12px;color:${ACCENT}">${escapeHtml(ON_ORDER_DELIVERY_TEXT)}</span>` : ""}
     </td>
     <td style="padding:12px 0;border-bottom:1px solid ${BORDER};font-size:14px;font-weight:600;color:${INK};text-align:right;white-space:nowrap" valign="top">

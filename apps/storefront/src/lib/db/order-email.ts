@@ -23,6 +23,8 @@ export type OrderEmailData = {
     variantTitle: string | null;
     sku: string | null;
     quantity: number;
+    // Sold by length: `quantity` is in steps of this many cm (LENGTH_SALES_SPEC.md).
+    lengthStepCm: number | null;
     unitPriceCents: number;
     lineTotalCents: number;
     imageUrl: string | null;
@@ -92,6 +94,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
         sku: string | null;
         quantity: number;
         backordered_quantity: number;
+        length_step_cm: number | null;
         unit_price_cents: number;
         line_total_cents: number;
         image_path: string | null;
@@ -110,6 +113,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
              SELECT json_agg(json_build_object(
                'title', i.title, 'variant_title', i.variant_title, 'sku', i.sku,
                'quantity', i.quantity, 'backordered_quantity', i.backordered_quantity,
+               'length_step_cm', i.length_step_cm,
                'unit_price_cents', i.unit_price_cents,
                'line_total_cents', i.line_total_cents,
                'image_path', img.storage_path
@@ -141,6 +145,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
       variantTitle: i.variant_title,
       sku: i.sku,
       quantity: i.quantity,
+      lengthStepCm: i.length_step_cm,
       unitPriceCents: i.unit_price_cents,
       lineTotalCents: i.line_total_cents,
       imageUrl: publicImageUrl(i.image_path),

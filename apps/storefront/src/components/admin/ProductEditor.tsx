@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { saveProductAction, saveVariantAction, deleteVariantAction } from "@/lib/admin/catalog-actions";
+import {
+  saveProductAction,
+  saveVariantAction,
+  deleteVariantAction,
+  saveLengthRuleAction,
+} from "@/lib/admin/catalog-actions";
+import { formatMetres, stepsToMetres } from "@/lib/length";
 import type { AdminProductDetail, CategoryOption } from "@/lib/admin/products";
 import { CategorySelect } from "@/components/admin/CategorySelect";
 import { DynamicMembership } from "@/components/admin/DynamicMembership";
@@ -158,6 +164,8 @@ export function ProductEditor({
             </Field>
             <InternalCodeField productId={product.id} defaultValue={product.internalCode} />
           </Panel>
+
+          <LengthPanel product={product} />
 
           <VariantsPanel product={product} />
 
@@ -454,6 +462,110 @@ function Toggle({
   );
 }
 
+/** 50 cm → "0,5" — how the length fields show a stored centimetre value. */
+const cmToMetresInput = (cm: number) => (cm / 100).toLocaleString("el-GR", { maximumFractionDigits: 2 });
+
+/**
+ * «Πώληση με το μέτρο» (LENGTH_SALES_SPEC.md) — its own save, like the
+ * variants below, because switching it changes what the variants' price and
+ * stock mean (per metre, in metres) and touches stock and open carts
+ * (saveLengthRule). Controlled inputs, no <form>: it sits inside the
+ * product form, and forms can't nest.
+ */
+function LengthPanel({ product }: { product: AdminProductDetail }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [enabled, setEnabled] = useState(product.length != null);
+  const [step, setStep] = useState(cmToMetresInput(product.length?.stepCm ?? 50));
+  const [min, setMin] = useState(cmToMetresInput(product.length?.minCm ?? 100));
+  const [max, setMax] = useState(cmToMetresInput(product.length?.maxCm ?? 2000));
+
+  // Switching the unit (or the step) resets/rescales stock and empties this
+  // product from open carts — said before it happens, not discovered after.
+  const unitChanges =
+    enabled !== (product.length != null) ||
+    (enabled && product.length != null && cmToMetresInput(product.length.stepCm) !== step.trim());
+
+  function save() {
+    const data = new FormData();
+    data.set("enabled", enabled ? "on" : "off");
+    data.set("step", step);
+    data.set("min", min);
+    data.set("max", max);
+    startTransition(async () => {
+      const result = await saveLengthRuleAction(product.id, data);
+      setMsg(result.ok ? { ok: true, text: result.message ?? "Αποθηκεύτηκε." } : { ok: false, text: result.error });
+      if (result.ok) router.refresh();
+    });
+  }
+
+  return (
+    <section
+      data-own-save
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && submitsOnEnter(e.target)) {
+          e.preventDefault();
+          if (!pending) save();
+        }
+      }}
+      className="rounded-lg border border-border bg-bg p-5"
+    >
+      <h2 className="text-sm font-semibold tracking-wide text-ink uppercase">Πώληση με το μέτρο</h2>
+      <label className="mt-3 flex items-center gap-2.5 text-sm text-ink">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setEnabled(e.target.checked)}
+          className="h-4 w-4 accent-ink"
+        />
+        Ο πελάτης διαλέγει μήκος (π.χ. λάστιχο, σχοινί)
+      </label>
+      {enabled && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {(
+            [
+              ["Βήμα (μ)", step, setStep],
+              ["Ελάχιστο (μ)", min, setMin],
+              ["Μέγιστο ανά παραγγελία (μ)", max, setMax],
+            ] as const
+          ).map(([label, value, set]) => (
+            <label key={label} className="flex flex-col gap-1.5">
+              <span className={labelCls}>{label}</span>
+              <input value={value} onChange={(e) => set(e.target.value)} inputMode="decimal" className={field} />
+            </label>
+          ))}
+          <p className={`sm:col-span-3 ${hint}`}>
+            Η τιμή της παραλλαγής γίνεται τιμή ανά μέτρο και το απόθεμα μετριέται σε μέτρα. Π.χ. βήμα 0,5 —
+            ελάχιστο 1 — μέγιστο 20: ο πελάτης διαλέγει 1, 1,5, 2 … 20 μ.
+          </p>
+        </div>
+      )}
+      {unitChanges && (
+        <p className="mt-3 rounded-md bg-accent/10 px-3 py-2 text-xs text-accent">
+          Με την αλλαγή μονάδας, το απόθεμα {enabled && product.length ? "μετατρέπεται στο νέο βήμα" : "μηδενίζεται και το ξαναγράφεις"}{" "}
+          και το προϊόν αφαιρείται από ανοιχτά καλάθια πελατών.
+        </p>
+      )}
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={save}
+          className="rounded-md bg-ink px-3.5 py-1.5 text-sm font-medium text-bg hover:bg-ink/90 disabled:opacity-50"
+        >
+          {pending ? "Αποθήκευση…" : "Αποθήκευση"}
+        </button>
+        {msg && (
+          <p role="status" className={`text-sm ${msg.ok ? "text-success" : "text-danger"}`}>
+            {msg.text}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /**
  * Variants save independently of the main form — a price change must not
  * require re-submitting the description, and nesting forms is invalid HTML.
@@ -518,6 +630,7 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
               key={v.id}
               variant={v}
               images={product.images}
+              lengthStepCm={product.length?.stepCm ?? null}
               pending={pending}
               onCancel={() => setEditing(null)}
               onSubmit={(data) => save(v.id, data)}
@@ -545,6 +658,7 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
               </div>
               <div className="text-sm tabular-nums">
                 {money(v.priceCents)}
+                {product.length && <span className="text-ink-muted">/μ</span>}
                 {discount != null && (
                   <>
                     <span className="ml-2 text-ink-muted line-through">
@@ -559,7 +673,7 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
                   v.stockQuantity <= 0 ? "text-danger" : v.stockQuantity <= 5 ? "text-accent" : "text-ink-muted"
                 }`}
               >
-                {v.stockQuantity} τεμ.
+                {product.length ? formatMetres(v.stockQuantity, product.length.stepCm) : `${v.stockQuantity} τεμ.`}
                 {v.allowBackorder && <div className="text-xs text-accent">Κατόπιν παραγγελίας</div>}
               </div>
               <button
@@ -576,6 +690,7 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
         {editing === "new" && (
           <VariantForm
             images={product.images}
+            lengthStepCm={product.length?.stepCm ?? null}
             newDefaults={newVariantDefaults(product.variants)}
             pending={pending}
             onCancel={() => setEditing(null)}
@@ -636,6 +751,7 @@ const PRESET_COLOURS: { name: string; hex: string }[] = [
 function VariantForm({
   variant,
   images,
+  lengthStepCm,
   newDefaults,
   pending,
   onCancel,
@@ -644,6 +760,8 @@ function VariantForm({
 }: {
   variant?: AdminProductDetail["variants"][number];
   images: AdminProductDetail["images"];
+  // Sold by length: price per metre, stock typed in metres (stored as steps).
+  lengthStepCm: number | null;
   newDefaults?: ReturnType<typeof newVariantDefaults>;
   pending: boolean;
   onCancel: () => void;
@@ -658,7 +776,11 @@ function VariantForm({
   const [compareAt, setCompareAt] = useState(
     centsToPriceInput(variant?.compareAtPriceCents ?? newDefaults?.compareAtPriceCents ?? null)
   );
-  const [stock, setStock] = useState(String(variant?.stockQuantity ?? 0));
+  const [stock, setStock] = useState(
+    lengthStepCm != null
+      ? stepsToMetres(variant?.stockQuantity ?? 0, lengthStepCm).toLocaleString("el-GR", { maximumFractionDigits: 2 })
+      : String(variant?.stockQuantity ?? 0)
+  );
   const [onOrder, setOnOrder] = useState(variant?.allowBackorder ?? false);
   const [swatchHex, setSwatchHex] = useState<string | null>(
     variant ? variant.swatchHex : newDefaults?.hasColour ? PRESET_COLOURS[0].hex : null
@@ -804,7 +926,7 @@ function VariantForm({
           </div>
         )}
         <div className="flex flex-col gap-1.5">
-          <label className={labelCls}>Τιμή πώλησης (€)</label>
+          <label className={labelCls}>{lengthStepCm != null ? "Τιμή ανά μέτρο (€)" : "Τιμή πώλησης (€)"}</label>
           <input
             value={price}
             onChange={(e) => setPrice(e.target.value)}
@@ -826,7 +948,7 @@ function VariantForm({
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className={labelCls}>Απόθεμα</label>
+          <label className={labelCls}>{lengthStepCm != null ? "Απόθεμα (μέτρα)" : "Απόθεμα"}</label>
           <input value={stock} onChange={(e) => setStock(e.target.value)} inputMode="numeric" className={field} />
         </div>
         <label className="flex items-start gap-2 self-end pb-1 text-sm text-ink sm:col-span-2">

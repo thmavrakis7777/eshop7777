@@ -2,6 +2,7 @@
 // so the Phase 2 swap to real data is an adapter change, not a UI rewrite.
 
 import type { TotalsDiscount, TotalsShipping } from "@/lib/cart-totals";
+import type { LengthRule } from "@/lib/length";
 
 export type Tone = "clay" | "sage" | "stone" | "linen";
 
@@ -112,6 +113,9 @@ export type Product = {
   // Undefined for unbranded stock — never defaulted to the store's own name,
   // which would misstate who made a third-party product.
   brand?: string;
+  // Sold by length (LENGTH_SALES_SPEC.md): `price` is per metre and every
+  // variant's inventoryQuantity is in steps. Absent = sold by the piece.
+  length?: LengthRule;
 };
 
 /**
@@ -188,6 +192,10 @@ export type CartLineItem = {
   // a red and a blue of the same product don't read as two identical lines.
   // Absent for every product without colours.
   colour?: { name: string; hex: string };
+  // Sold by length (LENGTH_SALES_SPEC.md): `quantity` counts steps and
+  // `unitPrice` is the price of one step; display in metres via lib/length.
+  // Absent for everything sold by the piece.
+  length?: LengthRule;
   // Snapshotted variant SKU, copied onto the line at order time so it stays
   // correct if the variant is later edited. (Pre-migration this pointed at
   // MedusaLineItem.variant_sku in lib/medusa.ts; that file no longer exists.)
@@ -351,6 +359,9 @@ export type OrderLineItem = {
   total: Money;
   imageUrl?: string;
   placeholderTone: Tone;
+  // Sold by length: `quantity` is in steps of this many cm (snapshotted on
+  // the order line), shown as metres. Absent = pieces.
+  lengthStepCm?: number;
 };
 
 export type Order = {

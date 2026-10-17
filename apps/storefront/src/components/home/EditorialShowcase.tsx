@@ -143,7 +143,8 @@ function ProductAction({ product }: { product: Product }) {
   if (!product.isAvailable) {
     return <span className="flex-none text-xs text-ink-muted">Εξαντλήθηκε</span>;
   }
-  if (product.variants.length !== 1) {
+  // Several variants, or sold by length: chosen on the product page.
+  if (product.variants.length !== 1 || product.length) {
     return (
       <Link href={productHref(product)} aria-label={`Επιλογές: ${product.title}`} className={ROUND_ACTION}>
         <ArrowRightIcon className="size-4" />

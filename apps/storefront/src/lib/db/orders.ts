@@ -51,6 +51,7 @@ type OrderRow = {
     sku: string | null;
     quantity: number;
     backordered_quantity: number;
+    length_step_cm: number | null;
     unit_price_cents: number;
     line_total_cents: number;
     product_slug: string | null;
@@ -73,6 +74,7 @@ const ORDER_FIELDS = sql`
     SELECT json_agg(json_build_object(
       'id', i.id, 'title', i.title, 'variant_title', i.variant_title, 'sku', i.sku,
       'quantity', i.quantity, 'backordered_quantity', i.backordered_quantity,
+      'length_step_cm', i.length_step_cm,
       'unit_price_cents', i.unit_price_cents,
       'line_total_cents', i.line_total_cents, 'product_slug', i.product_slug,
       'image_path', img.storage_path
@@ -99,6 +101,7 @@ export function toDomainOrder(o: OrderRow): Order {
       variantTitle: item.variant_title ?? undefined,
       sku: item.sku ?? undefined,
       quantity: item.quantity,
+      ...(item.length_step_cm != null ? { lengthStepCm: item.length_step_cm } : {}),
       onOrderQuantity: item.backordered_quantity,
       unitPrice: eur(item.unit_price_cents),
       total: eur(item.line_total_cents),

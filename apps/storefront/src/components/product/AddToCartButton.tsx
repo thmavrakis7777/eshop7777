@@ -13,6 +13,8 @@ import type { StockInquiryContact } from "@/lib/whatsapp";
 import { useColourSelection } from "@/components/product/ColourSelection";
 import { ColourSwatches } from "@/components/product/ColourSwatches";
 import { rememberColourChoice } from "@/lib/colour-variants";
+import { formatMetres, maxSteps, minSteps, stepPriceCents } from "@/lib/length";
+import { formatPrice } from "@/lib/format";
 
 // Handles both today's catalog (always exactly one variant) and a future
 // multi-variant product: with >1 variant, a choice is required before the
@@ -44,7 +46,12 @@ export function AddToCartButton({
   // keeps its own state and the no-guessing rule above.
   const colourSelection = useColourSelection();
   const selectedVariantId = colourSelection ? colourSelection.selected.id : ownSelectedId;
-  const [quantity, setQuantity] = useState(1);
+  // Sold by length (LENGTH_SALES_SPEC.md): `quantity` counts steps (0,5 μ)
+  // and starts at the product's minimum length; the variant's price is per
+  // metre. For everything else floor is 1 and nothing below changes.
+  const length = product.length;
+  const floor = length ? minSteps(length) : 1;
+  const [quantity, setQuantity] = useState(floor);
   // Adjusting state during render (React's documented pattern for deriving
   // state from a prop/state change — same pattern CartDrawer.tsx already
   // uses) rather than an effect: a variant switch (multi-variant product)
@@ -53,7 +60,7 @@ export function AddToCartButton({
   const [quantityForVariant, setQuantityForVariant] = useState(selectedVariantId);
   if (selectedVariantId !== quantityForVariant) {
     setQuantityForVariant(selectedVariantId);
-    setQuantity(1);
+    setQuantity(floor);
   }
 
   const selectedVariant = product.variants.find((v) => v.id === selectedVariantId);
@@ -68,15 +75,29 @@ export function AddToCartButton({
   // negative number (native min/max attributes don't stop manual keyboard
   // entry) — never assume it's >= 1 just because that's the field's usual
   // range.
-  const isQuantityValid = Number.isInteger(quantity) && quantity >= 1;
+  const lengthMax = length ? maxSteps(length) : undefined;
+  const isQuantityValid =
+    Number.isInteger(quantity) && quantity >= floor && (lengthMax == null || quantity <= lengthMax);
   const canAdd = Boolean(selectedVariant) && !isOutOfStock && !exceedsStock && isQuantityValid;
 
-  const maxQuantity = selectedVariant
+  const stockCap = selectedVariant
     ? quantityCap(selectedVariant.inventoryQuantity, selectedVariant.allowBackorder)
     : undefined;
+  // A length product has two ceilings: the stock and the owner's per-order
+  // maximum (20 μ). "+" stops at whichever is lower, but only the stock one
+  // is a stock question — at 20 μ with plenty on the roll, "+" just stops,
+  // without the «ρώτα μας για απόθεμα» notice.
+  const capIsLength = lengthMax != null && (stockCap == null || lengthMax < stockCap);
+  const maxQuantity = capIsLength ? lengthMax : stockCap;
   // "+" pressed at the stock limit: same notice as a typed excess, but the
   // quantity stays at the limit and Add to cart stays enabled for it.
-  const maxReached = useMaxReachedNotice(quantity, maxQuantity);
+  const maxReached = useMaxReachedNotice(quantity, capIsLength ? undefined : maxQuantity);
+
+  // The variant's price is per metre; one step costs half of it (whole
+  // cents, lib/length.ts) and the total is steps × that — the same number
+  // the cart will show.
+  const stepCents =
+    length && selectedVariant ? stepPriceCents(Math.round(selectedVariant.price.amount * 100), length.stepCm) : null;
 
   function handleClick() {
     if (!selectedVariantId || !canAdd) return;
@@ -93,7 +114,9 @@ export function AddToCartButton({
           trackAddToCart({
             variantId: selectedVariant.id,
             title: product.title,
-            unitPriceAmount: selectedVariant.price.amount,
+            // Per step for a length product, so price × quantity is the
+            // real value (2,5 μ = 5 × 1,50 €), as in the cart.
+            unitPriceAmount: stepCents != null ? stepCents / 100 : selectedVariant.price.amount,
             quantity,
           });
         }
@@ -159,17 +182,34 @@ export function AddToCartButton({
         </fieldset>
       )}
       {selectedVariant && !isOutOfStock && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-ink-muted">Ποσότητα:</span>
-          <QuantityStepper
-            quantity={quantity}
-            productTitle={product.title}
-            editable
-            max={maxQuantity}
-            disabled={isPending}
-            onChange={setQuantity}
-            onMaxReached={maxReached.onMaxReached}
-          />
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="text-sm text-ink-muted">{length ? "Μήκος:" : "Ποσότητα:"}</span>
+            <QuantityStepper
+              quantity={quantity}
+              productTitle={product.title}
+              editable
+              max={maxQuantity}
+              disabled={isPending}
+              onChange={setQuantity}
+              onMaxReached={capIsLength ? undefined : maxReached.onMaxReached}
+              length={length}
+            />
+            {/* The owner's example: 2,5 μ → 7,50 €, updated as the length
+                changes. Hidden while the typed length is out of range, where
+                there's no real total to show. */}
+            {length && stepCents != null && isQuantityValid && (
+              <span className="text-sm text-ink">
+                Σύνολο: <strong className="tabular-nums">{formatPrice({ ...selectedVariant.price, amount: (stepCents * quantity) / 100 })}</strong>
+              </span>
+            )}
+          </div>
+          {length && (
+            <p className={`text-xs ${isQuantityValid ? "text-ink-muted" : "text-danger"}`}>
+              Από {formatMetres(minSteps(length), length.stepCm)} έως {formatMetres(maxSteps(length), length.stepCm)}, ανά{" "}
+              {formatMetres(1, length.stepCm)}.
+            </p>
+          )}
         </div>
       )}
       <div className="flex flex-col gap-1.5">

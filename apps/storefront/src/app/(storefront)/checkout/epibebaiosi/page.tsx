@@ -9,6 +9,7 @@ import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
 import { OrderStatusBadge } from "@/components/account/OrderStatusBadge";
 import { PurchaseTracker } from "@/components/checkout/PurchaseTracker";
 import { ON_ORDER_DELIVERY_TEXT } from "@/lib/stock";
+import { formatMetres, perMetreCents } from "@/lib/length";
 
 // The explicit canonical matters even on a noindex page: without it this
 // route inherits the root layout's `canonical: "/"` and tells crawlers the
@@ -76,7 +77,12 @@ export default async function OrderConfirmationPage({
                   <span className="truncate text-sm text-ink">{item.title}</span>
                   {item.variantTitle && <span className="text-xs text-ink-muted">{item.variantTitle}</span>}
                   <span className="text-xs text-ink-muted">
-                    Ποσ.: {item.quantity} × {formatPrice(item.unitPrice)}
+                    {item.lengthStepCm != null
+                      ? `Μήκος: ${formatMetres(item.quantity, item.lengthStepCm)} × ${formatPrice({
+                          ...item.unitPrice,
+                          amount: perMetreCents(Math.round(item.unitPrice.amount * 100), item.lengthStepCm) / 100,
+                        })}/μ`
+                      : `Ποσ.: ${item.quantity} × ${formatPrice(item.unitPrice)}`}
                     {item.sku && <span className="font-mono"> · {item.sku}</span>}
                   </span>
                   {item.onOrderQuantity > 0 && <span className="text-xs text-accent">{ON_ORDER_DELIVERY_TEXT}</span>}

@@ -87,6 +87,7 @@ export function SearchResultRow({
           <span className="flex flex-col items-end leading-tight">
             <span className="whitespace-nowrap text-sm font-semibold text-ink">
               {formatPrice(product.price)}
+              {product.length && <span className="font-normal text-ink-muted"> / μ</span>}
             </span>
             {product.compareAtPrice && (
               <span className="whitespace-nowrap text-xs text-ink-muted line-through">
@@ -115,7 +116,7 @@ export function SearchResultRow({
               onClick={onNavigate}
               className="whitespace-nowrap text-xs font-medium text-accent hover:underline"
             >
-              Επιλογές →
+              {product.length ? "Επίλεξε μήκος →" : "Επιλογές →"}
             </Link>
           )}
         </div>
