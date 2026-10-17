@@ -30,6 +30,10 @@ import { useWishlist } from "@/components/wishlist/WishlistProvider";
 // should read as "now you've scrolled", not track the scroll position.
 const HEADER_SOLID_SCROLL_THRESHOLD = 20;
 
+// How long the cursor must rest on another category before an already-open
+// mega menu switches to it (see hoverCategory in Header).
+const MENU_SWITCH_DELAY_MS = 250;
+
 // Only the homepage lays its first section out as a full-bleed Hero the
 // header is meant to float over (see Hero.tsx's `isFirstSection`) — every
 // other route keeps the header's plain always-solid look, so this is the
@@ -185,6 +189,37 @@ export function Header({
   // (not `click`) is what makes a tap outside dismiss on touch too.
   // The toggle button is excluded on purpose: without that, its own onClick
   // would immediately re-open what this had just closed.
+  // Hover intent for switching between open mega menus. When the nav wraps
+  // to a second line (narrower desktops), moving the cursor from a first-row
+  // category down into its panel crosses the second-row categories — an
+  // instant switch on mouseenter swapped the menu out from under the
+  // shopper. So the very first open stays instant, but once a menu is open
+  // another category only takes over if the cursor rests on it; merely
+  // passing over it (mouseleave before the timer) cancels the switch.
+  const switchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function cancelMenuSwitch() {
+    if (switchTimerRef.current) clearTimeout(switchTimerRef.current);
+    switchTimerRef.current = null;
+  }
+  function hoverCategory(slug: string | null | undefined) {
+    if (searchOpen || !slug) return;
+    cancelMenuSwitch();
+    if (openMenu === null || openMenu === slug) {
+      setOpenMenu(slug);
+      return;
+    }
+    switchTimerRef.current = setTimeout(() => {
+      switchTimerRef.current = null;
+      setOpenMenu(slug);
+    }, MENU_SWITCH_DELAY_MS);
+  }
+  useEffect(
+    () => () => {
+      if (switchTimerRef.current) clearTimeout(switchTimerRef.current);
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!searchOpen) return;
     function handlePointerDown(e: MouseEvent) {
@@ -369,7 +404,12 @@ export function Header({
             it immediately, while moving from a category trigger down into
             its own mega-menu panel stays inside this wrapper and keeps it
             open. */}
-        <div onMouseLeave={() => setOpenMenu(null)}>
+        <div
+          onMouseLeave={() => {
+            cancelMenuSwitch();
+            setOpenMenu(null);
+          }}
+        >
         <nav
           className={`hidden border-t lg:block transition-colors duration-300 motion-reduce:transition-none ${
             overlay ? "border-transparent" : "border-border/60"
@@ -430,7 +470,8 @@ export function Header({
                       // and actually pressing on a category still closes the
                       // panel via its outside-mousedown handler and
                       // navigates.
-                      onMouseEnter={() => !searchOpen && setOpenMenu(item.categorySlug)}
+                      onMouseEnter={() => hoverCategory(item.categorySlug)}
+                      onMouseLeave={cancelMenuSwitch}
                       onFocus={() => !searchOpen && setOpenMenu(item.categorySlug)}
                       // Closes the mega-menu immediately on click, before the
                       // navigation's own transition — otherwise Header (in
@@ -448,7 +489,10 @@ export function Header({
                       href={item.href}
                   className={base}
                   style={style}
-                  onMouseEnter={() => setOpenMenu(null)}
+                  onMouseEnter={() => {
+                    cancelMenuSwitch();
+                    setOpenMenu(null);
+                  }}
                 >
                       {item.label}
                     </Link>
@@ -573,25 +617,29 @@ export function Header({
                         className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
                       />
                     )}
-                    {/* Gradient only when there's a photo behind the text —
-                        the flat bg-surface fallback is already legible on
-                        its own and doesn't need darkening. */}
-                    {imageUrl && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/10 to-transparent" aria-hidden="true" />
-                    )}
-                    <div className="relative z-10">
+                    {/* Frosted-glass panel only when there's a photo behind
+                        the text — same treatment as the homepage category
+                        tiles (CategoryGrid). The flat bg-surface fallback is
+                        already legible on its own. */}
+                    <div
+                      className={`relative z-10 ${
+                        imageUrl
+                          ? "rounded-md border border-white/30 bg-ink/25 px-3 py-3 shadow-lg backdrop-blur-md backdrop-saturate-150 [text-shadow:0_1px_2px_rgb(0_0_0/0.3)]"
+                          : ""
+                      }`}
+                    >
                       {promo.title && (
-                        <span className={`block text-sm font-medium ${imageUrl ? "text-white" : "text-ink"}`}>
+                        <span className={`block text-base font-semibold ${imageUrl ? "text-white" : "text-ink"}`}>
                           {promo.title}
                         </span>
                       )}
                       {promo.description && (
-                        <span className={`mt-1 block text-xs ${imageUrl ? "text-white/80" : "text-ink-muted"}`}>
+                        <span className={`mt-1 block text-sm ${imageUrl ? "text-white/90" : "text-ink-muted"}`}>
                           {promo.description}
                         </span>
                       )}
                       <span
-                        className={`mt-2 inline-block text-xs font-medium group-hover:underline ${
+                        className={`mt-2 inline-block text-sm font-medium group-hover:underline ${
                           imageUrl ? "text-white" : "text-accent"
                         }`}
                       >
