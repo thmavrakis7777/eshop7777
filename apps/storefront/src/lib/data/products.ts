@@ -9,6 +9,7 @@ import {
   getNewArrivalsPaged as dbGetNewArrivalsPaged,
   getSaleProductsPaged as dbGetSaleProductsPaged,
   getProductBySlug,
+  getProductBySku as dbGetProductBySku,
   getProductGallery,
   getRenamedProductSlug,
   getProductsByCategorySlug,
@@ -65,6 +66,10 @@ export async function getProductsByCollectionHandle(
 export const getProductByHandle = cache(async (handle: string): Promise<Product | undefined> => {
   return getProductBySlug(handle);
 });
+
+export async function getProductByCode(code: string): Promise<Product | undefined> {
+  return dbGetProductBySku(code);
+}
 
 /**
  * Whether /proionta/{handle} is a real product — for the product layout's

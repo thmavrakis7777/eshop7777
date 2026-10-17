@@ -648,6 +648,25 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
 }
 
 /**
+ * One active product by its product code (a variant's SKU, e.g. "00047") —
+ * for references the owner thinks of by code rather than URL, like the
+ * "bought together" pairing (lib/bought-together.ts). By code, not slug, so
+ * renaming the product (which changes its slug) doesn't silently break it.
+ */
+export async function getProductBySku(sku: string): Promise<Product | undefined> {
+  const rows = (await sql`
+    SELECT ${productFields}
+      FROM shop.product p
+      LEFT JOIN shop.category c ON c.id = p.category_id
+     WHERE p.is_active
+       AND EXISTS (SELECT 1 FROM shop.product_variant v WHERE v.product_id = p.id AND v.sku = ${sku})
+     LIMIT 1
+  `) as unknown as ProductRow[];
+  if (!rows[0]) return undefined;
+  return toDomainProduct(rows[0], await getNewArrivalWindowDays());
+}
+
+/**
  * New Arrivals: inside the rolling window OR flagged by the admin. Medusa
  * couldn't express this as a filter at all, so the old code fetched a
  * 200-product superset and filtered in JavaScript. Here it is a WHERE clause.

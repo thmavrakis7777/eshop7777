@@ -14,6 +14,7 @@ import {
 } from "@/components/product/ColourSelection";
 import { ProductCharacteristics } from "@/components/product/ProductCharacteristics";
 import { ProductWarranty } from "@/components/product/ProductWarranty";
+import { BoughtTogether, canShowCompanion } from "@/components/product/BoughtTogether";
 import { ProductRail } from "@/components/home/ProductRail";
 import { ProductRailSkeleton } from "@/components/home/ProductRailSkeleton";
 import { ProductImage } from "@/components/ui/ProductImage";
@@ -21,7 +22,8 @@ import { ProductGallery } from "@/components/product/ProductGallery";
 import { Stars } from "@/components/ui/Stars";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
 import { categoryPathHref, getCategoryTrail } from "@/lib/data/categories";
-import { getProductByHandle, getProductGallery, getRelatedProducts } from "@/lib/data/products";
+import { getProductByCode, getProductByHandle, getProductGallery, getRelatedProducts } from "@/lib/data/products";
+import { companionCodesFor } from "@/lib/bought-together";
 import type { Product } from "@/lib/types";
 import { getProductExtra } from "@/lib/data/product-extras";
 import { getSiteSettings } from "@/lib/data/site-settings";
@@ -113,14 +115,19 @@ export default async function ProductPage({ params }: Props) {
   // and /mageirika-skeyi/tigania, both of which 404. Related products moved
   // to their own Suspense boundary below (see RelatedProducts) — below the
   // fold and independent, no reason for it to gate the rest of the page.
-  const [categoryTrail, seo, extra, siteSettings, nonce, gallery] = await Promise.all([
+  // The «Συνήθως αγοράζεται μαζί» companions are not: they sit right under
+  // the add-to-cart button, so streaming them in later would push the
+  // details below down — fetched here, in parallel, instead.
+  const [categoryTrail, seo, extra, siteSettings, nonce, gallery, companionResults] = await Promise.all([
     product.categoryHandle ? getCategoryTrail(product.categoryHandle) : undefined,
     getSeoOverride("product", product.id),
     getProductExtra(product.id),
     getSiteSettings(),
     headers().then((h) => h.get("x-nonce") ?? undefined),
     getProductGallery(product.id),
+    Promise.all(companionCodesFor(product.categoryHandle).map(getProductByCode)),
   ]);
+  const companions = companionResults.filter((c) => canShowCompanion(c, product));
 
   // Per-product override, falling back to the site-wide default — both
   // owner-editable (product edit page / Content → Header & Footer). `||` not
@@ -284,6 +291,8 @@ export default async function ProductPage({ params }: Props) {
               className="w-full rounded-sm bg-ink px-6 py-4 text-sm font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 md:w-auto md:px-10"
             />
           </div>
+
+          {companions.length > 0 && <BoughtTogether companions={companions} />}
 
           <dl className="mt-10 flex flex-col gap-3 border-t border-border pt-6 text-sm">
             {product.code && (
