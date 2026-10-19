@@ -26,6 +26,8 @@ export type AdminProductRow = {
   isActive: boolean;
   categoryName: string | null;
   categorySlug: string | null;
+  /** The first variant's SKU — the «Κωδικός προϊόντος» the product page shows. */
+  code: string | null;
   variantCount: number;
   minPriceCents: number | null;
   maxPriceCents: number | null;
@@ -84,6 +86,8 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
   const rows = (await sql`
     SELECT p.id, p.slug, p.title, p.is_active, p.created_at,
            c.name AS category_name, c.slug AS category_slug,
+           (SELECT v.sku FROM shop.product_variant v WHERE v.product_id = p.id
+             ORDER BY v.position, v.created_at LIMIT 1) AS code,
            (SELECT COUNT(*) FROM shop.product_variant v WHERE v.product_id = p.id)::int AS variant_count,
            (SELECT MIN(v.price_cents) FROM shop.product_variant v WHERE v.product_id = p.id) AS min_price_cents,
            (SELECT MAX(v.price_cents) FROM shop.product_variant v WHERE v.product_id = p.id) AS max_price_cents,
@@ -129,7 +133,7 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
      LIMIT ${perPage} OFFSET ${offset}
   `) as unknown as Array<{
     id: string; slug: string; title: string; is_active: boolean; created_at: Date;
-    category_name: string | null; category_slug: string | null; variant_count: number;
+    category_name: string | null; category_slug: string | null; code: string | null; variant_count: number;
     min_price_cents: number | null; max_price_cents: number | null; on_sale: boolean;
     total_stock: number; image_count: number; total_count: string; length_step_cm: number | null;
   }>;
@@ -142,6 +146,7 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
       isActive: r.is_active,
       categoryName: r.category_name,
       categorySlug: r.category_slug,
+      code: r.code,
       variantCount: r.variant_count,
       minPriceCents: r.min_price_cents,
       maxPriceCents: r.max_price_cents,

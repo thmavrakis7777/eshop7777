@@ -213,6 +213,7 @@ export function ProductListTable({
                 />
               </th>
               <Th>Προϊόν</Th>
+              <Th>Κωδικός</Th>
               <Th>Κατηγορία</Th>
               <Th align="right">Τιμή</Th>
               <Th align="right">Απόθεμα</Th>
@@ -247,6 +248,7 @@ export function ProductListTable({
                       {p.imageCount === 0 && <span className="text-accent">· χωρίς εικόνα</span>}
                     </div>
                   </td>
+                  <td className="whitespace-nowrap border-b border-border px-4 py-3 tabular-nums text-ink">{p.code ?? "—"}</td>
                   <td className="border-b border-border px-4 py-3 text-ink-muted">{p.categoryName ?? "—"}</td>
                   <td className="border-b border-border px-4 py-3 text-right tabular-nums">
                     {priceRange(p)}
