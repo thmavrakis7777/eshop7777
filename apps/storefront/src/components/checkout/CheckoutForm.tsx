@@ -402,9 +402,14 @@ export function CheckoutForm({
       // "Heraklion address → shipping recalculates automatically" behavior.
       // A non-Heraklion address still offers several courier options, so
       // this never fires for the general case.
+      //
+      // Likewise when pickup is the only option at all — a cart holding a
+      // product a courier won't carry (0045), sent outside Heraklion.
       const deliveryOptions = result.shippingOptions.filter((o) => !o.isPickup);
       if (deliveryOptions.length === 1) {
         void handleSelectShipping(deliveryOptions[0]);
+      } else if (result.shippingOptions.length === 1) {
+        void handleSelectShipping(result.shippingOptions[0]);
       } else {
         setSelectedShippingId(null);
       }
@@ -815,6 +820,7 @@ export function CheckoutForm({
             // flat label price when the real charge is higher. See
             // ShippingSection's ShippingOptionPrice.
             oversizedFeeEur={highestOversizedFeeCents(cart.items.map((item) => item.shippingCostCents)) / 100}
+            noCourierTitles={[...new Set(cart.items.filter((item) => item.noCourier).map((item) => item.title))]}
           />
           <TaxDocumentSection
             type={taxDocumentType}

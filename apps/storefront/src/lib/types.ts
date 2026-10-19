@@ -116,6 +116,9 @@ export type Product = {
   // Sold by length (LENGTH_SALES_SPEC.md): `price` is per metre and every
   // variant's inventoryQuantity is in steps. Absent = sold by the piece.
   length?: LengthRule;
+  // A courier won't carry it (its category's no_courier, 0045 — gas
+  // cartridges): pickup or Heraklion delivery only, said on the PDP.
+  noCourier?: true;
 };
 
 /**
@@ -218,6 +221,10 @@ export type CartLineItem = {
   // valid when added but exceeds stock now (see lib/stock.ts).
   stockQuantity: number;
   allowBackorder: boolean;
+  // A courier won't carry this product (its category's no_courier, 0045 —
+  // gas cartridges): while it is in the cart, checkout offers only store
+  // pickup and the shop's own Heraklion delivery, and says why.
+  noCourier: boolean;
 };
 
 export type AppliedPromotion = {

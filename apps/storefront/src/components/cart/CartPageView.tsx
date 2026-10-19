@@ -103,7 +103,9 @@ export function CartPageView({
         {cartMessage && <p className="text-xs text-ink-muted">{cartMessage}</p>}
         <FreeShippingProgress
           subtotalEur={cart.subtotal.amount - cart.discountTotal.amount}
-          thresholdCents={freeShippingThresholdCents}
+          // A courier won't carry some products (0045), so the nationwide
+          // courier threshold means nothing to a cart holding one.
+          thresholdCents={cart.items.some((i) => i.noCourier) ? null : freeShippingThresholdCents}
         />
 
         <CouponForm

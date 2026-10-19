@@ -160,6 +160,7 @@ type ProductRow = {
   height_cm: number | null;
   origin_country: string | null;
   category_slug: string | null;
+  category_no_courier: boolean | null;
   image_path: string | null;
   variants: VariantRow[];
   min_price_cents: number | null;
@@ -251,6 +252,7 @@ export function toDomainProduct(r: ProductRow, newArrivalWindowDays: number): Pr
     ...(r.length_step_cm != null && r.length_min_cm != null && r.length_max_cm != null
       ? { length: { stepCm: r.length_step_cm, minCm: r.length_min_cm, maxCm: r.length_max_cm } }
       : {}),
+    ...(r.category_no_courier ? { noCourier: true as const } : {}),
   };
 }
 
@@ -261,7 +263,7 @@ const productFields = sql`
   p.id, p.slug, p.title, p.description, p.created_at, p.is_new_override,
   p.brand, p.material, p.weight_grams, p.length_cm, p.width_cm, p.height_cm, p.origin_country,
   p.length_step_cm, p.length_min_cm, p.length_max_cm,
-  c.slug AS category_slug,
+  c.slug AS category_slug, c.no_courier AS category_no_courier,
   (SELECT i.storage_path FROM shop.product_image i
     WHERE i.product_id = p.id ORDER BY i.position LIMIT 1) AS image_path,
   COALESCE((

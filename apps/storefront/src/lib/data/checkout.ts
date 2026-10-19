@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db/client";
+import { cartHasNoCourierItem } from "@/lib/db/cart";
 import { getOrderById } from "@/lib/db/orders";
 import { isHeraklionAddress } from "@/lib/heraklion";
 import type { Order, PaymentProvider, ShippingOption } from "@/lib/types";
@@ -26,13 +27,22 @@ const DELIVERY_ESTIMATES: Record<string, string> = {
  * checkout radio buttons are built from. Pickup is location-independent and
  * always included. A cart with no address yet, or an address outside
  * Heraklion, sees exactly the pre-existing nationwide list.
+ *
+ * A cart holding a product a courier won't carry (0045 — gas cartridges)
+ * loses every courier method: what is left is pickup, plus the Heraklion
+ * delivery for a Heraklion address (its usual price and threshold).
  */
 export async function getShippingOptionsForCart(cartId?: string): Promise<ShippingOption[]> {
   let isHeraklion = false;
+  let noCourier = false;
   if (cartId) {
-    const [cart] = await sql<{ shipping_address: { city?: string | null; postal_code?: string | null } | null }[]>`
-      SELECT shipping_address FROM shop.cart WHERE id = ${cartId}`;
+    const [[cart], hasNoCourierItem] = await Promise.all([
+      sql<{ shipping_address: { city?: string | null; postal_code?: string | null } | null }[]>`
+        SELECT shipping_address FROM shop.cart WHERE id = ${cartId}`,
+      cartHasNoCourierItem(cartId),
+    ]);
     isHeraklion = isHeraklionAddress(cart?.shipping_address ?? null);
+    noCourier = hasNoCourierItem;
   }
 
   const rows = await sql<
@@ -43,6 +53,7 @@ export async function getShippingOptionsForCart(cartId?: string): Promise<Shippi
   >`SELECT id, name, price_cents, free_over_cents, is_pickup, heraklion_only
       FROM shop.shipping_method
      WHERE is_active AND (is_pickup OR heraklion_only = ${isHeraklion})
+       AND (${!noCourier} OR is_pickup OR heraklion_only)
      ORDER BY sort_order, name`;
 
   return rows.map((o) => ({

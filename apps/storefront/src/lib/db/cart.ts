@@ -82,6 +82,8 @@ type ItemRow = {
   length_step_cm: number | null;
   length_min_cm: number | null;
   length_max_cm: number | null;
+  // Live from the product's category (0045) — see CartLineItem.noCourier.
+  no_courier: boolean;
 };
 
 export type AddressJson = {
@@ -156,11 +158,13 @@ const cartQuery = (id: string) => sql<CartRow[]>`
              'swatch_hex', v.swatch_hex,
              'length_step_cm', p.length_step_cm,
              'length_min_cm', p.length_min_cm,
-             'length_max_cm', p.length_max_cm
+             'length_max_cm', p.length_max_cm,
+             'no_courier', COALESCE(cat.no_courier, false)
            ) ORDER BY i.created_at)
            FROM shop.cart_item i
            LEFT JOIN shop.product_variant v ON v.id = i.variant_id
            LEFT JOIN shop.product p ON p.id = v.product_id
+           LEFT JOIN shop.category cat ON cat.id = p.category_id
            -- The line's colour photo when it has one (0043), else the main.
            LEFT JOIN LATERAL (
              SELECT storage_path FROM shop.product_image
@@ -195,6 +199,7 @@ function toDomainCart(r: CartRow): Cart {
     shippingCostCents: i.shipping_cost_cents,
     stockQuantity: i.stock_quantity,
     allowBackorder: i.allow_backorder,
+    noCourier: i.no_courier,
     ...(i.swatch_hex && i.variant_title ? { colour: { name: i.variant_title, hex: i.swatch_hex } } : {}),
     ...(i.length_step_cm != null && i.length_min_cm != null && i.length_max_cm != null
       ? { length: { stepCm: i.length_step_cm, minCm: i.length_min_cm, maxCm: i.length_max_cm } }
@@ -401,12 +406,15 @@ export async function addItem(cartId: string, variantId: string, quantity: numbe
         length_step_cm: number | null;
         length_min_cm: number | null;
         length_max_cm: number | null;
+        no_courier: boolean;
       }[]
     >`SELECT v.id, v.sku, v.price_cents, v.compare_at_price_cents,
              v.stock_quantity, v.allow_backorder, v.title AS variant_title,
-             p.title, p.slug, p.length_step_cm, p.length_min_cm, p.length_max_cm
+             p.title, p.slug, p.length_step_cm, p.length_min_cm, p.length_max_cm,
+             COALESCE(c.no_courier, false) AS no_courier
         FROM shop.product_variant v
         JOIN shop.product p ON p.id = v.product_id
+        LEFT JOIN shop.category c ON c.id = p.category_id
        WHERE v.id = ${variantId} AND v.is_active AND p.is_active`;
 
     if (!v) throw new CartError("Variant not found", "not_found");
@@ -448,8 +456,38 @@ export async function addItem(cartId: string, variantId: string, quantity: numbe
         unit_price_cents = EXCLUDED.unit_price_cents,
         compare_at_price_cents = EXCLUDED.compare_at_price_cents`;
 
+    // A product a courier won't carry (0045) joining a cart that already
+    // chose a courier: that choice is dropped here, or the cart would keep
+    // showing a courier price for a method checkout will no longer offer
+    // or accept. Pickup and the Heraklion delivery stay selected.
+    if (v.no_courier) {
+      await tx`
+        UPDATE shop.cart SET shipping_method_id = NULL
+         WHERE id = ${cartId} AND shipping_method_id IN (
+           SELECT id FROM shop.shipping_method WHERE NOT is_pickup AND NOT heraklion_only
+         )`;
+    }
+
     await touch(tx, cartId);
   });
+}
+
+/**
+ * Whether the cart holds a product a courier won't carry (its category's
+ * no_courier, 0045 — gas cartridges). While it does, the only methods that
+ * may be offered or selected are store pickup and the Heraklion delivery;
+ * completeOrder re-checks the same rule from its own locked item rows.
+ */
+export async function cartHasNoCourierItem(cartId: string): Promise<boolean> {
+  const [row] = await sql<{ found: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1 FROM shop.cart_item i
+        JOIN shop.product_variant v ON v.id = i.variant_id
+        JOIN shop.product p ON p.id = v.product_id
+        JOIN shop.category c ON c.id = p.category_id
+       WHERE i.cart_id = ${cartId} AND c.no_courier
+    ) AS found`;
+  return row?.found ?? false;
 }
 
 export async function updateItemQuantity(cartId: string, itemId: string, quantity: number): Promise<void> {
@@ -592,9 +630,16 @@ export async function setCartAddresses(
 }
 
 export async function setShippingMethod(cartId: string, methodId: string): Promise<void> {
-  const [m] = await sql<{ id: string; heraklion_only: boolean }[]>`
-    SELECT id, heraklion_only FROM shop.shipping_method WHERE id = ${methodId} AND is_active`;
+  const [m] = await sql<{ id: string; heraklion_only: boolean; is_pickup: boolean }[]>`
+    SELECT id, heraklion_only, is_pickup FROM shop.shipping_method WHERE id = ${methodId} AND is_active`;
   if (!m) throw new CartError("Unknown shipping method", "not_found");
+
+  // Same reasoning as the Heraklion check below: a courier is left out of
+  // the list for a cart holding a product it won't carry (0045), and is
+  // refused here too for a request built by hand.
+  if (!m.is_pickup && !m.heraklion_only && (await cartHasNoCourierItem(cartId))) {
+    throw new CartError("Shipping method not available for this cart", "not_found");
+  }
 
   // Server-authoritative eligibility check — getShippingOptionsForCart
   // already filters the Heraklion-only method out of the list for a

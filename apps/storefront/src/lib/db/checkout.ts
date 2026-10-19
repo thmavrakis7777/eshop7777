@@ -121,14 +121,17 @@ export async function completeOrder(
         length_step_cm: number | null;
         length_min_cm: number | null;
         length_max_cm: number | null;
+        no_courier: boolean;
       }[]
     >`SELECT i.variant_id, v.product_id, i.quantity,
              p.title, v.title AS variant_title, v.sku, p.slug,
              v.price_cents, v.stock_quantity, v.allow_backorder, p.shipping_cost_cents,
-             p.length_step_cm, p.length_min_cm, p.length_max_cm
+             p.length_step_cm, p.length_min_cm, p.length_max_cm,
+             COALESCE(c.no_courier, false) AS no_courier
         FROM shop.cart_item i
         JOIN shop.product_variant v ON v.id = i.variant_id
         JOIN shop.product p ON p.id = v.product_id
+        LEFT JOIN shop.category c ON c.id = p.category_id
        WHERE i.cart_id = ${cartId}
        ORDER BY i.created_at`;
 
@@ -198,6 +201,13 @@ export async function completeOrder(
       shipping.heraklion_only &&
       !isHeraklionAddress(cart.shipping_address as { city?: string | null; postal_code?: string | null } | null)
     ) {
+      throw new CheckoutError("Shipping method unavailable", "missing_details");
+    }
+
+    // Same final gate for a product a courier won't carry (0045 — gas
+    // cartridges): with one in the order, only pickup or the Heraklion
+    // delivery may be placed, whatever was selected before it was added.
+    if (!shipping.is_pickup && !shipping.heraklion_only && items.some((i) => i.no_courier)) {
       throw new CheckoutError("Shipping method unavailable", "missing_details");
     }
 

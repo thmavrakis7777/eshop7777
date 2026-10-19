@@ -119,6 +119,7 @@ export function ShippingSection({
   subtotalAfterDiscountEur,
   hasOversizedItems,
   oversizedFeeEur,
+  noCourierTitles,
 }: {
   // "error" is distinct from "pending-address" on purpose: the address was
   // complete and valid, the save to the server just failed (a transient
@@ -144,12 +145,24 @@ export function ShippingSection({
   // through to each option row so it never shows the method's flat rate
   // when the actual charge is higher.
   oversizedFeeEur: number;
+  // Titles of the cart's products a courier won't carry (0045 — gas
+  // cartridges). getShippingOptionsForCart has already left every courier
+  // out of `options`; this only tells the customer why, before they go
+  // looking for ACS. Empty for an ordinary cart.
+  noCourierTitles: string[];
 }) {
   return (
     // The id is where a blocked "Ολοκλήρωση Παραγγελίας" scrolls to when every
     // field is valid and only the shipping choice is left (CheckoutForm).
     <section id="checkout-shipping" className="flex flex-col gap-3">
       <SectionHeading number={4} title="Τρόπος αποστολής" />
+      {noCourierTitles.length > 0 && (
+        <p className="rounded-sm border border-border bg-surface px-4 py-3 text-xs text-ink">
+          {noCourierTitles.map((t) => `«${t}»`).join(", ")}{" "}
+          {noCourierTitles.length === 1 ? "δεν αποστέλλεται" : "δεν αποστέλλονται"} με courier. Η παραγγελία σου
+          μπορεί να παραληφθεί από το κατάστημα ή να παραδοθεί από εμάς εντός Ηρακλείου.
+        </p>
+      )}
       {status === "ready" && (
         <FreeShippingHint
           options={options}

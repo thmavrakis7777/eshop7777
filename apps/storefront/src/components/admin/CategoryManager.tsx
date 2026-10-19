@@ -733,6 +733,18 @@ function CategoryForm({
         Ενεργή στο κατάστημα
       </label>
 
+      {/* 0045 — e.g. gas cartridges. Checkout then offers only pickup and
+          the Heraklion delivery for any cart holding one of its products. */}
+      <label className="flex items-start gap-2 text-sm text-ink">
+        <input type="checkbox" name="noCourier" defaultChecked={category?.noCourier ?? false} className="mt-0.5 h-4 w-4 accent-ink" />
+        <span>
+          Χωρίς αποστολή με courier
+          <span className="block text-xs text-ink-muted">
+            Τα προϊόντα της κατηγορίας διατίθενται μόνο με παραλαβή από το κατάστημα ή παράδοση εντός Ηρακλείου.
+          </span>
+        </span>
+      </label>
+
       <div className="flex gap-2">
         <button
           type="submit"

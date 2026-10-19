@@ -41,6 +41,9 @@ const SCHEMA_AVAILABILITY: Record<StockState, string> = {
   sold_out: "https://schema.org/OutOfStock",
 };
 
+// The «Παράδοση:» line for a product a courier won't carry (0045).
+const NO_COURIER_DELIVERY_TEXT = "Μόνο παραλαβή από το κατάστημα ή παράδοση εντός Ηρακλείου";
+
 // Below the fold and independent of everything else on the page — its own
 // Suspense boundary so a slow related-products query doesn't gate the PDP.
 async function RelatedProducts({ product }: { product: Product }) {
@@ -148,10 +151,16 @@ export default async function ProductPage({ params }: Props) {
   // «Κατόπιν παραγγελίας» (lib/stock.ts) replaces the usual delivery time:
   // the units aren't on the shelf, so that promise wouldn't hold.
   const stockState = stockStateOf(product.variants);
+  // A product a courier won't carry (0045 — gas cartridges) can't promise
+  // the site-wide "2-3 εργάσιμες σε όλη την Ελλάδα"; an owner's own
+  // per-product text still wins.
   const deliveryText =
     stockState === "on_order"
       ? ON_ORDER_DELIVERY_TEXT
-      : extra?.deliveryTextOverride || siteSettings?.pdpDeliveryText || "2-3 εργάσιμες σε όλη την Ελλάδα";
+      : extra?.deliveryTextOverride ||
+        (product.noCourier ? NO_COURIER_DELIVERY_TEXT : null) ||
+        siteSettings?.pdpDeliveryText ||
+        "2-3 εργάσιμες σε όλη την Ελλάδα";
   const returnsText = extra?.returnsTextOverride || siteSettings?.pdpReturnsText || "Δωρεάν εντός 30 ημερών";
   const paymentText = extra?.paymentTextOverride || siteSettings?.pdpPaymentText || "Αντικαταβολή κατά την παράδοση";
   const stockInquiry = resolveStockInquiryContact(siteSettings);
@@ -303,6 +312,17 @@ export default async function ProductPage({ params }: Props) {
               className="w-full rounded-sm bg-ink px-6 py-4 text-sm font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 md:w-auto md:px-10"
             />
           </div>
+
+          {/* Said right under the button, before the customer adds it — not
+              only at checkout, where it would come as a surprise. Checkout
+              enforces it (getShippingOptionsForCart) and repeats it. */}
+          {product.noCourier && (
+            <p className="mt-4 rounded-sm border border-border bg-surface px-4 py-3 text-sm text-ink">
+              Δεν αποστέλλεται με courier. Διατίθεται μόνο με παραλαβή από το κατάστημά μας ή με παράδοση από
+              εμάς εντός Ηρακλείου. Αν το παραγγείλεις μαζί με άλλα προϊόντα, ισχύει το ίδιο για όλη την
+              παραγγελία.
+            </p>
+          )}
 
           {companions.length > 0 && <BoughtTogether companions={companions} />}
 

@@ -193,6 +193,7 @@ describe("recomputeTotals", () => {
       shippingCostCents,
       stockQuantity: 99,
       allowBackorder: false,
+      noCourier: false,
     };
   }
 

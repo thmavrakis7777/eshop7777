@@ -42,6 +42,9 @@ export type AdminCategory = {
   pageType: "products" | "landing";
   imagePath: string | null;
   faq: FaqItem[] | null;
+  // A courier won't carry this category's products (0045 — gas
+  // cartridges): checkout offers only pickup and the Heraklion delivery.
+  noCourier: boolean;
   // Mega-menu promotional panel (shop.category_promo) — meaningful for
   // top-level categories only (depth === 0), but read for every row so the
   // edit form always shows whatever is already saved even if a category was
@@ -96,7 +99,7 @@ export async function listCategoryTree(): Promise<AdminCategory[]> {
     {
       id: string; slug: string; name: string; description: string | null;
       parent_id: string | null; sort_order: number; is_active: boolean;
-      page_type: string; image_path: string | null; faq: FaqItem[] | null;
+      page_type: string; image_path: string | null; faq: FaqItem[] | null; no_courier: boolean;
       depth: number; product_count: number; child_count: number;
       megamenu_enabled: boolean; megamenu_image_path: string | null;
       megamenu_title: string | null; megamenu_description: string | null;
@@ -106,13 +109,13 @@ export async function listCategoryTree(): Promise<AdminCategory[]> {
   >`
     WITH RECURSIVE tree AS (
       SELECT c.id, c.slug, c.name, c.description, c.parent_id, c.sort_order, c.is_active,
-             c.page_type, c.image_path, c.faq,
+             c.page_type, c.image_path, c.faq, c.no_courier,
              0 AS depth,
              LPAD(c.sort_order::text, 6, '0') || c.name AS path
         FROM shop.category c WHERE c.parent_id IS NULL
       UNION ALL
       SELECT c.id, c.slug, c.name, c.description, c.parent_id, c.sort_order, c.is_active,
-             c.page_type, c.image_path, c.faq,
+             c.page_type, c.image_path, c.faq, c.no_courier,
              t.depth + 1,
              t.path || '/' || LPAD(c.sort_order::text, 6, '0') || c.name
         FROM shop.category c JOIN tree t ON c.parent_id = t.id
@@ -138,7 +141,7 @@ export async function listCategoryTree(): Promise<AdminCategory[]> {
     id: r.id, slug: r.slug, name: r.name, description: r.description,
     parentId: r.parent_id, sortOrder: r.sort_order, isActive: r.is_active,
     pageType: r.page_type === "landing" ? "landing" : "products",
-    imagePath: r.image_path, faq: r.faq,
+    imagePath: r.image_path, faq: r.faq, noCourier: r.no_courier,
     depth: r.depth, productCount: r.product_count, childCount: r.child_count,
     megaMenuEnabled: r.megamenu_enabled,
     megaMenuImagePath: r.megamenu_image_path,
@@ -280,6 +283,7 @@ export async function saveCategory(input: {
   pageType: "products" | "landing";
   imagePath: string | null;
   faq: FaqItem[] | null;
+  noCourier: boolean;
 }): Promise<string> {
   const dupe = await sql<{ id: string }[]>`
     SELECT id FROM shop.category
@@ -306,7 +310,8 @@ export async function saveCategory(input: {
       UPDATE shop.category SET
         name = ${input.name}, slug = ${input.slug}, description = ${input.description},
         parent_id = ${input.parentId}, sort_order = ${input.sortOrder}, is_active = ${input.isActive},
-        page_type = ${input.pageType}, image_path = ${input.imagePath}, faq = ${faqJson(input.faq)}
+        page_type = ${input.pageType}, image_path = ${input.imagePath}, faq = ${faqJson(input.faq)},
+        no_courier = ${input.noCourier}
       WHERE id = ${input.id}`;
     return input.id;
   }
@@ -315,10 +320,10 @@ export async function saveCategory(input: {
 
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO shop.category (name, slug, description, parent_id, sort_order, is_active,
-                                page_type, image_path, faq)
+                                page_type, image_path, faq, no_courier)
     VALUES (${input.name}, ${input.slug}, ${input.description}, ${input.parentId},
             ${input.sortOrder}, ${input.isActive},
-            ${input.pageType}, ${input.imagePath}, ${faqJson(input.faq)})
+            ${input.pageType}, ${input.imagePath}, ${faqJson(input.faq)}, ${input.noCourier})
     RETURNING id`;
   return row.id;
 }

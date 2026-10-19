@@ -114,6 +114,7 @@ export async function saveCategoryAction(formData: FormData): Promise<ActionResu
       pageType,
       imagePath: text(formData.get("imagePath")),
       faq: parseFaq(formData),
+      noCourier: formData.get("noCourier") === "on",
     });
 
     // Mega-menu promo is main-category-only (section 11 of the spec) — the
