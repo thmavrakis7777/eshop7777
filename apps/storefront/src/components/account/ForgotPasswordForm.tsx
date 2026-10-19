@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { FormField } from "@/components/checkout/FormField";
 import { requestPasswordResetAction } from "@/lib/actions/customer";
 import { isValidEmail } from "@/lib/checkout-validation";

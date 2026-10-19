@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { SectionHeading } from "@/components/checkout/SectionHeading";
 import { FormField } from "@/components/checkout/FormField";
 import { GoogleSignInButton } from "@/components/account/GoogleSignInButton";

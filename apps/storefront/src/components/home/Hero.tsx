@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import type { HomepageSection } from "@/lib/content-types";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { AfterPageLoad } from "@/components/ui/AfterPageLoad";

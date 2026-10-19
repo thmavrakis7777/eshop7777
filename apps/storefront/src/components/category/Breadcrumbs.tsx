@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { headers } from "next/headers";
 import { siteUrl } from "@/lib/site-config";
 import { safeJsonLd } from "@/lib/json-ld";

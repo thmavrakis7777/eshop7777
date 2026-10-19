@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { useState } from "react";
 import type { Product } from "@/lib/types";
 import { formatPrice, formatPriceFrom } from "@/lib/format";

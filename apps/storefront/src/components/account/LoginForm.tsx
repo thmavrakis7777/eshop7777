@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { FormField } from "@/components/checkout/FormField";
 import { GoogleSignInButton, SignInDivider } from "@/components/account/GoogleSignInButton";
 import { loginAction } from "@/lib/actions/customer";

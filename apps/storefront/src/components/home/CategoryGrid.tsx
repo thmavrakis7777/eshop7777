@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import Image from "next/image";
 import type { NavCategory } from "@/lib/types";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";

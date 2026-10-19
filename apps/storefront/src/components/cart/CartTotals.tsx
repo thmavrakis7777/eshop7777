@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import type { Cart } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { unsubscribeByToken } from "@/lib/db/newsletter";
 
 export const metadata: Metadata = {

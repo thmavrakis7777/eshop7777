@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import type { MenuCategory, MenuNavCategory } from "@/lib/types";
 import type { NavItem } from "@/lib/data/navigation";
 import { ChevronRightIcon, CloseIcon, HeartIcon, UserIcon } from "@/components/ui/Icons";

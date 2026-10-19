@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { headers } from "next/headers";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
 import { CategoryChildNav, type ChildCategoryLink } from "@/components/category/CategoryChildNav";

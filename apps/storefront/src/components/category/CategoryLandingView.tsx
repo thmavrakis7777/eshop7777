@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
 import { renderBody } from "@/components/content/ContentPageView";
 import { telHref } from "@/components/layout/PhoneOrders";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import Image from "next/image";
 import type { HomepageSection } from "@/lib/content-types";
 import { AfterPageLoad } from "@/components/ui/AfterPageLoad";

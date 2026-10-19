@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 
 /**
  * The store's brand mark. One component so header, mobile menu and footer

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
 import { RichBody, richBodyToPlainText } from "@/components/content/RichBody";

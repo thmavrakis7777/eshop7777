@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import type { Cart } from "@/lib/types";
 import { useCartController } from "@/lib/hooks/use-cart-controller";
 import { getCartAction } from "@/lib/actions/cart";

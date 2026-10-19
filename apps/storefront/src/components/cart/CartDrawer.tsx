@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCartUI } from "@/components/cart/CartUIProvider";
 import { useCartController } from "@/lib/hooks/use-cart-controller";

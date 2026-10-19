@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import { ProductImage } from "@/components/ui/ProductImage";

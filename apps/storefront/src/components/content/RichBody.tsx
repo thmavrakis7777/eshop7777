@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import type { ReactNode } from "react";
 import { publicImageUrl } from "@/lib/storage/urls";
 import { WithAvif } from "@/components/ui/AvifSource";

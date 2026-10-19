@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { ChevronRightIcon } from "@/components/ui/Icons";
 import type { CategoryNode } from "@/lib/types";
 import { publicImageUrl } from "@/lib/storage/urls";

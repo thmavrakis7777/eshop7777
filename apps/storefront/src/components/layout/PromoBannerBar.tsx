@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { useEffect, useState } from "react";
 import type { PromoBanner } from "@/lib/content-types";
 

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { WithAvif } from "@/components/ui/AvifSource";
 import type { JournalArticleCard } from "@/lib/data/journal";
 

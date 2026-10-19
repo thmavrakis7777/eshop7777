@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { logoutAction } from "@/lib/actions/customer";
 
 const NAV_ITEMS = [

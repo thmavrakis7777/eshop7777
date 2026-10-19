@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { DeviceImage } from "@/components/home/DeviceImage";
 import { publicImageUrl } from "@/lib/storage/urls";
 import type { HomepageSection, PromoBanner2Config } from "@/lib/content-types";

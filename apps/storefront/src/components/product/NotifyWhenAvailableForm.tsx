@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { useId, useState, useTransition } from "react";
 import { requestStockNotificationAction } from "@/lib/actions/stock-notification";
 

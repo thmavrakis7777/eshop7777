@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/ui/Link";
 import { getCustomerOrders } from "@/lib/data/customer";
 import { formatPrice } from "@/lib/format";
 import { OrderStatusBadge } from "@/components/account/OrderStatusBadge";
