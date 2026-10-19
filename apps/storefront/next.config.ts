@@ -1,14 +1,52 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
 import { HTML_LIMITED_BOTS } from "./src/lib/seo-bots";
+import { buildContentSecurityPolicy } from "./src/lib/content-security-policy";
+import { sentryIngestOrigin } from "./src/lib/observability/sentry-csp";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+import { buildCategoryQueryRewrites, reservedFirstSegments } from "./src/lib/category-rewrites";
+import { CATEGORY_QUERY_KEYS } from "./src/lib/search-params";
 
-// Baseline security headers. Content-Security-Policy is deliberately not
-// here — it needs a fresh nonce per request, which a static header list
-// can't produce; see src/proxy.ts for the real CSP (nonce'd JSON-LD
-// scripts, analytics scripts, strict-dynamic). Strict-Transport-Security is
-// left to the hosting layer (Vercel adds it automatically for production
-// https deployments).
+// The app's own top-level route folders, read at build time, so the category
+// query rewrites (rewrites() below) can never claim one of them — a route
+// added later is excluded without anyone remembering to list it.
+// cwd, not __dirname: next build and next dev both run with the project
+// folder as cwd, and __dirname is not defined if the config loads as ESM.
+const appDir = join(process.cwd(), "src", "app");
+const appFolderNames = [appDir, join(appDir, "(storefront)")].flatMap((dir) =>
+  readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+);
+
+// Security headers, the Content-Security-Policy included. The CSP used to be
+// built per request in src/proxy.ts around a nonce, which kept every page
+// from being cached; it is one fixed policy now (src/lib/content-security-
+// policy.ts explains the trade, PAGE_CACHING_SPEC.md B1). Headers set here
+// are part of the cached response, so a CDN-served page carries the same
+// policy as a freshly rendered one. Strict-Transport-Security is left to the
+// hosting layer (Vercel adds it automatically for production https
+// deployments).
+//
+// The image origin is read the same way as the remotePatterns below; the
+// Sentry origin through the same helper the SDK's own initialisation uses,
+// so the policy and the SDK can never disagree about it.
+const contentSecurityPolicy = buildContentSecurityPolicy({
+  isDev: process.env.NODE_ENV === "development",
+  supabaseImageOrigin: (() => {
+    try {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+      return url ? new URL(url).origin : null;
+    } catch {
+      return null;
+    }
+  })(),
+  sentryConnectOrigin: sentryIngestOrigin(process.env.NEXT_PUBLIC_SENTRY_DSN),
+});
+
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -42,6 +80,16 @@ const nextConfig: NextConfig = {
   htmlLimitedBots: HTML_LIMITED_BOTS,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
+  },
+  // A category URL with a sort, page or filter goes to the uncached /filtra
+  // copy of the route; the plain URL stays a cached page. See
+  // src/lib/category-rewrites.ts and PAGE_CACHING_SPEC.md (B3).
+  async rewrites() {
+    return {
+      beforeFiles: [],
+      afterFiles: buildCategoryQueryRewrites(CATEGORY_QUERY_KEYS, reservedFirstSegments(appFolderNames)),
+      fallback: [],
+    };
   },
   // Category SEO taxonomy fix (see scratch/seo-taxonomy-*.sql): 3 main
   // categories had slugs left over from a previous name (ΚΗΠΟΣ/ΥΓΡΑΕΡΙΟ/

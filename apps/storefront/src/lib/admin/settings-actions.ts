@@ -187,7 +187,7 @@ export async function deleteShippingMethodAction(id: string): Promise<ActionResu
 // ---------------------------------------------------------------------------
 
 // These four values are interpolated directly into executing inline <script>
-// tags (AnalyticsScripts.tsx) that carry the page's CSP nonce — an
+// tags (AnalyticsScripts.tsx), which the CSP allows to run — an
 // unvalidated value here is stored XSS on every storefront page for every
 // consenting visitor. Every real tracking-service ID is plain alphanumeric
 // plus hyphens, so reject anything else rather than trying to escape it

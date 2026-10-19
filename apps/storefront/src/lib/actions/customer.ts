@@ -81,7 +81,10 @@ export async function registerAction(input: {
     const { customerId, token } = await registerCustomer({ email, password, firstName, lastName });
     await setSessionCookie(token);
     await mergeGuestCart(customerId);
-    revalidatePath("/", "layout");
+    // No revalidatePath("/", "layout") any more: the storefront layout is
+    // cached for everyone now, and revalidating it would throw away every
+    // cached page on each sign-up. RegisterForm refreshes the session in
+    // the browser instead (SessionProvider, PAGE_CACHING_SPEC.md).
   } catch (err) {
     return { ok: false, error: mapAuthError(err) };
   }
@@ -113,7 +116,7 @@ export async function loginAction(input: { email: string; password: string }): P
     const { customerId, token } = await loginCustomer(email, password);
     await setSessionCookie(token);
     await mergeGuestCart(customerId);
-    revalidatePath("/", "layout");
+    // LoginForm refreshes the session in the browser; see registerAction.
     return { ok: true };
   } catch (err) {
     return { ok: false, error: mapAuthError(err) };
@@ -126,7 +129,9 @@ export async function logoutAction(): Promise<void> {
   // anyone who captured it.
   await destroyCustomerSession(jar.get(CUSTOMER_SESSION_COOKIE)?.value);
   jar.delete(CUSTOMER_SESSION_COOKIE);
-  revalidatePath("/", "layout");
+  // SessionProvider re-reads the session when the browser leaves the
+  // account area, which this redirect does; see registerAction for why the
+  // layout is no longer revalidated.
   redirect("/");
 }
 

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { currentQuery } from "@/lib/current-query";
 import {
   CategoryFilterFields,
   EMPTY_DRAFT,
@@ -37,7 +38,6 @@ function draftToParams(base: URLSearchParams, draft: FilterDraft): URLSearchPara
 export function CategoryFilterDrawer({ facets, filters }: { facets: CategoryFacets; filters: CategoryFilters }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<FilterDraft>(() => filtersToDraft(filters));
 
@@ -51,7 +51,7 @@ export function CategoryFilterDrawer({ facets, filters }: { facets: CategoryFace
   }
 
   function apply() {
-    const params = draftToParams(searchParams, draft);
+    const params = draftToParams(currentQuery(), draft);
     const qs = params.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname);
     setOpen(false);
@@ -59,7 +59,7 @@ export function CategoryFilterDrawer({ facets, filters }: { facets: CategoryFace
 
   function clearAndApply() {
     setDraft(EMPTY_DRAFT);
-    const params = new URLSearchParams(searchParams);
+    const params = currentQuery();
     for (const k of FILTER_KEYS) params.delete(k);
     params.delete("page");
     const qs = params.toString();

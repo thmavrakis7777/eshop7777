@@ -6,6 +6,15 @@ const VALID_SORTS: ProductSort[] = ["newest", "title-asc", "price-asc", "price-d
 // detect "is any filter active" (for the noindex decision) and to parse them.
 const FILTER_PARAM_KEYS = ["price_min", "price_max", "in_stock", "material", "origin", "sale"] as const;
 
+/**
+ * Every query key a category listing reads: sort, page and the filters.
+ * next.config.ts sends a category URL carrying any of these to the uncached
+ * /filtra copy of the route; the plain URL stays a cached page
+ * (lib/category-rewrites.ts). A new listing parameter must be added here,
+ * or a URL that uses it will get the cached, unfiltered page.
+ */
+export const CATEGORY_QUERY_KEYS = ["sort", "page", ...FILTER_PARAM_KEYS] as const;
+
 type RawSearchParams = Record<string, string | string[] | undefined>;
 
 function toArray(v: string | string[] | undefined): string[] {

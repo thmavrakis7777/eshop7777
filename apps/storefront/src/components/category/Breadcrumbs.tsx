@@ -1,12 +1,10 @@
 import Link from "@/components/ui/Link";
-import { headers } from "next/headers";
 import { siteUrl } from "@/lib/site-config";
 import { safeJsonLd } from "@/lib/json-ld";
 
 export type Crumb = { label: string; href: string };
 
-export async function Breadcrumbs({ items }: { items: Crumb[] }) {
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+export function Breadcrumbs({ items }: { items: Crumb[] }) {
   const withHome: Crumb[] = [{ label: "Αρχική", href: "/" }, ...items];
 
   const jsonLd = {
@@ -22,7 +20,7 @@ export async function Breadcrumbs({ items }: { items: Crumb[] }) {
 
   return (
     <nav aria-label="Breadcrumb" className="container-shell pt-4 text-sm text-ink-muted">
-      <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
         {withHome.map((item, i) => (
           <li key={item.href} className="flex min-w-0 max-w-full items-center gap-1.5">

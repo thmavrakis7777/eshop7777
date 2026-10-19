@@ -8,6 +8,7 @@ import {
   toggleWishlistHandle,
 } from "@/lib/wishlist-storage";
 import { getWishlistHandlesAction, toggleWishlistItemAction } from "@/lib/actions/wishlist";
+import { useSession } from "@/components/session/SessionProvider";
 
 type WishlistContextValue = {
   handles: string[];
@@ -25,17 +26,14 @@ const WishlistContext = createContext<WishlistContextValue | null>(null);
  * they survive a login on a different browser/device — the localStorage
  * store is simply not consulted while `isLoggedIn` is true.
  *
- * `isLoggedIn` is resolved once, server-side, in the root storefront layout
- * (the same place that already knows this for the header/account icon) —
- * not re-derived here.
+ * Sign-in state comes from SessionProvider (/api/session), not re-derived
+ * here. It used to be resolved server-side in the storefront layout, which
+ * kept every page from being cached (PAGE_CACHING_SPEC.md). Until the
+ * session answers, the visitor is treated as a guest: most visitors are,
+ * and their saved favourites then show with no wait at all.
  */
-export function WishlistProvider({
-  children,
-  isLoggedIn,
-}: {
-  children: React.ReactNode;
-  isLoggedIn: boolean;
-}) {
+export function WishlistProvider({ children }: { children: React.ReactNode }) {
+  const isLoggedIn = useSession().isLoggedIn === true;
   const localHandles = useSyncExternalStore(subscribeWishlist, getWishlistSnapshot, getWishlistServerSnapshot);
   const [serverHandles, setServerHandles] = useState<string[] | null>(null);
 

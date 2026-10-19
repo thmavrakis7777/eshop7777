@@ -30,13 +30,7 @@ function js(id: string): string {
   return JSON.stringify(id).replace(/</g, "\\u003c");
 }
 
-export function AnalyticsScripts({
-  settings,
-  nonce,
-}: {
-  settings: AnalyticsSettings | null;
-  nonce?: string;
-}) {
+export function AnalyticsScripts({ settings }: { settings: AnalyticsSettings | null }) {
   const consent = useSyncExternalStore(subscribeConsent, getConsentSnapshot, getConsentServerSnapshot);
 
   if (!settings || !consent) return null;
@@ -51,9 +45,8 @@ export function AnalyticsScripts({
             id="ga4-lib"
             src={`https://www.googletagmanager.com/gtag/js?id=${settings.ga4MeasurementId}`}
             strategy="afterInteractive"
-            nonce={nonce}
           />
-          <Script id="ga4-init" strategy="afterInteractive" nonce={nonce}>
+          <Script id="ga4-init" strategy="afterInteractive">
             {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
@@ -63,7 +56,7 @@ gtag('config', ${js(settings.ga4MeasurementId)});`}
       )}
 
       {analyticsOn && settings.gtmContainerId && (
-        <Script id="gtm-init" strategy="afterInteractive" nonce={nonce}>
+        <Script id="gtm-init" strategy="afterInteractive">
           {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});
 var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
 j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
@@ -73,7 +66,7 @@ f.parentNode.insertBefore(j,f);
       )}
 
       {marketingOn && settings.metaPixelId && (
-        <Script id="meta-pixel-init" strategy="afterInteractive" nonce={nonce}>
+        <Script id="meta-pixel-init" strategy="afterInteractive">
           {`!function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
 n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -88,7 +81,7 @@ fbq('track', 'PageView');`}
       )}
 
       {analyticsOn && settings.clarityProjectId && (
-        <Script id="clarity-init" strategy="afterInteractive" nonce={nonce}>
+        <Script id="clarity-init" strategy="afterInteractive">
           {`(function(c,l,a,r,i,t,y){
 c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
 t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { mergeWishlistOnLoginAction } from "@/lib/actions/wishlist";
 import { getWishlistSnapshot } from "@/lib/wishlist-storage";
+import { useSession } from "@/components/session/SessionProvider";
 
 // Same post-login wishlist step LoginForm/RegisterForm run, for a Google
 // sign-in that arrived by redirect instead of a form. Best-effort: a failed
@@ -11,6 +12,7 @@ import { getWishlistSnapshot } from "@/lib/wishlist-storage";
 // ref keeps React's development double-run of effects from merging twice.
 export function GoogleSignInFinish({ to }: { to: string }) {
   const router = useRouter();
+  const { refreshSession } = useSession();
   const started = useRef(false);
 
   useEffect(() => {
@@ -22,9 +24,12 @@ export function GoogleSignInFinish({ to }: { to: string }) {
       } catch {
         // Non-critical — the account's own wishlist still loads normally.
       }
+      // Same as LoginForm: the merged cart and the new sign-in state reach
+      // the header through the session, not a layout re-render.
+      await refreshSession();
       router.replace(to);
     })();
-  }, [router, to]);
+  }, [router, to, refreshSession]);
 
   return (
     <p role="status" className="text-sm text-ink-muted">

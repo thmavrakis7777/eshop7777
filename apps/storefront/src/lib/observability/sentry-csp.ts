@@ -2,14 +2,14 @@
  * Derives the one Content-Security-Policy source the Sentry browser SDK
  * needs — its ingest origin, for connect-src — from the public DSN.
  *
- * Shared by src/proxy.ts (which adds the origin to the policy) and
+ * Shared by next.config.ts (which adds the origin to the fixed CSP, see
+ * src/lib/content-security-policy.ts) and
  * lib/observability/sentry-client-options.ts (which only initialises the SDK
  * when this returns a value). One validation for both means the SDK is never
- * switched on for a DSN the policy would then silently block — the exact
- * "script ran, request CSP-blocked" failure proxy.ts's header comment
- * documents for GA4 and the Meta Pixel.
+ * switched on for a DSN the policy would then silently block — the same
+ * "script ran, request CSP-blocked" failure GA4 and the Meta Pixel once hit.
  *
- * Deliberately dependency-free: proxy.ts runs in the middleware runtime and
+ * Deliberately dependency-free: next.config.ts imports it at build time and
  * must not pull the Sentry SDK (or anything server-only) into it.
  */
 

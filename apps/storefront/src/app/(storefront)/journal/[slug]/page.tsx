@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import Link from "@/components/ui/Link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
@@ -34,6 +33,14 @@ async function load(slug: string) {
   const article = await getJournalArticleBySlug(slug);
   if (!article) notFound();
   return article;
+}
+
+// Cached like a product page (ISR, rendered on first visit); a journal save
+// refreshes it through JOURNAL_CACHE_TAG. See PAGE_CACHING_SPEC.md.
+export const revalidate = 3600;
+
+export async function generateStaticParams(): Promise<{ slug: string }[]> {
+  return [];
 }
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
@@ -83,7 +90,7 @@ export default async function JournalArticlePage({ params }: { params: Params })
   const { slug } = await params;
   const article = await load(slug);
 
-  const [related, products, branding, nonce] = await Promise.all([
+  const [related, products, branding] = await Promise.all([
     getRelatedJournalArticles(article.id, article.categoryId, 3),
     // Only queried when the owner actually attached products — an article
     // with none costs nothing extra.
@@ -91,7 +98,6 @@ export default async function JournalArticlePage({ params }: { params: Params })
       ? getProductsByHandles(article.relatedProductSlugs)
       : Promise.resolve([]),
     getBranding(),
-    headers().then((h) => h.get("x-nonce") ?? undefined),
   ]);
 
   const pageUrl = `${siteUrl}/journal/${article.slug}`;
@@ -136,7 +142,6 @@ export default async function JournalArticlePage({ params }: { params: Params })
     <>
       <script
         type="application/ld+json"
-        nonce={nonce}
         dangerouslySetInnerHTML={{ __html: safeJsonLd(articleJsonLd) }}
       />
 

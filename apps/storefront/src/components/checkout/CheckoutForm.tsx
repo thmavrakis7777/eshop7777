@@ -679,6 +679,11 @@ export function CheckoutForm({
     startSubmitTransition(async () => {
       const result = await completeCheckoutAction(selectedPaymentId, { saveAddress: showSaveAddress && saveAddress });
       if (result.ok) {
+        // The order consumed the cart (its cookie is gone). Saying so here
+        // empties the header badge and drawer at once; it used to arrive
+        // through a whole-layout revalidation, which would now throw away
+        // every cached page of the shop on each order (PAGE_CACHING_SPEC.md).
+        receiveCart(null);
         router.push(`/checkout/epibebaiosi?order=${result.orderId}`);
       } else {
         setSubmitError(result.error);

@@ -39,28 +39,20 @@ const CartUIContext = createContext<CartUIContextValue | null>(null);
 
 const TOAST_AUTO_DISMISS_MS = 4000;
 
-export function CartUIProvider({
-  initialCart,
-  children,
-}: {
-  // The layout's own getCart(). Also the channel for the rare server
-  // actions that still refresh the whole layout (login/logout cart merge,
-  // order placed): each of those re-renders the layout with a new snapshot.
-  initialCart: Cart | null;
-  children: React.ReactNode;
-}) {
+export function CartUIProvider({ children }: { children: React.ReactNode }) {
   // Cart actions used to end in revalidatePath("/", "layout"): every add,
   // +/− or removal re-rendered and re-sent the whole current page (221 KB
   // on a product page) just so the header badge would update, and wiped the
   // router cache so every visible link prefetched again (Speed audit
   // PERF-003/SPD-08). The actions already return the full Cart, so the
   // browser keeps it here instead and every surface reads this copy.
-  const [cart, setCart] = useState<Cart | null>(initialCart);
-  const [lastInitialCart, setLastInitialCart] = useState(initialCart);
-  if (lastInitialCart !== initialCart) {
-    setLastInitialCart(initialCart);
-    setCart((prev) => newerCart(prev, initialCart));
-  }
+  //
+  // It starts empty: the layout no longer reads the cart cookie (that made
+  // every page uncacheable, PAGE_CACHING_SPEC.md). SessionProvider, just
+  // inside this one, fetches the cart once the page has loaded and hands it
+  // in through receiveCart like every other snapshot. /kalathi and
+  // /checkout still render their own server snapshot as before.
+  const [cart, setCart] = useState<Cart | null>(null);
 
   const receiveCart = useCallback((incoming: Cart | null) => {
     setCart((prev) => newerCart(prev, incoming));

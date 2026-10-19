@@ -8,11 +8,13 @@ import { GoogleSignInButton, SignInDivider } from "@/components/account/GoogleSi
 import { loginAction } from "@/lib/actions/customer";
 import { mergeWishlistOnLoginAction } from "@/lib/actions/wishlist";
 import { getWishlistSnapshot } from "@/lib/wishlist-storage";
+import { useSession } from "@/components/session/SessionProvider";
 import { isValidEmail, isRequired, withRedirectTo } from "@/lib/checkout-validation";
 
 // `googleHref` is set only when Google sign-in is configured (googleSignInHref).
 export function LoginForm({ redirectTo, googleHref }: { redirectTo: string; googleHref?: string }) {
   const router = useRouter();
+  const { refreshSession } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | undefined>();
@@ -39,6 +41,9 @@ export function LoginForm({ redirectTo, googleHref }: { redirectTo: string; goog
       } catch {
         // Non-critical — the account's own wishlist still loads normally.
       }
+      // The new session (and the guest cart merged into the account) reaches
+      // the header and drawer through here, not through a layout re-render.
+      await refreshSession();
       router.push(redirectTo);
       router.refresh();
     });

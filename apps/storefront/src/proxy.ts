@@ -1,84 +1,24 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { sentryIngestOrigin } from "@/lib/observability/sentry-csp";
 
-// Real CSP with per-request nonces — the baseline headers in next.config.ts
-// (nosniff, X-Frame-Options, etc.) don't vary per request, but a nonce must
-// be fresh every time, which only proxy.ts (server-side, runs before every
-// request) can do. Every route here is already dynamically rendered
-// (cookies() in RootLayout for the cart), so this doesn't newly opt anything
-// out of static generation — only /robots.txt and /sitemap.xml stay static,
-// neither renders HTML or scripts, so they don't need a CSP nonce anyway.
+// Runs only for /admin and /logariasmos (see `config.matcher` below).
 //
-// script-src uses 'strict-dynamic': a nonce'd <script> (this app's own
-// bundles, plus the analytics init snippets in AnalyticsScripts.tsx) is
-// trusted to load further scripts itself, which is exactly how GA4/GTM/Meta
-// Pixel/Clarity's own snippets work (each creates and inserts its own
-// <script src="...">) — they don't need their own nonce as long as the
-// snippet that created them had one. connect-src/img-src still need each
-// provider's real domain explicitly: strict-dynamic only covers script
-// loading, not the XHR/beacon/pixel requests those scripts go on to make.
-// Every domain below is one actually referenced in AnalyticsScripts.tsx —
-// nothing speculative. All four providers are optional/admin-configured
-// (see analytics-settings), so these stay in the policy whether or not a
-// given store has any of them turned on.
-//
-// Two entries found only by actually granting consent and watching the
-// network tab, not by reading the snippets: GA4's real hit/collect traffic
-// goes to a regional subdomain (region1.google-analytics.com, etc, not just
-// www.google-analytics.com), and the Meta Pixel JS SDK posts to
-// www.facebook.com/tr — connect.facebook.net is only where its script
-// loads *from*. Both were silently CSP-blocked (script ran, network request
-// 403'd) until added; this is why "the script tag rendered" is not the same
-// as "verify with the network tab" for a CSP this strict.
-//
-// style-src is split deliberately. A nonce can only ever whitelist an
-// *element* (<style>/<link>), never a `style="..."` **attribute** — so the
-// Next.js docs' single `style-src 'self' 'nonce-…'` line silently blocks
-// every React `style={{…}}` prop in production while dev's 'unsafe-inline'
-// branch hides it. Verified live against a real production build
-// (`next build` + `next start`): ~64 blocked-inline-style CSP errors on the
-// homepage alone, with PlaceholderTile's computed backgroundImage reading
-// `none` — i.e. every product placeholder, the hero pattern/photo, and the
-// free-shipping progress bar rendered blank. `style-src-attr` would be the
-// surgical fix but is not universally supported (unsupported browsers fall
-// back to style-src and stay broken), so style-src carries 'unsafe-inline'
-// for attributes and style-src-elem keeps the strict nonce for actual
-// <style>/<link> elements wherever it is supported. Script execution — the
-// directive that actually stops XSS — is unchanged.
+// Until 2026-10-19 this ran before every page to build a per-request
+// Content-Security-Policy around a fresh nonce. That made every page render
+// per request, so nothing on the shop could be cached; the policy is now one
+// fixed header set in next.config.ts (src/lib/content-security-policy.ts,
+// PAGE_CACHING_SPEC.md B1). What is left here is what genuinely needs the
+// request: the admin cookie redirect, the admin noindex header, and the
+// x-pathname header the account layouts read. Keeping this off every other
+// route also means a page served from the CDN cache costs no middleware run.
+
 // Cookie name duplicated from lib/admin/auth.ts rather than imported: this
 // file runs in the middleware runtime, and importing that module would drag
 // the Postgres client (and `server-only`) into it. The value is asserted
 // against the real constant by a test in lib/admin/auth.ts's own module.
 const ADMIN_COOKIE = "stia_admin";
 
-// Product/category/hero photos live in Supabase Storage (lib/storage/urls.ts,
-// same env var next.config.ts already reads for next/image's remotePatterns)
-// — img-src needs that exact origin too, or every uploaded image loads fine
-// through next/image's allow-list but is then blocked by the browser's own
-// CSP enforcement. Conditional because a fresh checkout with no Storage
-// credentials yet must not add `undefined` to the header.
-const supabaseImageOrigin = (() => {
-  try {
-    return process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : null;
-  } catch {
-    return null;
-  }
-})();
-
-// Sentry's browser SDK (src/instrumentation-client.ts) posts error reports to
-// one ingest host, which connect-src must allow. Derived from the same public
-// DSN the SDK initialises with (lib/observability/sentry-csp.ts), so the
-// policy names exactly this project's ingest origin — never a *.sentry.io
-// wildcard — and gains nothing at all while NEXT_PUBLIC_SENTRY_DSN is unset.
-// That is Sentry's entire CSP footprint: the SDK ships inside the app's own
-// nonce'd bundles (no script-src change) and loads no remote scripts, workers
-// or frames.
-const sentryConnectOrigin = sentryIngestOrigin(process.env.NEXT_PUBLIC_SENTRY_DSN);
-
 export function proxy(request: NextRequest) {
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-  const isDev = process.env.NODE_ENV === "development";
   const { pathname } = request.nextUrl;
 
   // Keep unauthenticated traffic off /admin. This is a redirect convenience,
@@ -92,35 +32,15 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
-  const cspHeader = `
-    default-src 'self';
-    script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
-    style-src 'self' 'unsafe-inline';
-    style-src-elem 'self'${isDev ? " 'unsafe-inline'" : ` 'nonce-${nonce}'`};
-    img-src 'self' blob: data: https://www.google-analytics.com https://www.facebook.com${supabaseImageOrigin ? ` ${supabaseImageOrigin}` : ""};
-    connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://connect.facebook.net https://www.facebook.com https://www.clarity.ms https://c.clarity.ms${sentryConnectOrigin ? ` ${sentryConnectOrigin}` : ""};
-    font-src 'self';
-    object-src 'none';
-    base-uri 'self';
-    form-action 'self';
-    frame-ancestors 'none';
-    upgrade-insecure-requests;
-  `;
-  const contentSecurityPolicyHeaderValue = cspHeader.replace(/\s{2,}/g, " ").trim();
-
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
   // The current path (+ query), for Server Components that need it — a
-  // layout has no other way to know the URL it's rendering under. Same
-  // read-side convention as x-nonce above: `(await headers()).get(...)`.
-  // Used by the account area (QA-013) to preserve a deep link (e.g.
-  // /logariasmos/parangelies) through the login redirect instead of always
-  // bouncing to the generic account overview.
+  // layout has no other way to know the URL it's rendering under. Read as
+  // `(await headers()).get("x-pathname")`. Used by the account area
+  // (QA-013) to preserve a deep link (e.g. /logariasmos/parangelies) through
+  // the login redirect instead of always bouncing to the account overview.
   requestHeaders.set("x-pathname", pathname + request.nextUrl.search);
-  requestHeaders.set("Content-Security-Policy", contentSecurityPolicyHeaderValue);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
-  response.headers.set("Content-Security-Policy", contentSecurityPolicyHeaderValue);
   // Defence in depth against the admin ever being indexed: the layout already
   // sets robots metadata and robots.txt disallows the path, but a header
   // cannot be missed by a crawler that ignores either.
@@ -131,7 +51,9 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: "/((?!api|_next/static|_next/image|favicon.ico).*)",
+      // `:path*` also matches zero segments, so /admin and /logariasmos
+      // themselves are included.
+      source: "/(admin|logariasmos)/:path*",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

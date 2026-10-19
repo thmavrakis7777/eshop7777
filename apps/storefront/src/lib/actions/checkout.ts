@@ -206,6 +206,9 @@ export async function completeCheckoutAction(
   if (!cartId) return { ok: false, error: EXPIRED };
 
   const customerId = await getCustomerId();
+  // Read before completeOrder consumes the cart: the product pages this
+  // order sells from, so their cached copies can show the new stock below.
+  const soldProductHandles = [...new Set((await getCart())?.items.map((i) => i.productHandle) ?? [])];
   let order;
   try {
     order = await completeOrder(cartId, customerId, paymentMethodCode);
@@ -214,7 +217,13 @@ export async function completeCheckoutAction(
   }
 
   (await cookies()).delete(CART_ID_COOKIE);
-  revalidatePath("/", "layout");
+  // CheckoutForm empties the browser's cart itself (receiveCart(null)).
+  // Revalidating the whole layout here, as before, would now discard every
+  // cached page of the shop on each order (PAGE_CACHING_SPEC.md). Only the
+  // sold products' pages are refreshed, so a product that just sold out
+  // stops showing as available. Category grids catch up within the hour;
+  // checkout re-checks stock live either way, so nothing can be oversold.
+  for (const handle of soldProductHandles) revalidatePath(`/proionta/${handle}`);
 
   if (options.saveAddress && customerId) {
     try {

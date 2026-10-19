@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import Link from "@/components/ui/Link";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
 import { renderBody } from "@/components/content/ContentPageView";
@@ -90,10 +89,7 @@ export async function CategoryLandingView({
    */
   ancestors: Category[];
 }) {
-  const [settings, nonce] = await Promise.all([
-    getSiteSettings(),
-    headers().then((h) => h.get("x-nonce") ?? undefined),
-  ]);
+  const settings = await getSiteSettings();
 
   const storeName = settings?.storeName || "MAVRAKIS HOME";
   const phone = settings?.contactPhone ?? null;
@@ -112,7 +108,6 @@ export async function CategoryLandingView({
     <>
       <script
         type="application/ld+json"
-        nonce={nonce}
         dangerouslySetInnerHTML={{
           __html: safeJsonLd(
             buildLocalBusinessJsonLd({ pageUrl, pageTitle: category.name, storeName, phone, address })
@@ -122,7 +117,6 @@ export async function CategoryLandingView({
       {faq.length > 0 && (
         <script
           type="application/ld+json"
-          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: safeJsonLd(buildFaqPageJsonLd(faq)) }}
         />
       )}

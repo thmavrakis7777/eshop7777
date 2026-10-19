@@ -23,9 +23,11 @@ import "./globals.css";
  *     stays on-brand; only the typeface falls back.
  *   - A plain <a>, not next/link. If the root layout failed, the router is
  *     not something to lean on — a real navigation always works.
- *   - No <style> attribute or tag anywhere. Production runs a strict nonce'd
- *     CSP (src/proxy.ts) and this page has no nonce to offer, so every style
- *     here comes from the external stylesheet.
+ *   - No <style> attribute or tag anywhere. Every style comes from the
+ *     external stylesheet. (Written when the CSP was nonce-based and inline
+ *     styles here would have been blocked; the fixed policy since 2026-10-19
+ *     would allow them, but the external stylesheet is still the simplest
+ *     thing that can't fail.)
  *
  * In development Next shows its own error overlay instead of this; it is
  * production-only by design, which is also why it must stay this simple.

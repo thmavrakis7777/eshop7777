@@ -12,8 +12,8 @@ export default async function AccountDashboardLayout({ children }: { children: R
   const customer = await getCustomer();
   if (!customer) {
     // A layout has no searchParams/pathname prop — x-pathname is proxy.ts's
-    // middleware-injected current path (same read-side convention as
-    // x-nonce). Without this, every deep link under this group (e.g.
+    // middleware-injected current path (proxy.ts runs for this area for
+    // exactly this reason). Without this, every deep link under this group (e.g.
     // /logariasmos/parangelies) redirected to login and then landed back on
     // the generic /logariasmos overview instead of the page actually
     // requested. Always same-origin (derived from the request's own URL,

@@ -2,18 +2,21 @@ import type { Metadata } from "next";
 import { CategoryRoute } from "@/components/category/CategoryRoute";
 import { categoryMetadata } from "@/lib/category-route";
 
-type Props = {
-  params: Promise<{ category: string; subcategory: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
+// Cached like the top-level category page; see [category]/(index)/page.tsx.
+export const revalidate = 3600;
 
-export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
-  const { category, subcategory } = await params;
-  const sp = await searchParams;
-  return categoryMetadata([category, subcategory], sp.page as string | undefined, sp);
+export async function generateStaticParams(): Promise<{ category: string; subcategory: string }[]> {
+  return [];
 }
 
-export default async function SubcategoryPage({ params, searchParams }: Props) {
+type Props = { params: Promise<{ category: string; subcategory: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category, subcategory } = await params;
-  return <CategoryRoute segments={[category, subcategory]} searchParams={searchParams} />;
+  return categoryMetadata([category, subcategory], undefined, {});
+}
+
+export default async function SubcategoryPage({ params }: Props) {
+  const { category, subcategory } = await params;
+  return <CategoryRoute segments={[category, subcategory]} />;
 }

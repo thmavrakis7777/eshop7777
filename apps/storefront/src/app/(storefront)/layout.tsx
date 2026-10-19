@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { PromoBannerBar } from "@/components/layout/PromoBannerBar";
 import { TopBars } from "@/components/layout/TopBars";
@@ -18,12 +17,11 @@ import { safeJsonLd } from "@/lib/json-ld";
 import { getBranding } from "@/lib/data/branding";
 import type { SiteSettings } from "@/lib/data/site-settings";
 import { getNavCategories, toMenuCategories } from "@/lib/data/categories";
-import { getCart } from "@/lib/data/cart";
+import { SessionProvider } from "@/components/session/SessionProvider";
 import { getPromoBanner } from "@/lib/data/promo-banner";
 import { getSiteSettings } from "@/lib/data/site-settings";
 import { getAnalyticsSettings } from "@/lib/data/analytics-settings";
 import { getPublishedLegalPages } from "@/lib/data/content-pages";
-import { getCustomerId } from "@/lib/data/customer";
 import { getNationwideFreeShippingThresholdCents } from "@/lib/data/checkout";
 import { resolveStockInquiryContact } from "@/lib/whatsapp";
 import { parseOpeningHours } from "@/lib/opening-hours";
@@ -166,21 +164,33 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+/**
+ * The upper limit on how long any cached storefront page lives: a route
+ * segment's `revalidate` applies to everything below it, and Next uses the
+ * shortest one in play. Pages that read cookies or the query string
+ * (/kalathi, /checkout, /logariasmos, /anazitisi, the paged listings) still
+ * render per request, as before. Dashboard saves refresh cached pages at
+ * once; this is the safety net for anything a save doesn't reach.
+ * PAGE_CACHING_SPEC.md.
+ */
+export const revalidate = 3600;
+
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
+  // No cookie reads here, on purpose: the cart and the sign-in state load
+  // in the browser (SessionProvider → /api/session). A cookie read in this
+  // layout renders every page of the shop per request, which is what kept
+  // the whole storefront uncacheable (PAGE_CACHING_SPEC.md, B2).
   const [
-    categories, cart, settings, configuredNav, branding, promoBanner, analyticsSettings,
-    legalPages, nonce, customerId, nationwideFreeShippingThresholdCents,
+    categories, settings, configuredNav, branding, promoBanner, analyticsSettings,
+    legalPages, nationwideFreeShippingThresholdCents,
   ] = await Promise.all([
       getNavCategories(),
-      getCart(),
       getSiteSettings(),
       getNavItems(),
       getBranding(),
       getPromoBanner(),
       getAnalyticsSettings(),
       getPublishedLegalPages(),
-      headers().then((h) => h.get("x-nonce") ?? undefined),
-      getCustomerId(),
       getNationwideFreeShippingThresholdCents(),
     ]);
 
@@ -205,7 +215,6 @@ export default async function StorefrontLayout({ children }: { children: React.R
     <>
       <script
         type="application/ld+json"
-        nonce={nonce}
         dangerouslySetInnerHTML={{
           __html: safeJsonLd(
             buildLocalBusinessJsonLd(branding.storeName, branding.logoUrl, settings)
@@ -214,7 +223,6 @@ export default async function StorefrontLayout({ children }: { children: React.R
       />
       <script
         type="application/ld+json"
-        nonce={nonce}
         dangerouslySetInnerHTML={{ __html: safeJsonLd(buildWebsiteJsonLd(branding.storeName)) }}
       />
       <a
@@ -223,44 +231,46 @@ export default async function StorefrontLayout({ children }: { children: React.R
       >
         Μετάβαση στο περιεχόμενο
       </a>
-      <WishlistProvider isLoggedIn={customerId !== null}>
-        <CartUIProvider initialCart={cart}>
-          <TopBars>
-            <AnnouncementBar
-              text={settings?.announcementText ?? null}
-              phoneOrders={resolvePhoneOrders(settings)}
+      <CartUIProvider>
+        <SessionProvider>
+          <WishlistProvider>
+            <TopBars>
+              <AnnouncementBar
+                text={settings?.announcementText ?? null}
+                phoneOrders={resolvePhoneOrders(settings)}
+              />
+              {promoBanner && <PromoBannerBar banner={promoBanner} />}
+            </TopBars>
+            <Header
+              // Header is a client component: its props ship in every page's
+              // RSC payload, so it gets only the fields the menus read, not
+              // the full tree Footer (a server component) can take as-is.
+              categories={toMenuCategories(categories)}
+              navItems={navItems}
+              storeName={branding.storeName}
+              logoUrl={branding.logoUrl}
             />
-            {promoBanner && <PromoBannerBar banner={promoBanner} />}
-          </TopBars>
-          <Header
-            // Header is a client component: its props ship in every page's
-            // RSC payload, so it gets only the fields the menus read, not
-            // the full tree Footer (a server component) can take as-is.
-            categories={toMenuCategories(categories)}
-            navItems={navItems}
-            storeName={branding.storeName}
-            logoUrl={branding.logoUrl}
-          />
-          <main id="main-content" className="flex-1">
-            {children}
-          </main>
-          <Footer
-            categories={categories}
-            settings={settings}
-            storeName={branding.storeName}
-            logoUrl={branding.logoUrl}
-            legalPages={legalPages}
-          />
-          <CartDrawer
-            cartMessage={settings?.cartMessage ?? null}
-            freeShippingThresholdCents={nationwideFreeShippingThresholdCents}
-            stockInquiry={resolveStockInquiryContact(settings)}
-          />
-          <AddToCartToast />
-        </CartUIProvider>
-      </WishlistProvider>
+            <main id="main-content" className="flex-1">
+              {children}
+            </main>
+            <Footer
+              categories={categories}
+              settings={settings}
+              storeName={branding.storeName}
+              logoUrl={branding.logoUrl}
+              legalPages={legalPages}
+            />
+            <CartDrawer
+              cartMessage={settings?.cartMessage ?? null}
+              freeShippingThresholdCents={nationwideFreeShippingThresholdCents}
+              stockInquiry={resolveStockInquiryContact(settings)}
+            />
+            <AddToCartToast />
+          </WishlistProvider>
+        </SessionProvider>
+      </CartUIProvider>
       <ConsentBanner settings={analyticsSettings} />
-      <AnalyticsScripts settings={analyticsSettings} nonce={nonce} />
+      <AnalyticsScripts settings={analyticsSettings} />
     </>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { currentQuery } from "@/lib/current-query";
 import { CategoryFilterFields, filtersToDraft, hasAnyFacet, type FilterDraft } from "@/components/category/CategoryFilterFields";
 import { countActiveFilters } from "@/lib/search-params";
 import type { CategoryFacets, CategoryFilters } from "@/lib/data/products";
@@ -26,7 +27,6 @@ function draftToParams(base: URLSearchParams, draft: FilterDraft): URLSearchPara
 export function CategoryFilterSidebar({ facets, filters }: { facets: CategoryFacets; filters: CategoryFilters }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   if (!hasAnyFacet(facets)) return null;
 
@@ -34,12 +34,12 @@ export function CategoryFilterSidebar({ facets, filters }: { facets: CategoryFac
   const activeCount = countActiveFilters(filters);
 
   function handleChange(next: FilterDraft) {
-    const params = draftToParams(searchParams, next);
+    const params = draftToParams(currentQuery(), next);
     router.push(`${pathname}?${params.toString()}`);
   }
 
   function clearAll() {
-    const params = new URLSearchParams(searchParams);
+    const params = currentQuery();
     for (const k of FILTER_KEYS) params.delete(k);
     params.delete("page");
     const qs = params.toString();

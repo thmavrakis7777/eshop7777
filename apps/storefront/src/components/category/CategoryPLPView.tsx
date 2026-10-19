@@ -1,5 +1,4 @@
 import Link from "@/components/ui/Link";
-import { headers } from "next/headers";
 import { Breadcrumbs, type Crumb } from "@/components/category/Breadcrumbs";
 import { CategoryChildNav, type ChildCategoryLink } from "@/components/category/CategoryChildNav";
 import { CategorySeeAlso } from "@/components/category/CategorySeeAlso";
@@ -108,7 +107,6 @@ export async function CategoryPLPView({
    */
   collectionUrl?: string;
 }) {
-  const nonce = collectionUrl ? ((await headers()).get("x-nonce") ?? undefined) : undefined;
   // The visible text that describes this listing: the short subtitle where a
   // listing type has one, otherwise the category copy shown under the grid
   // (category pages have only that). Structured data must describe what is
@@ -137,7 +135,7 @@ export async function CategoryPLPView({
   return (
     <>
       {collectionJsonLd && (
-        <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: safeJsonLd(collectionJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(collectionJsonLd) }} />
       )}
       <Breadcrumbs items={breadcrumbs} />
 

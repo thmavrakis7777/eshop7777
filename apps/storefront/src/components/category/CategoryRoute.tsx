@@ -26,7 +26,14 @@ export async function CategoryRoute({
   searchParams,
 }: {
   segments: string[];
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  /**
+   * Only the uncached /filtra copy of the route passes this. The category
+   * pages themselves don't read the query string (that would make them
+   * render per request); a URL with a sort, page or filter is rewritten to
+   * /filtra instead (lib/category-rewrites.ts). Absent = page 1, newest
+   * first, no filters.
+   */
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const path = await getCategoryPath(segments);
   // Covers a slug that doesn't exist, one that's inactive, and one that
@@ -39,7 +46,7 @@ export async function CategoryRoute({
     return <CategoryLandingView category={category} ancestors={ancestors} />;
   }
 
-  const sp = await searchParams;
+  const sp = searchParams ? await searchParams : {};
   const sort = parseSort(sp.sort);
   const page = parsePage(sp.page);
   const facets = await getCategoryFilterFacets(category.handle);

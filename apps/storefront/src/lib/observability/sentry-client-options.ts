@@ -46,7 +46,8 @@ export function getSentryClientOptions({
   // could otherwise become an email.
   if (nodeEnv !== "production") return null;
 
-  // The same check src/proxy.ts uses to add the ingest origin to connect-src.
+  // The same check next.config.ts uses to add the ingest origin to
+  // connect-src (src/lib/content-security-policy.ts).
   // If the policy would not allow this DSN's host, the SDK stays off instead
   // of running and having every report silently CSP-blocked.
   if (!sentryIngestOrigin(dsn)) return null;

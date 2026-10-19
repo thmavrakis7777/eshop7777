@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { headers } from "next/headers";
 import { Breadcrumbs } from "@/components/category/Breadcrumbs";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
 import { RecentlyViewed } from "@/components/product/RecentlyViewed";
@@ -50,6 +49,20 @@ async function RelatedProducts({ product }: { product: Product }) {
 }
 
 type Props = { params: Promise<{ handle: string }> };
+
+/**
+ * Cached for everyone (ISR), rendered on a product's first visit and reused
+ * after (PAGE_CACHING_SPEC.md). Nothing per-visitor is rendered here: the
+ * cart, wishlist and recently-viewed all fill in on the client. A product
+ * save in the dashboard refreshes this page at once, and a placed order
+ * refreshes the pages of the products it sold (completeCheckoutAction), so
+ * stock shown here follows real sales. The hour is only the safety net.
+ */
+export const revalidate = 3600;
+
+export async function generateStaticParams(): Promise<{ handle: string }[]> {
+  return [];
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { handle } = await params;
@@ -118,12 +131,11 @@ export default async function ProductPage({ params }: Props) {
   // The «Συνήθως αγοράζεται μαζί» companions are not: they sit right under
   // the add-to-cart button, so streaming them in later would push the
   // details below down — fetched here, in parallel, instead.
-  const [categoryTrail, seo, extra, siteSettings, nonce, gallery, companionResults] = await Promise.all([
+  const [categoryTrail, seo, extra, siteSettings, gallery, companionResults] = await Promise.all([
     product.categoryHandle ? getCategoryTrail(product.categoryHandle) : undefined,
     getSeoOverride("product", product.id),
     getProductExtra(product.id),
     getSiteSettings(),
-    headers().then((h) => h.get("x-nonce") ?? undefined),
     getProductGallery(product.id),
     Promise.all(companionCodesFor(product.categoryHandle).map(getProductByCode)),
   ]);
@@ -220,7 +232,7 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <>
-      <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />
       <RecentlyViewedTracker handle={product.handle} />
       <ViewContentTracker id={product.id} title={product.title} priceAmount={product.price.amount} />
       <Breadcrumbs items={breadcrumbItems} />

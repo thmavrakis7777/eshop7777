@@ -15,11 +15,12 @@ import { WithAvif } from "@/components/ui/AvifSource";
  * A deliberate NON-decision to add a rich-text editor. Three reasons, in
  * order of weight:
  *
- *   1. Production runs a strict nonce'd CSP with no 'unsafe-inline' on
- *      script-src and no external script origins (src/proxy.ts). Every
- *      mainstream WYSIWYG either injects inline styles/scripts or loads from
- *      a CDN, so adopting one means loosening the policy that is currently
- *      this app's main XSS control.
+ *   1. Since 2026-10-19 the CSP allows inline scripts (a fixed policy so
+ *      pages can be cached; src/lib/content-security-policy.ts), so it no
+ *      longer stops injected HTML from running. Never producing HTML at all
+ *      is now this content's main XSS control, which makes reasons 2 and 3
+ *      weigh more than they did, not less. (Before that date this point read:
+ *      a strict nonce'd CSP would have to be loosened for any WYSIWYG.)
  *   2. A WYSIWYG produces HTML, which then has to be rendered with
  *      dangerouslySetInnerHTML and therefore sanitised — a second dependency
  *      and a permanent class of bug.

@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import { currentQuery } from "@/lib/current-query";
 import type { ProductSort } from "@/lib/data/products";
 
 const OPTIONS: Array<{ value: ProductSort; label: string }> = [
@@ -16,10 +17,9 @@ const OPTIONS: Array<{ value: ProductSort; label: string }> = [
 export function SortControl({ current, defaultLabel }: { current: ProductSort; defaultLabel?: string }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   function handleChange(value: string) {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = currentQuery();
     params.set("sort", value);
     params.delete("page");
     router.push(`${pathname}?${params.toString()}`);
