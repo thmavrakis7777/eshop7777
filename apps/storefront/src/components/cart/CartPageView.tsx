@@ -11,6 +11,7 @@ import { CartLineItemTableRow } from "@/components/cart/CartLineItemTableRow";
 import { CartTableHeader } from "@/components/cart/CartTableHeader";
 import { CouponForm } from "@/components/cart/CouponForm";
 import { FreeShippingProgress } from "@/components/cart/FreeShippingProgress";
+import { NoCourierNote } from "@/components/cart/NoCourierNote";
 import { CartTotals } from "@/components/cart/CartTotals";
 import { EmptyCartState } from "@/components/cart/EmptyCartState";
 import { isLineItemOverstocked } from "@/lib/stock";
@@ -107,6 +108,7 @@ export function CartPageView({
           // courier threshold means nothing to a cart holding one.
           thresholdCents={cart.items.some((i) => i.noCourier) ? null : freeShippingThresholdCents}
         />
+        <NoCourierNote items={cart.items} />
 
         <CouponForm
           promotions={cart.promotions}

@@ -10,6 +10,7 @@ import { getCartAction } from "@/lib/actions/cart";
 import { CartDrawerLineItem } from "@/components/cart/CartDrawerLineItem";
 import { CouponForm } from "@/components/cart/CouponForm";
 import { FreeShippingProgress } from "@/components/cart/FreeShippingProgress";
+import { NoCourierNote } from "@/components/cart/NoCourierNote";
 import { CartTotals } from "@/components/cart/CartTotals";
 import { EmptyCartState } from "@/components/cart/EmptyCartState";
 import { CloseIcon } from "@/components/ui/Icons";
@@ -234,6 +235,7 @@ function CartDrawerInner({
               // courier threshold means nothing to a cart holding one.
               thresholdCents={cart.items.some((i) => i.noCourier) ? null : freeShippingThresholdCents}
             />
+            <NoCourierNote items={cart.items} />
 
             <CouponForm
               promotions={cart.promotions}
