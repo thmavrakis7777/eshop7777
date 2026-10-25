@@ -25,7 +25,7 @@ import { getPublishedLegalPages } from "@/lib/data/content-pages";
 import { getNationwideFreeShippingThresholdCents } from "@/lib/data/checkout";
 import { resolveStockInquiryContact } from "@/lib/whatsapp";
 import { parseOpeningHours } from "@/lib/opening-hours";
-import { storeLocationJsonLd } from "@/lib/maps";
+import { storeLocationJsonLd, storeProfileSameAs } from "@/lib/maps";
 
 /**
  * Everything the shop wears: announcement bar, promo banner, header, footer,
@@ -80,9 +80,16 @@ function buildLocalBusinessJsonLd(
   logoUrl: string | null,
   settings: SiteSettings | null
 ) {
-  const sameAs = [settings?.facebookUrl, settings?.instagramUrl, settings?.tiktokUrl].filter(
-    (url): url is string => Boolean(url)
-  );
+  // Social profiles from Settings first, then the Google Business Profile
+  // (lib/maps.ts) — the one profile that exists whether or not the social
+  // fields are filled in, and the strongest link between this site and the
+  // Heraklion shop in Google's own data.
+  const sameAs = [
+    ...[settings?.facebookUrl, settings?.instagramUrl, settings?.tiktokUrl].filter(
+      (url): url is string => Boolean(url)
+    ),
+    ...storeProfileSameAs(settings?.contactAddress),
+  ];
   const openingHours = parseOpeningHours(settings?.businessHours);
   return {
     "@context": "https://schema.org",

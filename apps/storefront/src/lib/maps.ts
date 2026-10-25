@@ -13,6 +13,13 @@ const STORE_MAPS_URL = "https://maps.app.goo.gl/hsopHgUrjjKZexby6";
 // together, along with the listing.
 const STORE_GEO = { latitude: 35.3378602, longitude: 25.1302297 };
 
+// The same listing's permanent address (its CID, read from the place page the
+// short link above opens, 2026-10-25). The short link is fine for people to
+// click, but for `sameAs` — "this website is the same business as that
+// profile" — search engines are better served by Google's own stable URL than
+// by a redirect. Confirmed to open the MAVRAKIS HOME profile, Σφακιανάκη 4.
+const STORE_PROFILE_URL = "https://www.google.com/maps?cid=1185734525195222833";
+
 /**
  * Google Maps link for the store's address (Settings → contactAddress),
  * shared by the footer and the Contact page so both always point at the same
@@ -21,6 +28,16 @@ const STORE_GEO = { latitude: 35.3378602, longitude: 25.1302297 };
  */
 export function storeMapsUrl(address: string | null | undefined): string | null {
   return address?.trim() ? STORE_MAPS_URL : null;
+}
+
+/**
+ * The Google Business Profile as a `sameAs` entry for the Store JSON-LD,
+ * alongside whatever social profiles are set in Settings. Empty when no
+ * address is set, the same rule as storeMapsUrl and storeLocationJsonLd: no
+ * address on the site, no claim about a physical listing.
+ */
+export function storeProfileSameAs(address: string | null | undefined): string[] {
+  return address?.trim() ? [STORE_PROFILE_URL] : [];
 }
 
 /**

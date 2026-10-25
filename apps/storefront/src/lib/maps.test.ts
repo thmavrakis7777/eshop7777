@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { storeLocationJsonLd, storeMapsUrl } from "./maps";
+import { storeLocationJsonLd, storeMapsUrl, storeProfileSameAs } from "./maps";
 
 describe("storeLocationJsonLd", () => {
   it("splits a readable address and adds the listing's pin and link", () => {
@@ -27,5 +27,18 @@ describe("storeLocationJsonLd", () => {
   it("drops address, pin and link together when no address is set", () => {
     expect(storeLocationJsonLd(null)).toEqual({});
     expect(storeLocationJsonLd("   ")).toEqual({});
+  });
+});
+
+describe("storeProfileSameAs", () => {
+  it("points at the Google Business Profile by its permanent CID URL", () => {
+    expect(storeProfileSameAs("ΣΦΑΚΙΑΝΑΚΗ 4, 71201, Ηράκλειο Κρήτης")).toEqual([
+      "https://www.google.com/maps?cid=1185734525195222833",
+    ]);
+  });
+
+  it("is empty when no address is set", () => {
+    expect(storeProfileSameAs(null)).toEqual([]);
+    expect(storeProfileSameAs("  ")).toEqual([]);
   });
 });
