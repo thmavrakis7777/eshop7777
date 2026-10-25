@@ -15,7 +15,7 @@ describe("filterDraftUrl", () => {
       priceMax: "30",
     });
     expect(decoded(url)).toBe(
-      "/ygraerio?sale=1&price_max=30&in_stock=1&material=Ανοξείδωτο&material=Πλαστικό&cat=kamineta-ygraeriou&cat=antallaktika-ygraeriou"
+      "/filtra/ygraerio?sale=1&price_max=30&in_stock=1&material=Ανοξείδωτο&material=Πλαστικό&cat=kamineta-ygraeriou&cat=antallaktika-ygraeriou"
     );
   });
 
@@ -34,7 +34,7 @@ describe("filterDraftUrl", () => {
         categories: ["kamineta-ygraeriou"],
         material: ["Πλαστικό"],
       }, siblings);
-      expect(decoded(url)).toBe("/ygraerio/kamineta-ygraeriou?sale=1&material=Πλαστικό");
+      expect(decoded(url)).toBe("/filtra/ygraerio/kamineta-ygraeriou?sale=1&material=Πλαστικό");
     });
 
     it("moves to the parent with both ticked when a sibling is added", () => {
@@ -42,7 +42,7 @@ describe("filterDraftUrl", () => {
         ...EMPTY_DRAFT,
         categories: ["kamineta-ygraeriou", "antallaktika-ygraeriou"],
       }, siblings);
-      expect(url).toBe("/ygraerio?cat=kamineta-ygraeriou&cat=antallaktika-ygraeriou");
+      expect(url).toBe("/filtra/ygraerio?cat=kamineta-ygraeriou&cat=antallaktika-ygraeriou");
     });
 
     it("goes to the whole parent when everything is unticked", () => {
@@ -55,7 +55,7 @@ describe("clearedFilterUrl", () => {
   it("drops the form's filters and the page, keeps the offers and the sort", () => {
     expect(
       clearedFilterUrl("/ygraerio", new URLSearchParams("sale=1&sort=price-asc&material=Εμαγιέ&cat=x&page=2"))
-    ).toBe("/ygraerio?sale=1&sort=price-asc");
+    ).toBe("/filtra/ygraerio?sale=1&sort=price-asc");
   });
 });
 
@@ -90,8 +90,8 @@ describe("category chips", () => {
       { "kamineta-ygraeriou": "Καμινέτα", "antallaktika-ygraeriou": "Ανταλλακτικά" }
     );
     expect(chips).toEqual([
-      { label: "Καμινέτα", href: "/ygraerio?cat=antallaktika-ygraeriou" },
-      { label: "Ανταλλακτικά", href: "/ygraerio?cat=kamineta-ygraeriou" },
+      { label: "Καμινέτα", href: "/filtra/ygraerio?cat=antallaktika-ygraeriou" },
+      { label: "Ανταλλακτικά", href: "/filtra/ygraerio?cat=kamineta-ygraeriou" },
     ]);
   });
 });

@@ -1,5 +1,6 @@
 import type { CategoryFacets, CategoryFilters, ProductSort } from "@/lib/data/products";
 import { filtersToSearchEntries } from "@/lib/search-params";
+import { categoryListingUrl } from "@/lib/filtered-url";
 
 export type ActiveFilterChip = {
   /** What the shopper sees, e.g. «Υλικό: Εμαγιέ». */
@@ -68,7 +69,7 @@ export function activeFilterChips(
 
 /** A child category's link that keeps the «Προσφορές» filter, if it is on. */
 export function keepSaleFilter(href: string, filters: CategoryFilters): string {
-  return filters.saleOnly ? `${href}?sale=1` : href;
+  return filters.saleOnly ? categoryListingUrl(href, "sale=1") : href;
 }
 
 /**
@@ -83,8 +84,7 @@ export function listingHref(basePath: string, sort: ProductSort, filters: Catego
   // "newest" is what parseSort returns when no sort is set, so it is never
   // written back — that keeps an unfiltered result on the cached plain URL.
   if (sort !== "newest") params.set("sort", sort);
-  const qs = params.toString();
-  return qs ? `${basePath}?${qs}` : basePath;
+  return categoryListingUrl(basePath, params);
 }
 
 function euros(cents: number): string {

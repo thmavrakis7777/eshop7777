@@ -184,7 +184,11 @@ export async function CategoryPLPView({
             {sortable && (
               // Category pages default to the owner's manual order (then newest
               // first), so "Νεότερα πρώτα" would mislabel it there.
-              <SortControl current={sort} defaultLabel={source.type === "category" ? "Προεπιλογή" : undefined} />
+              <SortControl
+                current={sort}
+                defaultLabel={source.type === "category" ? "Προεπιλογή" : undefined}
+                categoryListing={source.type === "category"}
+              />
             )}
           </div>
         </div>

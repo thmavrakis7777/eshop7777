@@ -4,9 +4,11 @@ import { categoryMetadata } from "@/lib/category-route";
 
 /**
  * The uncached copy of a category page, for URLs with a sort, page or
- * filter. Nobody links here: next.config.ts rewrites /kouzina?sort=… to
- * /filtra/kouzina?sort=… internally, so the address bar keeps the real URL
- * (lib/category-rewrites.ts, PAGE_CACHING_SPEC.md B3). Reading searchParams
+ * filter. The shop's own filter, sort and offers links navigate here
+ * directly (/filtra/kouzina?sort=…, lib/filtered-url.ts — the client router
+ * would otherwise reuse the cached /kouzina); /kouzina?sort=… arriving as a
+ * real request is rewritten here by next.config.ts (lib/category-rewrites.ts,
+ * PAGE_CACHING_SPEC.md B3). Reading searchParams
  * makes these render per request, which is the point: the plain category
  * pages can then be cached.
  *

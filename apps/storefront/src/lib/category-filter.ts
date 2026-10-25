@@ -1,3 +1,5 @@
+import { categoryListingUrl, categoryPathOf } from "@/lib/filtered-url";
+
 /**
  * The category filter form's state and the URL it commits to — pure, shared
  * by the desktop sidebar (commits every change) and the mobile sheet
@@ -69,7 +71,7 @@ export function filterDraftUrl(
   for (const m of draft.material) params.append("material", m);
   for (const o of draft.origin) params.append("origin", o);
 
-  let path = pathname;
+  let path = categoryPathOf(pathname);
   if (categoryFilter?.mode === "siblings" && categoryFilter.parentPath) {
     const onlyThisPage = draft.categories.length === 1 && draft.categories[0] === categoryFilter.currentSlug;
     if (!onlyThisPage) {
@@ -80,8 +82,7 @@ export function filterDraftUrl(
     for (const c of draft.categories) params.append("cat", c);
   }
 
-  const qs = params.toString();
-  return qs ? `${path}?${qs}` : path;
+  return categoryListingUrl(path, params);
 }
 
 /**
@@ -92,6 +93,5 @@ export function clearedFilterUrl(pathname: string, current: URLSearchParams): st
   const params = new URLSearchParams(current);
   for (const k of FORM_KEYS) params.delete(k);
   params.delete("page");
-  const qs = params.toString();
-  return qs ? `${pathname}?${qs}` : pathname;
+  return categoryListingUrl(categoryPathOf(pathname), params);
 }

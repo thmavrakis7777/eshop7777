@@ -6,8 +6,11 @@
  * the URL has no query string at all. So the category pages themselves no
  * longer read it and are cached (ISR), and only the URLs that actually carry
  * a sort, page or filter — a small share of visits — are rendered per
- * request, by app/(storefront)/filtra/**. The rewrite is internal: the
- * address bar, canonical URL and links never show /filtra.
+ * request, by app/(storefront)/filtra/**. The rewrite covers real requests
+ * (typed, shared, crawled URLs). The shop's own filter links go to /filtra/…
+ * directly instead, because a client-side navigation that only changes the
+ * query string of a cached page never reaches this rewrite
+ * (lib/filtered-url.ts). Canonical URLs never show /filtra.
  *
  * `afterFiles`: checked after real files and static routes but before
  * dynamic routes, so /kouzina?sort=… is caught before [category] would

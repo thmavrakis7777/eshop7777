@@ -27,12 +27,12 @@ describe("activeFilterChips", () => {
     );
     expect(chips.map((c) => c.label)).toEqual(["Προσφορές", "Υλικό: Εμαγιέ", "Υλικό: Μεταλλικό", "Προέλευση: Ελλάδα"]);
     const emayie = new URL(chips[1].href, "https://x");
-    expect(emayie.pathname).toBe("/ygraerio");
+    expect(emayie.pathname).toBe("/filtra/ygraerio");
     expect(emayie.searchParams.getAll("material")).toEqual(["Μεταλλικό"]);
     expect(emayie.searchParams.get("sale")).toBe("1");
     expect(emayie.searchParams.get("origin")).toBe("GR");
     expect(emayie.searchParams.get("sort")).toBe("price-asc");
-    expect(clearHref).toBe("/ygraerio?sort=price-asc");
+    expect(clearHref).toBe("/filtra/ygraerio?sort=price-asc");
   });
 
   it("labels a price range, a lower bound and an upper bound", () => {
@@ -54,7 +54,7 @@ describe("listingHref", () => {
       listingHref("/ygraerio/kamineta-ygraeriou", "price-asc", { saleOnly: true, material: ["Μεταλλικό"] }),
       "https://x"
     );
-    expect(url.pathname).toBe("/ygraerio/kamineta-ygraeriou");
+    expect(url.pathname).toBe("/filtra/ygraerio/kamineta-ygraeriou");
     expect(url.searchParams.get("sale")).toBe("1");
     expect(url.searchParams.getAll("material")).toEqual(["Μεταλλικό"]);
     expect(url.searchParams.get("sort")).toBe("price-asc");
@@ -67,7 +67,7 @@ describe("listingHref", () => {
 
 describe("keepSaleFilter", () => {
   it("carries ?sale=1 into a child category only in offers mode", () => {
-    expect(keepSaleFilter("/ygraerio/kamineta-ygraeriou", { saleOnly: true })).toBe("/ygraerio/kamineta-ygraeriou?sale=1");
+    expect(keepSaleFilter("/ygraerio/kamineta-ygraeriou", { saleOnly: true })).toBe("/filtra/ygraerio/kamineta-ygraeriou?sale=1");
     expect(keepSaleFilter("/ygraerio/kamineta-ygraeriou", { material: ["Εμαγιέ"] })).toBe("/ygraerio/kamineta-ygraeriou");
   });
 });

@@ -3,6 +3,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { sql } from "@/lib/db/client";
 import { isEmptyListing } from "@/lib/category-visibility";
+import { categoryListingUrl } from "@/lib/filtered-url";
 import type { Category, CategoryNode, FaqItem, MenuCategory, MenuNavCategory, NavCategory } from "@/lib/types";
 
 // Invalidated by category/collection admin saves (taxonomy-actions.ts).
@@ -247,7 +248,10 @@ export const getNavCategories = cache(async (): Promise<NavCategory[]> => {
         title: p.title,
         description: p.description,
         buttonText: p.button_text || "Δες τα προϊόντα",
-        href: p.destination_type === "sale" ? `${categoryPathHref([], root)}?sale=1` : categoryPathHref([], root),
+        href:
+          p.destination_type === "sale"
+            ? categoryListingUrl(categoryPathHref([], root), "sale=1")
+            : categoryPathHref([], root),
       },
     };
   });
