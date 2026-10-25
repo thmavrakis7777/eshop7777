@@ -2,7 +2,7 @@ import Link from "@/components/ui/Link";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import {
-  GALLERY_PRODUCT_COUNT,
+  BOTH_GALLERY_PRODUCT_COUNT,
   SHOWCASE_PRODUCT_COUNT,
   SPREAD_PRODUCT_COUNT,
   type HomepageSection,
@@ -31,7 +31,8 @@ import { ShowcaseAddButton } from "@/components/home/ShowcaseAddButton";
  *   - "gallery": the products themselves as large photos — one large, two
  *     smaller at staggered heights — on white or the warm surface tone.
  *   - "both": the spread, then the gallery straight under it as one
- *     section — one heading, the gallery continuing with the next products.
+ *     section — one heading, the gallery continuing with the next products
+ *     (one large and four smaller, in two staggered columns).
  *
  * Both share one vocabulary so several showcases read as one family: the
  * numbered rule above the heading, the display-serif heading, hairline
@@ -284,7 +285,10 @@ function SpreadLayout({ section, config, data, products, headingId, header, cta,
   const rowVisibility = (i: number) => {
     if (!inset) return "flex";
     if (i === 0) return "flex lg:hidden"; // shown as the inset on desktop
-    if (i === 4) return "hidden lg:flex"; // phones list four, like desktop
+    // Phones list four, like desktop — except under a gallery («A + B
+    // μαζί»), where the gallery doesn't repeat it, so dropping it would
+    // lose that product on phones altogether.
+    if (i === 4 && !embedded) return "hidden lg:flex";
     return "flex";
   };
 
@@ -491,37 +495,45 @@ function GalleryLayout({ config, products, headingId, header, cta, eager, embedd
         )}
 
         {rest.length > 0 && (
+          // Two columns, the second set lower — the stagger holds for two
+          // products or four (02/04 left, 03/05 right), in reading order.
           <div className="grid grid-cols-2 items-start gap-4 lg:col-span-5 lg:col-start-8 lg:row-start-3 lg:mt-[4.5rem] lg:gap-6">
-            {rest.map((p, i) => (
-              <figure key={p.id} className={i === 1 ? "mt-12 lg:mt-24" : ""}>
-                <Link href={productHref(p)} tabIndex={-1} aria-hidden="true" className="group block">
-                  <ProductPhoto
-                    product={p}
-                    alt={p.title}
-                    sizes="(min-width: 1440px) 268px, (min-width: 1024px) 19vw, 46vw"
-                    eager={eager}
-                    zoom
-                    className="aspect-[4/5] rounded-sm"
-                  />
-                </Link>
-                <figcaption className="mt-3 flex gap-2.5 lg:mt-4 lg:gap-3">
-                  <span aria-hidden="true" className="pt-px font-display text-[13px] tabular-nums text-ink-muted lg:text-sm">
-                    {String(i + 2).padStart(2, "0")}
-                  </span>
-                  <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    <Link
-                      href={productHref(p)}
-                      className="text-[13px] font-medium leading-snug text-ink underline-offset-2 hover:underline lg:text-sm"
-                    >
-                      {p.title}
-                    </Link>
-                    <div className="flex items-center justify-between gap-2">
-                      <Price product={p} variant="stacked" className="text-sm" />
-                      <ProductAction product={p} />
-                    </div>
-                  </div>
-                </figcaption>
-              </figure>
+            {[0, 1].map((column) => (
+              <div key={column} className={`flex flex-col gap-10 lg:gap-14 ${column === 1 ? "mt-12 lg:mt-24" : ""}`}>
+                {rest.map((p, i) =>
+                  i % 2 === column ? (
+                    <figure key={p.id}>
+                      <Link href={productHref(p)} tabIndex={-1} aria-hidden="true" className="group block">
+                        <ProductPhoto
+                          product={p}
+                          alt={p.title}
+                          sizes="(min-width: 1440px) 268px, (min-width: 1024px) 19vw, 46vw"
+                          eager={eager}
+                          zoom
+                          className="aspect-[4/5] rounded-sm"
+                        />
+                      </Link>
+                      <figcaption className="mt-3 flex gap-2.5 lg:mt-4 lg:gap-3">
+                        <span aria-hidden="true" className="pt-px font-display text-[13px] tabular-nums text-ink-muted lg:text-sm">
+                          {String(i + 2).padStart(2, "0")}
+                        </span>
+                        <div className="flex min-w-0 flex-1 flex-col gap-2">
+                          <Link
+                            href={productHref(p)}
+                            className="text-[13px] font-medium leading-snug text-ink underline-offset-2 hover:underline lg:text-sm"
+                          >
+                            {p.title}
+                          </Link>
+                          <div className="flex items-center justify-between gap-2">
+                            <Price product={p} variant="stacked" className="text-sm" />
+                            <ProductAction product={p} />
+                          </div>
+                        </div>
+                      </figcaption>
+                    </figure>
+                  ) : null
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -578,7 +590,7 @@ export function EditorialShowcase({
   // A source too small to reach the gallery shows the spread alone rather
   // than repeating products or leaving an empty band.
   const spreadProducts = products.slice(0, SPREAD_PRODUCT_COUNT);
-  const galleryProducts = products.slice(SPREAD_PRODUCT_COUNT, SPREAD_PRODUCT_COUNT + GALLERY_PRODUCT_COUNT);
+  const galleryProducts = products.slice(SPREAD_PRODUCT_COUNT, SPREAD_PRODUCT_COUNT + BOTH_GALLERY_PRODUCT_COUNT);
   return (
     <section aria-labelledby={headingId}>
       <SpreadLayout {...props} products={spreadProducts} embedded />

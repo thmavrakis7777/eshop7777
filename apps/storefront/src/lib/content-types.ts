@@ -189,7 +189,10 @@ export type PromoBanner2Config = {
  * drawn for that many.
  */
 export type ShowcaseSource =
-  | { type: "category"; categorySlug: string }
+  // bestSellersFirst: the category's products ticked «Best sellers» lead,
+  // the rest of the category fills the remaining places in its usual order
+  // — so the section never shows fewer products than it would without it.
+  | { type: "category"; categorySlug: string; bestSellersFirst?: boolean }
   | { type: "collection"; collectionSlug: string }
   | { type: "sale" }
   | { type: "newest" }
@@ -215,15 +218,17 @@ export type ShowcaseConfig = {
 
 // What each part of a showcase is drawn for: the Spread's one product over
 // the image's corner (desktop) + a list of four; the Gallery's one large +
-// two staggered.
+// two staggered. Under a Spread («A + B μαζί») the Gallery carries four
+// beside the large one, in two staggered columns — ten products in all.
 export const SPREAD_PRODUCT_COUNT = 5;
 export const GALLERY_PRODUCT_COUNT = 3;
+export const BOTH_GALLERY_PRODUCT_COUNT = 5;
 
 /** Products each layout shows at most — and so how many its source is asked for. */
 export const SHOWCASE_PRODUCT_COUNT: Record<ShowcaseLayout, number> = {
   spread: SPREAD_PRODUCT_COUNT,
   gallery: GALLERY_PRODUCT_COUNT,
-  both: SPREAD_PRODUCT_COUNT + GALLERY_PRODUCT_COUNT,
+  both: SPREAD_PRODUCT_COUNT + BOTH_GALLERY_PRODUCT_COUNT,
 };
 
 export type HomepageSectionConfig = {

@@ -145,7 +145,10 @@ export async function resolveShowcase(
         // Inactive and deleted categories aren't in the nav tree — the
         // listing page would 404, so the section must not link to it.
         if (!category) return EMPTY_SHOWCASE;
-        const { products, count } = await getProductsByCategoryHandle(category.handle, { limit });
+        const { products, count } = await getProductsByCategoryHandle(category.handle, {
+          limit,
+          bestSellersFirst: source.bestSellersFirst === true,
+        });
         return {
           products,
           total: count,

@@ -273,7 +273,12 @@ function parseShowcaseSource(formData: FormData): ShowcaseSource {
 
   switch (type) {
     case "category":
-      return { type, categorySlug: String(formData.get("categorySlug") ?? "").trim() };
+      return {
+        type,
+        categorySlug: String(formData.get("categorySlug") ?? "").trim(),
+        // Stored only when ticked, so an unticked section's config is unchanged.
+        ...(formData.get("bestSellersFirst") === "on" ? { bestSellersFirst: true } : {}),
+      };
     case "collection":
       return { type, collectionSlug: String(formData.get("collectionSlug") ?? "").trim() };
     case "manual":

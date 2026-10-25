@@ -397,6 +397,15 @@ const SOLD_OUT_LAST_MANUAL_THEN_NEWEST = sql`
      WHERE v.product_id = p.id AND v.is_active AND ${VARIANT_AVAILABLE_PREDICATE}
   ), cpp.position ASC NULLS LAST, p.created_at DESC`;
 
+// The same order with the products ticked «Best sellers» lifted to the top
+// of each group — for a homepage showcase set to «Best sellers πρώτα». The
+// rest of the category still follows, so nothing is ever shown short.
+const SOLD_OUT_LAST_BEST_SELLERS_MANUAL_THEN_NEWEST = sql`
+  ORDER BY NOT EXISTS (
+    SELECT 1 FROM shop.product_variant v
+     WHERE v.product_id = p.id AND v.is_active AND ${VARIANT_AVAILABLE_PREDICATE}
+  ), p.is_best_seller DESC, cpp.position ASC NULLS LAST, p.created_at DESC`;
+
 /**
  * Products in a category, including its descendants — browsing "Κουζίνα"
  * must show everything filed under its subcategories too. A recursive CTE
@@ -405,9 +414,10 @@ const SOLD_OUT_LAST_MANUAL_THEN_NEWEST = sql`
  */
 export async function getProductsByCategorySlug(
   slug: string,
-  opts: { sort?: ProductSort; limit?: number; offset?: number; filters?: CategoryFilters } = {}
+  opts: { sort?: ProductSort; limit?: number; offset?: number; filters?: CategoryFilters; bestSellersFirst?: boolean } = {}
 ): Promise<{ products: Product[]; count: number }> {
-  const { sort = "newest", limit = 24, offset = 0, filters } = opts;
+  const { sort = "newest", limit = 24, offset = 0, filters, bestSellersFirst = false } = opts;
+  const defaultOrder = bestSellersFirst ? SOLD_OUT_LAST_BEST_SELLERS_MANUAL_THEN_NEWEST : SOLD_OUT_LAST_MANUAL_THEN_NEWEST;
 
   const rows = (await sql`
     WITH RECURSIVE tree AS (
@@ -447,7 +457,7 @@ export async function getProductsByCategorySlug(
      -- selects each real product row exactly once.
      WHERE p.is_active AND p.category_id IN (SELECT id FROM tree)
      ${whereFilters(filters)}
-     ${sort === "newest" ? SOLD_OUT_LAST_MANUAL_THEN_NEWEST : orderBy(sort)}
+     ${sort === "newest" ? defaultOrder : orderBy(sort)}
      LIMIT ${limit} OFFSET ${offset}
   `) as unknown as Array<ProductRow & { total_count: string }>;
 

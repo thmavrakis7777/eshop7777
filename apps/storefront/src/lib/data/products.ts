@@ -42,7 +42,7 @@ export type { CategoryFacets, CategoryFilters, GalleryImage, ProductSort };
 
 export async function getProductsByCategoryHandle(
   categoryHandle: string,
-  opts: { sort?: ProductSort; limit?: number; offset?: number; filters?: CategoryFilters } = {}
+  opts: { sort?: ProductSort; limit?: number; offset?: number; filters?: CategoryFilters; bestSellersFirst?: boolean } = {}
 ): Promise<{ products: Product[]; count: number }> {
   return getProductsByCategorySlug(categoryHandle, opts);
 }

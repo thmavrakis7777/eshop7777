@@ -19,6 +19,7 @@ type HomepageImageSlot = Extract<ImageSlotId, "hero-desktop" | "hero-mobile" | "
 import { DEFAULT_TRUST_ITEMS } from "@/components/home/TrustStrip";
 import type { AdminHomepageBlock } from "@/lib/admin/cms";
 import {
+  BOTH_GALLERY_PRODUCT_COUNT,
   GALLERY_PRODUCT_COUNT,
   SPREAD_PRODUCT_COUNT,
   type HomepageSectionKind,
@@ -128,7 +129,7 @@ const SHOWCASE_LAYOUT_LABELS: Record<ShowcaseLayout, string> = {
 const SHOWCASE_LAYOUT_HINTS: Record<ShowcaseLayout, string> = {
   spread: `Μεγάλη εικόνα δίπλα στον τίτλο και λίστα προϊόντων — έως ${SPREAD_PRODUCT_COUNT} προϊόντα (σε υπολογιστή το πρώτο κάθεται πάνω στη γωνία της εικόνας).`,
   gallery: `Τα ίδια τα προϊόντα σε μεγάλες φωτογραφίες: ένα μεγάλο και δύο μικρότερα — έως ${GALLERY_PRODUCT_COUNT} προϊόντα. Δεν χρησιμοποιεί τη μεγάλη εικόνα.`,
-  both: `Το Spread και ακριβώς από κάτω το Gallery, ως μία ενότητα: τα πρώτα ${SPREAD_PRODUCT_COUNT} προϊόντα στο Spread και τα επόμενα ${GALLERY_PRODUCT_COUNT} στο Gallery, χωρίς επαναλήψεις. Αν η πηγή έχει έως ${SPREAD_PRODUCT_COUNT} προϊόντα, εμφανίζεται μόνο το Spread.`,
+  both: `Το Spread και ακριβώς από κάτω το Gallery, ως μία ενότητα: τα πρώτα ${SPREAD_PRODUCT_COUNT} προϊόντα στο Spread και τα επόμενα ${BOTH_GALLERY_PRODUCT_COUNT} στο Gallery (ένα μεγάλο και τέσσερα μικρότερα), χωρίς επαναλήψεις. Αν η πηγή έχει έως ${SPREAD_PRODUCT_COUNT} προϊόντα, εμφανίζεται μόνο το Spread.`,
 };
 
 export type PickerOption = { slug: string; label: string };
@@ -384,7 +385,10 @@ function isDeadOnLive(s: AdminHomepageBlock): boolean {
 function describeSource(src: ProductRailSource | ShowcaseSource | undefined): string {
   if (!src) return "Καμία πηγή προϊόντων";
   if (src.type === "manual") return `${src.productSlugs?.length ?? 0} επιλεγμένα προϊόντα`;
-  if (src.type === "category") return `Κατηγορία: ${src.categorySlug || "—"}`;
+  if (src.type === "category") {
+    const first = "bestSellersFirst" in src && src.bestSellersFirst ? " · Best sellers πρώτα" : "";
+    return `Κατηγορία: ${src.categorySlug || "—"}${first}`;
+  }
   if (src.type === "collection") return `Συλλογή: ${src.collectionSlug || "—"}`;
   return SOURCE_LABELS[src.type] ?? src.type;
 }
@@ -644,6 +648,7 @@ function SectionForm({
         <ProductSourceFields
           sources={SHOWCASE_SOURCE_LABELS}
           defaultSource={showcase?.source}
+          bestSellersFirstOption
           categories={categories}
           collections={collections}
           note="Το πλήθος το ορίζει η διάταξη. Αν η πηγή μείνει χωρίς προϊόντα (π.χ. άδεια κατηγορία), η ενότητα κρύβεται μόνη της."
@@ -784,6 +789,7 @@ function ProductSourceFields({
   sources,
   defaultSource,
   showLimit = false,
+  bestSellersFirstOption = false,
   categories,
   collections,
   note,
@@ -793,6 +799,8 @@ function ProductSourceFields({
   sources: Record<string, string>;
   defaultSource?: ProductRailSource | ShowcaseSource;
   showLimit?: boolean;
+  // Showcase only: the «Best sellers πρώτα» tick under a category source.
+  bestSellersFirstOption?: boolean;
   categories: PickerOption[];
   collections: PickerOption[];
   note?: string;
@@ -850,6 +858,23 @@ function ProductSourceFields({
               <option key={c.slug} value={c.slug}>{c.label}</option>
             ))}
           </select>
+          {bestSellersFirstOption && (
+            <label className="mt-3 flex items-start gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                name="bestSellersFirst"
+                defaultChecked={src?.type === "category" && "bestSellersFirst" in src && src.bestSellersFirst === true}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                Best sellers πρώτα
+                <span className="block text-xs text-ink-muted">
+                  Τα προϊόντα της κατηγορίας με τσεκαρισμένο το «Best sellers» μπαίνουν πρώτα· τις υπόλοιπες θέσεις
+                  τις γεμίζουν τα άλλα προϊόντα της κατηγορίας, με τη σειρά της.
+                </span>
+              </span>
+            </label>
+          )}
         </div>
       )}
 
