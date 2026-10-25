@@ -8,6 +8,8 @@ const data = vi.hoisted(() => ({
   categoryLastModified: new Map<string, Date>(),
   noindexCategoryIds: new Set<string>(),
   products: [] as { handle: string; updatedAt: string }[],
+  productImages: new Map<string, string[]>(),
+  imagesFail: false,
   fail: false,
 }));
 
@@ -21,6 +23,10 @@ vi.mock("@/lib/data/categories", () => ({
 }));
 vi.mock("@/lib/data/products", () => ({
   getAllProductHandles: async () => data.products,
+  getProductSitemapImages: async () => {
+    if (data.imagesFail) throw new Error("storage schema unreadable");
+    return data.productImages;
+  },
   getAllCollectionHandles: async () => [],
 }));
 vi.mock("@/lib/data/content-pages", () => ({ getContentPage: async () => null }));
@@ -40,6 +46,8 @@ beforeEach(() => {
   data.categoryLastModified = new Map();
   data.noindexCategoryIds = new Set();
   data.products = [];
+  data.productImages = new Map();
+  data.imagesFail = false;
   data.fail = false;
 });
 
@@ -87,5 +95,37 @@ describe("sitemap", () => {
     const listed = paths(await sitemap());
     expect(listed).toContain("/prosfores");
     expect(listed.some((p) => p.startsWith("/proionta/"))).toBe(false);
+  });
+
+  it("lists each product's photos, and no image entry for a product without any", async () => {
+    data.products = [
+      { handle: "kamineto-a", updatedAt: "2026-10-10T17:32:13.100Z" },
+      { handle: "petrogkaz-b", updatedAt: "2026-10-12T14:06:56.618Z" },
+    ];
+    data.productImages = new Map([["kamineto-a", ["https://x.supabase.co/a.webp", "https://x.supabase.co/b.webp"]]]);
+    const entries = await sitemap();
+    expect(entries.find((e) => e.url.endsWith("/proionta/kamineto-a"))?.images).toEqual([
+      "https://x.supabase.co/a.webp",
+      "https://x.supabase.co/b.webp",
+    ]);
+    expect(entries.find((e) => e.url.endsWith("/proionta/petrogkaz-b"))).not.toHaveProperty("images");
+  });
+
+  it("escapes image URLs, which Next writes into the XML unescaped", async () => {
+    data.products = [{ handle: "kamineto-a", updatedAt: "2026-10-10T17:32:13.100Z" }];
+    data.productImages = new Map([["kamineto-a", ["https://x.supabase.co/a.webp?w=1&h=2"]]]);
+    const entries = await sitemap();
+    expect(entries.find((e) => e.url.endsWith("/proionta/kamineto-a"))?.images).toEqual([
+      "https://x.supabase.co/a.webp?w=1&amp;h=2",
+    ]);
+  });
+
+  it("still lists the products when only the photo query fails", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    data.products = [{ handle: "kamineto-a", updatedAt: "2026-10-10T17:32:13.100Z" }];
+    data.imagesFail = true;
+    const product = (await sitemap()).find((e) => e.url.endsWith("/proionta/kamineto-a"));
+    expect(product).toBeDefined();
+    expect(product).not.toHaveProperty("images");
   });
 });

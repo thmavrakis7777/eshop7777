@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { sql } from "@/lib/db/client";
-import { publicImageUrl } from "@/lib/storage/urls";
+import { PRODUCT_IMAGE_BUCKET, publicImageUrl } from "@/lib/storage/urls";
 import { CACHE_TAGS } from "@/lib/db/content";
 import type { Product, ProductCharacteristics, Tone } from "@/lib/types";
 
@@ -980,6 +980,35 @@ export async function getAllProductSlugs(): Promise<{ handle: string; updatedAt:
        AND seo.robots IS DISTINCT FROM 'noindex'
      ORDER BY p.slug`;
   return rows.map((r) => ({ handle: r.slug, updatedAt: new Date(r.updated_at).toISOString() }));
+}
+
+/**
+ * Each active product's photos for the image sitemap, keyed by slug, in
+ * gallery order (first = main) — the same URLs the product page shows
+ * (getProductGallery). Joined against Storage's own object table, so a row
+ * whose file was deleted or never finished uploading is left out instead of
+ * offering Google a 404; that also leaves out pasted external URLs, which
+ * can't be checked that way. The same URL twice on one product is listed
+ * once.
+ */
+export async function getProductSitemapImages(): Promise<Map<string, string[]>> {
+  const rows = await sql<{ slug: string; storage_path: string }[]>`
+    SELECT p.slug, i.storage_path
+      FROM shop.product_image i
+      JOIN shop.product p ON p.id = i.product_id
+      JOIN storage.objects o ON o.bucket_id = ${PRODUCT_IMAGE_BUCKET}
+                            AND o.name = ltrim(i.storage_path, '/')
+     WHERE p.is_active
+     ORDER BY p.slug, i.position`;
+  const bySlug = new Map<string, string[]>();
+  for (const r of rows) {
+    const url = publicImageUrl(r.storage_path);
+    if (!url) continue;
+    const urls = bySlug.get(r.slug) ?? [];
+    if (!urls.includes(url)) urls.push(url);
+    bySlug.set(r.slug, urls);
+  }
+  return bySlug;
 }
 
 /**

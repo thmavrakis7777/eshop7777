@@ -12,6 +12,7 @@ import {
   getProductBySlug,
   getProductBySku as dbGetProductBySku,
   getProductGallery,
+  getProductSitemapImages as dbGetProductSitemapImages,
   getRenamedProductSlug,
   getProductsByCategorySlug,
   getProductsByCollectionSlug,
@@ -185,6 +186,10 @@ export async function searchProducts(
 
 export async function getAllProductHandles(): Promise<{ handle: string; updatedAt: string }[]> {
   return getAllProductSlugs();
+}
+
+export async function getProductSitemapImages(): Promise<Map<string, string[]>> {
+  return dbGetProductSitemapImages();
 }
 
 export async function getAllCollectionHandles(): Promise<{ handle: string; updatedAt: string }[]> {

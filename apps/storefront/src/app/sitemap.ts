@@ -3,7 +3,7 @@ import { isEmptyListing } from "@/lib/category-visibility";
 import { getCategoryLastModified, getNavCategories, getNoindexCategoryIds } from "@/lib/data/categories";
 import { getContentPage } from "@/lib/data/content-pages";
 import { getJournalSitemapEntries } from "@/lib/data/journal";
-import { getAllCollectionHandles, getAllProductHandles } from "@/lib/data/products";
+import { getAllCollectionHandles, getAllProductHandles, getProductSitemapImages } from "@/lib/data/products";
 import { siteUrl } from "@/lib/site-config";
 import type { CategoryNode } from "@/lib/types";
 
@@ -61,20 +61,36 @@ const baseRoutes: MetadataRoute.Sitemap = [
 // routes rather than an error page.
 export const dynamic = "force-dynamic";
 
+function xmlEscape(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let navCategories: Awaited<ReturnType<typeof getNavCategories>>;
   let categoryLastModified: Awaited<ReturnType<typeof getCategoryLastModified>>;
   let noindexCategoryIds: Awaited<ReturnType<typeof getNoindexCategoryIds>>;
   let productHandles: Awaited<ReturnType<typeof getAllProductHandles>>;
+  let productImages: Awaited<ReturnType<typeof getProductSitemapImages>>;
   let collectionHandles: Awaited<ReturnType<typeof getAllCollectionHandles>>;
   let contentPages: { slug: (typeof CONTENT_PAGE_SLUGS)[number]; page: unknown }[];
   let journal: Awaited<ReturnType<typeof getJournalSitemapEntries>>;
   try {
-    [navCategories, categoryLastModified, noindexCategoryIds, productHandles, collectionHandles, contentPages, journal] = await Promise.all([
+    [navCategories, categoryLastModified, noindexCategoryIds, productHandles, productImages, collectionHandles, contentPages, journal] = await Promise.all([
       getNavCategories(),
       getCategoryLastModified(),
       getNoindexCategoryIds(),
       getAllProductHandles(),
+      // Photos are extra: if their query fails, the products are still
+      // listed, just without images.
+      getProductSitemapImages().catch((error) => {
+        console.warn("sitemap: product images unavailable, listing products without them.", error);
+        return new Map<string, string[]>();
+      }),
       getAllCollectionHandles(),
       Promise.all(CONTENT_PAGE_SLUGS.map(async (slug) => ({ slug, page: await getContentPage(slug) }))),
       // Published (and already-due) articles only — the query applies the
@@ -136,12 +152,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  const productRoutes: MetadataRoute.Sitemap = productHandles.map((p) => ({
-    url: `${siteUrl}/proionta/${p.handle}`,
-    lastModified: p.updatedAt,
-    changeFrequency: "weekly",
-    priority: 0.6,
-  }));
+  // Each product's photos as <image:image> entries, so Google Images finds
+  // them from the sitemap too. Next writes them into the XML as they are,
+  // unescaped, so a "&" in a URL would break the whole file.
+  const productRoutes: MetadataRoute.Sitemap = productHandles.map((p) => {
+    const images = productImages.get(p.handle);
+    return {
+      url: `${siteUrl}/proionta/${p.handle}`,
+      lastModified: p.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.6,
+      ...(images?.length ? { images: images.map(xmlEscape) } : {}),
+    };
+  });
 
   // Articles rank above product pages here because an editorial guide is the
   // entry point a search visitor lands on first; category pages sit just
