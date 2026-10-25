@@ -470,24 +470,26 @@ function CategoryForm({
         </p>
       </div>
 
-      {pageType === "landing" && (
-        <div className="flex flex-col gap-3 rounded-md border border-border p-4">
-          <div>
-            <p className="text-sm font-medium text-ink">Συχνές Ερωτήσεις (FAQ)</p>
-            <p className="text-xs text-ink-muted">
-              Μέχρι 5 ερωτήσεις. Άφησε μια ερώτηση ή απάντηση κενή για να μην εμφανιστεί εκείνο το ζευγάρι.
-            </p>
-          </div>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex flex-col gap-1.5 border-t border-border pt-3 first:border-t-0 first:pt-0">
-              <label className="text-xs font-medium text-ink-muted">Ερώτηση {i}</label>
-              <input name={`faqQuestion${i}`} defaultValue={faq[i - 1]?.question ?? ""} className={field} />
-              <label className="text-xs font-medium text-ink-muted">Απάντηση {i}</label>
-              <textarea name={`faqAnswer${i}`} rows={2} defaultValue={faq[i - 1]?.answer ?? ""} className={field} />
-            </div>
-          ))}
+      {/* Both page types: a service page shows the FAQ under its intro, a
+          product category after its products (CATEGORY_FAQ_SPEC.md). The
+          server already saved whatever was sent for either type. */}
+      <div className="flex flex-col gap-3 rounded-md border border-border p-4">
+        <div>
+          <p className="text-sm font-medium text-ink">Συχνές Ερωτήσεις (FAQ)</p>
+          <p className="text-xs text-ink-muted">
+            Μέχρι 5 ερωτήσεις. Άφησε μια ερώτηση ή απάντηση κενή για να μην εμφανιστεί εκείνο το ζευγάρι.
+            {pageType === "products" && " Σε λίστα προϊόντων εμφανίζονται κάτω από τα προϊόντα, μόνο στην πρώτη σελίδα."}
+          </p>
         </div>
-      )}
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex flex-col gap-1.5 border-t border-border pt-3 first:border-t-0 first:pt-0">
+            <label className="text-xs font-medium text-ink-muted">Ερώτηση {i}</label>
+            <input name={`faqQuestion${i}`} defaultValue={faq[i - 1]?.question ?? ""} className={field} />
+            <label className="text-xs font-medium text-ink-muted">Απάντηση {i}</label>
+            <textarea name={`faqAnswer${i}`} rows={2} defaultValue={faq[i - 1]?.answer ?? ""} className={field} />
+          </div>
+        ))}
+      </div>
 
       {/* Main categories only (section 11 of the spec) — this is the panel
           the desktop mega menu shows beside a category's subcategories, and

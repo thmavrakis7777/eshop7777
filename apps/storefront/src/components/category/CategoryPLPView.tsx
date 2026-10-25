@@ -7,7 +7,8 @@ import { CategoryFilterSidebar } from "@/components/category/CategoryFilterSideb
 import { CategoryFilterDrawer } from "@/components/category/CategoryFilterDrawer";
 import { renderBody } from "@/components/content/ContentPageView";
 import { InfiniteProductGrid, type ProductSource } from "@/components/category/InfiniteProductGrid";
-import type { Product } from "@/lib/types";
+import { CategoryFaq } from "@/components/category/CategoryFaq";
+import type { FaqItem, Product } from "@/lib/types";
 import type { CategoryFacets, CategoryFilters, ProductSort } from "@/lib/data/products";
 import { descriptionPlainText } from "@/lib/category-visibility";
 import { safeJsonLd } from "@/lib/json-ld";
@@ -30,6 +31,7 @@ export async function CategoryPLPView({
   relatedCategories,
   parentLink,
   longDescription,
+  faq,
   products,
   count,
   sort,
@@ -69,6 +71,13 @@ export async function CategoryPLPView({
    * came to shop, and the crawler reads the page either way.
    */
   longDescription?: string;
+  /**
+   * The category's «Συχνές Ερωτήσεις», shown after the products and «Δείτε
+   * επίσης». CategoryRoute passes it only on the cached page-1 copy, never on
+   * ?page=N or a filtered /filtra URL, so the same answers don't repeat
+   * across many URLs (CATEGORY_FAQ_SPEC.md).
+   */
+  faq?: FaqItem[] | null;
   products: Product[];
   count: number;
   sort: ProductSort;
@@ -194,6 +203,8 @@ export async function CategoryPLPView({
         </div>
 
         {relatedCategories && <CategorySeeAlso items={relatedCategories} />}
+
+        <CategoryFaq faq={faq} className="mt-14 max-w-3xl" />
 
         {longDescription && (
           <section className="mt-14 max-w-3xl border-t border-border pt-8">

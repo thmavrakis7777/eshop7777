@@ -9,7 +9,8 @@ import { storeLocationJsonLd } from "@/lib/maps";
 import { siteUrl } from "@/lib/site-config";
 import { publicImageUrl } from "@/lib/storage/urls";
 import { WithAvif } from "@/components/ui/AvifSource";
-import type { Category, FaqItem } from "@/lib/types";
+import { CategoryFaq } from "@/components/category/CategoryFaq";
+import type { Category } from "@/lib/types";
 
 /**
  * Renders a 'landing' category (see migration 0010) — a real service the
@@ -63,20 +64,6 @@ function buildLocalBusinessJsonLd(params: {
   };
 }
 
-function buildFaqPageJsonLd(faq: FaqItem[]) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    // Mapped 1:1 from the same array the page renders below — this can
-    // never drift into listing a question that isn't actually on the page.
-    mainEntity: faq.map((item) => ({
-      "@type": "Question",
-      name: item.question,
-      acceptedAnswer: { "@type": "Answer", text: item.answer },
-    })),
-  };
-}
-
 export async function CategoryLandingView({
   category,
   ancestors,
@@ -94,7 +81,6 @@ export async function CategoryLandingView({
   const storeName = settings?.storeName || "MAVRAKIS HOME";
   const phone = settings?.contactPhone ?? null;
   const address = settings?.contactAddress ?? null;
-  const faq = category.faq ?? [];
 
   const trail = [...ancestors, category];
   const breadcrumbs: Crumb[] = trail.map((c, i) => ({
@@ -114,13 +100,6 @@ export async function CategoryLandingView({
           ),
         }}
       />
-      {faq.length > 0 && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: safeJsonLd(buildFaqPageJsonLd(faq)) }}
-        />
-      )}
-
       <Breadcrumbs items={breadcrumbs} />
 
       <div className="container-shell mt-4 max-w-3xl">
@@ -197,26 +176,7 @@ export async function CategoryLandingView({
         </div>
       </section>
 
-      {faq.length > 0 && (
-        <section className="container-shell mt-16 max-w-3xl">
-          <h2 className="font-display text-xl text-ink md:text-2xl">Συχνές Ερωτήσεις</h2>
-          <div className="mt-6 flex flex-col divide-y divide-border border-t border-border">
-            {faq.map((item) => (
-              <details key={item.question} className="group py-4">
-                <summary className="cursor-pointer list-none text-sm font-medium text-ink marker:content-none">
-                  <span className="flex items-center justify-between gap-4">
-                    {item.question}
-                    <span aria-hidden="true" className="shrink-0 text-ink-muted group-open:rotate-45">
-                      +
-                    </span>
-                  </span>
-                </summary>
-                <p className="mt-2.5 text-sm leading-relaxed text-ink-muted">{item.answer}</p>
-              </details>
-            ))}
-          </div>
-        </section>
-      )}
+      <CategoryFaq faq={category.faq} className="container-shell mt-16 max-w-3xl" />
 
       {parent && (
         <div className="container-shell mt-16 max-w-3xl pb-16 text-sm text-ink-muted">

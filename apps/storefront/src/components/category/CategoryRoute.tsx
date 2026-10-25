@@ -90,6 +90,11 @@ export async function CategoryRoute({
       // on every leaf. The real descriptions the owner has written (see the
       // ΚΛΕΙΔΙΑ & ΑΣΦΑΛΕΙΑ branch) were meanwhile not rendered at all.
       longDescription={category.description}
+      // Only the plain, cached category URL gets the FAQ. Every sorted,
+      // paginated or filtered view arrives through /filtra with
+      // searchParams, and is noindex or a ?page=N copy — repeating the
+      // answers there would only duplicate them (CATEGORY_FAQ_SPEC.md).
+      faq={searchParams ? null : category.faq}
       breadcrumbs={breadcrumbs}
       // displayChildren, not children: shows any category cross-listed here
       // (shop.category_secondary_parent) alongside this category's real
