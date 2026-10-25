@@ -73,6 +73,6 @@ Accept, edit or drop each one. The product codes in brackets are where the answe
 Η σελίδα κάθε καμινέτου γράφει τι δέχεται. Για παράδειγμα, το πλαστικό, το ανοξείδωτο και το μεταλλικό καμινέτο με πόδια θέλουν φιαλίδιο 190gr, ενώ τα «γίγας» θέλουν 500gr. Η φιάλη MAP-Pro 400g είναι για το φλόγιστρο συγκόλλησης.
 *(00017, 00020, 00018 = 190gr; 00014, 00015, 00019 = 500gr; 00077, 00076. Size not recorded for 00023, so it isn't named.)*
 
-## 5. Open question for the owner (not part of this build)
+## 5. Phone-order hours (resolved 25 Οκτ 2026)
 
-The «Συχνές Ερωτήσεις» page says phone orders are taken «Δευ-Παρ 9:00-18:00», but the shop's hours in the settings are different (see §4, ΥΓΡΑΕΡΙΟ). Which is right for phone orders?
+The «Συχνές Ερωτήσεις» page said phone orders are taken «Δευ-Παρ 9:00-18:00», but the shop's hours in the settings were different. The owner answered: the shop hours. The live faq, epikoinonia and paraggelia pages already show them; the seed script (db/seed-support-pages.mjs) and the trust strip's built-in default (TrustStrip.tsx) were brought in line the same day.

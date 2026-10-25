@@ -57,7 +57,7 @@ export const DEFAULT_TRUST_ITEMS: TrustItem[] = [
   {
     icon: "support",
     title: "Ελληνική εξυπηρέτηση",
-    description: "Δευ-Παρ 9:00-18:00, στα ελληνικά",
+    description: "Δευ, Τετ, Σάβ 9:00–15:00· Τρί, Πέμ, Παρ 9:00–14:30 και 17:30–21:00",
     visible: true,
   },
 ];
