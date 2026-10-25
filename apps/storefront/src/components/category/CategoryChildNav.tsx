@@ -52,8 +52,9 @@ export function CategoryChildNav({
   /**
    * "chips" on a filtered listing (offers or any filter): one scrollable row
    * of names, so the filtered products start right under the title instead
-   * of below a screen and a half of cards. No counts there — they are the
-   * category's totals, not the filtered ones.
+   * of below a screen and a half of cards. CategoryRoute hands it the
+   * filtered subcategories (filters kept in each href), so the count beside
+   * each name is what matches there, not the category's total.
    */
   variant?: "cards" | "chips";
 }) {
@@ -73,6 +74,7 @@ export function CategoryChildNav({
                 className="inline-block whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-sm text-ink transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 {item.name}
+                <span className="ml-1.5 text-xs text-ink-muted tabular-nums">{item.productCount}</span>
               </Link>
             </li>
           ))}

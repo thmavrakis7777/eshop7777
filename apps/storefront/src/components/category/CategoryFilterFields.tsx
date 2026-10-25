@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "@/components/ui/Link";
 import type { CategoryFacets, CategoryFilters } from "@/lib/data/products";
+import type { SubcategoryOption } from "@/lib/active-filters";
 
 // A form-friendly draft of CategoryFilters — price is text while the shopper
 // is typing it, everything else mirrors the real filter shape directly.
@@ -52,10 +54,21 @@ export function CategoryFilterFields({
   facets,
   draft,
   onChange,
+  subcategories = [],
+  onNavigate,
 }: {
   facets: CategoryFacets;
   draft: FilterDraft;
   onChange: (next: FilterDraft) => void;
+  /**
+   * «Κατηγορία»: links to this category's subcategories with the active
+   * filters kept (lib/active-filters.ts) — navigation, not a staged value,
+   * so it applies at once even in the mobile sheet. Only subcategories with
+   * at least one matching product are passed in.
+   */
+  subcategories?: SubcategoryOption[];
+  /** Lets the mobile sheet close itself when a subcategory is picked. */
+  onNavigate?: () => void;
 }) {
   const hasPrice = facets.priceMinCents != null && facets.priceMaxCents != null;
 
@@ -89,6 +102,26 @@ export function CategoryFilterFields({
 
   return (
     <div className="flex flex-col divide-y divide-border">
+      {subcategories.length > 0 && (
+        <section className="py-5 first:pt-0">
+          <h3 className="text-sm font-medium text-ink">Κατηγορία</h3>
+          <ul className="mt-2 max-h-64 overflow-y-auto">
+            {subcategories.map((s) => (
+              <li key={s.href}>
+                <Link
+                  href={s.href}
+                  onClick={onNavigate}
+                  className="flex items-baseline justify-between gap-3 py-1.5 text-sm text-ink hover:text-accent"
+                >
+                  <span>{s.name}</span>
+                  <span className="text-xs text-ink-muted tabular-nums">{s.count}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {hasPrice && (
         <section className="py-5 first:pt-0">
           <h3 className="text-sm font-medium text-ink">Τιμή</h3>
@@ -184,8 +217,9 @@ export function CategoryFilterFields({
 
 export { EMPTY_DRAFT };
 
-export function hasAnyFacet(facets: CategoryFacets): boolean {
+export function hasAnyFacet(facets: CategoryFacets, subcategories: SubcategoryOption[] = []): boolean {
   return (
+    subcategories.length > 0 ||
     (facets.priceMinCents != null && facets.priceMaxCents != null) ||
     facets.hasOutOfStock ||
     facets.materials.length > 0 ||

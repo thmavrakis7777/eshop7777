@@ -9,7 +9,7 @@ import { renderBody } from "@/components/content/ContentPageView";
 import { InfiniteProductGrid, type ProductSource } from "@/components/category/InfiniteProductGrid";
 import { CategoryFaq } from "@/components/category/CategoryFaq";
 import { ActiveFilterChips } from "@/components/category/ActiveFilterChips";
-import type { ActiveFilterChip } from "@/lib/active-filters";
+import type { ActiveFilterChip, SubcategoryOption } from "@/lib/active-filters";
 import type { FaqItem, Product } from "@/lib/types";
 import type { CategoryFacets, CategoryFilters, ProductSort } from "@/lib/data/products";
 import { descriptionPlainText } from "@/lib/category-visibility";
@@ -32,6 +32,7 @@ export async function CategoryPLPView({
   childNavTitle,
   childNavVariant,
   activeFilters,
+  subcategoryOptions,
   relatedCategories,
   parentLink,
   longDescription,
@@ -57,6 +58,8 @@ export async function CategoryPLPView({
   childNavTitle?: string;
   /** "chips" on a filtered category listing — see CategoryChildNav. */
   childNavVariant?: "cards" | "chips";
+  /** «Κατηγορία» in the filters: subcategories with the active filters kept. */
+  subcategoryOptions?: SubcategoryOption[];
   /** The active filters as removable chips, above the products (lib/active-filters.ts). */
   activeFilters?: { chips: ActiveFilterChip[]; clearHref: string | null };
   /**
@@ -169,7 +172,7 @@ export async function CategoryPLPView({
         <div className={`${activeFilters?.chips.length ? "mt-4" : "mt-8"} flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4`}>
           <span className="text-sm text-ink-muted">{count} προϊόντα</span>
           <div className="flex items-center gap-3">
-            {facets && filters && <CategoryFilterDrawer facets={facets} filters={filters} />}
+            {facets && filters && <CategoryFilterDrawer facets={facets} filters={filters} subcategories={subcategoryOptions} />}
             {sortable && (
               // Category pages default to the owner's manual order (then newest
               // first), so "Νεότερα πρώτα" would mislabel it there.
@@ -179,7 +182,7 @@ export async function CategoryPLPView({
         </div>
 
         <div className="mt-6 flex items-start gap-8">
-          {facets && filters && <CategoryFilterSidebar facets={facets} filters={filters} />}
+          {facets && filters && <CategoryFilterSidebar facets={facets} filters={filters} subcategories={subcategoryOptions} />}
 
           <div className="min-w-0 flex-1">
             {products.length === 0 ? (

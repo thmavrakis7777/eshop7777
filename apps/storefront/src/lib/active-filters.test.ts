@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeFilterChips, keepSaleFilter } from "./active-filters";
+import { activeFilterChips, keepSaleFilter, listingHref } from "./active-filters";
 import type { CategoryFacets } from "@/lib/data/products";
 
 const facets: CategoryFacets = {
@@ -45,6 +45,23 @@ describe("activeFilterChips", () => {
 
   it("shows nothing when no filter is set", () => {
     expect(activeFilterChips({}, facets, "/k", "newest")).toEqual({ chips: [], clearHref: null });
+  });
+});
+
+describe("listingHref", () => {
+  it("sends a subcategory pick to its own page with every filter and the sort kept", () => {
+    const url = new URL(
+      listingHref("/ygraerio/kamineta-ygraeriou", "price-asc", { saleOnly: true, material: ["Μεταλλικό"] }),
+      "https://x"
+    );
+    expect(url.pathname).toBe("/ygraerio/kamineta-ygraeriou");
+    expect(url.searchParams.get("sale")).toBe("1");
+    expect(url.searchParams.getAll("material")).toEqual(["Μεταλλικό"]);
+    expect(url.searchParams.get("sort")).toBe("price-asc");
+  });
+
+  it("is the plain cached URL when nothing is set", () => {
+    expect(listingHref("/ygraerio/kamineta-ygraeriou", "newest", {})).toBe("/ygraerio/kamineta-ygraeriou");
   });
 });
 

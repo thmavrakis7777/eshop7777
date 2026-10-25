@@ -5,6 +5,7 @@ import {
   getAllProductSlugs,
   getCartCrossSell as dbGetCartCrossSell,
   getCategoryFilterFacets as dbGetCategoryFilterFacets,
+  getCategoryCountsWithFilters,
   getBestSellerProductsPaged as dbGetBestSellerProductsPaged,
   getNewArrivalsPaged as dbGetNewArrivalsPaged,
   getSaleProductsPaged as dbGetSaleProductsPaged,
@@ -48,6 +49,14 @@ export async function getProductsByCategoryHandle(
 
 export async function getCategoryFilterFacets(categoryHandle: string): Promise<CategoryFacets> {
   return dbGetCategoryFilterFacets(categoryHandle);
+}
+
+/** Matching products per category handle under these filters (absent = 0). */
+export async function getCategoryCountsByHandle(
+  categoryHandles: string[],
+  filters: CategoryFilters
+): Promise<Record<string, number>> {
+  return getCategoryCountsWithFilters(categoryHandles, filters);
 }
 
 export async function getProductsByCollectionHandle(

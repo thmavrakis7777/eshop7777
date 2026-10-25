@@ -63,7 +63,20 @@ export function keepSaleFilter(href: string, filters: CategoryFilters): string {
   return filters.saleOnly ? `${href}?sale=1` : href;
 }
 
-function listingHref(basePath: string, sort: ProductSort, filters: CategoryFilters): string {
+/**
+ * One subcategory under «Κατηγορία» in the filters: its own page, carrying
+ * every active filter and the sort, with how many products match there.
+ */
+export type SubcategoryOption = { name: string; href: string; count: number };
+
+/**
+ * A listing URL with these filters and sort — `basePath` is a category's own
+ * page, so picking a subcategory goes to its real URL (the page Google
+ * ranks) rather than filtering the parent. A filter value that subcategory
+ * doesn't have (a material none of its products use) is dropped by its own
+ * parseFilters, the same as any stale URL.
+ */
+export function listingHref(basePath: string, sort: ProductSort, filters: CategoryFilters): string {
   const params = new URLSearchParams(filtersToSearchEntries(filters));
   // "newest" is what parseSort returns when no sort is set, so it is never
   // written back — that keeps an unfiltered result on the cached plain URL.

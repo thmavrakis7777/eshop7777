@@ -15,6 +15,7 @@ import {
 import { countActiveFilters } from "@/lib/search-params";
 import { FilterIcon, CloseIcon } from "@/components/ui/Icons";
 import type { CategoryFacets, CategoryFilters } from "@/lib/data/products";
+import type { SubcategoryOption } from "@/lib/active-filters";
 
 const FILTER_KEYS = ["price_min", "price_max", "in_stock", "material", "origin"];
 const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -35,13 +36,21 @@ function draftToParams(base: URLSearchParams, draft: FilterDraft): URLSearchPara
 // Mobile-only entry point: a "Φίλτρα (N)" button that opens a bottom sheet.
 // Changes are staged locally and only reach the URL on "Εφαρμογή φίλτρων" —
 // batches every checkbox tap into one navigation instead of one per tap.
-export function CategoryFilterDrawer({ facets, filters }: { facets: CategoryFacets; filters: CategoryFilters }) {
+export function CategoryFilterDrawer({
+  facets,
+  filters,
+  subcategories = [],
+}: {
+  facets: CategoryFacets;
+  filters: CategoryFilters;
+  subcategories?: SubcategoryOption[];
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<FilterDraft>(() => filtersToDraft(filters));
 
-  if (!hasAnyFacet(facets)) return null;
+  if (!hasAnyFacet(facets, subcategories)) return null;
 
   const activeCount = countActiveFilters(filters);
 
@@ -81,6 +90,7 @@ export function CategoryFilterDrawer({ facets, filters }: { facets: CategoryFace
       {open && (
         <FilterSheet
           facets={facets}
+          subcategories={subcategories}
           draft={draft}
           onChange={setDraft}
           onApply={apply}
@@ -95,6 +105,7 @@ export function CategoryFilterDrawer({ facets, filters }: { facets: CategoryFace
 
 function FilterSheet({
   facets,
+  subcategories,
   draft,
   onChange,
   onApply,
@@ -103,6 +114,7 @@ function FilterSheet({
   draftCount,
 }: {
   facets: CategoryFacets;
+  subcategories: SubcategoryOption[];
   draft: FilterDraft;
   onChange: (next: FilterDraft) => void;
   onApply: () => void;
@@ -203,7 +215,15 @@ function FilterSheet({
         </div>
 
         <div className="flex-1 overflow-y-auto px-4">
-          <CategoryFilterFields facets={facets} draft={draft} onChange={onChange} />
+          <CategoryFilterFields
+            facets={facets}
+            draft={draft}
+            onChange={onChange}
+            subcategories={subcategories}
+            // A subcategory link navigates straight away; close without the
+            // exit animation so the sheet is not left over the new page.
+            onNavigate={onClose}
+          />
         </div>
 
         <div className="flex items-center gap-3 border-t border-border p-4">

@@ -5,6 +5,7 @@ import { currentQuery } from "@/lib/current-query";
 import { CategoryFilterFields, filtersToDraft, hasAnyFacet, type FilterDraft } from "@/components/category/CategoryFilterFields";
 import { countActiveFilters } from "@/lib/search-params";
 import type { CategoryFacets, CategoryFilters } from "@/lib/data/products";
+import type { SubcategoryOption } from "@/lib/active-filters";
 
 const FILTER_KEYS = ["price_min", "price_max", "in_stock", "material", "origin"];
 
@@ -24,11 +25,19 @@ function draftToParams(base: URLSearchParams, draft: FilterDraft): URLSearchPara
 // separate "apply" step, there's room here and instant feedback reads as
 // more premium). Renders nothing at all when this category has no real
 // facet to offer, rather than an empty box.
-export function CategoryFilterSidebar({ facets, filters }: { facets: CategoryFacets; filters: CategoryFilters }) {
+export function CategoryFilterSidebar({
+  facets,
+  filters,
+  subcategories = [],
+}: {
+  facets: CategoryFacets;
+  filters: CategoryFilters;
+  subcategories?: SubcategoryOption[];
+}) {
   const router = useRouter();
   const pathname = usePathname();
 
-  if (!hasAnyFacet(facets)) return null;
+  if (!hasAnyFacet(facets, subcategories)) return null;
 
   const draft = filtersToDraft(filters);
   const activeCount = countActiveFilters(filters);
@@ -57,7 +66,7 @@ export function CategoryFilterSidebar({ facets, filters }: { facets: CategoryFac
         )}
       </div>
       <div className="mt-4">
-        <CategoryFilterFields facets={facets} draft={draft} onChange={handleChange} />
+        <CategoryFilterFields facets={facets} draft={draft} onChange={handleChange} subcategories={subcategories} />
       </div>
     </aside>
   );

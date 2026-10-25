@@ -521,6 +521,43 @@ export const getCategoryFilterFacets = unstable_cache(
   { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
 );
 
+/**
+ * How many products each of these categories (each with its own descendants)
+ * has under the given filters — the counts beside «Κατηγορία» in a filtered
+ * listing's filters. One query for all of them: the same subtree walk as
+ * getProductsByCategorySlug, with every row tagged by the category it
+ * started from, and the same whereFilters(), so a count always matches what
+ * that subcategory's page shows with the same filters. A category with no
+ * match is simply absent from the result.
+ */
+export async function getCategoryCountsWithFilters(
+  slugs: string[],
+  filters: CategoryFilters
+): Promise<Record<string, number>> {
+  if (slugs.length === 0) return {};
+  const rows = (await sql`
+    WITH RECURSIVE tree AS (
+      SELECT id, slug AS root FROM shop.category WHERE slug = ANY(${slugs}) AND is_active
+      UNION ALL
+      SELECT c.id, t.root
+        FROM tree t
+        JOIN (
+          SELECT id, parent_id AS parent FROM shop.category WHERE is_active
+          UNION ALL
+          SELECT category_id AS id, parent_category_id AS parent FROM shop.category_secondary_parent
+        ) edges ON edges.parent = t.id
+        JOIN shop.category c ON c.id = edges.id AND c.is_active
+    )
+    SELECT t.root, COUNT(DISTINCT p.id)::int AS n
+      FROM shop.product p
+      JOIN tree t ON t.id = p.category_id
+     WHERE p.is_active
+     ${whereFilters(filters)}
+     GROUP BY t.root
+  `) as unknown as Array<{ root: string; n: number }>;
+  return Object.fromEntries(rows.map((r) => [r.root, r.n]));
+}
+
 export type Collection = {
   id: string;
   slug: string;
