@@ -45,11 +45,41 @@ export function toChildLinks(children: CategoryNode[]): ChildCategoryLink[] {
 export function CategoryChildNav({
   title,
   items,
+  variant = "cards",
 }: {
   title: string;
   items: ChildCategoryLink[];
+  /**
+   * "chips" on a filtered listing (offers or any filter): one scrollable row
+   * of names, so the filtered products start right under the title instead
+   * of below a screen and a half of cards. No counts there — they are the
+   * category's totals, not the filtered ones.
+   */
+  variant?: "cards" | "chips";
 }) {
   if (items.length === 0) return null;
+
+  if (variant === "chips") {
+    return (
+      <nav aria-labelledby="category-children-heading" className="mt-6">
+        <h2 id="category-children-heading" className="sr-only">
+          {title}
+        </h2>
+        <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+          {items.map((item) => (
+            <li key={item.href} className="shrink-0">
+              <Link
+                href={item.href}
+                className="inline-block whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-sm text-ink transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                {item.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    );
+  }
 
   return (
     <nav aria-labelledby="category-children-heading" className="mt-8">

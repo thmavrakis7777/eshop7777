@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
 import { CategoryLandingView } from "@/components/category/CategoryLandingView";
 import { CategoryPLPView, PAGE_SIZE } from "@/components/category/CategoryPLPView";
-import { toChildLinks } from "@/components/category/CategoryChildNav";
+import { toChildLinks, type ChildCategoryLink } from "@/components/category/CategoryChildNav";
 import type { Crumb } from "@/components/category/Breadcrumbs";
 import { categoryPathHref, getCategoryPath } from "@/lib/data/categories";
 import { getCategoryFilterFacets, getProductsByCategoryHandle } from "@/lib/data/products";
-import { parseFilters, parsePage, parseSort } from "@/lib/search-params";
+import { countActiveFilters, parseFilters, parsePage, parseSort } from "@/lib/search-params";
+import { activeFilterChips, keepSaleFilter } from "@/lib/active-filters";
 import { siteUrl } from "@/lib/site-config";
 
 /**
@@ -80,9 +81,20 @@ export async function CategoryRoute({
       ? toChildLinks(parent.displayChildren.filter((c) => c.id !== category.id))
       : undefined;
 
+  // A filtered listing (the menu's «Προσφορές Εβδομάδας!» = ?sale=1, or any
+  // filter) leads with its products: the subcategory cards shrink to a row of
+  // chips and the active filters show above the grid. Otherwise, on a phone,
+  // the filtered products sat a screen and a half below an unchanged-looking
+  // subcategory list, and the page read as "the filter did nothing". In
+  // offers mode the subcategory links keep ?sale=1, so «Καμινέτα» from
+  // there shows the καμινέτα on offer, not all of them.
+  const isFiltered = countActiveFilters(filters) > 0;
+  const withSale = (links: ChildCategoryLink[]) =>
+    links.map((l) => (l.pageType === "landing" ? l : { ...l, href: keepSaleFilter(l.href, filters) }));
+
   return (
     <CategoryPLPView
-      title={category.name}
+      title={filters.saleOnly ? `Προσφορές — ${category.name}` : category.name}
       // Only what the owner actually wrote, and below the grid. The previous
       // auto-generated "Ανακάλυψε τη συλλογή {name}…" subtitle said nothing,
       // read awkwardly against uninflected Greek category names, and
@@ -100,11 +112,13 @@ export async function CategoryRoute({
       // (shop.category_secondary_parent) alongside this category's real
       // primary children — each link already points at its own real
       // canonical URL (toChildLinks), never a path built under this page.
-      childCategories={toChildLinks(category.displayChildren)}
+      childCategories={withSale(toChildLinks(category.displayChildren))}
       // "Shop by category" entering a main category; "choose a type" once
       // you are already inside one and picking a narrower kind of thing.
       childNavTitle={ancestors.length === 0 ? "Αγόρασε ανά κατηγορία" : "Διάλεξε τύπο"}
-      relatedCategories={relatedCategories}
+      childNavVariant={isFiltered ? "chips" : "cards"}
+      activeFilters={isFiltered ? activeFilterChips(filters, facets, basePath, sort) : undefined}
+      relatedCategories={relatedCategories && withSale(relatedCategories)}
       parentLink={parentLink}
       products={products}
       count={count}
@@ -114,7 +128,9 @@ export async function CategoryRoute({
       source={{ type: "category", categoryHandle: category.handle }}
       facets={facets}
       filters={filters}
-      collectionUrl={page === 1 ? `${siteUrl}${basePath}` : undefined}
+      // Not on a filtered view: its products (and, in offers mode, its title)
+      // are not what the plain category URL shows.
+      collectionUrl={page === 1 && !isFiltered ? `${siteUrl}${basePath}` : undefined}
     />
   );
 }

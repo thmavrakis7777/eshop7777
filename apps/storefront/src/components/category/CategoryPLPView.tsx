@@ -8,6 +8,8 @@ import { CategoryFilterDrawer } from "@/components/category/CategoryFilterDrawer
 import { renderBody } from "@/components/content/ContentPageView";
 import { InfiniteProductGrid, type ProductSource } from "@/components/category/InfiniteProductGrid";
 import { CategoryFaq } from "@/components/category/CategoryFaq";
+import { ActiveFilterChips } from "@/components/category/ActiveFilterChips";
+import type { ActiveFilterChip } from "@/lib/active-filters";
 import type { FaqItem, Product } from "@/lib/types";
 import type { CategoryFacets, CategoryFilters, ProductSort } from "@/lib/data/products";
 import { descriptionPlainText } from "@/lib/category-visibility";
@@ -28,6 +30,8 @@ export async function CategoryPLPView({
   breadcrumbs,
   childCategories,
   childNavTitle,
+  childNavVariant,
+  activeFilters,
   relatedCategories,
   parentLink,
   longDescription,
@@ -51,6 +55,10 @@ export async function CategoryPLPView({
   /** Direct children of the category being viewed — never the whole subtree. */
   childCategories?: ChildCategoryLink[];
   childNavTitle?: string;
+  /** "chips" on a filtered category listing — see CategoryChildNav. */
+  childNavVariant?: "cards" | "chips";
+  /** The active filters as removable chips, above the products (lib/active-filters.ts). */
+  activeFilters?: { chips: ActiveFilterChip[]; clearHref: string | null };
   /**
    * «Δείτε επίσης» — the other subcategories of the same parent, shown after
    * the products. CategoryRoute only passes it for a leaf category; a page
@@ -153,10 +161,12 @@ export async function CategoryPLPView({
         {description && <p className="mt-3 max-w-2xl text-sm text-ink-muted md:text-base">{description}</p>}
 
         {childCategories && childCategories.length > 0 && (
-          <CategoryChildNav title={childNavTitle ?? "Διάλεξε κατηγορία"} items={childCategories} />
+          <CategoryChildNav title={childNavTitle ?? "Διάλεξε κατηγορία"} items={childCategories} variant={childNavVariant} />
         )}
 
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        {activeFilters && <ActiveFilterChips chips={activeFilters.chips} clearHref={activeFilters.clearHref} />}
+
+        <div className={`${activeFilters?.chips.length ? "mt-4" : "mt-8"} flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4`}>
           <span className="text-sm text-ink-muted">{count} προϊόντα</span>
           <div className="flex items-center gap-3">
             {facets && filters && <CategoryFilterDrawer facets={facets} filters={filters} />}
