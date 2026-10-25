@@ -71,14 +71,15 @@ const categorySchema = z.object({
   slug: slugField,
 });
 
-// Fixed number of Q/A slots rather than a dynamic list editor — five is
-// comfortably more than any category has needed so far, and a flat set of
+// Flat numbered Q/A slots rather than a dynamic list editor — a flat set of
 // fields matches how every other admin form on this site is built (see
-// CmsForm). Blank pairs are dropped rather than stored as empty strings, so
-// the storefront's "only render what's actually there" checks stay simple.
+// CmsForm). Reads every slot the form sent (FAQ_SLOTS, or more when the
+// category already had more), so a save never drops an existing pair.
+// Blank pairs are dropped rather than stored as empty strings, so the
+// storefront's "only render what's actually there" checks stay simple.
 function parseFaq(formData: FormData): FaqItem[] | null {
   const items: FaqItem[] = [];
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; formData.has(`faqQuestion${i}`); i++) {
     const question = text(formData.get(`faqQuestion${i}`));
     const answer = text(formData.get(`faqAnswer${i}`));
     if (question && answer) items.push({ question, answer });

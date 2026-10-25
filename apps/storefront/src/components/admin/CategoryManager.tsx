@@ -10,6 +10,7 @@ import {
 } from "@/lib/admin/taxonomy-actions";
 import type { AdminCategory } from "@/lib/admin/taxonomy";
 import { MAX_CATEGORY_DEPTH } from "@/lib/category-depth";
+import { FAQ_SLOTS } from "@/lib/faq-slots";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { IMAGE_SIZE_HINTS } from "@/lib/admin/image-size-hints";
 
@@ -289,6 +290,7 @@ function CategoryForm({
   const derivedSlug = slugTouched ? slug : slugFromName(name);
   const [pageType, setPageType] = useState<"products" | "landing">(category?.pageType ?? "products");
   const faq = category?.faq ?? [];
+  const faqSlots = Math.max(FAQ_SLOTS, faq.length);
   // Drives whether the mega-menu promotion section shows at all — it only
   // ever applies to a top-level category (no parent), matching the mega
   // menu itself, which only ever opens for a category with a parentId of
@@ -477,11 +479,11 @@ function CategoryForm({
         <div>
           <p className="text-sm font-medium text-ink">Συχνές Ερωτήσεις (FAQ)</p>
           <p className="text-xs text-ink-muted">
-            Μέχρι 5 ερωτήσεις. Άφησε μια ερώτηση ή απάντηση κενή για να μην εμφανιστεί εκείνο το ζευγάρι.
+            Μέχρι {faqSlots} ερωτήσεις. Άφησε μια ερώτηση ή απάντηση κενή για να μην εμφανιστεί εκείνο το ζευγάρι.
             {pageType === "products" && " Σε λίστα προϊόντων εμφανίζονται κάτω από τα προϊόντα, μόνο στην πρώτη σελίδα."}
           </p>
         </div>
-        {[1, 2, 3, 4, 5].map((i) => (
+        {Array.from({ length: faqSlots }, (_, k) => k + 1).map((i) => (
           <div key={i} className="flex flex-col gap-1.5 border-t border-border pt-3 first:border-t-0 first:pt-0">
             <label className="text-xs font-medium text-ink-muted">Ερώτηση {i}</label>
             <input name={`faqQuestion${i}`} defaultValue={faq[i - 1]?.question ?? ""} className={field} />
