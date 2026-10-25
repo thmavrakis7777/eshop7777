@@ -46,7 +46,9 @@ export function SortControl({
 
   return (
     <label className="flex items-center gap-2 text-sm text-ink-muted">
-      <span className="hidden sm:inline">Ταξινόμηση:</span>
+      {/* Visually hidden on phones, not display:none, so the select keeps
+          its accessible name there too (Lighthouse select-name). */}
+      <span className="sr-only sm:not-sr-only">Ταξινόμηση:</span>
       <select
         value={current}
         onChange={(e) => handleChange(e.target.value)}
