@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "@/components/ui/Link";
+import { ContinueShoppingLink } from "@/components/layout/ContinueShoppingLink";
 import { getCustomerOrders } from "@/lib/data/customer";
 import { formatPrice } from "@/lib/format";
 import { OrderStatusBadge } from "@/components/account/OrderStatusBadge";
@@ -24,9 +25,7 @@ export default async function OrdersPage() {
       {orders.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-sm border border-dashed border-border py-12 text-center">
           <p className="text-sm text-ink-muted">Δεν έχεις κάνει ακόμα καμία παραγγελία.</p>
-          <Link href="/" className="text-sm font-medium text-accent hover:underline">
-            Συνέχεια αγορών
-          </Link>
+          <ContinueShoppingLink className="text-sm font-medium text-accent hover:underline" />
         </div>
       ) : (
         <ul className="flex flex-col gap-3">

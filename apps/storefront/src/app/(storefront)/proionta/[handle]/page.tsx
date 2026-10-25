@@ -5,6 +5,7 @@ import { Breadcrumbs } from "@/components/category/Breadcrumbs";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
 import { RecentlyViewed } from "@/components/product/RecentlyViewed";
 import { RecentlyViewedTracker } from "@/components/product/RecentlyViewedTracker";
+import { RememberShoppingPage } from "@/components/layout/RememberShoppingPage";
 import { ViewContentTracker } from "@/components/product/ViewContentTracker";
 import {
   ColourSelectionProvider,
@@ -243,6 +244,7 @@ export default async function ProductPage({ params }: Props) {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />
       <RecentlyViewedTracker handle={product.handle} />
+      <RememberShoppingPage signature={product.handle} />
       <ViewContentTracker id={product.id} title={product.title} priceAmount={product.price.amount} />
       <Breadcrumbs items={breadcrumbItems} />
 

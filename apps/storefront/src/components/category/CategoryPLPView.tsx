@@ -13,6 +13,7 @@ import type { ActiveFilterChip } from "@/lib/active-filters";
 import type { CategoryFilterOptions } from "@/lib/category-filter";
 import { PRODUCTS_ANCHOR_ID } from "@/lib/scroll-to-products";
 import { ScrollToProducts } from "@/components/category/ScrollToProducts";
+import { RememberShoppingPage } from "@/components/layout/RememberShoppingPage";
 import type { FaqItem, Product } from "@/lib/types";
 import type { CategoryFacets, CategoryFilters, ProductSort } from "@/lib/data/products";
 import { descriptionPlainText } from "@/lib/category-visibility";
@@ -174,6 +175,10 @@ export async function CategoryPLPView({
             filters and the results bar, just under the sticky header. */}
         <div id={PRODUCTS_ANCHOR_ID} className="scroll-mt-20 lg:scroll-mt-36" aria-hidden="true" />
         <ScrollToProducts signature={`${basePath}?${JSON.stringify(filters ?? {})}:${sort}`} />
+        {/* Where «Συνέχεια αγορών» returns to (lib/last-shopping-page.ts). */}
+        <RememberShoppingPage
+          signature={`${basePath}?${JSON.stringify(extraParams ?? {})}${JSON.stringify(filters ?? {})}:${sort}:${page}`}
+        />
 
         {activeFilters && <ActiveFilterChips chips={activeFilters.chips} clearHref={activeFilters.clearHref} />}
 

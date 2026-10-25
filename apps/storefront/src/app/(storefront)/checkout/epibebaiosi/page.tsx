@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "@/components/ui/Link";
+import { ContinueShoppingLink } from "@/components/layout/ContinueShoppingLink";
 import { getOrder } from "@/lib/data/checkout";
 import { getCustomerId } from "@/lib/data/customer";
 import { formatPrice } from "@/lib/format";
@@ -228,9 +229,7 @@ export default async function OrderConfirmationPage({
         </div>
 
         <div className="flex flex-col items-center gap-4 border-t border-border pt-6">
-          <Link href="/" className="rounded-sm bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent">
-            Συνέχεια αγορών
-          </Link>
+          <ContinueShoppingLink className="rounded-sm bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent" />
           <p className="text-center text-sm text-ink-muted">
             Χρειάζεσαι βοήθεια; <Link href="/epikoinonia" className="text-accent hover:underline">Επικοινώνησε μαζί μας</Link>
           </p>

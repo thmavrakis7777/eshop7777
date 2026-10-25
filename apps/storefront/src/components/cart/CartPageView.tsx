@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "@/components/ui/Link";
+import { ContinueShoppingLink } from "@/components/layout/ContinueShoppingLink";
 import type { Cart } from "@/lib/types";
 import { useCartController } from "@/lib/hooks/use-cart-controller";
 import { getCartAction } from "@/lib/actions/cart";
@@ -140,9 +141,7 @@ export function CartPageView({
             ΟΛΟΚΛΗΡΩΣΗ ΑΓΟΡΑΣ
           </Link>
         )}
-        <Link href="/" className="text-center text-sm text-ink-muted hover:text-ink hover:underline">
-          Συνέχεια αγορών
-        </Link>
+        <ContinueShoppingLink className="text-center text-sm text-ink-muted hover:text-ink hover:underline" />
       </aside>
     </div>
   );

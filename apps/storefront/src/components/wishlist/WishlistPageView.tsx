@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "@/components/ui/Link";
+import { ContinueShoppingLink } from "@/components/layout/ContinueShoppingLink";
 import type { Product } from "@/lib/types";
 import { HeartIcon } from "@/components/ui/Icons";
 import { ProductCard } from "@/components/product/ProductCard";
@@ -34,12 +34,7 @@ export function WishlistPageView() {
           <p className="text-base font-medium text-ink">Η λίστα επιθυμιών σου είναι άδεια.</p>
           <p className="text-sm text-ink-muted">Πάτησε την καρδιά σε ένα προϊόν για να το αποθηκεύσεις εδώ.</p>
         </div>
-        <Link
-          href="/"
-          className="rounded-sm bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent"
-        >
-          Συνέχεια αγορών
-        </Link>
+        <ContinueShoppingLink className="rounded-sm bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent" />
       </div>
     );
   }

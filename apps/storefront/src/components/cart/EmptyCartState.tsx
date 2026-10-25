@@ -1,4 +1,4 @@
-import Link from "@/components/ui/Link";
+import { ContinueShoppingLink } from "@/components/layout/ContinueShoppingLink";
 import { BagIcon } from "@/components/ui/Icons";
 import { RecentlyViewed } from "@/components/product/RecentlyViewed";
 
@@ -37,12 +37,7 @@ export function EmptyCartState({
           Συνέχεια αγορών
         </button>
       ) : (
-        <Link
-          href="/"
-          className="rounded-sm bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent"
-        >
-          Συνέχεια αγορών
-        </Link>
+        <ContinueShoppingLink className="rounded-sm bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent" />
       )}
       {!compact && <RecentlyViewed excludeHandle="" />}
     </div>
