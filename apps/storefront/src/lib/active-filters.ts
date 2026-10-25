@@ -21,11 +21,19 @@ export function activeFilterChips(
   filters: CategoryFilters,
   facets: CategoryFacets,
   basePath: string,
-  sort: ProductSort
+  sort: ProductSort,
+  /** «Κατηγορία» ticks' display names, by slug. */
+  categoryNames: Record<string, string> = {}
 ): { chips: ActiveFilterChip[]; clearHref: string | null } {
   const hrefWithout = (next: CategoryFilters) => listingHref(basePath, sort, next);
   const chips: ActiveFilterChip[] = [];
 
+  for (const slug of filters.categories ?? []) {
+    chips.push({
+      label: categoryNames[slug] ?? slug,
+      href: hrefWithout({ ...filters, categories: filters.categories!.filter((x) => x !== slug) }),
+    });
+  }
   if (filters.saleOnly) {
     chips.push({ label: "Προσφορές", href: hrefWithout({ ...filters, saleOnly: undefined }) });
   }
@@ -64,17 +72,11 @@ export function keepSaleFilter(href: string, filters: CategoryFilters): string {
 }
 
 /**
- * One subcategory under «Κατηγορία» in the filters: its own page, carrying
- * every active filter and the sort, with how many products match there.
- */
-export type SubcategoryOption = { name: string; href: string; count: number };
-
-/**
- * A listing URL with these filters and sort — `basePath` is a category's own
- * page, so picking a subcategory goes to its real URL (the page Google
- * ranks) rather than filtering the parent. A filter value that subcategory
- * doesn't have (a material none of its products use) is dropped by its own
- * parseFilters, the same as any stale URL.
+ * A listing URL with these filters and sort — the chip hrefs, and a
+ * category's own page with the other filters kept (the subcategory chip
+ * row, «← parent»). A filter value that page doesn't have (a material none
+ * of its products use) is dropped by its own parseFilters, the same as any
+ * stale URL.
  */
 export function listingHref(basePath: string, sort: ProductSort, filters: CategoryFilters): string {
   const params = new URLSearchParams(filtersToSearchEntries(filters));

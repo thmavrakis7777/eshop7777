@@ -4,22 +4,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { currentQuery } from "@/lib/current-query";
 import { CategoryFilterFields, filtersToDraft, hasAnyFacet, type FilterDraft } from "@/components/category/CategoryFilterFields";
 import { countActiveFilters } from "@/lib/search-params";
+import { clearedFilterUrl, filterDraftUrl, type CategoryFilterOptions } from "@/lib/category-filter";
+import { markScrollToProducts } from "@/lib/scroll-to-products";
 import type { CategoryFacets, CategoryFilters } from "@/lib/data/products";
-import type { SubcategoryOption } from "@/lib/active-filters";
-
-const FILTER_KEYS = ["price_min", "price_max", "in_stock", "material", "origin"];
-
-function draftToParams(base: URLSearchParams, draft: FilterDraft): URLSearchParams {
-  const params = new URLSearchParams(base);
-  for (const k of FILTER_KEYS) params.delete(k);
-  if (draft.priceMin) params.set("price_min", draft.priceMin);
-  if (draft.priceMax) params.set("price_max", draft.priceMax);
-  if (draft.inStock) params.set("in_stock", "1");
-  for (const m of draft.material) params.append("material", m);
-  for (const o of draft.origin) params.append("origin", o);
-  params.delete("page");
-  return params;
-}
 
 // Persistent desktop panel — every change writes straight to the URL (no
 // separate "apply" step, there's room here and instant feedback reads as
@@ -28,31 +15,33 @@ function draftToParams(base: URLSearchParams, draft: FilterDraft): URLSearchPara
 export function CategoryFilterSidebar({
   facets,
   filters,
-  subcategories = [],
+  categoryFilter,
 }: {
   facets: CategoryFacets;
   filters: CategoryFilters;
-  subcategories?: SubcategoryOption[];
+  categoryFilter?: CategoryFilterOptions;
 }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  if (!hasAnyFacet(facets, subcategories)) return null;
+  if (!hasAnyFacet(facets, categoryFilter)) return null;
 
-  const draft = filtersToDraft(filters);
+  const draft = filtersToDraft(filters, categoryFilter);
   const activeCount = countActiveFilters(filters);
 
+  // The result opens where the products start, not at the top of the page
+  // (ScrollToProducts in CategoryPLPView does the scrolling).
+  function go(url: string) {
+    markScrollToProducts();
+    router.push(url, { scroll: false });
+  }
+
   function handleChange(next: FilterDraft) {
-    const params = draftToParams(currentQuery(), next);
-    router.push(`${pathname}?${params.toString()}`);
+    go(filterDraftUrl(pathname, currentQuery(), next, categoryFilter));
   }
 
   function clearAll() {
-    const params = currentQuery();
-    for (const k of FILTER_KEYS) params.delete(k);
-    params.delete("page");
-    const qs = params.toString();
-    router.push(qs ? `${pathname}?${qs}` : pathname);
+    go(clearedFilterUrl(pathname, currentQuery()));
   }
 
   return (
@@ -66,7 +55,7 @@ export function CategoryFilterSidebar({
         )}
       </div>
       <div className="mt-4">
-        <CategoryFilterFields facets={facets} draft={draft} onChange={handleChange} subcategories={subcategories} />
+        <CategoryFilterFields facets={facets} draft={draft} onChange={handleChange} categoryFilter={categoryFilter} />
       </div>
     </aside>
   );

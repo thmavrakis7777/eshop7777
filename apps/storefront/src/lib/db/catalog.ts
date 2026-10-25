@@ -303,6 +303,12 @@ export type CategoryFilters = {
   // the mega-menu promo's "discounted products in this category" CTA
   // (?sale=1) without a second, category-scoped definition of "on sale."
   saleOnly?: boolean;
+  // «Κατηγορία» ticks (?cat=…): slugs of subcategories of the listing's own
+  // category, each counting with its whole subtree; a product matches if it
+  // is in any of them. Validated against the category's real children in
+  // parseFilters; here only ever a bound array parameter, ANDed with the
+  // listing's own subtree, so a forged slug can only narrow the result.
+  categories?: string[];
 };
 
 // What's actually worth offering as a filter for one category (+ its
@@ -342,6 +348,24 @@ function whereFilters(f: CategoryFilters | undefined) {
       ? sql`AND p.origin_country = ANY(${filters.origin})`
       : sql``}
     ${filters.saleOnly ? sql`AND ${SALE_PREDICATE}` : sql``}
+    ${filters.categories && filters.categories.length > 0
+      ? sql`AND p.category_id IN (
+              WITH RECURSIVE picked AS (
+                SELECT id FROM shop.category WHERE slug = ANY(${filters.categories}) AND is_active
+                UNION ALL
+                -- Same combined edges as the listing's own subtree walk.
+                SELECT c.id
+                  FROM picked t
+                  JOIN (
+                    SELECT id, parent_id AS parent FROM shop.category WHERE is_active
+                    UNION ALL
+                    SELECT category_id AS id, parent_category_id AS parent FROM shop.category_secondary_parent
+                  ) edges ON edges.parent = t.id
+                  JOIN shop.category c ON c.id = edges.id AND c.is_active
+              )
+              SELECT id FROM picked
+            )`
+      : sql``}
   `;
 }
 

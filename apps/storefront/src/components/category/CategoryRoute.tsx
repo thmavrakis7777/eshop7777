@@ -6,7 +6,8 @@ import type { Crumb } from "@/components/category/Breadcrumbs";
 import { categoryPathHref, getCategoryPath } from "@/lib/data/categories";
 import { getCategoryCountsByHandle, getCategoryFilterFacets, getProductsByCategoryHandle } from "@/lib/data/products";
 import { countActiveFilters, parseFilters, parsePage, parseSort } from "@/lib/search-params";
-import { activeFilterChips, keepSaleFilter, listingHref, type SubcategoryOption } from "@/lib/active-filters";
+import { activeFilterChips, keepSaleFilter, listingHref } from "@/lib/active-filters";
+import type { CategoryFilterOptions } from "@/lib/category-filter";
 import { siteUrl } from "@/lib/site-config";
 
 /**
@@ -51,12 +52,29 @@ export async function CategoryRoute({
   const sort = parseSort(sp.sort);
   const page = parsePage(sp.page);
   const facets = await getCategoryFilterFacets(category.handle);
-  const filters = parseFilters(sp, facets);
+  const parent = ancestors.at(-1);
+  // Service ('landing') categories have no products to filter.
+  const productChildren = category.displayChildren.filter((c) => c.pageType !== "landing");
+  // ?cat= may only name this category's own subcategories.
+  const filters = parseFilters(
+    sp,
+    facets,
+    productChildren.map((c) => c.handle)
+  );
+  // Everything but the «Κατηγορία» ticks: what the per-category counts and
+  // the links to a category's own page carry.
+  const { categories: pickedCategories = [], ...otherFilters } = filters;
 
   const basePath = categoryPathHref(ancestors, category);
   const isFiltered = countActiveFilters(filters) > 0;
-  // Service ('landing') children have no products to filter.
-  const productChildren = category.displayChildren.filter((c) => c.pageType !== "landing");
+  // «Κατηγορία» in the filters ticks this category's subcategories; on a
+  // subcategory with none of its own, its siblings (the parent's list, this
+  // page ticked), so every category page with filters can combine
+  // categories (lib/category-filter.ts).
+  const siblingsMode = productChildren.length === 0 && !!parent;
+  const filterCategories = siblingsMode
+    ? parent!.displayChildren.filter((c) => c.pageType !== "landing")
+    : productChildren;
   const [{ products, count }, filteredCounts] = await Promise.all([
     getProductsByCategoryHandle(category.handle, {
       sort,
@@ -64,23 +82,24 @@ export async function CategoryRoute({
       offset: (page - 1) * PAGE_SIZE,
       filters,
     }),
-    // Unfiltered, each child's own productCount is already the answer.
-    isFiltered && productChildren.length > 0
-      ? getCategoryCountsByHandle(productChildren.map((c) => c.handle), filters)
+    // Unfiltered, each category's own productCount is already the answer.
+    countActiveFilters(otherFilters) > 0 && filterCategories.length > 0
+      ? getCategoryCountsByHandle(filterCategories.map((c) => c.handle), otherFilters)
       : null,
   ]);
 
-  // «Κατηγορία» in the filters, and the chip row on a filtered page: each
-  // subcategory's own page with the active filters and sort kept, and how
-  // many products match there. Subcategories with none are left out, so
-  // offers mode never offers «Λάστιχο (0)».
-  const subcategoryOptions: SubcategoryOption[] = productChildren
+  // Each category with how many products match there under the other
+  // filters. Categories with none are left out (offers mode never offers
+  // «Λάστιχο (0)»), unless ticked or the page being viewed.
+  const selected = siblingsMode ? [category.handle] : pickedCategories;
+  const categoryOptions = filterCategories
     .map((c) => ({
+      slug: c.handle,
       name: c.name,
-      href: listingHref(c.canonicalHref, sort, filters),
+      href: listingHref(c.canonicalHref, sort, otherFilters),
       count: filteredCounts ? (filteredCounts[c.handle] ?? 0) : c.productCount,
     }))
-    .filter((o) => o.count > 0);
+    .filter((o) => o.count > 0 || selected.includes(o.slug));
 
   const trail = [...ancestors, category];
   const breadcrumbs: Crumb[] = trail.map((c, i) => ({
@@ -88,10 +107,29 @@ export async function CategoryRoute({
     href: categoryPathHref(trail.slice(0, i), c),
   }));
 
-  const parent = ancestors.at(-1);
   const parentLink: Crumb = parent
     ? { label: parent.name, href: categoryPathHref(ancestors.slice(0, -1), parent) }
     : { label: "Αρχική", href: "/" };
+
+  const categoryFilter: CategoryFilterOptions | undefined =
+    categoryOptions.length > 0
+      ? {
+          mode: siblingsMode ? "siblings" : "children",
+          options: categoryOptions.map(({ slug, name, count }) => ({ slug, name, count })),
+          selected,
+          ...(siblingsMode
+            ? {
+                currentSlug: category.handle,
+                parentPath: parentLink.href,
+                // «← ΥΓΡΑΕΡΙΟ» above the list, back up with the filters kept.
+                up: { name: parent!.name, href: listingHref(parentLink.href, sort, otherFilters) },
+              }
+            : {}),
+        }
+      : undefined;
+  // The chip row above a filtered page's products is for going down a level
+  // only — a subcategory's siblings are already in «Δείτε επίσης».
+  const childOptions = siblingsMode ? [] : categoryOptions;
 
   // «Δείτε επίσης» on a leaf: everything the parent's own picker lists
   // (displayChildren — cross-listed entries included, each at its canonical
@@ -104,7 +142,7 @@ export async function CategoryRoute({
 
   // A filtered listing (the menu's «Προσφορές Εβδομάδας!» = ?sale=1, or any
   // filter) leads with its products: the subcategory cards shrink to a row of
-  // chips (subcategoryOptions: filters kept, filtered counts) and the active
+  // chips (childOptions: filters kept, filtered counts) and the active
   // filters show above the grid. Otherwise, on a phone, the filtered products
   // sat a screen and a half below an unchanged-looking subcategory list, and
   // the page read as "the filter did nothing". «Δείτε επίσης» keeps the
@@ -134,15 +172,21 @@ export async function CategoryRoute({
       // canonical URL (toChildLinks), never a path built under this page.
       childCategories={
         isFiltered
-          ? subcategoryOptions.map((o) => ({ name: o.name, href: o.href, productCount: o.count }))
+          ? childOptions.map((o) => ({ name: o.name, href: o.href, productCount: o.count }))
           : toChildLinks(category.displayChildren)
       }
-      subcategoryOptions={subcategoryOptions}
+      categoryFilter={categoryFilter}
       // "Shop by category" entering a main category; "choose a type" once
       // you are already inside one and picking a narrower kind of thing.
       childNavTitle={ancestors.length === 0 ? "Αγόρασε ανά κατηγορία" : "Διάλεξε τύπο"}
       childNavVariant={isFiltered ? "chips" : "cards"}
-      activeFilters={isFiltered ? activeFilterChips(filters, facets, basePath, sort) : undefined}
+      activeFilters={isFiltered ? activeFilterChips(
+              filters,
+              facets,
+              basePath,
+              sort,
+              Object.fromEntries(filterCategories.map((c) => [c.handle, c.name]))
+            ) : undefined}
       relatedCategories={relatedCategories && withSale(relatedCategories)}
       parentLink={parentLink}
       products={products}

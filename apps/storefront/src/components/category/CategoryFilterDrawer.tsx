@@ -15,23 +15,11 @@ import {
 import { countActiveFilters } from "@/lib/search-params";
 import { FilterIcon, CloseIcon } from "@/components/ui/Icons";
 import type { CategoryFacets, CategoryFilters } from "@/lib/data/products";
-import type { SubcategoryOption } from "@/lib/active-filters";
+import { clearedFilterUrl, filterDraftUrl, type CategoryFilterOptions } from "@/lib/category-filter";
+import { markScrollToProducts } from "@/lib/scroll-to-products";
 
-const FILTER_KEYS = ["price_min", "price_max", "in_stock", "material", "origin"];
 const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const EXIT_TRANSITION_MS = 300;
-
-function draftToParams(base: URLSearchParams, draft: FilterDraft): URLSearchParams {
-  const params = new URLSearchParams(base);
-  for (const k of FILTER_KEYS) params.delete(k);
-  if (draft.priceMin) params.set("price_min", draft.priceMin);
-  if (draft.priceMax) params.set("price_max", draft.priceMax);
-  if (draft.inStock) params.set("in_stock", "1");
-  for (const m of draft.material) params.append("material", m);
-  for (const o of draft.origin) params.append("origin", o);
-  params.delete("page");
-  return params;
-}
 
 // Mobile-only entry point: a "Φίλτρα (N)" button that opens a bottom sheet.
 // Changes are staged locally and only reach the URL on "Εφαρμογή φίλτρων" —
@@ -39,41 +27,41 @@ function draftToParams(base: URLSearchParams, draft: FilterDraft): URLSearchPara
 export function CategoryFilterDrawer({
   facets,
   filters,
-  subcategories = [],
+  categoryFilter,
 }: {
   facets: CategoryFacets;
   filters: CategoryFilters;
-  subcategories?: SubcategoryOption[];
+  categoryFilter?: CategoryFilterOptions;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<FilterDraft>(() => filtersToDraft(filters));
+  const [draft, setDraft] = useState<FilterDraft>(() => filtersToDraft(filters, categoryFilter));
 
-  if (!hasAnyFacet(facets, subcategories)) return null;
+  if (!hasAnyFacet(facets, categoryFilter)) return null;
 
   const activeCount = countActiveFilters(filters);
 
   function openDrawer() {
-    setDraft(filtersToDraft(filters));
+    setDraft(filtersToDraft(filters, categoryFilter));
     setOpen(true);
   }
 
-  function apply() {
-    const params = draftToParams(currentQuery(), draft);
-    const qs = params.toString();
-    router.push(qs ? `${pathname}?${qs}` : pathname);
+  // The result opens where the products start, not at the top of the page
+  // (ScrollToProducts in CategoryPLPView does the scrolling).
+  function go(url: string) {
+    markScrollToProducts();
+    router.push(url, { scroll: false });
     setOpen(false);
   }
 
+  function apply() {
+    go(filterDraftUrl(pathname, currentQuery(), draft, categoryFilter));
+  }
+
   function clearAndApply() {
-    setDraft(EMPTY_DRAFT);
-    const params = currentQuery();
-    for (const k of FILTER_KEYS) params.delete(k);
-    params.delete("page");
-    const qs = params.toString();
-    router.push(qs ? `${pathname}?${qs}` : pathname);
-    setOpen(false);
+    setDraft({ ...EMPTY_DRAFT, categories: categoryFilter?.mode === "siblings" ? categoryFilter.selected : [] });
+    go(clearedFilterUrl(pathname, currentQuery()));
   }
 
   return (
@@ -90,7 +78,7 @@ export function CategoryFilterDrawer({
       {open && (
         <FilterSheet
           facets={facets}
-          subcategories={subcategories}
+          categoryFilter={categoryFilter}
           draft={draft}
           onChange={setDraft}
           onApply={apply}
@@ -105,7 +93,7 @@ export function CategoryFilterDrawer({
 
 function FilterSheet({
   facets,
-  subcategories,
+  categoryFilter,
   draft,
   onChange,
   onApply,
@@ -114,7 +102,7 @@ function FilterSheet({
   draftCount,
 }: {
   facets: CategoryFacets;
-  subcategories: SubcategoryOption[];
+  categoryFilter?: CategoryFilterOptions;
   draft: FilterDraft;
   onChange: (next: FilterDraft) => void;
   onApply: () => void;
@@ -219,9 +207,9 @@ function FilterSheet({
             facets={facets}
             draft={draft}
             onChange={onChange}
-            subcategories={subcategories}
-            // A subcategory link navigates straight away; close without the
-            // exit animation so the sheet is not left over the new page.
+            categoryFilter={categoryFilter}
+            // «← parent» navigates straight away; close without the exit
+            // animation so the sheet is not left over the new page.
             onNavigate={onClose}
           />
         </div>

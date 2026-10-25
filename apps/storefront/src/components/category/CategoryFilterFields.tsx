@@ -3,30 +3,26 @@
 import { useState } from "react";
 import Link from "@/components/ui/Link";
 import type { CategoryFacets, CategoryFilters } from "@/lib/data/products";
-import type { SubcategoryOption } from "@/lib/active-filters";
+import { EMPTY_DRAFT, type CategoryFilterOptions, type FilterDraft } from "@/lib/category-filter";
 
-// A form-friendly draft of CategoryFilters — price is text while the shopper
-// is typing it, everything else mirrors the real filter shape directly.
-export type FilterDraft = {
-  priceMin: string;
-  priceMax: string;
-  inStock: boolean;
-  material: string[];
-  origin: string[];
-};
+export { EMPTY_DRAFT, type FilterDraft };
 
-export function filtersToDraft(f: CategoryFilters): FilterDraft {
+/** The form's starting state: the active filters, plus the ticked categories. */
+export function filtersToDraft(f: CategoryFilters, categoryFilter?: CategoryFilterOptions): FilterDraft {
   return {
     priceMin: f.minPriceCents != null ? String(f.minPriceCents / 100) : "",
     priceMax: f.maxPriceCents != null ? String(f.maxPriceCents / 100) : "",
     inStock: !!f.inStockOnly,
     material: f.material ?? [],
     origin: f.origin ?? [],
+    categories: categoryFilter?.selected ?? [],
   };
 }
 
 export function isDraftEmpty(d: FilterDraft): boolean {
-  return !d.priceMin && !d.priceMax && !d.inStock && d.material.length === 0 && d.origin.length === 0;
+  return (
+    !d.priceMin && !d.priceMax && !d.inStock && d.material.length === 0 && d.origin.length === 0 && d.categories.length === 0
+  );
 }
 
 export function countDraft(d: FilterDraft): number {
@@ -35,39 +31,35 @@ export function countDraft(d: FilterDraft): number {
   if (d.inStock) n++;
   if (d.material.length > 0) n++;
   if (d.origin.length > 0) n++;
+  if (d.categories.length > 0) n++;
   return n;
 }
-
-const EMPTY_DRAFT: FilterDraft = { priceMin: "", priceMax: "", inStock: false, material: [], origin: [] };
 
 const checkbox = "h-4 w-4 shrink-0 rounded-sm border-border text-accent focus-visible:outline-accent";
 const label = "flex items-center gap-2 py-1 text-sm text-ink";
 
 /**
- * The filter form itself — price range, availability, material, origin —
- * shared by the desktop sidebar (commits every change straight to the URL)
- * and the mobile drawer (stages changes locally, commits on "Εφαρμογή
- * φίλτρων"). Sections only render when that facet actually has real,
- * narrowing data — see CategoryFacets.
+ * The filter form itself — category, price range, availability, material,
+ * origin — shared by the desktop sidebar (commits every change straight to
+ * the URL) and the mobile drawer (stages changes locally, commits on
+ * "Εφαρμογή φίλτρων"). Every list is tick boxes, so a shopper can pick as
+ * many values and groups as they like (lib/category-filter.ts). Sections
+ * only render when that facet actually has real, narrowing data — see
+ * CategoryFacets.
  */
 export function CategoryFilterFields({
   facets,
   draft,
   onChange,
-  subcategories = [],
+  categoryFilter,
   onNavigate,
 }: {
   facets: CategoryFacets;
   draft: FilterDraft;
   onChange: (next: FilterDraft) => void;
-  /**
-   * «Κατηγορία»: links to this category's subcategories with the active
-   * filters kept (lib/active-filters.ts) — navigation, not a staged value,
-   * so it applies at once even in the mobile sheet. Only subcategories with
-   * at least one matching product are passed in.
-   */
-  subcategories?: SubcategoryOption[];
-  /** Lets the mobile sheet close itself when a subcategory is picked. */
+  /** «Κατηγορία» — built by CategoryRoute, see CategoryFilterOptions. */
+  categoryFilter?: CategoryFilterOptions;
+  /** Lets the mobile sheet close itself when «← parent» is followed. */
   onNavigate?: () => void;
 }) {
   const hasPrice = facets.priceMinCents != null && facets.priceMaxCents != null;
@@ -95,6 +87,11 @@ export function CategoryFilterFields({
     onChange({ ...draft, material: next });
   }
 
+  function toggleCategory(slug: string, checked: boolean) {
+    const next = checked ? [...draft.categories, slug] : draft.categories.filter((x) => x !== slug);
+    onChange({ ...draft, categories: next });
+  }
+
   function toggleOrigin(code: string, checked: boolean) {
     const next = checked ? [...draft.origin, code] : draft.origin.filter((x) => x !== code);
     onChange({ ...draft, origin: next });
@@ -102,23 +99,34 @@ export function CategoryFilterFields({
 
   return (
     <div className="flex flex-col divide-y divide-border">
-      {subcategories.length > 0 && (
+      {categoryFilter && categoryFilter.options.length > 0 && (
         <section className="py-5 first:pt-0">
           <h3 className="text-sm font-medium text-ink">Κατηγορία</h3>
-          <ul className="mt-2 max-h-64 overflow-y-auto">
-            {subcategories.map((s) => (
-              <li key={s.href}>
-                <Link
-                  href={s.href}
-                  onClick={onNavigate}
-                  className="flex items-baseline justify-between gap-3 py-1.5 text-sm text-ink hover:text-accent"
-                >
-                  <span>{s.name}</span>
-                  <span className="text-xs text-ink-muted tabular-nums">{s.count}</span>
-                </Link>
-              </li>
+          {categoryFilter.up && (
+            <Link
+              href={categoryFilter.up.href}
+              onClick={onNavigate}
+              className="mt-2 inline-flex items-center gap-1 py-1 text-sm text-ink-muted hover:text-accent"
+            >
+              <span aria-hidden="true">←</span> {categoryFilter.up.name}
+            </Link>
+          )}
+          <div className="mt-2 max-h-64 overflow-y-auto">
+            {categoryFilter.options.map((o) => (
+              <label key={o.slug} className={`${label} justify-between`}>
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className={checkbox}
+                    checked={draft.categories.includes(o.slug)}
+                    onChange={(e) => toggleCategory(o.slug, e.target.checked)}
+                  />
+                  {o.name}
+                </span>
+                <span className="text-xs text-ink-muted tabular-nums">{o.count}</span>
+              </label>
             ))}
-          </ul>
+          </div>
         </section>
       )}
 
@@ -215,11 +223,9 @@ export function CategoryFilterFields({
   );
 }
 
-export { EMPTY_DRAFT };
-
-export function hasAnyFacet(facets: CategoryFacets, subcategories: SubcategoryOption[] = []): boolean {
+export function hasAnyFacet(facets: CategoryFacets, categoryFilter?: CategoryFilterOptions): boolean {
   return (
-    subcategories.length > 0 ||
+    (categoryFilter?.options.length ?? 0) > 0 ||
     (facets.priceMinCents != null && facets.priceMaxCents != null) ||
     facets.hasOutOfStock ||
     facets.materials.length > 0 ||
