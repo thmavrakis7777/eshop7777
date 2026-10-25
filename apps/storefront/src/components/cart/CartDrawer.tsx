@@ -15,7 +15,7 @@ import { CartTotals } from "@/components/cart/CartTotals";
 import { EmptyCartState } from "@/components/cart/EmptyCartState";
 import { CloseIcon } from "@/components/ui/Icons";
 import { isLineItemOverstocked } from "@/lib/stock";
-import { lastShoppingPage } from "@/lib/last-shopping-page";
+import { lastShoppingPage, markScrollRestore } from "@/lib/last-shopping-page";
 import type { StockInquiryContact } from "@/lib/whatsapp";
 
 const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -125,14 +125,18 @@ function CartDrawerInner({
   }
 
   function handleContinueShopping() {
-    // Back to the last shopping page (lib/last-shopping-page.ts). Opened on
-    // that page itself — a product or a listing, the usual case — this just
-    // closes the drawer and leaves the shopper exactly where they were;
-    // anywhere else it goes there. Preserves cart/wishlist automatically —
+    // Back to the last shopping page, at the position the shopper left it
+    // (lib/last-shopping-page.ts). Opened on that page itself — a product or
+    // a listing, the usual case — this just closes the drawer and leaves the
+    // shopper exactly where they were; anywhere else it goes there and the
+    // page restores the scroll. Preserves cart/wishlist automatically —
     // cart is cookie/server-backed, wishlist is localStorage-backed, neither
     // is tied to page lifetime.
     const target = lastShoppingPage();
-    if (target !== pathname + window.location.search) router.push(target);
+    if (target !== pathname + window.location.search) {
+      markScrollRestore(target);
+      router.push(target, { scroll: false });
+    }
     handleClose();
   }
 

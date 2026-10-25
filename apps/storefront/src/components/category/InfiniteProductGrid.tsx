@@ -173,7 +173,9 @@ export function InfiniteProductGrid({
 
   return (
     <>
-      <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
+      {/* data-product-grid: where RememberShoppingPage finds the card to
+          return a shopper to (lib/last-shopping-page.ts). */}
+      <div data-product-grid className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
         {state.products.map((p, i) => (
           // The LCP element on a listing page is one of these first-row
           // images, and next/image lazy-loads every one of them by default —
