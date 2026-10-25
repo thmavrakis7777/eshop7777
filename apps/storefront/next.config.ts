@@ -131,6 +131,13 @@ const nextConfig: NextConfig = {
       // page was in the sitemap and the Hero linked to it, so the URL may be
       // indexed or bookmarked.
       { source: "/protainomena", destination: "/best-sellers", permanent: true },
+      // Two ΥΓΡΑΕΡΙΟ subcategories got new slugs when they were renamed, and
+      // Search Console still listed the old URLs as indexed on 2026-10-25 —
+      // both 404ed. Unlike products (shop.product_slug_redirect), a category
+      // slug change leaves no redirect behind, so renamed categories need a
+      // rule here.
+      { source: "/ygraerio/kouzinakia-elafriou-typou", destination: "/ygraerio/kouzinakia-ypsilis-piesis", permanent: true },
+      { source: "/ygraerio/oikiaka-kouzinakia", destination: "/ygraerio/oikiaka-kouzinakia-petrogkaz", permanent: true },
     ];
   },
   // AVIF first, WebP as the fallback modern format — next/image already
