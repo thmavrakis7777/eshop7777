@@ -7,6 +7,7 @@ import {
   getCategoryFilterFacets as dbGetCategoryFilterFacets,
   getCategoryCountsWithFilters,
   getBestSellerProductsPaged as dbGetBestSellerProductsPaged,
+  getBestSellersFilledProducts as dbGetBestSellersFilledProducts,
   getNewArrivalsPaged as dbGetNewArrivalsPaged,
   getSaleProductsPaged as dbGetSaleProductsPaged,
   getProductBySlug,
@@ -123,6 +124,12 @@ export async function getBestSellerProductsPaged(
   opts: { sort?: ProductSort; limit?: number; offset?: number } = {}
 ): Promise<{ products: Product[]; count: number }> {
   return dbGetBestSellerProductsPaged(opts);
+}
+
+export async function getBestSellersFilledProducts(
+  limit: number
+): Promise<{ products: Product[]; bestSellerCount: number }> {
+  return dbGetBestSellersFilledProducts(limit);
 }
 
 export async function getBestSellerProducts(limit = 4): Promise<Product[]> {

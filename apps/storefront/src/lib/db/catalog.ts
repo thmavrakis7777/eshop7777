@@ -792,6 +792,36 @@ export async function getBestSellerProductsPaged(
   };
 }
 
+/**
+ * A homepage showcase set to «Best sellers»: the ticked products from every
+ * category first, then the rest of the shop newest first, so the section is
+ * always full even with few (or no) products ticked. Sold-out products go
+ * last, as in a category's default order. `bestSellerCount` is the real
+ * number of ticked products — whether /best-sellers has anything to link to.
+ */
+export async function getBestSellersFilledProducts(
+  limit: number
+): Promise<{ products: Product[]; bestSellerCount: number }> {
+  const rows = (await sql`
+    SELECT ${productFields},
+           COUNT(*) FILTER (WHERE p.is_best_seller) OVER () AS best_seller_count
+      FROM shop.product p
+      LEFT JOIN shop.category c ON c.id = p.category_id
+     WHERE p.is_active
+     ORDER BY NOT EXISTS (
+       SELECT 1 FROM shop.product_variant v
+        WHERE v.product_id = p.id AND v.is_active AND ${VARIANT_AVAILABLE_PREDICATE}
+     ), p.is_best_seller DESC, p.created_at DESC
+     LIMIT ${limit}
+  `) as unknown as Array<ProductRow & { best_seller_count: string }>;
+
+  const newArrivalWindowDays = await getNewArrivalWindowDays();
+  return {
+    products: rows.map((r) => toDomainProduct(r, newArrivalWindowDays)),
+    bestSellerCount: rows.length > 0 ? Number(rows[0].best_seller_count) : 0,
+  };
+}
+
 export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
   if (slugs.length === 0) return [];
 

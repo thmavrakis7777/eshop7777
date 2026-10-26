@@ -648,7 +648,7 @@ function SectionForm({
         <ProductSourceFields
           sources={SHOWCASE_SOURCE_LABELS}
           defaultSource={showcase?.source}
-          bestSellersFirstOption
+          forShowcase
           categories={categories}
           collections={collections}
           note="Το πλήθος το ορίζει η διάταξη. Αν η πηγή μείνει χωρίς προϊόντα (π.χ. άδεια κατηγορία), η ενότητα κρύβεται μόνη της."
@@ -789,7 +789,7 @@ function ProductSourceFields({
   sources,
   defaultSource,
   showLimit = false,
-  bestSellersFirstOption = false,
+  forShowcase = false,
   categories,
   collections,
   note,
@@ -799,8 +799,9 @@ function ProductSourceFields({
   sources: Record<string, string>;
   defaultSource?: ProductRailSource | ShowcaseSource;
   showLimit?: boolean;
-  // Showcase only: the «Best sellers πρώτα» tick under a category source.
-  bestSellersFirstOption?: boolean;
+  // Showcase only: the «Best sellers πρώτα» tick under a category source,
+  // and the «Best sellers» hint for a source topped up from the whole shop.
+  forShowcase?: boolean;
   categories: PickerOption[];
   collections: PickerOption[];
   note?: string;
@@ -858,7 +859,7 @@ function ProductSourceFields({
               <option key={c.slug} value={c.slug}>{c.label}</option>
             ))}
           </select>
-          {bestSellersFirstOption && (
+          {forShowcase && (
             <label className="mt-3 flex items-start gap-2 text-sm text-ink">
               <input
                 type="checkbox"
@@ -912,8 +913,10 @@ function ProductSourceFields({
 
       {sourceType === "best_sellers" && (
         <p className="mt-3 text-xs text-ink-muted">
-          Τα προϊόντα τα επιλέγεις από τον επεξεργαστή κάθε προϊόντος, με το «Best sellers» στην Κατάσταση. Ίδια
-          λίστα με τη σελίδα /best-sellers.
+          Τα προϊόντα τα επιλέγεις από τον επεξεργαστή κάθε προϊόντος, με το «Best sellers» στην Κατάσταση.
+          {forShowcase
+            ? " Μπαίνουν πρώτα, από όλες τις κατηγορίες· αν είναι λιγότερα από όσα δείχνει η διάταξη, τις υπόλοιπες θέσεις τις γεμίζουν τα νεότερα προϊόντα του καταστήματος."
+            : " Ίδια λίστα με τη σελίδα /best-sellers."}
         </p>
       )}
 

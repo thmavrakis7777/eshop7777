@@ -1,7 +1,7 @@
 import { getHomepageSections } from "@/lib/db/content";
 import {
   getBestSellerProducts,
-  getBestSellerProductsPaged,
+  getBestSellersFilledProducts,
   getNewArrivals,
   getNewArrivalsPaged,
   getProductsByCategoryHandle,
@@ -184,8 +184,17 @@ export async function resolveShowcase(
       }
 
       case "best_sellers": {
-        const { products, count } = await getBestSellerProductsPaged({ limit });
-        return { products, total: count, href: "/best-sellers", label: "Best Sellers", imagePath: null };
+        // Ticked products from every category, topped up with the newest of
+        // the rest — a showcase is drawn for a fixed count. /best-sellers
+        // lists only the ticked ones, so it's linked only once there are some.
+        const { products, bestSellerCount } = await getBestSellersFilledProducts(limit);
+        return {
+          products,
+          total: bestSellerCount,
+          href: bestSellerCount > 0 ? "/best-sellers" : null,
+          label: "Best Sellers",
+          imagePath: null,
+        };
       }
 
       case "manual": {
