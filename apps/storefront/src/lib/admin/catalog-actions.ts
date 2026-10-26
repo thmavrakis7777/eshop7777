@@ -49,13 +49,22 @@ export type ProductPickerHit = { slug: string; title: string; categoryName: stri
  * product selection). Returns only what a picker row shows — never the full
  * admin product payload — so it stays a cheap keystroke-rate call.
  */
-export async function searchProductsForPickerAction(query: string): Promise<ProductPickerHit[]> {
+export async function searchProductsForPickerAction(
+  query: string,
+  opts: { bestSellersOnly?: boolean } = {}
+): Promise<ProductPickerHit[]> {
   try {
     await requireAdmin();
   } catch {
     return [];
   }
-  const { products } = await listProducts({ q: query.trim() || undefined, perPage: 10 });
+  const { products } = await listProducts({
+    q: query.trim() || undefined,
+    bestSellersOnly: opts.bestSellersOnly,
+    // The ticked best sellers are a short, owner-made list — show all of it
+    // to scroll through, not just the first 10.
+    perPage: opts.bestSellersOnly ? 60 : 10,
+  });
   return products.map((p) => ({
     slug: p.slug,
     title: p.title,

@@ -285,6 +285,12 @@ function parseShowcaseSource(formData: FormData): ShowcaseSource {
       // Up to the rail's 24 — only the first the layout shows are used, but
       // keeping the rest means switching to a larger layout needs no re-picking.
       return { type, productSlugs: parseSlugList(formData.get("productSlugs"), 24) };
+    case "best_sellers":
+      // «Επιλογή συγκεκριμένων»: the owner's pick and order. «Αυτόματα»
+      // stores no list, exactly as before this option existed.
+      return formData.get("bestSellersMode") === "pick"
+        ? { type, productSlugs: parseSlugList(formData.get("productSlugs"), 24) }
+        : { type };
     default:
       return { type };
   }
@@ -307,6 +313,9 @@ function validateShowcase(config: HomepageSectionConfig, heading: string | null)
   }
   if (source.type === "manual" && !source.productSlugs.length) {
     return "Επίλεξε τουλάχιστον ένα προϊόν για την ενότητα, αλλιώς δεν θα εμφανίζεται καθόλου στο κατάστημα.";
+  }
+  if (source.type === "best_sellers" && source.productSlugs && !source.productSlugs.length) {
+    return "Επίλεξε τουλάχιστον ένα best seller, ή διάλεξε «Αυτόματα».";
   }
   return null;
 }

@@ -47,6 +47,8 @@ export type ProductListFilters = {
   collectionId?: string;
   /** Dynamic collections. Same rules as the storefront — see lib/db/catalog.ts. */
   dynamic?: "sale" | "new";
+  /** Only the products ticked «Best sellers» in the product editor. */
+  bestSellersOnly?: boolean;
   sort?: "newest" | "title" | "price-asc" | "price-desc" | "stock-asc";
   page?: number;
   perPage?: number;
@@ -105,6 +107,7 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
        ${filters.categoryId ? sql`AND p.category_id = ${filters.categoryId}` : sql``}
        ${filters.dynamic === "sale" ? sql`AND ${SALE_PREDICATE}` : sql``}
        ${filters.dynamic === "new" ? sql`AND ${NEW_ARRIVAL_PREDICATE}` : sql``}
+       ${filters.bestSellersOnly ? sql`AND p.is_best_seller` : sql``}
        ${filters.collectionId
          ? sql`AND EXISTS (SELECT 1 FROM shop.product_collection pc
                             WHERE pc.product_id = p.id AND pc.collection_id = ${filters.collectionId})`

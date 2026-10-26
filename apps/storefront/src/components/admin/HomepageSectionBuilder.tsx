@@ -390,6 +390,9 @@ function describeSource(src: ProductRailSource | ShowcaseSource | undefined): st
     return `Κατηγορία: ${src.categorySlug || "—"}${first}`;
   }
   if (src.type === "collection") return `Συλλογή: ${src.collectionSlug || "—"}`;
+  if (src.type === "best_sellers" && "productSlugs" in src && src.productSlugs?.length) {
+    return `Best sellers · ${src.productSlugs.length} επιλεγμένα`;
+  }
   return SOURCE_LABELS[src.type] ?? src.type;
 }
 
@@ -809,6 +812,11 @@ function ProductSourceFields({
 }) {
   const [sourceType, setSourceType] = useState<string>(defaultSource?.type ?? Object.keys(sources)[0]);
   const src = defaultSource;
+  const pickedBestSellers =
+    src?.type === "best_sellers" && "productSlugs" in src ? (src.productSlugs ?? []) : [];
+  const [bestSellersMode, setBestSellersMode] = useState<"auto" | "pick">(
+    pickedBestSellers.length > 0 ? "pick" : "auto"
+  );
 
   return (
     <div className="rounded-md border border-border p-3">
@@ -911,13 +919,60 @@ function ProductSourceFields({
         </div>
       )}
 
-      {sourceType === "best_sellers" && (
+      {sourceType === "best_sellers" && !forShowcase && (
         <p className="mt-3 text-xs text-ink-muted">
-          Τα προϊόντα τα επιλέγεις από τον επεξεργαστή κάθε προϊόντος, με το «Best sellers» στην Κατάσταση.
-          {forShowcase
-            ? " Μπαίνουν πρώτα, από όλες τις κατηγορίες· αν είναι λιγότερα από όσα δείχνει η διάταξη, τις υπόλοιπες θέσεις τις γεμίζουν τα νεότερα προϊόντα του καταστήματος."
-            : " Ίδια λίστα με τη σελίδα /best-sellers."}
+          Τα προϊόντα τα επιλέγεις από τον επεξεργαστή κάθε προϊόντος, με το «Best sellers» στην Κατάσταση. Ίδια
+          λίστα με τη σελίδα /best-sellers.
         </p>
+      )}
+
+      {sourceType === "best_sellers" && forShowcase && (
+        <div className="mt-3 flex flex-col gap-3">
+          <p className="text-xs text-ink-muted">
+            Best sellers είναι τα προϊόντα με τσεκαρισμένο το «Best sellers» στην Κατάσταση του προϊόντος — όλα
+            μαζί εμφανίζονται στη σελίδα /best-sellers.
+          </p>
+          <label className="flex items-start gap-2 text-sm text-ink">
+            <input
+              type="radio"
+              name="bestSellersMode"
+              value="auto"
+              checked={bestSellersMode === "auto"}
+              onChange={() => setBestSellersMode("auto")}
+              className="mt-0.5 h-4 w-4"
+            />
+            <span>
+              Αυτόματα
+              <span className="block text-xs text-ink-muted">
+                Όλα τα best sellers, από όλες τις κατηγορίες· αν είναι λιγότερα από όσα δείχνει η διάταξη, τις
+                υπόλοιπες θέσεις τις γεμίζουν τα νεότερα προϊόντα του καταστήματος.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-ink">
+            <input
+              type="radio"
+              name="bestSellersMode"
+              value="pick"
+              checked={bestSellersMode === "pick"}
+              onChange={() => setBestSellersMode("pick")}
+              className="mt-0.5 h-4 w-4"
+            />
+            <span>
+              Επιλογή συγκεκριμένων
+              <span className="block text-xs text-ink-muted">
+                Διαλέγεις εσύ ποια best sellers θα φαίνονται και με ποια σειρά. Αν ξετσεκάρεις κάποιο από το «Best
+                sellers», βγαίνει μόνο του από την ενότητα και ανεβαίνει το επόμενο.
+              </span>
+            </span>
+          </label>
+          {bestSellersMode === "pick" && (
+            <div>
+              <p className={label}>Best sellers της ενότητας</p>
+              <ProductPicker name="productSlugs" defaultSlugs={pickedBestSellers} bestSellersOnly />
+            </div>
+          )}
+        </div>
       )}
 
       {note && <p className="mt-3 text-xs text-ink-muted">{note}</p>}

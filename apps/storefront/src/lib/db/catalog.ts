@@ -822,14 +822,20 @@ export async function getBestSellersFilledProducts(
   };
 }
 
-export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
+export async function getProductsBySlugs(
+  slugs: string[],
+  opts: { bestSellersOnly?: boolean } = {}
+): Promise<Product[]> {
   if (slugs.length === 0) return [];
 
+  // bestSellersOnly: a showcase's picked best sellers — one the owner has
+  // since unticked drops out, so the homepage never calls it a best seller.
   const rows = (await sql`
     SELECT ${productFields}
       FROM shop.product p
       LEFT JOIN shop.category c ON c.id = p.category_id
      WHERE p.is_active AND p.slug = ANY(${slugs})
+       ${opts.bestSellersOnly ? sql`AND p.is_best_seller` : sql``}
   `) as unknown as ProductRow[];
 
   const newArrivalWindowDays = await getNewArrivalWindowDays();

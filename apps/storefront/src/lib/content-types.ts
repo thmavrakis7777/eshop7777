@@ -196,7 +196,10 @@ export type ShowcaseSource =
   | { type: "collection"; collectionSlug: string }
   | { type: "sale" }
   | { type: "newest" }
-  | { type: "best_sellers" }
+  // productSlugs: «Επιλογή συγκεκριμένων» — the owner's own pick and order
+  // from the ticked best sellers. Absent: every ticked best seller, topped
+  // up with the newest products (resolveShowcase).
+  | { type: "best_sellers"; productSlugs?: string[] }
   | { type: "manual"; productSlugs: string[] };
 
 /**

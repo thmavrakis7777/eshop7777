@@ -21,9 +21,13 @@ import {
 export function ProductPicker({
   name,
   defaultSlugs,
+  bestSellersOnly = false,
 }: {
   name: string;
   defaultSlugs: string[];
+  // Offer only the products ticked «Best sellers» (a showcase's «Επιλογή
+  // συγκεκριμένων» best sellers).
+  bestSellersOnly?: boolean;
 }) {
   const [selected, setSelected] = useState<ProductPickerHit[]>([]);
   const [query, setQuery] = useState("");
@@ -54,13 +58,13 @@ export function ProductPicker({
     const handle = setTimeout(async () => {
       setLoading(true);
       try {
-        setHits(await searchProductsForPickerAction(query));
+        setHits(await searchProductsForPickerAction(query, { bestSellersOnly }));
       } finally {
         setLoading(false);
       }
     }, 250);
     return () => clearTimeout(handle);
-  }, [query, open]);
+  }, [query, open, bestSellersOnly]);
 
   // Close the results panel on an outside click, like a native combobox.
   useEffect(() => {
@@ -151,7 +155,7 @@ export function ProductPicker({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
-          placeholder="Αναζήτησε προϊόν για προσθήκη…"
+          placeholder={bestSellersOnly ? "Αναζήτησε best seller για προσθήκη…" : "Αναζήτησε προϊόν για προσθήκη…"}
           aria-label="Αναζήτηση προϊόντος"
           className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-ink"
         />
@@ -160,7 +164,11 @@ export function ProductPicker({
           <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-bg shadow-lg">
             {loading && <p className="px-3 py-2 text-xs text-ink-muted">Αναζήτηση…</p>}
             {!loading && hits.length === 0 && (
-              <p className="px-3 py-2 text-xs text-ink-muted">Κανένα προϊόν.</p>
+              <p className="px-3 py-2 text-xs text-ink-muted">
+                {bestSellersOnly && !query.trim()
+                  ? "Κανένα best seller ακόμα — τσέκαρε το «Best sellers» σε προϊόντα από τον επεξεργαστή τους."
+                  : "Κανένα προϊόν."}
+              </p>
             )}
             {hits.map((hit) => {
               const already = selectedSlugs.has(hit.slug);

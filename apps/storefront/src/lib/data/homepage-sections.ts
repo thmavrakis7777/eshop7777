@@ -184,6 +184,18 @@ export async function resolveShowcase(
       }
 
       case "best_sellers": {
+        // «Επιλογή συγκεκριμένων»: the owner's picks, in their order, that
+        // are still ticked best sellers — so /best-sellers lists every one.
+        if (source.productSlugs?.length) {
+          // Cut to the layout's count after the check, so a pick that drops
+          // out lets the next one move up instead of leaving a gap.
+          const picked = (await getProductsByHandles(source.productSlugs, { bestSellersOnly: true })).slice(0, limit);
+          if (picked.length > 0) {
+            return { products: picked, total: null, href: "/best-sellers", label: "Best Sellers", imagePath: null };
+          }
+          // Every pick unticked or deactivated: show the automatic list
+          // below rather than let the section vanish from the homepage.
+        }
         // Ticked products from every category, topped up with the newest of
         // the rest — a showcase is drawn for a fixed count. /best-sellers
         // lists only the ticked ones, so it's linked only once there are some.
