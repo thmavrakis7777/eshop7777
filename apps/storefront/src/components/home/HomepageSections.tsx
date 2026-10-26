@@ -90,6 +90,7 @@ export function HomepageSectionGroup({
   categories,
   storeName,
   isFirstGroup = false,
+  isFirstHero = true,
   showcaseNumber = 1,
 }: {
   group: HomepageSection[];
@@ -102,6 +103,10 @@ export function HomepageSectionGroup({
   // Gates Hero's full-viewport-on-mobile/tablet treatment to whichever Hero
   // actually opens the page, not any later one an admin might add.
   isFirstGroup?: boolean;
+  // Whether this is the page's first Hero group — the only one whose heading
+  // is the page's <h1>; every later Hero gets an <h2>. Not the same as
+  // isFirstGroup: the page may open with another kind of section.
+  isFirstHero?: boolean;
 }) {
   const first = group[0];
 
@@ -118,7 +123,9 @@ export function HomepageSectionGroup({
     // Consecutive heroes arrive here as one group and become a carousel —
     // see groupSections() in lib/data/homepage-sections.ts.
     case "hero":
-      return reveal(<Hero slides={group} storeName={storeName} isFirstSection={isFirstGroup} />);
+      return reveal(
+        <Hero slides={group} storeName={storeName} isFirstSection={isFirstGroup} headingTag={isFirstHero ? "h1" : "h2"} />
+      );
 
     case "promo":
       return reveal(<EditorialBanner blocks={group} />);

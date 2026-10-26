@@ -36,21 +36,26 @@ const DEFAULT_HERO: HomepageSection = {
 // fallback that made sense for "no admin content exists at all" but not
 // for "this one real field is blank"). Same whole-object-fallback pattern
 // as EditorialBanner's DEFAULT_BLOCK.
-// `asH1` is only true for the page's own first/only hero slide — a page
-// must have exactly one real <h1>. HeroCarousel mounts every slide
-// simultaneously (CSS scroll-snap, not a single-active-slide carousel), so
-// slide 2+ renders its heading as a visually identical <p> instead, or the
-// carousel would put a second (or third, or fourth) <h1> on the homepage
-// the moment an admin publishes more than one slide.
+// `headingTag` is "h1" only for the page's first Hero's first slide — a page
+// must have exactly one real <h1>. A later Hero (e.g. «ΠΡΟΣΦΟΡΕΣ») is a
+// section of the page, so its heading is an <h2>. HeroCarousel mounts every
+// slide simultaneously (CSS scroll-snap, not a single-active-slide
+// carousel), so slide 2+ renders its heading as a visually identical <p>
+// instead, or the carousel would put a second (or third, or fourth) heading
+// of that level on the page the moment an admin publishes more than one
+// slide. h1 and h2 share one base style (globals.css), so the tag never
+// changes how a heading looks.
+export type HeroHeadingTag = "h1" | "h2" | "p";
+
 export function HeroSlide({
   content,
-  asH1 = true,
+  headingTag = "h1",
   storeName,
   isFirstSection = false,
   isLcp = false,
 }: {
   content: HomepageSection;
-  asH1?: boolean;
+  headingTag?: HeroHeadingTag;
   // Only ever rendered as the sr-only fallback <h1> when a slide has no
   // heading of its own — the page still needs exactly one real h1.
   storeName: string;
@@ -72,7 +77,7 @@ export function HeroSlide({
   const loadingProps = isLcp
     ? ({ fetchPriority: "high" } as const)
     : ({ loading: "lazy", decoding: "async" } as const);
-  const HeadingTag = asH1 ? "h1" : "p";
+  const HeadingTag = headingTag;
   // Optional by design: the same banner can be a plain image with no button.
   const showButton = content.config?.showButton !== false && Boolean(ctaLabel && ctaHref);
   // The full-screen first Hero puts tablets (768–1023px) in the same tall,
@@ -177,7 +182,7 @@ export function HeroSlide({
         {heading ? (
           <HeadingTag className={`mt-3 text-[clamp(1.875rem,1.4rem+2.2vw,3.75rem)] font-semibold ${imageUrl ? "text-white" : "text-ink"}`}>{heading}</HeadingTag>
         ) : (
-          asH1 && <h1 className="sr-only">{storeName}</h1>
+          headingTag === "h1" && <h1 className="sr-only">{storeName}</h1>
         )}
         {body && (
           <p className={`mt-4 max-w-md text-[clamp(1rem,0.95rem+0.3vw,1.125rem)] ${imageUrl ? "text-white/90" : "text-ink-muted"}`}>{body}</p>
@@ -207,10 +212,13 @@ export function Hero({
   // A second Hero an admin adds further down the page never gets this, so it
   // keeps the original fixed-height box instead of also going full-screen.
   isFirstSection = false,
+  // "h2" for every Hero after the page's first one — see HeroSlide.
+  headingTag = "h1",
 }: {
   slides: HomepageSection[];
   storeName: string;
   isFirstSection?: boolean;
+  headingTag?: "h1" | "h2";
 }) {
   return (
     // Deliberately not container-shell: the hero is meant to run edge to
@@ -231,10 +239,11 @@ export function Hero({
       className={isFirstSection ? "mt-[calc(var(--header-height)*-1)]" : "pt-6 md:pt-10"}
     >
       {slides.length >= 2 ? (
-        <HeroCarousel slides={slides} storeName={storeName} isFirstSection={isFirstSection} />
+        <HeroCarousel slides={slides} storeName={storeName} isFirstSection={isFirstSection} headingTag={headingTag} />
       ) : (
         <HeroSlide
           content={slides[0] ?? DEFAULT_HERO}
+          headingTag={headingTag}
           storeName={storeName}
           isFirstSection={isFirstSection}
           isLcp={isFirstSection}

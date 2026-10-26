@@ -13,10 +13,13 @@ export function HeroCarousel({
   slides,
   storeName,
   isFirstSection = false,
+  headingTag = "h1",
 }: {
   slides: HomepageSection[];
   storeName: string;
   isFirstSection?: boolean;
+  // The first slide's heading level; slides 2+ are always <p> (see HeroSlide).
+  headingTag?: "h1" | "h2";
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -58,7 +61,7 @@ export function HeroCarousel({
           <div key={slide.id} className="w-full flex-none snap-start">
             <HeroSlide
               content={slide}
-              asH1={i === 0}
+              headingTag={i === 0 ? headingTag : "p"}
               storeName={storeName}
               isFirstSection={isFirstSection}
               // Only the slide on screen at load can be the LCP; the rest

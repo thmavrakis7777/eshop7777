@@ -68,6 +68,8 @@ export default async function HomePage() {
   // renumbering the rest from inside their own Suspense boundaries.
   let showcaseCount = 0;
   const showcaseNumbers = groups.map((group) => (group[0].kind === "showcase" ? ++showcaseCount : 0));
+  // Only the first Hero's heading is the page's <h1> (SEO-032).
+  const firstHeroIndex = groups.findIndex((group) => group[0].kind === "hero");
 
   return (
     <>
@@ -79,6 +81,7 @@ export default async function HomePage() {
             categories={categories}
             storeName={branding.storeName}
             isFirstGroup={index === 0}
+            isFirstHero={index === firstHeroIndex}
             showcaseNumber={showcaseNumbers[index]}
           />
         ))
