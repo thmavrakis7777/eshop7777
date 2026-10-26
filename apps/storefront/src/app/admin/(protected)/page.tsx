@@ -64,7 +64,7 @@ export default async function AdminDashboard() {
         <StatCard
           label="Εξαντλημένα"
           value={String(metrics.outOfStockCount)}
-          hint="Μη διαθέσιμα προς πώληση"
+          hint="Προϊόντα ή χρώματα με απόθεμα 0"
           tone={metrics.outOfStockCount > 0 ? "danger" : "neutral"}
         />
         <StatCard
@@ -154,6 +154,7 @@ export default async function AdminDashboard() {
                         className="min-w-0 truncate text-sm text-ink transition-colors hover:text-accent"
                       >
                         {item.title}
+                        {item.variantTitle && <span className="text-ink-muted"> – {item.variantTitle}</span>}
                       </Link>
                       <span
                         className={`shrink-0 text-sm font-medium tabular-nums ${

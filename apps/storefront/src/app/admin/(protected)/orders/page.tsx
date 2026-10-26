@@ -25,6 +25,16 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const hasFilters = Boolean(q || status !== "all" || paymentStatus !== "all");
 
+  // Paging keeps the current filters — otherwise page 2 of a search is page 2 of everything.
+  const pageHref = (n: number) => {
+    const next = new URLSearchParams();
+    if (q) next.set("q", q);
+    if (status !== "all") next.set("status", status);
+    if (paymentStatus !== "all") next.set("payment", paymentStatus);
+    next.set("page", String(n));
+    return `/admin/orders?${next.toString()}`;
+  };
+
   return (
     <>
       <PageHeader title="Παραγγελίες" description={`${total} ${total === 1 ? "παραγγελία" : "παραγγελίες"}`} />
@@ -106,12 +116,12 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
               <span className="text-ink-muted">Σελίδα {page} από {totalPages}</span>
               <div className="flex gap-2">
                 {page > 1 && (
-                  <Link href={`/admin/orders?page=${page - 1}`} className="rounded-md border border-border px-3 py-1.5 hover:bg-surface">
+                  <Link href={pageHref(page - 1)} className="rounded-md border border-border px-3 py-1.5 hover:bg-surface">
                     Προηγούμενη
                   </Link>
                 )}
                 {page < totalPages && (
-                  <Link href={`/admin/orders?page=${page + 1}`} className="rounded-md border border-border px-3 py-1.5 hover:bg-surface">
+                  <Link href={pageHref(page + 1)} className="rounded-md border border-border px-3 py-1.5 hover:bg-surface">
                     Επόμενη
                   </Link>
                 )}

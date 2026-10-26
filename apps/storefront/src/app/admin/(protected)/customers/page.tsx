@@ -27,6 +27,9 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
     getMarketingConsentCount(),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / perPage));
+  // Paging keeps the search — otherwise page 2 of a search is page 2 of everything.
+  const pageHref = (n: number) =>
+    `/admin/customers?${new URLSearchParams({ ...(q ? { q } : {}), page: String(n) }).toString()}`;
 
   return (
     <>
@@ -109,7 +112,7 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
               <div className="flex gap-2">
                 {page > 1 && (
                   <Link
-                    href={`/admin/customers?page=${page - 1}`}
+                    href={pageHref(page - 1)}
                     className="rounded-md border border-border px-3 py-1.5 hover:bg-surface"
                   >
                     Προηγούμενη
@@ -117,7 +120,7 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
                 )}
                 {page < totalPages && (
                   <Link
-                    href={`/admin/customers?page=${page + 1}`}
+                    href={pageHref(page + 1)}
                     className="rounded-md border border-border px-3 py-1.5 hover:bg-surface"
                   >
                     Επόμενη

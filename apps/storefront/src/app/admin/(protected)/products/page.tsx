@@ -47,9 +47,11 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
     if (categoryId) next.set("category", categoryId);
     if (dynamic) next.set("dynamic", dynamic);
     if (sort !== "newest") next.set("sort", sort);
+    // Any change starts back on page 1 — except a page change itself, which
+    // is set below and must survive (deleting after setting killed «Επόμενη»).
+    next.delete("page");
     if (value) next.set(key, value);
     else next.delete(key);
-    next.delete("page");
     return `/admin/products?${next.toString()}`;
   };
 

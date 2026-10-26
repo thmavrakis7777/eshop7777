@@ -165,17 +165,27 @@ export async function getBestSellers(limit = 5): Promise<BestSeller[]> {
   }));
 }
 
-export type LowStockItem = { sku: string; title: string; slug: string; stock: number };
+/**
+ * One row per VARIANT, so a colour product can appear several times —
+ * `variantTitle` (null for "Default") says which colour the number is for.
+ */
+export type LowStockItem = { sku: string; title: string; variantTitle: string | null; slug: string; stock: number };
 
 export async function getLowStockItems(limit = 8): Promise<LowStockItem[]> {
   const rows = await sql<
-    { sku: string; title: string; slug: string; stock_quantity: number }[]
-  >`SELECT v.sku, p.title, p.slug, v.stock_quantity
+    { sku: string; title: string; variant_title: string; slug: string; stock_quantity: number }[]
+  >`SELECT v.sku, p.title, v.title AS variant_title, p.slug, v.stock_quantity
       FROM shop.product_variant v
       JOIN shop.product p ON p.id = v.product_id
      WHERE v.is_active AND p.is_active AND NOT v.allow_backorder AND v.stock_quantity <= 5
      ORDER BY v.stock_quantity, p.title COLLATE "el-GR-x-icu"
      LIMIT ${limit}`;
 
-  return rows.map((r) => ({ sku: r.sku, title: r.title, slug: r.slug, stock: r.stock_quantity }));
+  return rows.map((r) => ({
+    sku: r.sku,
+    title: r.title,
+    variantTitle: r.variant_title && r.variant_title !== "Default" ? r.variant_title : null,
+    slug: r.slug,
+    stock: r.stock_quantity,
+  }));
 }
