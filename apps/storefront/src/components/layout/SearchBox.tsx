@@ -239,11 +239,12 @@ export function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
           className="absolute inset-x-0 top-full z-50 mt-2 max-h-[70svh] overflow-y-auto overscroll-contain rounded-md border border-border bg-bg shadow-lg"
         >
           {showSkeleton ? (
-            <div className="flex flex-col px-3 py-1 sm:px-4" aria-hidden="true">
-              {[0, 1, 2].map((i) => (
-                // Same box the real row now uses, so the list does not
-                // visibly resize under the shopper when results land.
-                <div key={i} className="flex items-center gap-3 py-3">
+            <div className="grid px-3 py-1 sm:px-4 lg:grid-cols-2 lg:gap-x-8" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => (
+                // Same box the real row now uses, and the same two columns
+                // from lg up, so the list does not visibly resize under the
+                // shopper when results land.
+                <div key={i} className={`items-center gap-3 py-3 ${i === 3 ? "hidden lg:flex" : "flex"}`}>
                   <div className="h-14 w-14 shrink-0 animate-pulse rounded-md bg-surface sm:h-20 sm:w-20" />
                   <div className="flex flex-1 flex-col gap-2">
                     <div className="h-3 w-2/3 animate-pulse rounded-sm bg-surface" />
@@ -261,7 +262,18 @@ export function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
             </div>
           ) : (
             <>
-              <ul role="listbox" className={`divide-y divide-border ${isLoading ? "opacity-60" : ""}`}>
+              {/* Two columns from lg up: the panel is as wide as the search
+                  bar, and one full-width row left the price and «+» ~1000px
+                  from the name on a large monitor — too far to read across
+                  or to tell which product the button adds. Rows draw their
+                  own borders (divide-y can't do a grid); -mb-px lays the
+                  last row's bottom border onto the «see all» link's top
+                  border so the two never double up. Arrow keys still walk
+                  the results in reading order. */}
+              <ul
+                role="listbox"
+                className={`-mb-px grid lg:grid-cols-2 ${isLoading ? "opacity-60" : ""}`}
+              >
                 {results.map((product, i) => (
                   <SearchResultRow
                     key={product.id}

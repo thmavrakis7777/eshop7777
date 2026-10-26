@@ -31,8 +31,16 @@ export function SearchResultRow({
   const { hasSingleVariant, isOutOfStock, isPending, error, quickAdd } = useQuickAdd(product);
 
   return (
-    <li id={optionId} role="option" aria-selected={active}>
-      <div className={`flex items-center gap-3 px-3 py-3 transition-colors sm:px-4 ${active ? "bg-surface" : ""}`}>
+    // Borders here, not divide-y on the list: from lg up the list is two
+    // columns (see SearchBox), so each row draws its bottom line and a left-
+    // column row its divider — except a lone last row, with nothing beside it.
+    <li
+      id={optionId}
+      role="option"
+      aria-selected={active}
+      className="border-b border-border lg:[&:nth-child(odd):not(:last-child)]:border-r"
+    >
+      <div className={`flex h-full items-center gap-3 px-3 py-3 transition-colors sm:px-4 ${active ? "bg-surface" : ""}`}>
         <Link
           href={`/proionta/${product.handle}`}
           className="flex min-w-0 flex-1 items-center gap-3"
