@@ -52,7 +52,7 @@ The button's source of truth: `apps/storefront/src/lib/ai/gemini-provider.ts` (s
 - **Meta description:** max **155** characters, explains the product, no clickbait.
 - **H1:** the real product name, close to the current title, capitalised like the other products (e.g. «Σπιράλ Inox Μπάνιου 2m»). No keywords stuffed in.
 - **Slug:** lowercase Latin, digits, hyphens. **Keep the current slug if the product is published** and it is already descriptive; change only if it is wrong.
-- **Name the visible finish:** shiny chrome fittings are «χρωμέ ρακόρ», not the vaguer «μεταλλικά ρακόρ» (owner's correction on 00087). Same idea for any part whose finish the photo clearly shows.
+- **Name the visible finish:** shiny chrome fittings are «χρωμέ ρακόρ», not the vaguer «μεταλλικά ρακόρ» (owner's correction on 00087). Same idea for any part whose finish the photo clearly shows. But shiny ≠ always chrome: gas-stove/καμινέτο **grates (σχάρες) are «ανοξείδωτη»**, never «χρωμέ» (owner's correction on 00089/00090).
 - **Alt text:** what the product **is** — type, material, colour, size, visible parts. **Never how the photo shows it**: no pose, arrangement or background («τυλιγμένο σε κύκλο», «πάνω σε πάγκο», «σε μαρμάρινο φόντο»). Owner's rule.
 
 ## 5. Run the button's checks
