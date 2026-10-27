@@ -48,6 +48,7 @@ The button's source of truth: `apps/storefront/src/lib/ai/gemini-provider.ts` (s
 
 - **Facts:** only what the DB holds and what the photo really shows. Never invent sizes, thread sizes, pressure, compatibility, certifications, warranty, "best seller" claims. If a fact a shopper would want is missing, **ask the owner** instead of guessing.
 - **Description:** 2–4 natural Greek sentences, original wording, no keyword lists, no hype («το καλύτερο»). Include one sentence that answers the shopper's real question (GEO/AEO), e.g. why this size over the other one, where it fits, what it replaces. Correct Greek article/ν rules («την μπαταρία», «στην μπανιέρα»).
+- **Other products:** point to another product only when it is a true sibling (same item in another size/colour, e.g. 00089 ↔ 00090). Don't send the shopper to a different product of the same category (owner removed «υπάρχει και το λευκό καλάθι των 65 λίτρων» from 00092).
 - **SEO title:** how a Greek shopper searches (type + size / colour / material / use), ending in **` | MAVRAKIS HOME`**, max **60** characters. A product's own SEO title is used as an absolute title — the site's «| storeName» suffix is skipped — so the shop name must be written in.
 - **Meta description:** max **155** characters, explains the product, no clickbait.
 - **H1:** the real product name, close to the current title, capitalised like the other products (e.g. «Σπιράλ Inox Μπάνιου 2m»). No keywords stuffed in.
