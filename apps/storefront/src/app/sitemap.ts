@@ -4,6 +4,7 @@ import { getCategoryLastModified, getNavCategories, getNoindexCategoryIds } from
 import { getContentPage } from "@/lib/data/content-pages";
 import { getJournalSitemapEntries } from "@/lib/data/journal";
 import { getAllCollectionHandles, getAllProductHandles, getProductSitemapImages } from "@/lib/data/products";
+import { indexableImageUrl } from "@/lib/images/indexable";
 import { siteUrl } from "@/lib/site-config";
 import type { CategoryNode } from "@/lib/types";
 
@@ -152,9 +153,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  // Each product's photos as <image:image> entries, so Google Images finds
-  // them from the sitemap too. Next writes them into the XML as they are,
-  // unescaped, so a "&" in a URL would break the whole file.
+  // Each product's photos as <image:image> entries, at an address Google may
+  // index (lib/images/indexable.ts), so Google Images finds them from the
+  // sitemap too. Next writes them into the XML as they are, unescaped, so a
+  // "&" in a URL would break the whole file.
   const productRoutes: MetadataRoute.Sitemap = productHandles.map((p) => {
     const images = productImages.get(p.handle);
     return {
@@ -162,7 +164,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: p.updatedAt,
       changeFrequency: "weekly",
       priority: 0.6,
-      ...(images?.length ? { images: images.map(xmlEscape) } : {}),
+      ...(images?.length ? { images: images.map((image) => xmlEscape(indexableImageUrl(image))) } : {}),
     };
   });
 

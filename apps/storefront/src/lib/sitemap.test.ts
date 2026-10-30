@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { siteUrl } from "@/lib/site-config";
 import type { CategoryNode } from "@/lib/types";
 
 // app/sitemap.ts with its data layer replaced, so this checks only what the
@@ -109,6 +110,18 @@ describe("sitemap", () => {
       "https://x.supabase.co/b.webp",
     ]);
     expect(entries.find((e) => e.url.endsWith("/proionta/petrogkaz-b"))).not.toHaveProperty("images");
+  });
+
+  it("lists a stored photo at this site's indexable address, escaped for XML", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://x.supabase.co");
+    const photo = "https://x.supabase.co/storage/v1/object/public/product-images/products/a.webp";
+    data.products = [{ handle: "kamineto-a", updatedAt: "2026-10-10T17:32:13.100Z" }];
+    data.productImages = new Map([["kamineto-a", [photo]]]);
+    const entries = await sitemap();
+    expect(entries.find((e) => e.url.endsWith("/proionta/kamineto-a"))?.images).toEqual([
+      `${siteUrl}/_next/image?url=${encodeURIComponent(photo)}&amp;w=3840&amp;q=75`,
+    ]);
+    vi.unstubAllEnvs();
   });
 
   it("escapes image URLs, which Next writes into the XML unescaped", async () => {

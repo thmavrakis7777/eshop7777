@@ -32,6 +32,8 @@ import { resolveStockInquiryContact } from "@/lib/whatsapp";
 import { formatPrice, formatPriceFrom } from "@/lib/format";
 import { siteUrl } from "@/lib/site-config";
 import { safeJsonLd } from "@/lib/json-ld";
+import { indexableImageUrl } from "@/lib/images/indexable";
+import { photosPrimaryFirst, primaryPhotoUrl } from "@/lib/product-photos";
 import { ON_ORDER_DELIVERY_TEXT, stockStateOf, type StockState } from "@/lib/stock";
 
 // Google's values for the three stock states: «Κατόπιν παραγγελίας» is
@@ -86,7 +88,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // existed this always resolved to nothing anyway; now that Supabase
   // Storage uploads are live, sharing a product link with no override
   // should still show that product's real image, not no image at all.
-  const image = seo?.socialImageUrl || product.imageUrl;
+  // The photo the page opens on (a sold-out colour's isn't), at an address
+  // crawlers may index (lib/images/indexable.ts).
+  const sharedPhoto = seo?.socialImageUrl || primaryPhotoUrl(product);
+  const image = sharedPhoto ? indexableImageUrl(sharedPhoto) : null;
 
   return {
     // RootLayout's title template appends " | STIA" to every plain string
@@ -166,15 +171,44 @@ export default async function ProductPage({ params }: Props) {
   const paymentText = extra?.paymentTextOverride || siteSettings?.pdpPaymentText || "Αντικαταβολή κατά την παράδοση";
   const stockInquiry = resolveStockInquiryContact(siteSettings);
 
+  // Search engines get every photo at an address they may index
+  // (lib/images/indexable.ts), and the one the page opens on comes first.
+  const primaryPhoto = primaryPhotoUrl(product);
+  const schemaPhotos = photosPrimaryFirst(
+    gallery.map((g) => g.url),
+    primaryPhoto
+  ).map(indexableImageUrl);
+
+  // Tied together by @id: the page's main image is this one, its subject is
+  // the Product below. One Product entity per page, as before.
+  const pageUrl = `${siteUrl}${seo?.canonicalUrl || `/proionta/${product.handle}`}`;
+  const productId = `${pageUrl}#product`;
+  const webPageId = `${pageUrl}#webpage`;
+  const webPageJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "@id": webPageId,
+    url: pageUrl,
+    name: seo?.seoTitle || product.title,
+    mainEntity: { "@id": productId },
+    ...(primaryPhoto
+      ? { primaryImageOfPage: { "@type": "ImageObject", url: indexableImageUrl(primaryPhoto) } }
+      : {}),
+  };
+
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
+    "@id": productId,
+    mainEntityOfPage: { "@id": webPageId },
     name: product.title,
     description: product.shortDescription || product.title,
     // Only when a real photo exists — no placeholder/fabricated image URL,
     // same "only what's populated" rule as material/weight below. Every
     // photo when there are several (schema.org takes a list), main first.
-    ...(product.imageUrl ? { image: gallery.length > 1 ? gallery.map((g) => g.url) : product.imageUrl } : {}),
+    ...(primaryPhoto
+      ? { image: schemaPhotos.length > 1 ? schemaPhotos : indexableImageUrl(primaryPhoto) }
+      : {}),
     // Medusa's real variant SKU — the same value shown as "Κωδικός
     // προϊόντος" below. Omitted rather than faked when a variant has none.
     ...(product.code ? { sku: product.code } : {}),
@@ -242,6 +276,7 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(webPageJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />
       <RecentlyViewedTracker handle={product.handle} />
       <RememberShoppingPage signature={product.handle} />

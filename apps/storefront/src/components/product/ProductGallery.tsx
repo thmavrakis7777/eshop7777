@@ -49,7 +49,8 @@ export function ProductGallery({
     const i = url ? images.findIndex((img) => img.url === url) : -1;
     return i >= 0 ? i : null;
   };
-  const [active, setActive] = useState(() => photoIndex(colourPhoto) ?? 0);
+  const [firstShown] = useState(() => photoIndex(colourPhoto) ?? 0);
+  const [active, setActive] = useState(firstShown);
   const [shownColourPhoto, setShownColourPhoto] = useState(colourPhoto);
   if (colourPhoto !== shownColourPhoto) {
     setShownColourPhoto(colourPhoto);
@@ -98,9 +99,10 @@ export function ProductGallery({
               alt={img.alt || title}
               fill
               sizes={sizes}
-              // The first photo is the page's LCP element (Speed audit
-              // PERF-007/SPD-03) — the rest load lazily behind it.
-              preload={i === 0}
+              // The photo the page opens on is its LCP element (Speed audit
+              // PERF-007/SPD-03) — the rest load lazily behind it. That's not
+              // always the first: a sold-out first colour opens on the next.
+              preload={i === firstShown}
               className="object-cover"
             />
           </div>
