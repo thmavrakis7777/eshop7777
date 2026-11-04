@@ -2,6 +2,7 @@ import "server-only";
 import { sql, transaction, type Tx } from "@/lib/db/client";
 import { normalizeSearchText } from "@/lib/search";
 import { daysSince } from "@/lib/dates";
+import { publicImageUrl } from "@/lib/storage/urls";
 import { stepPriceCents, type LengthRule } from "@/lib/length";
 import {
   NEW_ARRIVAL_PREDICATE,
@@ -36,6 +37,8 @@ export type AdminProductRow = {
   /** Sold by length: totalStock is in steps of this many cm. */
   lengthStepCm: number | null;
   imageCount: number;
+  /** The main photo (first by position, as on the storefront), for the list's thumbnail. */
+  imageUrl: string | null;
   createdAt: string;
 };
 
@@ -97,6 +100,8 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
              WHERE v.product_id = p.id AND v.compare_at_price_cents > v.price_cents) AS on_sale,
            COALESCE((SELECT SUM(v.stock_quantity) FROM shop.product_variant v WHERE v.product_id = p.id), 0)::int AS total_stock,
            (SELECT COUNT(*) FROM shop.product_image i WHERE i.product_id = p.id)::int AS image_count,
+           (SELECT i.storage_path FROM shop.product_image i
+             WHERE i.product_id = p.id ORDER BY i.position LIMIT 1) AS image_path,
            p.length_step_cm,
            COUNT(*) OVER () AS total_count
       FROM shop.product p
@@ -138,7 +143,8 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
     id: string; slug: string; title: string; is_active: boolean; created_at: Date;
     category_name: string | null; category_slug: string | null; code: string | null; variant_count: number;
     min_price_cents: number | null; max_price_cents: number | null; on_sale: boolean;
-    total_stock: number; image_count: number; total_count: string; length_step_cm: number | null;
+    total_stock: number; image_count: number; image_path: string | null; total_count: string;
+    length_step_cm: number | null;
   }>;
 
   return {
@@ -157,6 +163,7 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
       totalStock: r.total_stock,
       lengthStepCm: r.length_step_cm,
       imageCount: r.image_count,
+      imageUrl: publicImageUrl(r.image_path),
       createdAt: new Date(r.created_at).toISOString(),
     })),
     total: rows.length > 0 ? Number(rows[0].total_count) : 0,
@@ -426,6 +433,13 @@ export class CatalogError extends Error {
       // steps (2,99 €/μ in 0,5 μ steps), or limits that don't fit the step.
       | "price_not_divisible"
       | "invalid_length_rule"
+      // Quick edit (the product list): price and stock are edited in the
+      // list only for a product with exactly one variant.
+      | "multiple_variants"
+      // A sale's original price must stay above the selling price.
+      | "compare_at_not_above"
+      // The stock changed (a sale, another tab) after the list was loaded.
+      | "stale_stock"
   ) {
     super(message);
   }
@@ -930,6 +944,90 @@ export async function changeStockBy(variantId: string, delta: number, adminUserI
 }
 
 // ---------------------------------------------------------------------------
+// Quick edit — the product list's inline name / price / stock / status
+// ---------------------------------------------------------------------------
+
+/**
+ * Renames a product from the list. The slug is deliberately left alone: it
+ * is the product's URL, and a quick typo fix must never move a page Google
+ * already indexed (the full editor is where a slug is changed on purpose).
+ */
+export async function quickRenameProduct(productId: string, title: string): Promise<{ slug: string }> {
+  const [row] = await sql<{ slug: string }[]>`
+    UPDATE shop.product SET title = ${title} WHERE id = ${productId} RETURNING slug`;
+  if (!row) throw new CatalogError("Product not found", "not_found");
+  return row;
+}
+
+export async function quickSetActive(productId: string, isActive: boolean): Promise<{ slug: string }> {
+  const [row] = await sql<{ slug: string }[]>`
+    UPDATE shop.product SET is_active = ${isActive} WHERE id = ${productId} RETURNING slug`;
+  if (!row) throw new CatalogError("Product not found", "not_found");
+  return row;
+}
+
+/**
+ * Sets a one-variant product's price from the list, under the same rules the
+ * variant editor applies (saveVariantAction): a sale's original price must
+ * stay above the new price, and a price per metre must split into whole-cent
+ * steps. Several variants have several prices — those are edited in the
+ * product editor, where each one is visible.
+ */
+export async function quickSetPrice(productId: string, priceCents: number): Promise<{ slug: string }> {
+  return transaction(async (tx) => {
+    const variants = await tx<{
+      id: string; compare_at_price_cents: number | null; slug: string; length_step_cm: number | null;
+    }[]>`
+      SELECT v.id, v.compare_at_price_cents, p.slug, p.length_step_cm
+        FROM shop.product_variant v JOIN shop.product p ON p.id = v.product_id
+       WHERE v.product_id = ${productId} FOR UPDATE OF v`;
+    if (variants.length === 0) throw new CatalogError("Product not found", "not_found");
+    if (variants.length > 1) throw new CatalogError("Several variants", "multiple_variants");
+    const [v] = variants;
+    if (v.compare_at_price_cents != null && v.compare_at_price_cents <= priceCents) {
+      throw new CatalogError("Original price not above the new price", "compare_at_not_above");
+    }
+    if (v.length_step_cm != null && stepPriceCents(priceCents, v.length_step_cm) == null) {
+      throw new CatalogError("Price does not split into steps", "price_not_divisible");
+    }
+    await tx`UPDATE shop.product_variant SET price_cents = ${priceCents} WHERE id = ${v.id}`;
+    return { slug: v.slug };
+  });
+}
+
+/**
+ * Sets a one-variant product's stock from the list. `expected` is the number
+ * the list showed: if a sale (or another tab) changed it since, nothing is
+ * written — overwriting a number the owner never saw is how sold stock gets
+ * silently "un-sold" (the same reason saveVariant takes stockBefore). Stored
+ * units: steps for a product sold by length. Recorded in the stock history.
+ */
+export async function quickSetStock(
+  productId: string,
+  quantity: number,
+  expected: number,
+  adminUserId: string
+): Promise<{ slug: string; wasOutOfStock: boolean }> {
+  return transaction(async (tx) => {
+    const variants = await tx<{ id: string; stock_quantity: number; slug: string }[]>`
+      SELECT v.id, v.stock_quantity, p.slug
+        FROM shop.product_variant v JOIN shop.product p ON p.id = v.product_id
+       WHERE v.product_id = ${productId} FOR UPDATE OF v`;
+    if (variants.length === 0) throw new CatalogError("Product not found", "not_found");
+    if (variants.length > 1) throw new CatalogError("Several variants", "multiple_variants");
+    const [v] = variants;
+    if (v.stock_quantity !== expected) throw new CatalogError("Stock changed meanwhile", "stale_stock");
+    if (quantity !== v.stock_quantity) {
+      await tx`UPDATE shop.product_variant SET stock_quantity = ${quantity} WHERE id = ${v.id}`;
+      await tx`
+        INSERT INTO shop.inventory_movement (variant_id, delta, reason, admin_user_id)
+        VALUES (${v.id}, ${quantity - v.stock_quantity}, 'manual', ${adminUserId})`;
+    }
+    return { slug: v.slug, wasOutOfStock: v.stock_quantity <= 0 };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Bulk operations
 // ---------------------------------------------------------------------------
 
@@ -962,6 +1060,13 @@ export async function bulkAddToCollection(ids: string[], collectionId: string): 
  * GREATEST(..., 0) is not cosmetic: a -150% adjustment would otherwise write
  * a negative price, and the CHECK constraint would abort the whole batch
  * partway through. Clamping keeps a fat-fingered bulk edit recoverable.
+ *
+ * Sold by length: the price is per metre and must split into whole-cent
+ * steps (stepPriceCents) — 10% off 3,00 €/μ is 2,70 €, fine in 0,5 μ steps,
+ * but 10% off 2,90 € is 2,61 €, which isn't. Such a product's new price is
+ * rounded to the nearest one that splits: a multiple of 100 / gcd(100, step)
+ * cents (2 cents for 0,5 μ steps). Rounding, not refusing, so one hose in a
+ * batch of 30 doesn't block the other 29.
  */
 export async function bulkAdjustPrice(
   ids: string[],
@@ -969,16 +1074,19 @@ export async function bulkAdjustPrice(
   value: number
 ): Promise<BulkResult> {
   if (ids.length === 0) return { affected: 0 };
-  const res =
+  const raw =
     mode === "percent"
-      ? await sql`
-          UPDATE shop.product_variant
-             SET price_cents = GREATEST(ROUND(price_cents * (1 + ${value} / 100.0))::int, 0)
-           WHERE product_id = ANY(${ids})`
-      : await sql`
-          UPDATE shop.product_variant
-             SET price_cents = GREATEST(price_cents + ${Math.round(value * 100)}, 0)
-           WHERE product_id = ANY(${ids})`;
+      ? sql`ROUND(v.price_cents * (1 + ${value} / 100.0))`
+      : sql`(v.price_cents + ${Math.round(value * 100)})`;
+  const res = await sql`
+    UPDATE shop.product_variant v
+       SET price_cents = GREATEST(
+             CASE WHEN p.length_step_cm IS NULL THEN ${raw}
+                  ELSE ROUND(${raw} / (100 / gcd(100, p.length_step_cm))::numeric)
+                       * (100 / gcd(100, p.length_step_cm))
+             END::int, 0)
+      FROM shop.product p
+     WHERE p.id = v.product_id AND v.product_id = ANY(${ids})`;
   return { affected: res.count };
 }
 

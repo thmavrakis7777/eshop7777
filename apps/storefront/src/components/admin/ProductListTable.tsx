@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { bulkProductAction, type BulkOperation } from "@/lib/admin/catalog-actions";
+import { bulkProductAction, quickEditProductAction, type BulkOperation } from "@/lib/admin/catalog-actions";
 import type { AdminProductRow } from "@/lib/admin/products";
 import { money } from "@/components/admin/ui/primitives";
-import { formatMetres } from "@/lib/length";
+import { formatMetres, stepsToMetres } from "@/lib/length";
 
 /**
  * The product list, with bulk selection.
@@ -239,36 +239,91 @@ export function ProductListTable({
                     />
                   </td>
                   <td className="border-b border-border px-4 py-3">
-                    <Link href={`/admin/products/${p.id}`} className="font-medium text-ink hover:text-accent">
-                      {p.title}
-                    </Link>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-muted">
-                      <span>/{p.slug}</span>
-                      {p.variantCount > 1 && <span>· {p.variantCount} παραλλαγές</span>}
-                      {p.imageCount === 0 && <span className="text-accent">· χωρίς εικόνα</span>}
+                    <div className="flex items-center gap-3">
+                      {/* The photo opens the editor — the name is now the quick edit. */}
+                      <Link href={`/admin/products/${p.id}`} tabIndex={-1} aria-hidden className="shrink-0">
+                        {p.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- admin-only thumbnail, same as CategoryProductOrder
+                          <img
+                            src={p.imageUrl}
+                            alt=""
+                            loading="lazy"
+                            className="h-10 w-10 rounded-md border border-border object-cover"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-md border border-border bg-surface" />
+                        )}
+                      </Link>
+                      <div className="min-w-0 flex-1">
+                        <InlineEdit
+                          label={`Όνομα: ${p.title}`}
+                          initial={p.title}
+                          onSave={(value) => quickEditProductAction(p.id, { field: "title", value })}
+                          className="font-medium text-ink"
+                          inputClassName="w-full min-w-[16rem]"
+                        >
+                          {p.title}
+                        </InlineEdit>
+                        <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-muted">
+                          <span>/{p.slug}</span>
+                          {p.variantCount > 1 && <span>· {p.variantCount} παραλλαγές</span>}
+                          {p.imageCount === 0 && <span className="text-accent">· χωρίς εικόνα</span>}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="whitespace-nowrap border-b border-border px-4 py-3 tabular-nums text-ink">{p.code ?? "—"}</td>
                   <td className="border-b border-border px-4 py-3 text-ink-muted">{p.categoryName ?? "—"}</td>
-                  <td className="border-b border-border px-4 py-3 text-right tabular-nums">
-                    {priceRange(p)}
+                  <td className="whitespace-nowrap border-b border-border px-4 py-3 text-right tabular-nums">
+                    {p.variantCount === 1 && p.minPriceCents != null ? (
+                      <InlineEdit
+                        label={`Τιμή: ${p.title}`}
+                        initial={centsToInput(p.minPriceCents)}
+                        onSave={(value) => quickEditProductAction(p.id, { field: "price", value })}
+                        inputMode="decimal"
+                        align="right"
+                        inputClassName="w-24"
+                        suffix={p.lengthStepCm != null ? "€/μ" : "€"}
+                      >
+                        {priceRange(p)}
+                        {p.lengthStepCm != null && <span className="text-ink-muted">/μ</span>}
+                      </InlineEdit>
+                    ) : (
+                      <VariantsLink id={p.id}>{priceRange(p)}</VariantsLink>
+                    )}
                     {p.onSale && <span className="ml-1.5 text-xs text-accent">σε προσφορά</span>}
                   </td>
                   <td
-                    className={`border-b border-border px-4 py-3 text-right tabular-nums ${
+                    className={`whitespace-nowrap border-b border-border px-4 py-3 text-right tabular-nums ${
                       p.totalStock <= 0 ? "text-danger" : p.totalStock <= 5 ? "text-accent" : ""
                     }`}
                   >
-                    {p.lengthStepCm != null ? formatMetres(p.totalStock, p.lengthStepCm) : p.totalStock}
+                    {p.variantCount === 1 ? (
+                      <InlineEdit
+                        label={`Απόθεμα: ${p.title}`}
+                        initial={
+                          p.lengthStepCm != null
+                            ? String(stepsToMetres(p.totalStock, p.lengthStepCm)).replace(".", ",")
+                            : String(p.totalStock)
+                        }
+                        onSave={(value) =>
+                          quickEditProductAction(p.id, { field: "stock", value, expected: p.totalStock })
+                        }
+                        inputMode={p.lengthStepCm != null ? "decimal" : "numeric"}
+                        align="right"
+                        inputClassName="w-20"
+                        suffix={p.lengthStepCm != null ? "μ" : undefined}
+                      >
+                        {p.lengthStepCm != null ? formatMetres(p.totalStock, p.lengthStepCm) : p.totalStock}
+                      </InlineEdit>
+                    ) : (
+                      <VariantsLink id={p.id}>
+                        {p.lengthStepCm != null ? formatMetres(p.totalStock, p.lengthStepCm) : p.totalStock}
+                      </VariantsLink>
+                    )}
                   </td>
                   <td className="border-b border-border px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium ${
-                        p.isActive ? "bg-success/10 text-success" : "bg-surface text-ink-muted"
-                      }`}
-                    >
-                      {p.isActive ? "Ενεργό" : "Ανενεργό"}
-                    </span>
+                    <StatusToggle id={p.id} title={p.title} isActive={p.isActive} />
                   </td>
                   <td className="border-b border-border px-2 py-3 text-right">
                     <Link
@@ -286,6 +341,165 @@ export function ProductListTable({
         </table>
       </div>
     </>
+  );
+}
+
+// "24,90" — what the owner types (Greek keyboards give a comma); priceToCents
+// on the server reads either separator.
+function centsToInput(cents: number): string {
+  return (cents / 100).toFixed(2).replace(".", ",");
+}
+
+/**
+ * A list cell that turns into an input on click. Enter or clicking away
+ * saves (only if the value changed), Escape cancels. On an error the input
+ * stays open with the reason underneath, so nothing typed is lost.
+ */
+function InlineEdit({
+  label,
+  initial,
+  onSave,
+  children,
+  className = "",
+  inputClassName = "",
+  inputMode,
+  align = "left",
+  suffix,
+}: {
+  label: string;
+  initial: string;
+  onSave: (value: string) => Promise<{ ok: true; message?: string } | { ok: false; error: string }>;
+  children: React.ReactNode;
+  className?: string;
+  inputClassName?: string;
+  inputMode?: "decimal" | "numeric";
+  align?: "left" | "right";
+  suffix?: string;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function open() {
+    setValue(initial);
+    setError(null);
+    setEditing(true);
+  }
+
+  function cancel() {
+    setEditing(false);
+    setError(null);
+  }
+
+  function commit() {
+    if (pending) return;
+    if (value.trim() === initial.trim()) return cancel();
+    startTransition(async () => {
+      const result = await onSave(value);
+      if (result.ok) {
+        setEditing(false);
+        setError(null);
+        router.refresh();
+      } else {
+        setError(result.error);
+        // stale_stock refreshed the list on the server; pick the new number up.
+        router.refresh();
+      }
+    });
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={open}
+        title="Κλικ για αλλαγή"
+        aria-label={`Αλλαγή — ${label}`}
+        className={`rounded-sm text-${align} underline decoration-transparent decoration-dashed underline-offset-4 transition-colors hover:decoration-ink-muted focus-visible:decoration-ink-muted ${className}`}
+      >
+        {children}
+      </button>
+    );
+  }
+
+  return (
+    <div className={align === "right" ? "flex flex-col items-end" : ""}>
+      <div className="inline-flex items-center gap-1">
+        <input
+          autoFocus
+          aria-label={label}
+          value={value}
+          inputMode={inputMode}
+          disabled={pending}
+          onFocus={(e) => e.currentTarget.select()}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              cancel();
+            }
+          }}
+          className={`rounded-md border border-ink bg-bg px-2 py-1 text-sm tabular-nums outline-none disabled:opacity-50 text-${align} ${inputClassName}`}
+        />
+        {suffix && <span className="text-xs text-ink-muted">{suffix}</span>}
+      </div>
+      {pending && <div className="mt-1 text-xs text-ink-muted">Αποθήκευση…</div>}
+      {error && (
+        <div role="alert" className="mt-1 max-w-[18rem] whitespace-normal text-left text-xs text-danger">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Price/stock of a product with several variants: each variant has its own, edited in the product. */
+function VariantsLink({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={`/admin/products/${id}`}
+      title="Έχει παραλλαγές — άλλαξέ το μέσα στο προϊόν"
+      className="hover:text-accent"
+    >
+      {children}
+    </Link>
+  );
+}
+
+/** One click switches Ενεργό ↔ Ανενεργό — as easy to undo as to do, so no confirmation. */
+function StatusToggle({ id, title, isActive }: { id: string; title: string; isActive: boolean }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          startTransition(async () => {
+            const result = await quickEditProductAction(id, { field: "active", value: !isActive });
+            setError(result.ok ? null : result.error);
+            if (result.ok) router.refresh();
+          })
+        }
+        title={isActive ? "Κλικ για απενεργοποίηση" : "Κλικ για ενεργοποίηση"}
+        aria-label={`${isActive ? "Απενεργοποίηση" : "Ενεργοποίηση"}: ${title}`}
+        className={`inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium transition-opacity hover:opacity-75 disabled:opacity-50 ${
+          isActive ? "bg-success/10 text-success" : "bg-surface text-ink-muted"
+        }`}
+      >
+        {pending ? "…" : isActive ? "Ενεργό" : "Ανενεργό"}
+      </button>
+      {error && <div role="alert" className="mt-1 text-xs text-danger">{error}</div>}
+    </div>
   );
 }
 

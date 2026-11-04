@@ -798,25 +798,7 @@ export async function saveCategorySeo(
 // Media
 // ---------------------------------------------------------------------------
 
-export type AdminMediaAsset = {
-  id: string;
-  storagePath: string;
-  label: string | null;
-  altText: string | null;
-  bytes: number | null;
-  createdAt: string;
-};
-
-export async function listMediaAssets(): Promise<AdminMediaAsset[]> {
-  const rows = await sql<
-    { id: string; storage_path: string; label: string | null; alt_text: string | null; bytes: number | null; created_at: Date }[]
-  >`SELECT id, storage_path, label, alt_text, bytes, created_at
-      FROM shop.media_asset ORDER BY created_at DESC`;
-  return rows.map((r) => ({
-    id: r.id, storagePath: r.storage_path, label: r.label, altText: r.alt_text,
-    bytes: r.bytes, createdAt: new Date(r.created_at).toISOString(),
-  }));
-}
+// The library screen itself reads Storage directly — see lib/admin/media.ts.
 
 /** True when Supabase Storage is configured well enough for uploads to work. */
 export function isStorageConfigured(): boolean {

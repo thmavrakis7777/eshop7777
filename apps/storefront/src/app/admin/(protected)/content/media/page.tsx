@@ -1,64 +1,63 @@
-import { isStorageConfigured, listMediaAssets } from "@/lib/admin/cms";
-import { Card, EmptyState, PageHeader } from "@/components/admin/ui/primitives";
+import { isStorageConfigured } from "@/lib/admin/cms";
+import { listMediaLibrary } from "@/lib/admin/media";
+import { Card, EmptyState, PageHeader, StatCard } from "@/components/admin/ui/primitives";
+import { MediaLibrary } from "@/components/admin/MediaLibrary";
+import { formatBytes } from "@/lib/admin/format-bytes";
 
 export const metadata = { title: "Πολυμέσα" };
 
 /**
- * Media library.
- *
- * Uploads need Supabase Storage credentials that are not configured on this
- * project yet. Rather than render an upload button that fails on click, this
- * screen says exactly what is missing and what to do about it — a dead
- * control is worse than an honest gap.
+ * Media library: every image in storage, where it's used, and the unused
+ * ones the owner can delete (lib/admin/media.ts). Images are uploaded where
+ * they're used — a product, a category, a homepage section — so there is no
+ * upload button here: an image uploaded on its own would only ever be unused.
  */
 export default async function AdminMediaPage() {
-  const [assets, configured] = [await listMediaAssets(), isStorageConfigured()];
+  const configured = isStorageConfigured();
+  const items = configured ? await listMediaLibrary() : [];
+
+  const unused = items.filter((i) => i.usages.length === 0);
+  const totalBytes = items.reduce((n, i) => n + i.bytes, 0);
+  const unusedBytes = unused.reduce((n, i) => n + i.bytes, 0);
 
   return (
     <>
       <PageHeader
         title="Πολυμέσα"
-        description="Οι εικόνες του καταστήματος — φωτογραφίες προϊόντων, banners και εικόνες κατηγοριών."
+        description="Όλες οι εικόνες του καταστήματος και πού χρησιμοποιείται η καθεμία. Όσες δεν χρησιμοποιούνται πουθενά μπορείς να τις διαγράψεις."
       />
 
       {!configured && (
         <Card className="mb-6 border-accent/30 bg-accent/5">
-          <h2 className="text-sm font-semibold text-ink">Η μεταφόρτωση εικόνων δεν είναι ενεργή ακόμα</h2>
+          <h2 className="text-sm font-semibold text-ink">Το Supabase Storage δεν έχει ρυθμιστεί</h2>
           <p className="mt-2 text-sm text-ink-muted">
-            Χρειάζονται δύο τιμές από το Supabase (Project Settings → API) στο αρχείο{" "}
-            <code className="text-ink">apps/storefront/.env.local</code>:
-          </p>
-          <pre className="mt-3 overflow-x-auto rounded-md border border-border bg-bg px-3 py-2 text-xs text-ink">
-{`NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<service role key>`}
-          </pre>
-          <p className="mt-3 text-sm text-ink-muted">
-            Το service role key είναι μυστικό — μένει μόνο στον server και δεν φτάνει ποτέ στον browser.
-            Μόλις προστεθούν, ενεργοποιείται η μεταφόρτωση, η αναδιάταξη και το alt text σε προϊόντα,
-            hero και εικόνες κατηγοριών.
+            Χρειάζονται οι τιμές <code className="text-ink">NEXT_PUBLIC_SUPABASE_URL</code> και{" "}
+            <code className="text-ink">SUPABASE_SERVICE_ROLE_KEY</code> στο περιβάλλον του server.
           </p>
         </Card>
       )}
 
-      {assets.length === 0 ? (
+      {configured && items.length === 0 ? (
         <EmptyState
-          title="Δεν υπάρχουν αρχεία"
-          description={
-            configured
-              ? "Ανέβασε την πρώτη σου εικόνα για να ξεκινήσεις."
-              : "Μόλις ρυθμιστεί το Supabase Storage, οι εικόνες που ανεβάζεις θα εμφανίζονται εδώ."
-          }
+          title="Δεν υπάρχουν εικόνες"
+          description="Οι εικόνες που ανεβάζεις σε προϊόντα, κατηγορίες και στην Αρχική εμφανίζονται εδώ."
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {assets.map((a) => (
-            <Card key={a.id}>
-              <div className="truncate text-sm font-medium text-ink">{a.label ?? a.storagePath}</div>
-              <div className="truncate text-xs text-ink-muted">{a.storagePath}</div>
-              {a.altText && <div className="mt-1 text-xs text-ink-muted">alt: {a.altText}</div>}
-            </Card>
-          ))}
-        </div>
+        configured && (
+          <>
+            <div className="mb-6 grid gap-3 sm:grid-cols-3">
+              <StatCard label="Εικόνες" value={String(items.length)} hint={`${formatBytes(totalBytes)} συνολικά`} />
+              <StatCard label="Σε χρήση" value={String(items.length - unused.length)} />
+              <StatCard
+                label="Δεν χρησιμοποιούνται"
+                value={String(unused.length)}
+                hint={unused.length > 0 ? `${formatBytes(unusedBytes)} που μπορούν να ελευθερωθούν` : undefined}
+                tone={unused.length > 0 ? "warning" : "neutral"}
+              />
+            </div>
+            <MediaLibrary items={items} />
+          </>
+        )
       )}
     </>
   );
