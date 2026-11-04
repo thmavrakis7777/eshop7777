@@ -19,6 +19,10 @@ import {
   findProductByInternalCode,
   getProductTitle,
   listProducts,
+  quickRenameProduct,
+  quickSetActive,
+  quickSetPrice,
+  quickSetStock,
   reorderProductImages,
   saveVariant,
   saveLengthRule,
@@ -102,6 +106,12 @@ function mapError(err: unknown): string {
         return "Μια τιμή του προϊόντος δεν μοιράζεται ακριβώς στο βήμα (π.χ. 2,99 € ανά μέτρο σε 0,5 μ). Άλλαξέ την πρώτα.";
       case "invalid_length_rule":
         return "Το ελάχιστο και το μέγιστο μήκος πρέπει να είναι πολλαπλάσια του βήματος, με ελάχιστο ≤ μέγιστο.";
+      case "multiple_variants":
+        return "Το προϊόν έχει παραλλαγές με δική τους τιμή και απόθεμα. Άλλαξέ τες μέσα στο προϊόν.";
+      case "compare_at_not_above":
+        return "Το προϊόν είναι σε προσφορά: η νέα τιμή πρέπει να μείνει κάτω από την αρχική. Άλλαξε την προσφορά μέσα στο προϊόν.";
+      case "stale_stock":
+        return "Το απόθεμα άλλαξε στο μεταξύ (π.χ. από μια πώληση). Η λίστα ανανεώθηκε, δοκίμασε ξανά.";
     }
   }
   if (err instanceof Error && err.message === "Not authenticated") {
@@ -677,6 +687,97 @@ export async function reorderProductImagesAction(productId: string, imageIds: st
 // ---------------------------------------------------------------------------
 // Bulk
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Quick edit — the product list's inline fields
+// ---------------------------------------------------------------------------
+
+export type QuickEdit =
+  | { field: "title"; value: string }
+  | { field: "price"; value: string }
+  // `expected`: the stock the list showed, in the stored unit (steps for a
+  // product sold by length) — see quickSetStock.
+  | { field: "stock"; value: string; expected: number }
+  | { field: "active"; value: boolean };
+
+/**
+ * One inline edit from the product list. The same validation as the full
+ * editor's actions, field by field, and the same cache refresh as
+ * saveProductAction/saveVariantAction, so the shop shows the change at once.
+ */
+export async function quickEditProductAction(productId: string, edit: QuickEdit): Promise<ActionResult> {
+  let admin;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+
+  let slug: string;
+  let message: string;
+  try {
+    switch (edit.field) {
+      case "title": {
+        const title = String(edit.value ?? "").trim();
+        if (!title) return { ok: false, error: "Ο τίτλος είναι υποχρεωτικός." };
+        ({ slug } = await quickRenameProduct(productId, title));
+        await auditLog(admin.id, "product.quick.title", "product", productId, { title });
+        message = "Το όνομα αποθηκεύτηκε.";
+        break;
+      }
+      case "price": {
+        const raw = String(edit.value ?? "").trim();
+        const priceCents = priceToCents(raw);
+        // priceToCents turns garbage into 0; a 0 € product is never meant.
+        if (!raw || priceCents <= 0) return { ok: false, error: "Γράψε μια τιμή μεγαλύτερη από 0 (π.χ. 24,90)." };
+        ({ slug } = await quickSetPrice(productId, priceCents));
+        await auditLog(admin.id, "product.quick.price", "product", productId, { priceCents });
+        message = "Η τιμή αποθηκεύτηκε.";
+        break;
+      }
+      case "stock": {
+        const stepCm = await getLengthStepCm(productId);
+        const quantity =
+          stepCm != null ? metresToSteps(String(edit.value ?? ""), stepCm) : Number(String(edit.value ?? "").trim());
+        if (quantity == null || !Number.isInteger(quantity) || quantity < 0 || String(edit.value ?? "").trim() === "") {
+          return {
+            ok: false,
+            error:
+              stepCm != null
+                ? `Το απόθεμα σε μέτρα πρέπει να είναι πολλαπλάσιο του ${formatMetres(1, stepCm)}.`
+                : "Το απόθεμα πρέπει να είναι μη αρνητικός ακέραιος.",
+          };
+        }
+        const result = await quickSetStock(productId, quantity, edit.expected, admin.id);
+        slug = result.slug;
+        await auditLog(admin.id, "product.quick.stock", "product", productId, { quantity });
+        if (result.wasOutOfStock && quantity > 0) scheduleRestockNotifications();
+        message = "Το απόθεμα αποθηκεύτηκε.";
+        break;
+      }
+      case "active": {
+        ({ slug } = await quickSetActive(productId, edit.value === true));
+        await auditLog(admin.id, `product.quick.${edit.value ? "activate" : "deactivate"}`, "product", productId);
+        message = edit.value ? "Το προϊόν ενεργοποιήθηκε." : "Το προϊόν απενεργοποιήθηκε.";
+        break;
+      }
+    }
+  } catch (err) {
+    // A stale stock number is refreshed for the owner, so the retry sees the
+    // real one.
+    if (err instanceof CatalogError && err.code === "stale_stock") revalidatePath("/admin/products");
+    return { ok: false, error: mapError(err) };
+  }
+
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath(`/proionta/${slug}`, "page");
+  revalidatePath("/", "layout");
+  // Title and active state feed the search index; price/stock the Meta feed.
+  updateTag(SEARCH_CACHE_TAG);
+  updateTag(META_FEED_CACHE_TAG);
+  return { ok: true, message };
+}
 
 export type BulkOperation =
   | { kind: "activate" }
