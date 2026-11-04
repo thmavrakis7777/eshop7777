@@ -240,3 +240,25 @@ async function putObject({ supabaseUrl, serviceKey }: StorageConfig, path: strin
     throw new UploadError(`Η μεταφόρτωση απέτυχε (${res.status}). ${text.slice(0, 200)}`);
   }
 }
+
+/**
+ * Permanently removes files from the bucket (Storage's bulk delete). Only
+ * the media library calls this, and only for files it has just confirmed
+ * nothing uses (lib/admin/media.ts). Returns the names Storage reports as
+ * removed — a name that was already gone is simply not in the list.
+ */
+export async function deleteObjects(paths: string[]): Promise<string[]> {
+  if (paths.length === 0) return [];
+  const { supabaseUrl, serviceKey } = storageConfig();
+  const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/${PRODUCT_IMAGE_BUCKET}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ prefixes: paths }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new UploadError(`Η διαγραφή απέτυχε (${res.status}). ${text.slice(0, 200)}`);
+  }
+  const removed = (await res.json().catch(() => [])) as Array<{ name?: string }>;
+  return removed.map((r) => r.name ?? "").filter(Boolean);
+}
