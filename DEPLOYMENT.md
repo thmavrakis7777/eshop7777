@@ -111,6 +111,32 @@ is what produced the old `EMAXCONNSESSION` warnings), and at 3 per
 instance at runtime (5 until 2026-09-28, when traffic bursts still
 exhausted the 40-slot pool — see the comment on `max` there).
 
+**Idle session timeout (2026-11-05).** Bursts still exhausted the pool at
+3 per instance. The cause, measured in Supabase's pooler logs, is that
+Vercel freezes an instance right after its response, so postgres.js's
+`idle_timeout` can't run. A frozen instance kept its 3 slots for minutes
+after a sub-second render. On 2026-11-02, 73% of the rejections came while
+idle, frozen instances held all 40 slots after the burst itself was over.
+The fix is a database setting, not code:
+
+```sql
+ALTER ROLE postgres SET idle_session_timeout = '30s';
+-- undo: ALTER ROLE postgres RESET idle_session_timeout;
+```
+
+Postgres ends any `postgres`-role session that has been idle for 30 s, and
+the pooler then frees the slot. This was verified the same day: the
+backends were ended at exactly 30 s, the pool reported "No subscribers ...
+shutting down", and Vercel logged no errors. What to expect:
+
+- Any `postgres`-role session (SQL Editor, psql, scripts, localhost dev)
+  that stays idle for more than 30 s gets disconnected and reconnects on its
+  next query.
+- While the pool is alive, it re-creates its one spare backend every 30 s.
+  That's harmless log noise.
+- Only the role setting changed. If it's ever undone, the minutes-long
+  idle hold comes back.
+
 ## 2. Supabase (database)
 
 Already in production use, already verified live:

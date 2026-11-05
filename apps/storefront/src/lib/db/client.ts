@@ -64,8 +64,22 @@ function createClient() {
     // connections: 5 filled the 40 slots at 8 instances, 3 needs 14. The
     // cost is small — a page's parallel queries share 3 connections instead
     // of 5, a few ms each against a pooler in the same Dublin region.
-    // idle_timeout stays 20 s: shortening it would add a reconnect to more
-    // page views and does nothing during a burst, when connections are busy.
+    // idle_timeout stays 20 s, but it only works while the instance is
+    // awake. Measured 2026-11-05 in Supabase's pooler logs: Vercel freezes
+    // an instance right after its response, and this JS timer can't fire
+    // while the instance is frozen. So each instance kept its 3 session slots
+    // for 2.5–11 minutes after a sub-second render, and the overdue timer
+    // closed them only when the instance next woke. In the 2026-11-02 burst
+    // (81 stale product pages at once) all 40 slots sat held by idle,
+    // frozen instances for 4+ minutes, and that tail caused 73% of the
+    // rejections. Shortening the timer wouldn't help, for the same reason.
+    // Fixed on the database side instead: `ALTER ROLE postgres SET
+    // idle_session_timeout = '30s'`. Postgres's own timer keeps running
+    // while Vercel is frozen, ends the idle backend, and the pooler then
+    // frees the slot (verified: "No subscribers ... shutting down"). When a
+    // connection was closed that way, postgres.js just opens a new one on
+    // the next query. Undo with `ALTER ROLE postgres RESET
+    // idle_session_timeout`. See DEPLOYMENT.md.
     // Vercel's attachDatabasePool (@vercel/functions) would release idle
     // connections before an instance is suspended, but supports `pg`, not
     // postgres.js — it throws on this client.
