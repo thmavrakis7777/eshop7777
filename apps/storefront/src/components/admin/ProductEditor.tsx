@@ -721,6 +721,8 @@ function newVariantDefaults(variants: AdminProductDetail["variants"]) {
   while (taken.has(`${root}-${n}`)) n++;
   return {
     sku: `${root}-${n}`,
+    // Suppliers print one barcode for every colour (0047).
+    ean: base.ean,
     priceCents: base.priceCents,
     compareAtPriceCents: base.compareAtPriceCents,
     // Once one variant is a colour, the next one is too — open with the
@@ -789,7 +791,7 @@ function VariantForm({
     variant ? variant.swatchHex : newDefaults?.hasColour ? PRESET_COLOURS[0].hex : null
   );
   const [imageId, setImageId] = useState<string | null>(variant?.imageId ?? null);
-  const [ean, setEan] = useState(variant?.ean ?? "");
+  const [ean, setEan] = useState(variant?.ean ?? newDefaults?.ean ?? "");
 
   // Picking a preset also names the variant, unless a name was already typed
   // (or the name is just another preset's — then it follows the new pick).
@@ -865,8 +867,10 @@ function VariantForm({
             className={field}
           />
           <p className={hint}>
-            Τα ψηφία κάτω από το barcode της συσκευασίας{swatchHex ? " αυτού του χρώματος" : ""}. Προαιρετικό: όταν
-            το συμπληρώσεις, εμφανίζεται στη σελίδα του προϊόντος.
+            Τα ψηφία κάτω από το barcode της συσκευασίας. Προαιρετικό: όταν το συμπληρώσεις, εμφανίζεται στη σελίδα
+            του προϊόντος.
+            {swatchHex && " Αν ο προμηθευτής έχει τον ίδιο κωδικό για όλα τα χρώματα, γράψε τον ίδιο σε κάθε χρώμα."}{" "}
+            Ο ίδιος κωδικός επιτρέπεται και σε άλλο προϊόν. Στην αποθήκευση θα δεις πού αλλού υπάρχει.
           </p>
         </div>
 

@@ -20,6 +20,7 @@ import {
   findProductByInternalCode,
   getProductTitle,
   listProducts,
+  otherProductsWithEan,
   quickRenameProduct,
   quickSetActive,
   quickSetPrice,
@@ -99,7 +100,6 @@ function mapError(err: unknown): string {
     switch (err.code) {
       case "duplicate_slug": return "Υπάρχει ήδη προϊόν με αυτό το slug.";
       case "duplicate_sku": return "Υπάρχει ήδη προϊόν με αυτόν τον κωδικό (SKU).";
-      case "duplicate_ean": return "Υπάρχει ήδη προϊόν με αυτόν τον κωδικό EAN.";
       case "duplicate_internal_code": return "Ο εσωτερικός κωδικός χρησιμοποιείται ήδη.";
       case "last_variant": return "Δεν μπορείς να διαγράψεις τη μοναδική παραλλαγή ενός προϊόντος.";
       case "not_found": return "Δεν βρέθηκε.";
@@ -508,6 +508,14 @@ export async function saveVariantAction(productId: string, formData: FormData): 
   // Price/stock/SKU here all feed the Meta feed too, not just search.
   updateTag(META_FEED_CACHE_TAG);
   scheduleRestockNotifications();
+
+  // Saved either way — the same barcode on another product is allowed
+  // (0047) — but said, in case it was a typo.
+  const sharing = eanResult.ean ? await otherProductsWithEan(eanResult.ean, productId) : [];
+  if (sharing.length > 0) {
+    const where = sharing.map((p) => `${p.title} (${p.sku})`).join(", ");
+    return { ok: true, message: `Η παραλλαγή αποθηκεύτηκε. Ο ίδιος κωδικός EAN υπάρχει και στο: ${where}.` };
+  }
   return { ok: true, message: "Η παραλλαγή αποθηκεύτηκε." };
 }
 

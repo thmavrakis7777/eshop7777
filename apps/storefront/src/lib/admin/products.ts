@@ -428,8 +428,6 @@ export class CatalogError extends Error {
     public readonly code:
       | "duplicate_slug"
       | "duplicate_sku"
-      // The barcode (0046) is already on another variant.
-      | "duplicate_ean"
       | "duplicate_internal_code"
       | "not_found"
       | "last_variant"
@@ -578,7 +576,6 @@ export async function createProduct(input: {
     if (dupeSlug.length > 0) throw new CatalogError("Slug already in use", "duplicate_slug");
     const dupeSku = await tx<{ id: string }[]>`SELECT id FROM shop.product_variant WHERE sku = ${input.sku}`;
     if (dupeSku.length > 0) throw new CatalogError("SKU already in use", "duplicate_sku");
-    if (input.ean) await assertEanFree(tx, input.ean);
     if (input.internalCode) {
       const dupeCode = await tx<{ id: string }[]>`
         SELECT id FROM shop.product WHERE internal_code = ${input.internalCode}`;
@@ -603,14 +600,21 @@ export async function createProduct(input: {
 }
 
 /**
- * A barcode belongs to one box only (0046's unique index). Checked first so
- * the owner reads which mistake it is, not the generic save error.
+ * The other products already carrying this barcode — a warning for the
+ * owner, never a block (0047): suppliers print one EAN for every colour,
+ * and the owner sometimes lists each colour as its own product. A match
+ * may still be a typo, so the save says where else the code is.
  */
-async function assertEanFree(tx: Tx, ean: string, ownVariantId?: string): Promise<void> {
-  const taken = await tx`
-    SELECT 1 FROM shop.product_variant
-     WHERE ean = ${ean} ${ownVariantId ? tx`AND id <> ${ownVariantId}` : tx``}`;
-  if (taken.length > 0) throw new CatalogError("EAN already in use", "duplicate_ean");
+export async function otherProductsWithEan(
+  ean: string,
+  productId: string
+): Promise<{ title: string; sku: string }[]> {
+  return sql<{ title: string; sku: string }[]>`
+    SELECT DISTINCT ON (p.id) p.title, v.sku
+      FROM shop.product_variant v
+      JOIN shop.product p ON p.id = v.product_id
+     WHERE v.ean = ${ean} AND v.product_id <> ${productId}
+     ORDER BY p.id, v.position`;
 }
 
 /**
@@ -774,7 +778,6 @@ export async function saveVariant(
       SELECT id FROM shop.product_variant
        WHERE sku = ${variant.sku} ${variant.id ? tx`AND id <> ${variant.id}` : tx``}`;
     if (dupe.length > 0) throw new CatalogError("SKU already in use", "duplicate_sku");
-    if (variant.ean) await assertEanFree(tx, variant.ean, variant.id);
 
     if (variant.id) {
       const [current] = await tx<{ stock_quantity: number }[]>`

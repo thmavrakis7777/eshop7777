@@ -197,6 +197,8 @@ export default async function ProductPage({ params }: Props) {
       : {}),
   };
 
+  const eans = new Set(product.variants.map((v) => v.ean));
+  const sharedEan = eans.size === 1 ? [...eans][0] : undefined;
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -213,10 +215,11 @@ export default async function ProductPage({ params }: Props) {
     // Medusa's real variant SKU — the same value shown as "Κωδικός
     // προϊόντος" below. Omitted rather than faked when a variant has none.
     ...(product.code ? { sku: product.code } : {}),
-    // The barcode (0046), once entered. Only for a product with one variant:
-    // the page's single Product stands for every colour, and one colour's
+    // The barcode (0046), once entered. Only when every variant carries the
+    // same one (the usual case: one barcode for every colour, 0047) — the
+    // page's single Product stands for all of them, and one colour's own
     // barcode would misstate the others.
-    ...(product.variants.length === 1 && product.variants[0].ean ? { gtin: product.variants[0].ean } : {}),
+    ...(sharedEan ? { gtin: sharedEan } : {}),
     // Real Medusa product attributes, same "only what's populated" rule as
     // the visible Characteristics section (§4 of the spec) — schema.org's
     // QuantitativeValue shape for weight/dimensions.
