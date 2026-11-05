@@ -39,6 +39,7 @@ const CSV_HEADER = [
   "brand",
   "item_group_id",
   "product_type",
+  "gtin",
 ] as const;
 
 function csvField(value: string): string {
@@ -86,6 +87,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         r.brand,
         r.itemGroupId ?? "",
         r.productType ?? "",
+        r.gtin ?? "",
       ]
         .map((v) => csvField(String(v)))
         .join(",")

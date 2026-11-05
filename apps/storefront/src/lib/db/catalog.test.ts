@@ -74,3 +74,17 @@ describe("toDomainProduct — new-arrival badge", () => {
     expect(narrow.badges).not.toContain("new");
   });
 });
+
+describe("toDomainProduct — EAN (0046)", () => {
+  it("passes a variant's barcode through", () => {
+    const r = row();
+    r.variants[0].ean = "5201234567890";
+    expect(toDomainProduct(r, 30).variants[0].ean).toBe("5201234567890");
+  });
+
+  it("leaves it out while the owner hasn't entered one", () => {
+    const r = row();
+    r.variants[0].ean = null;
+    expect(toDomainProduct(r, 30).variants[0]).not.toHaveProperty("ean");
+  });
+});

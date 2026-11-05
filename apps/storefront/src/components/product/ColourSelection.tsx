@@ -65,3 +65,19 @@ export function SelectedVariantCode({ fallback }: { fallback: string }) {
   const selection = useColourSelection();
   return <>{selection?.selected.code ?? fallback}</>;
 }
+
+/**
+ * The page's «Κωδικός EAN» line (0046): the chosen colour's own barcode —
+ * each colour is its own box. The whole line is left out while there is no
+ * barcode to show, label included.
+ */
+export function SelectedVariantEan({ fallback }: { fallback: string | null }) {
+  const selection = useColourSelection();
+  const ean = selection ? selection.selected.ean : fallback;
+  if (!ean) return null;
+  return (
+    <div>
+      <dt className="inline text-ink-muted">Κωδικός EAN:</dt> <dd className="inline text-ink">{ean}</dd>
+    </div>
+  );
+}

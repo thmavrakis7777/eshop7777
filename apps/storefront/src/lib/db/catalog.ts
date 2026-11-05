@@ -133,6 +133,7 @@ type VariantRow = {
   id: string;
   title: string;
   sku: string | null;
+  ean: string | null;
   price_cents: number;
   compare_at_price_cents: number | null;
   stock_quantity: number;
@@ -208,6 +209,7 @@ export function toDomainProduct(r: ProductRow, newArrivalWindowDays: number): Pr
     price: { amount: toEuros(v.price_cents), currencyCode: "EUR" as const },
     inventoryQuantity: v.stock_quantity,
     code: v.sku,
+    ...(v.ean ? { ean: v.ean } : {}),
     isAvailable: isVariantAvailable(v),
     allowBackorder: v.allow_backorder,
     ...(v.swatch_hex ? { swatchHex: v.swatch_hex } : {}),
@@ -268,7 +270,7 @@ const productFields = sql`
     WHERE i.product_id = p.id ORDER BY i.position LIMIT 1) AS image_path,
   COALESCE((
     SELECT json_agg(json_build_object(
-      'id', v.id, 'title', v.title, 'sku', v.sku,
+      'id', v.id, 'title', v.title, 'sku', v.sku, 'ean', v.ean,
       'price_cents', v.price_cents,
       'compare_at_price_cents', v.compare_at_price_cents,
       'stock_quantity', v.stock_quantity,

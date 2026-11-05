@@ -11,6 +11,7 @@ import {
   ColourSelectionProvider,
   SelectedStockStatus,
   SelectedVariantCode,
+  SelectedVariantEan,
 } from "@/components/product/ColourSelection";
 import { ProductCharacteristics } from "@/components/product/ProductCharacteristics";
 import { ProductWarranty } from "@/components/product/ProductWarranty";
@@ -212,6 +213,10 @@ export default async function ProductPage({ params }: Props) {
     // Medusa's real variant SKU — the same value shown as "Κωδικός
     // προϊόντος" below. Omitted rather than faked when a variant has none.
     ...(product.code ? { sku: product.code } : {}),
+    // The barcode (0046), once entered. Only for a product with one variant:
+    // the page's single Product stands for every colour, and one colour's
+    // barcode would misstate the others.
+    ...(product.variants.length === 1 && product.variants[0].ean ? { gtin: product.variants[0].ean } : {}),
     // Real Medusa product attributes, same "only what's populated" rule as
     // the visible Characteristics section (§4 of the spec) — schema.org's
     // QuantitativeValue shape for weight/dimensions.
@@ -372,6 +377,7 @@ export default async function ProductPage({ params }: Props) {
                 </dd>
               </div>
             )}
+            <SelectedVariantEan fallback={product.variants[0]?.ean ?? null} />
             <div>
               <dt className="inline text-ink-muted">Παράδοση:</dt> <dd className="inline text-ink">{deliveryText}</dd>
             </div>

@@ -44,11 +44,13 @@ export type MetaFeedRow = {
   brand: string;
   productType: string | null; // "Parent > Child" from the real category tree
   sku: string;
+  gtin: string | null; // the variant's barcode (0046), once the owner enters it
 };
 
 type FeedQueryRow = {
   variant_id: string;
   sku: string;
+  ean: string | null;
   price_cents: number;
   compare_at_price_cents: number | null;
   stock_quantity: number;
@@ -66,7 +68,7 @@ type FeedQueryRow = {
 async function queryFeedRows(): Promise<FeedQueryRow[]> {
   return sql<FeedQueryRow[]>`
     SELECT
-      v.id AS variant_id, v.sku, v.price_cents, v.compare_at_price_cents,
+      v.id AS variant_id, v.sku, v.ean, v.price_cents, v.compare_at_price_cents,
       v.stock_quantity, v.allow_backorder,
       (SELECT COUNT(*) FROM shop.product_variant v2
         WHERE v2.product_id = p.id AND v2.is_active)::int AS active_variant_count,
@@ -132,6 +134,7 @@ export async function getMetaFeedRows(): Promise<MetaFeedRow[]> {
       brand: r.brand || branding.storeName,
       productType,
       sku: r.sku,
+      gtin: r.ean,
     };
   });
 }

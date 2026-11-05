@@ -46,6 +46,9 @@ export type ProductVariant = {
   // its own DB column, and uniqueness is enforced by Medusa itself. See
   // PRODUCT_CODE_AND_ADD_TO_CART_SPEC.md §1.1.
   code: string | null;
+  // The barcode number (EAN/GTIN, migration 0046) — absent until the owner
+  // enters one, and then shown on the product page and in Product JSON-LD.
+  ean?: string;
   // Derived once in the data layer (see isVariantAvailable in
   // lib/data/products.ts) so every consumer (ProductCard, PDP) checks the
   // same rule instead of re-deriving it and risking drift.

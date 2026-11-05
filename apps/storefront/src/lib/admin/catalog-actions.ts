@@ -2,6 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
+import { isValidEan, normalizeEan } from "@/lib/ean";
 import { requireAdmin, auditLog } from "@/lib/admin/auth";
 import {
   CatalogError,
@@ -98,6 +99,7 @@ function mapError(err: unknown): string {
     switch (err.code) {
       case "duplicate_slug": return "Υπάρχει ήδη προϊόν με αυτό το slug.";
       case "duplicate_sku": return "Υπάρχει ήδη προϊόν με αυτόν τον κωδικό (SKU).";
+      case "duplicate_ean": return "Υπάρχει ήδη προϊόν με αυτόν τον κωδικό EAN.";
       case "duplicate_internal_code": return "Ο εσωτερικός κωδικός χρησιμοποιείται ήδη.";
       case "last_variant": return "Δεν μπορείς να διαγράψεις τη μοναδική παραλλαγή ενός προϊόντος.";
       case "not_found": return "Δεν βρέθηκε.";
@@ -168,6 +170,18 @@ function validateInternalCode(value: FormDataEntryValue | null): { code: string 
     return { error: "Ο εσωτερικός κωδικός επιτρέπει μόνο κεφαλαία λατινικά, αριθμούς και παύλες." };
   }
   return { code: raw };
+}
+
+// Barcode (0046): optional, digits only once spaces/dashes are dropped, and
+// the check digit must add up — a mistyped number is caught here, not later
+// by a marketplace rejecting it.
+function validateEan(value: FormDataEntryValue | null): { ean: string | null } | { error: string } {
+  const raw = normalizeEan(String(value ?? ""));
+  if (!raw) return { ean: null };
+  if (!isValidEan(raw)) {
+    return { error: "Ο κωδικός EAN δεν είναι έγκυρος. Γράψε όλα τα ψηφία κάτω από το barcode (συνήθως 13)." };
+  }
+  return { ean: raw };
 }
 
 // ---------------------------------------------------------------------------
@@ -288,6 +302,8 @@ export async function createProductAction(
 
   const internalCodeResult = validateInternalCode(formData.get("internalCode"));
   if ("error" in internalCodeResult) return { ok: false, error: internalCodeResult.error };
+  const eanResult = validateEan(formData.get("ean"));
+  if ("error" in eanResult) return { ok: false, error: eanResult.error };
 
   // Same guard as the variant editor — "-3" or "2,5" used to reach the
   // database and come back as the generic "something went wrong".
@@ -307,6 +323,7 @@ export async function createProductAction(
       stockQuantity,
       categoryId: optionalText(formData.get("categoryId")),
       internalCode: internalCodeResult.code,
+      ean: eanResult.ean,
       adminUserId: admin.id,
     });
     await auditLog(admin.id, "product.create", "product", id, { title: parsed.data.title });
@@ -455,6 +472,8 @@ export async function saveVariantAction(productId: string, formData: FormData): 
   if (imageId != null && !/^[0-9a-f-]{36}$/i.test(imageId)) {
     return { ok: false, error: "Μη έγκυρη φωτογραφία." };
   }
+  const eanResult = validateEan(formData.get("ean"));
+  if ("error" in eanResult) return { ok: false, error: eanResult.error };
 
   try {
     await saveVariant(
@@ -473,6 +492,7 @@ export async function saveVariantAction(productId: string, formData: FormData): 
         isActive: formData.get("variantActive") !== "off",
         swatchHex,
         imageId,
+        ean: eanResult.ean,
       },
       admin.id
     );

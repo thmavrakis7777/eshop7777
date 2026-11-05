@@ -653,7 +653,10 @@ function VariantsPanel({ product }: { product: AdminProductDetail }) {
                   <div className="text-sm font-medium text-ink">
                     {isSingle && !v.swatchHex ? "Προεπιλογή" : v.title}
                   </div>
-                  <div className={hint}>{v.sku}</div>
+                  <div className={hint}>
+                    {v.sku}
+                    {v.ean && ` · EAN ${v.ean}`}
+                  </div>
                 </div>
               </div>
               <div className="text-sm tabular-nums">
@@ -786,6 +789,7 @@ function VariantForm({
     variant ? variant.swatchHex : newDefaults?.hasColour ? PRESET_COLOURS[0].hex : null
   );
   const [imageId, setImageId] = useState<string | null>(variant?.imageId ?? null);
+  const [ean, setEan] = useState(variant?.ean ?? "");
 
   // Picking a preset also names the variant, unless a name was already typed
   // (or the name is just another preset's — then it follows the new pick).
@@ -805,6 +809,7 @@ function VariantForm({
     data.set("allowBackorder", onOrder ? "on" : "off");
     data.set("swatchHex", swatchHex ?? "");
     data.set("imageId", imageId ?? "");
+    data.set("ean", ean);
     // What this form showed on opening: unchanged means "leave stock as it
     // is now", so a sale made meanwhile isn't overwritten (saveVariant).
     if (variant) data.set("stockBefore", String(variant.stockQuantity));
@@ -848,6 +853,21 @@ function VariantForm({
             placeholder={swatchHex ? "π.χ. Κόκκινο" : undefined}
             className={field}
           />
+        </div>
+        {/* Barcode (0046): optional. Shown on the product page only once set. */}
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <label className={labelCls}>Κωδικός EAN (barcode)</label>
+          <input
+            value={ean}
+            onChange={(e) => setEan(e.target.value)}
+            inputMode="numeric"
+            placeholder="π.χ. 5201234567890"
+            className={field}
+          />
+          <p className={hint}>
+            Τα ψηφία κάτω από το barcode της συσκευασίας{swatchHex ? " αυτού του χρώματος" : ""}. Προαιρετικό: όταν
+            το συμπληρώσεις, εμφανίζεται στη σελίδα του προϊόντος.
+          </p>
         </div>
 
         {/* Colour (0043): the dot shoppers pick on the card and the product

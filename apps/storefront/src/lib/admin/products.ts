@@ -134,7 +134,8 @@ export async function listProducts(filters: ProductListFilters = {}): Promise<{
                  OR p.slug ILIKE ${"%" + q + "%"}
                  OR p.internal_code ILIKE ${"%" + q + "%"}
                  OR EXISTS (SELECT 1 FROM shop.product_variant v
-                             WHERE v.product_id = p.id AND v.sku ILIKE ${"%" + q + "%"})
+                             WHERE v.product_id = p.id
+                               AND (v.sku ILIKE ${"%" + q + "%"} OR v.ean LIKE ${"%" + q + "%"}))
                )`
          : sql``}
      ${orderBy(filters.sort)}
@@ -190,6 +191,8 @@ export type AdminVariant = {
   swatchHex: string | null;
   /** The product photo that shows this colour, if one was picked. */
   imageId: string | null;
+  /** Barcode number (0046), digits only. Null until the owner enters one. */
+  ean: string | null;
 };
 
 export type AdminProductImage = {
@@ -266,7 +269,7 @@ export async function getProductForEdit(id: string): Promise<AdminProductDetail 
           'id', v.id, 'sku', v.sku, 'title', v.title, 'priceCents', v.price_cents,
           'compareAtPriceCents', v.compare_at_price_cents, 'stockQuantity', v.stock_quantity,
           'allowBackorder', v.allow_backorder, 'position', v.position, 'isActive', v.is_active,
-          'swatchHex', v.swatch_hex, 'imageId', v.image_id
+          'swatchHex', v.swatch_hex, 'imageId', v.image_id, 'ean', v.ean
         ) ORDER BY v.position, v.created_at)
         FROM shop.product_variant v WHERE v.product_id = p.id), '[]'::json) AS variants,
       COALESCE((
@@ -425,6 +428,8 @@ export class CatalogError extends Error {
     public readonly code:
       | "duplicate_slug"
       | "duplicate_sku"
+      // The barcode (0046) is already on another variant.
+      | "duplicate_ean"
       | "duplicate_internal_code"
       | "not_found"
       | "last_variant"
@@ -565,6 +570,7 @@ export async function createProduct(input: {
   stockQuantity: number;
   categoryId: string | null;
   internalCode?: string | null;
+  ean?: string | null;
   adminUserId: string;
 }): Promise<string> {
   return transaction(async (tx) => {
@@ -572,6 +578,7 @@ export async function createProduct(input: {
     if (dupeSlug.length > 0) throw new CatalogError("Slug already in use", "duplicate_slug");
     const dupeSku = await tx<{ id: string }[]>`SELECT id FROM shop.product_variant WHERE sku = ${input.sku}`;
     if (dupeSku.length > 0) throw new CatalogError("SKU already in use", "duplicate_sku");
+    if (input.ean) await assertEanFree(tx, input.ean);
     if (input.internalCode) {
       const dupeCode = await tx<{ id: string }[]>`
         SELECT id FROM shop.product WHERE internal_code = ${input.internalCode}`;
@@ -586,13 +593,24 @@ export async function createProduct(input: {
     // Every product has at least one variant — the storefront's price and
     // stock live there, so a product without one is unsellable and invisible.
     const [v] = await tx<{ id: string }[]>`
-      INSERT INTO shop.product_variant (product_id, sku, title, price_cents, stock_quantity)
-      VALUES (${p.id}, ${input.sku}, 'Default', ${input.priceCents}, ${input.stockQuantity})
+      INSERT INTO shop.product_variant (product_id, sku, title, price_cents, stock_quantity, ean)
+      VALUES (${p.id}, ${input.sku}, 'Default', ${input.priceCents}, ${input.stockQuantity}, ${input.ean ?? null})
       RETURNING id`;
     await logStartingStock(tx, v.id, input.stockQuantity, input.adminUserId);
 
     return p.id;
   });
+}
+
+/**
+ * A barcode belongs to one box only (0046's unique index). Checked first so
+ * the owner reads which mistake it is, not the generic save error.
+ */
+async function assertEanFree(tx: Tx, ean: string, ownVariantId?: string): Promise<void> {
+  const taken = await tx`
+    SELECT 1 FROM shop.product_variant
+     WHERE ean = ${ean} ${ownVariantId ? tx`AND id <> ${ownVariantId}` : tx``}`;
+  if (taken.length > 0) throw new CatalogError("EAN already in use", "duplicate_ean");
 }
 
 /**
@@ -739,6 +757,7 @@ export async function saveVariant(
     isActive: boolean;
     swatchHex: string | null;
     imageId: string | null;
+    ean: string | null;
   },
   adminUserId: string
 ): Promise<void> {
@@ -755,6 +774,7 @@ export async function saveVariant(
       SELECT id FROM shop.product_variant
        WHERE sku = ${variant.sku} ${variant.id ? tx`AND id <> ${variant.id}` : tx``}`;
     if (dupe.length > 0) throw new CatalogError("SKU already in use", "duplicate_sku");
+    if (variant.ean) await assertEanFree(tx, variant.ean, variant.id);
 
     if (variant.id) {
       const [current] = await tx<{ stock_quantity: number }[]>`
@@ -770,7 +790,8 @@ export async function saveVariant(
           compare_at_price_cents = ${variant.compareAtPriceCents},
           stock_quantity = ${stock}, allow_backorder = ${variant.allowBackorder},
           is_active = ${variant.isActive},
-          swatch_hex = ${variant.swatchHex}, image_id = ${variant.imageId}
+          swatch_hex = ${variant.swatchHex}, image_id = ${variant.imageId},
+          ean = ${variant.ean}
         WHERE id = ${variant.id}`;
       if (stock !== current.stock_quantity) {
         await tx`
@@ -785,10 +806,10 @@ export async function saveVariant(
     const [created] = await tx<{ id: string }[]>`
       INSERT INTO shop.product_variant (product_id, sku, title, price_cents,
         compare_at_price_cents, stock_quantity, allow_backorder, is_active, position,
-        swatch_hex, image_id)
+        swatch_hex, image_id, ean)
       VALUES (${productId}, ${variant.sku}, ${variant.title}, ${variant.priceCents},
         ${variant.compareAtPriceCents}, ${variant.stockQuantity}, ${variant.allowBackorder},
-        ${variant.isActive}, ${next}, ${variant.swatchHex}, ${variant.imageId})
+        ${variant.isActive}, ${next}, ${variant.swatchHex}, ${variant.imageId}, ${variant.ean})
       RETURNING id`;
     await logStartingStock(tx, created.id, variant.stockQuantity, adminUserId);
   });

@@ -189,6 +189,16 @@ export function NewProductForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
+          <label htmlFor="np-ean" className="text-sm font-medium text-ink">
+            Κωδικός EAN / barcode (προαιρετικό)
+          </label>
+          <input id="np-ean" name="ean" inputMode="numeric" placeholder="π.χ. 5201234567890" className={field} />
+          <p className="text-xs text-ink-muted">
+            Τα ψηφία κάτω από το barcode της συσκευασίας. Εμφανίζεται στη σελίδα του προϊόντος όταν συμπληρωθεί.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-ink">Φωτογραφίες (προαιρετικό)</span>
           {photos.length > 0 && (
             <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5">
