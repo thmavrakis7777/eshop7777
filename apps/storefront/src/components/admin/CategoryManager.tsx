@@ -633,7 +633,7 @@ function CategoryForm({
                 // — shown as a placeholder (the real fallback), not typed
                 // into the field, so an admin who never touches this still
                 // gets it without a duplicate value stored in the row.
-                placeholder="Δείτε όλα τα προϊόντα της κατηγορίας"
+                placeholder="Δείτε Όλα τα Προϊόντα της Κατηγορίας"
                 className={field}
               />
             </div>

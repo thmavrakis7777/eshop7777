@@ -100,7 +100,7 @@ export function Footer({
             lg: side by side on a 12-column track. */}
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-12 lg:gap-8">
           <div className="md:col-span-2 lg:col-span-5">
-            <StoreLogo storeName={storeName} logoUrl={logoUrl} href={null} className="font-display text-xl text-ink" />
+            <StoreLogo storeName={storeName} logoUrl={logoUrl} href={null} className="font-brand text-xl text-ink" />
             <p className="mt-3 max-w-sm whitespace-pre-line text-sm text-ink-muted">
               {settings?.footerTagline || DEFAULT_TAGLINE}
             </p>

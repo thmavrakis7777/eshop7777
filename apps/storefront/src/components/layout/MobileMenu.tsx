@@ -20,7 +20,7 @@ const FOCUSABLE_SELECTOR =
 // always has it, and toMenuCategories copies it through; this keeps the
 // component correct even if a caller ever hands it a hand-built node that
 // omits the optional field).
-const DEFAULT_VIEW_ALL_TEXT = "Δείτε όλα τα προϊόντα της κατηγορίας";
+const DEFAULT_VIEW_ALL_TEXT = "Δείτε Όλα τα Προϊόντα της Κατηγορίας";
 
 // One shape for every tappable line in the drawer. py-4 puts a text-sm row at
 // 52px and the smaller text-xs back row at 48px — both comfortably past the
@@ -156,7 +156,7 @@ function MenuDrawer({
       <div className="absolute inset-0 bg-ink/40" aria-hidden="true" onClick={onClose} />
       <div className="absolute inset-y-0 left-0 flex w-[85%] max-w-sm flex-col bg-bg shadow-xl">
         <div className="flex shrink-0 items-center justify-between border-b border-border p-4">
-          <StoreLogo storeName={storeName} logoUrl={logoUrl} onClick={onClose} className="font-display text-xl" />
+          <StoreLogo storeName={storeName} logoUrl={logoUrl} onClick={onClose} className="font-brand text-xl" />
           <button ref={closeButtonRef} type="button" className="p-2" aria-label="Κλείσιμο μενού" onClick={onClose}>
             <CloseIcon />
           </button>

@@ -59,7 +59,7 @@ const getCachedSecondaryParentEdges = unstable_cache(fetchSecondaryParentEdges, 
 // button_text blank — a plain, honest label rather than interpolating the
 // category name into a fixed phrase (the name is already the heading right
 // above this link in the drawer).
-const DEFAULT_VIEW_ALL_TEXT = "Δείτε όλα τα προϊόντα της κατηγορίας";
+const DEFAULT_VIEW_ALL_TEXT = "Δείτε Όλα τα Προϊόντα της Κατηγορίας";
 
 type CategoryRow = {
   id: string;

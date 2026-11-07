@@ -38,21 +38,37 @@ const MENU_SWITCH_DELAY_MS = 250;
 // header is meant to float over (see Hero.tsx's `isFirstSection`) — every
 // other route keeps the header's plain always-solid look, so this is the
 // only page where the transparent/overlay state can ever apply.
+//
+// "/index" counts as the homepage too. The homepage is an ISR page
+// (revalidate), and Next.js prerenders it under the internal name "/index"
+// — the cached HTML's router state literally reads `"c":["","index"]` — so
+// on the server usePathname() returns "/index", not "/". Comparing to "/"
+// alone rendered the cached homepage with the solid header; the browser then
+// read "/" and wanted the transparent one, and React does not repair a
+// className mismatch while hydrating, so every direct visit (Google, a typed
+// URL, a shared link) kept the solid header at the top of the page until the
+// visitor scrolled. Only client-side navigation to "/" looked right. No real
+// page lives at /index (it would be a category slug, and none is "index").
+function isHomePath(pathname: string | null) {
+  return pathname === "/" || pathname === "/index";
+}
+
 function useHeaderOverlay() {
   const pathname = usePathname();
+  const isHome = isHomePath(pathname);
   const [scrolledPastThreshold, setScrolledPastThreshold] = useState(false);
 
   useEffect(() => {
-    if (pathname !== "/") return;
+    if (!isHome) return;
     function update() {
       setScrolledPastThreshold(window.scrollY > HEADER_SOLID_SCROLL_THRESHOLD);
     }
     update();
     window.addEventListener("scroll", update, { passive: true });
     return () => window.removeEventListener("scroll", update);
-  }, [pathname]);
+  }, [isHome]);
 
-  return pathname === "/" && !scrolledPastThreshold;
+  return isHome && !scrolledPastThreshold;
 }
 
 export function Header({
@@ -296,7 +312,7 @@ export function Header({
           <StoreLogo
             storeName={storeName}
             logoUrl={logoUrl}
-            className={`font-display text-[clamp(0.84375rem,7.9vw_-_0.73rem,1.5rem)] md:text-3xl tracking-tight whitespace-nowrap col-start-2 justify-self-center transition-colors duration-300 motion-reduce:transition-none ${
+            className={`font-brand text-[clamp(0.84375rem,7.9vw_-_0.73rem,1.5rem)] md:text-3xl tracking-tight whitespace-nowrap col-start-2 justify-self-center transition-colors duration-300 motion-reduce:transition-none ${
               overlay ? "text-white" : "text-ink"
             }`}
           />

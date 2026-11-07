@@ -24,7 +24,7 @@ export function StoreLogo({
   // phone and back up to the full 1.5rem on desktop, with no breakpoint
   // cliffs. `whitespace-nowrap` keeps it on one line; there is deliberately
   // no overflow-hidden, so the name can never be silently cut.
-  className = "font-display text-[clamp(1rem,4.2vw,1.5rem)] tracking-tight text-ink whitespace-nowrap",
+  className = "font-brand text-[clamp(1rem,4.2vw,1.5rem)] tracking-tight text-ink whitespace-nowrap",
   href = "/",
   onClick,
 }: {

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Literata } from "next/font/google";
+import { Commissioner, Inter, Literata } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { siteDefaultDescription, siteDefaultTitle, siteName, siteUrl } from "@/lib/site-config";
@@ -18,7 +18,13 @@ import { siteDefaultDescription, siteDefaultTitle, siteName, siteUrl } from "@/l
  */
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin", "greek"], display: "swap" });
-const literata = Literata({ variable: "--font-literata", subsets: ["latin", "greek"], display: "swap" });
+// Literata now draws only the store logo (--font-brand, StoreLogo + the
+// header/footer/mobile-menu copies): «MAVRAKIS HOME» is Latin capitals at
+// weight 400, so one static weight of the Latin subset is all it needs.
+// Loading the whole variable font with Greek for one word cost ~70 KB.
+const literata = Literata({ variable: "--font-literata", weight: "400", subsets: ["latin"], display: "swap" });
+// Every heading (--font-display). Variable weight axis only, Latin + Greek.
+const commissioner = Commissioner({ variable: "--font-commissioner", subsets: ["latin", "greek"], display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -53,7 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="el"
       data-scroll-behavior="smooth"
-      className={`${inter.variable} ${literata.variable} antialiased`}
+      className={`${inter.variable} ${literata.variable} ${commissioner.variable} antialiased`}
     >
       <body className="flex min-h-screen flex-col">
         {children}
