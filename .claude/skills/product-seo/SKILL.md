@@ -1,6 +1,6 @@
 ---
 name: product-seo
-description: Writes a MAVRAKIS HOME product's description, SEO title, meta description, H1, slug and main-photo alt text, the way the admin's «SEO + GEO» AI button does, then saves them to the live shop after the owner approves. Use when the owner says «seo skill <code>» (one or more product codes such as 00085), types /product-seo, or asks for a product's SEO texts "like the button made for the others".
+description: Writes a MAVRAKIS HOME product's description, SEO title, meta description, H1, slug and main-photo alt text (or a category's description, SEO title and meta), the way the admin's «SEO + GEO» AI button does, using the shop's keyword map of the words Greek shoppers really search (inox/ανοξείδωτο, καμινέτο/γκαζάκι…), then saves them to the live shop after the owner approves. Use when the owner says «seo skill <code>» (one or more product codes such as 00085) or names a category, types /product-seo, or asks for SEO texts "like the button made for the others".
 ---
 
 # Product SEO (like the SEO + GEO + AEO button)
@@ -42,6 +42,16 @@ Use the photo only for **real product features you can see** (parts, colour, fin
 
 Load 3–5 finished products from the same parent category (description and seo_title not null) and match their tone and length. Vary the opening — don't start every description the same way (e.g. not always «Ανανεώστε…»).
 
+## 3b. Pick the search terms
+
+Read [keywords.md](keywords.md): which word goes in which field, the variant pairs per area, and the truth rules (inox only for real stainless, non-stick only for a real coating). For this product decide:
+
+- the **main term** (usually the word already in the product/category name) → SEO title and H1;
+- the **variant(s)** that really name the same thing → once in the meta, once in the description;
+- whether siblings already carry the same variant sentence — if so, word it differently or leave it out. **Not the same pattern on every product.**
+
+Never claim one term is searched more without data. If the owner gives real data (Search Console, Keyword Planner), update keywords.md.
+
 ## 4. Write the 6 fields
 
 The button's source of truth: `apps/storefront/src/lib/ai/gemini-provider.ts` (systemPrompt, fieldDescriptions). Its rules, plus the owner's own:
@@ -49,8 +59,9 @@ The button's source of truth: `apps/storefront/src/lib/ai/gemini-provider.ts` (s
 - **Facts:** only what the DB holds and what the photo really shows. Never invent sizes, thread sizes, pressure, compatibility, certifications, warranty, "best seller" claims. If a fact a shopper would want is missing, **ask the owner** instead of guessing.
 - **Description:** 2–4 natural Greek sentences, original wording, no keyword lists, no hype («το καλύτερο»). Include one sentence that answers the shopper's real question (GEO/AEO), e.g. why this size over the other one, where it fits, what it replaces. Correct Greek article/ν rules («την μπαταρία», «στην μπανιέρα»).
 - **Other products:** point to another product only when it is a true sibling (same item in another size/colour, e.g. 00089 ↔ 00090). Don't send the shopper to a different product of the same category (owner removed «υπάρχει και το λευκό καλάθι των 65 λίτρων» from 00092).
-- **SEO title:** how a Greek shopper searches (type + size / colour / material / use), ending in **` | MAVRAKIS HOME`**, max **60** characters. A product's own SEO title is used as an absolute title — the site's «| storeName» suffix is skipped — so the shop name must be written in.
-- **Meta description:** max **155** characters, explains the product, no clickbait.
+- **SEO title:** the strongest commercial term + a key feature (type + size / colour / material / use), ending in **` | MAVRAKIS HOME`**, max **60** characters. A second variant only if it still reads as a natural title (owner's example: «Μπρίκι Inox 350ml – Ανοξείδωτο για Ελληνικό Καφέ | MAVRAKIS HOME»), never a list of synonyms. A product's own SEO title is used as an absolute title — the site's «| storeName» suffix is skipped — so the shop name must be written in.
+- **Meta description:** max **155** characters, explains the product, no clickbait. Main term + one real synonym from keywords.md.
+- **Variants in the description:** each relevant variant once, where it reads naturally — not a list, not every sibling the same sentence.
 - **H1:** the real product name, close to the current title, capitalised like the other products (e.g. «Σπιράλ Inox Μπάνιου 2m»). No keywords stuffed in.
 - **Slug:** lowercase Latin, digits, hyphens. **Keep the current slug if the product is published** and it is already descriptive; change only if it is wrong.
 - **Name the visible finish:** shiny chrome fittings are «χρωμέ ρακόρ», not the vaguer «μεταλλικά ρακόρ» (owner's correction on 00087). Same idea for any part whose finish the photo clearly shows. But shiny ≠ always chrome: gas-stove/καμινέτο **grates (σχάρες) are «ανοξείδωτη»**, never «χρωμέ» (owner's correction on 00089/00090).
@@ -88,3 +99,28 @@ COMMIT;
 ```
 
 If the slug changes, first check no other product uses it. Then read the row back and show the owner the saved values. Tell them the product page shows the new text within an hour (pages are cached for 3600 s); saving the product once in the admin refreshes it immediately.
+
+## 8. Categories and subcategories
+
+Same rules, three fields — the ones the category button writes (`ai-category-seo-actions.ts`): **description**, **SEO title**, **meta description**. No H1/slug/alt.
+
+- Load: `shop.category` (name, slug, description, parent) + `shop.seo_meta` (`resource_type = 'category'`, `resource_id = id::text`), and the active products in it and below it — the text must describe what is really there.
+- **Only work on categories that have products.** An empty category is `noindex` and out of the sitemap, so new text changes nothing until a product arrives; say so instead of rewriting it.
+- **Owner's own texts** (Αντιγραφή Κλειδιών, Κλειδαριές, Κύλινδροι, Λουκέτα, the top-level ones): propose, never overwrite without an explicit OK.
+- **Ηράκλειο** only in top-level categories and in subcategories with real local intent (same-day need, bring the old part). Don't add it elsewhere.
+- Description: 3–4 sentences. The category carries the broad synonym (e.g. «γκαζάκια» on Καμινέτα) so the products don't all have to.
+- SEO title is absolute here too (`lib/category-route.ts`) → end with ` | MAVRAKIS HOME`, ≤60.
+- Check with the same script (put the category text in `description`, `seoTitle`, `metaDescription`; fill `h1` with the category name, `slug` with its slug and `imageAlt` with the name so the script runs).
+- Back up the old values to `backups/<date>-<topic>/` (gitignored) before saving. Save:
+
+```sql
+BEGIN;
+UPDATE shop.category SET description = $d$<description>$d$ WHERE id = '<category id>';
+INSERT INTO shop.seo_meta (resource_type, resource_id, seo_title, meta_description)
+VALUES ('category', '<category id>', $s$<seoTitle>$s$, $m$<metaDescription>$m$)
+ON CONFLICT (resource_type, resource_id) DO UPDATE SET
+  seo_title = EXCLUDED.seo_title, meta_description = EXCLUDED.meta_description, updated_at = now();
+COMMIT;
+```
+
+The category page picks it up within about a minute.
