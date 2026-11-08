@@ -7,6 +7,7 @@ import type { MenuCategory, MenuNavCategory } from "@/lib/types";
 import type { NavItem } from "@/lib/data/navigation";
 import { ChevronRightIcon, CloseIcon, HeartIcon, UserIcon } from "@/components/ui/Icons";
 import { StoreLogo } from "./StoreLogo";
+import { MenuItemIcon } from "./MenuIcons";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { publicImageUrl } from "@/lib/storage/urls";
 import { WithAvif } from "@/components/ui/AvifSource";
@@ -346,6 +347,7 @@ function MenuDrawer({
                           style={style}
                           onClick={onClose}
                         >
+                          <MenuItemIcon item={item} />
                           <span className="min-w-0 flex-1 break-words">{item.label}</span>
                         </Link>
                       );
@@ -359,6 +361,7 @@ function MenuDrawer({
                         style={style}
                         onClick={() => drillInto(category)}
                       >
+                        <MenuItemIcon item={item} />
                         <span className="min-w-0 flex-1 break-words">
                           {item.label}
                           {/* The chevron alone does not say what the button
