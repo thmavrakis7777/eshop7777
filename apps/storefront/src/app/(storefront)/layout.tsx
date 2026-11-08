@@ -177,10 +177,12 @@ export async function generateMetadata(): Promise<Metadata> {
  * shortest one in play. Pages that read cookies or the query string
  * (/kalathi, /checkout, /logariasmos, /anazitisi, the paged listings) still
  * render per request, as before. Dashboard saves refresh cached pages at
- * once; this is the safety net for anything a save doesn't reach.
+ * once; this is the safety net for anything a save doesn't reach. Cached
+ * data read below must not live shorter (lib/cache-lifetime.ts), or it
+ * shortens every page with it.
  * PAGE_CACHING_SPEC.md.
  */
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
   // No cookie reads here, on purpose: the cart and the sign-in state load

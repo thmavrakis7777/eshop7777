@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+import { STOREFRONT_DATA_REVALIDATE } from "@/lib/cache-lifetime";
 import { sql } from "@/lib/db/client";
 import { publicImageUrl } from "@/lib/storage/urls";
 import type {
@@ -156,7 +157,7 @@ export const getSiteSettings = unstable_cache(
     }
   },
   ["site-settings"],
-  { revalidate: 60, tags: [CACHE_TAGS.siteSettings] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [CACHE_TAGS.siteSettings] }
 );
 
 // ---------------------------------------------------------------------------
@@ -184,7 +185,7 @@ export const getNationwideFreeShippingThresholdCents = unstable_cache(
     }
   },
   ["nationwide-free-shipping-threshold"],
-  { revalidate: 60, tags: [CACHE_TAGS.shipping] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [CACHE_TAGS.shipping] }
 );
 
 // ---------------------------------------------------------------------------
@@ -225,7 +226,7 @@ export const getPromoBanner = unstable_cache(
     }
   },
   ["promo-banner"],
-  { revalidate: 30, tags: [CACHE_TAGS.promoBanner] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [CACHE_TAGS.promoBanner] }
 );
 
 // ---------------------------------------------------------------------------
@@ -257,7 +258,7 @@ export const getAnalyticsSettings = unstable_cache(
     }
   },
   ["analytics-settings"],
-  { revalidate: 30, tags: [CACHE_TAGS.analytics] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [CACHE_TAGS.analytics] }
 );
 
 // ---------------------------------------------------------------------------
@@ -323,7 +324,7 @@ export const getHomepageSections = unstable_cache(
     }
   },
   ["homepage-sections"],
-  { revalidate: 60, tags: [CACHE_TAGS.homepageBlocks] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [CACHE_TAGS.homepageBlocks] }
 );
 
 // ---------------------------------------------------------------------------
@@ -347,7 +348,7 @@ export const getContentPage = unstable_cache(
     }
   },
   ["content-page"],
-  { revalidate: 60, tags: [CACHE_TAGS.contentPages] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [CACHE_TAGS.contentPages] }
 );
 
 // The footer's ΝΟΜΙΚΑ column needs to know which legal pages are actually
@@ -365,7 +366,7 @@ export const getPublishedLegalPages = unstable_cache(
     }
   },
   ["published-legal-pages"],
-  { revalidate: 60, tags: [CACHE_TAGS.contentPages] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [CACHE_TAGS.contentPages] }
 );
 
 // ---------------------------------------------------------------------------
@@ -410,7 +411,7 @@ export const getSeoOverride = unstable_cache(
     }
   },
   ["seo-override"],
-  { revalidate: 30, tags: [CACHE_TAGS.seo] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [CACHE_TAGS.seo] }
 );
 
 // ---------------------------------------------------------------------------

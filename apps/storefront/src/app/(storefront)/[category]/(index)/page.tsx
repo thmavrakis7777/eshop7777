@@ -9,10 +9,11 @@ import { categoryMetadata } from "@/lib/category-route";
  *
  * `revalidate` is the safety net only: dashboard saves already refresh the
  * cache at once (revalidatePath / updateTag). Next keeps the shortest
- * lifetime of the cached data the page reads, so some pages refresh sooner.
+ * lifetime of the cached data the page reads, so that data must not be
+ * cached for less (lib/cache-lifetime.ts).
  * A literal, because Next reads route config at build time.
  */
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 // Empty: nothing is rendered at build. Each category is rendered on its
 // first visit and cached from then on.

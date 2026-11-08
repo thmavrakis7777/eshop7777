@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { STOREFRONT_DATA_REVALIDATE } from "@/lib/cache-lifetime";
 import { sql } from "@/lib/db/client";
 
 /**
@@ -95,7 +96,7 @@ const getCachedNavItems = unstable_cache(
     }
   },
   ["nav-items"],
-  { revalidate: 60, tags: [NAV_CACHE_TAG] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [NAV_CACHE_TAG] }
 );
 
 export const getNavItems = cache(getCachedNavItems);

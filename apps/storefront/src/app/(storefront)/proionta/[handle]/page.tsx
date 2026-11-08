@@ -63,9 +63,9 @@ type Props = { params: Promise<{ handle: string }> };
  * cart, wishlist and recently-viewed all fill in on the client. A product
  * save in the dashboard refreshes this page at once, and a placed order
  * refreshes the pages of the products it sold (completeCheckoutAction), so
- * stock shown here follows real sales. The hour is only the safety net.
+ * stock shown here follows real sales. The day is only the safety net.
  */
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 export async function generateStaticParams(): Promise<{ handle: string }[]> {
   return [];

@@ -3,7 +3,7 @@ import { CategoryRoute } from "@/components/category/CategoryRoute";
 import { categoryMetadata } from "@/lib/category-route";
 
 // Cached like the top-level category page; see [category]/(index)/page.tsx.
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 export async function generateStaticParams(): Promise<
   { category: string; subcategory: string; subsubcategory: string }[]

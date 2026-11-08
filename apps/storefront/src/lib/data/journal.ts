@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+import { JOURNAL_DATA_REVALIDATE } from "@/lib/cache-lifetime";
 import { sql } from "@/lib/db/client";
 import { publicImageUrl } from "@/lib/storage/urls";
 
@@ -18,8 +19,9 @@ import { publicImageUrl } from "@/lib/storage/urls";
  * A draft is invisible to the storefront at the query level — its body never
  * reaches the render layer at all, so there is no way for one to leak through
  * a component that forgot to check. A future published_at is the whole of the
- * scheduling feature: no cron, no job runner. The 60s cache window means a
- * scheduled article appears within a minute of its time, which is the right
+ * scheduling feature: no cron, no job runner. The one-hour cache window
+ * (JOURNAL_DATA_REVALIDATE) means a scheduled article appears within the hour
+ * of its time, which is the right
  * trade for a store that publishes a few articles a month.
  */
 
@@ -121,7 +123,7 @@ export const getJournalCategories = unstable_cache(
     }
   },
   ["journal-categories"],
-  { revalidate: 60, tags: [JOURNAL_CACHE_TAG] }
+  { revalidate: JOURNAL_DATA_REVALIDATE, tags: [JOURNAL_CACHE_TAG] }
 );
 
 export const getJournalCategoryBySlug = unstable_cache(
@@ -135,7 +137,7 @@ export const getJournalCategoryBySlug = unstable_cache(
     }
   },
   ["journal-category"],
-  { revalidate: 60, tags: [JOURNAL_CACHE_TAG] }
+  { revalidate: JOURNAL_DATA_REVALIDATE, tags: [JOURNAL_CACHE_TAG] }
 );
 
 // ---------------------------------------------------------------------------
@@ -180,7 +182,7 @@ export const getJournalArticles = unstable_cache(
     }
   },
   ["journal-articles"],
-  { revalidate: 60, tags: [JOURNAL_CACHE_TAG] }
+  { revalidate: JOURNAL_DATA_REVALIDATE, tags: [JOURNAL_CACHE_TAG] }
 );
 
 /**
@@ -204,7 +206,7 @@ export const getFeaturedJournalArticle = unstable_cache(
     }
   },
   ["journal-featured"],
-  { revalidate: 60, tags: [JOURNAL_CACHE_TAG] }
+  { revalidate: JOURNAL_DATA_REVALIDATE, tags: [JOURNAL_CACHE_TAG] }
 );
 
 /**
@@ -229,7 +231,7 @@ export const getRelatedJournalArticles = unstable_cache(
     }
   },
   ["journal-related"],
-  { revalidate: 60, tags: [JOURNAL_CACHE_TAG] }
+  { revalidate: JOURNAL_DATA_REVALIDATE, tags: [JOURNAL_CACHE_TAG] }
 );
 
 // ---------------------------------------------------------------------------
@@ -273,7 +275,7 @@ export const getJournalArticleBySlug = unstable_cache(
     };
   },
   ["journal-article"],
-  { revalidate: 60, tags: [JOURNAL_CACHE_TAG] }
+  { revalidate: JOURNAL_DATA_REVALIDATE, tags: [JOURNAL_CACHE_TAG] }
 );
 
 // ---------------------------------------------------------------------------

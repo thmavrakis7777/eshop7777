@@ -1,7 +1,9 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { getListingPathsForProducts } from "@/lib/data/categories";
+import { SEARCH_CACHE_TAG } from "@/lib/db/catalog";
 import {
   CartError,
   isCartId,
@@ -219,11 +221,20 @@ export async function completeCheckoutAction(
   (await cookies()).delete(CART_ID_COOKIE);
   // CheckoutForm empties the browser's cart itself (receiveCart(null)).
   // Revalidating the whole layout here, as before, would now discard every
-  // cached page of the shop on each order (PAGE_CACHING_SPEC.md). Only the
-  // sold products' pages are refreshed, so a product that just sold out
-  // stops showing as available. Category grids catch up within the hour;
-  // checkout re-checks stock live either way, so nothing can be oversold.
+  // cached page of the shop on each order (PAGE_CACHING_SPEC.md). Only what
+  // shows the sold products is refreshed: their own pages, every category
+  // grid that lists them, the homepage, and the search/filter data, so a
+  // product that just sold out stops showing as available everywhere.
+  // Checkout re-checks stock live either way, so nothing can be oversold.
   for (const handle of soldProductHandles) revalidatePath(`/proionta/${handle}`);
+  try {
+    for (const path of await getListingPathsForProducts(soldProductHandles)) revalidatePath(path);
+    revalidatePath("/");
+    updateTag(SEARCH_CACHE_TAG);
+  } catch (err) {
+    // The order is placed; a failed refresh only delays what grids show.
+    console.error("[checkout] LISTING_REVALIDATE_FAILED", { orderId: order.id, error: String(err) });
+  }
 
   if (options.saveAddress && customerId) {
     try {

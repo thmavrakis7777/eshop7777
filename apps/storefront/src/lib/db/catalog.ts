@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+import { STOREFRONT_DATA_REVALIDATE } from "@/lib/cache-lifetime";
 import { sql } from "@/lib/db/client";
 import { PRODUCT_IMAGE_BUCKET, publicImageUrl } from "@/lib/storage/urls";
 import { CACHE_TAGS } from "@/lib/db/content";
@@ -39,7 +40,7 @@ export const getNewArrivalWindowDays = unstable_cache(
     return rows[0]?.new_arrival_window_days ?? NEW_ARRIVAL_WINDOW_DAYS_DEFAULT;
   },
   ["new-arrival-window-days"],
-  { revalidate: 60, tags: [CACHE_TAGS.siteSettings] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [CACHE_TAGS.siteSettings] }
 );
 
 /**
@@ -490,12 +491,11 @@ export async function getProductsByCategorySlug(
 // of wiring a second tag through the same call sites. The one gap is the
 // inventory screen's stock edits (setStockAction/changeStockByAction in
 // lib/admin/taxonomy-actions.ts), which invalidate the Meta feed tag but not
-// this one — a stock-only change there can leave
-// `hasOutOfStock` stale for up to the revalidate window below. Acceptable:
-// this cache only feeds filter-UI bounds (never stock/checkout
-// authorization, which is always re-checked live in lib/stock.ts and
-// completeOrder), and 60s is the same staleness budget getCachedSearchCatalog
-// already accepts for comparable browse-time aggregate data.
+// this one directly; they do revalidate the whole storefront layout, which
+// marks this entry stale for every page that reads it (soft path tags), and
+// an order refreshes the tag itself (lib/actions/checkout.ts). It only feeds
+// filter-UI bounds, never stock/checkout authorization, which is always
+// re-checked live in lib/stock.ts and completeOrder.
 export const getCategoryFilterFacets = unstable_cache(
   async (slug: string): Promise<CategoryFacets> => {
   const rows = (await sql`
@@ -554,7 +554,7 @@ export const getCategoryFilterFacets = unstable_cache(
   };
   },
   ["category-filter-facets"],
-  { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [SEARCH_CACHE_TAG] }
 );
 
 /**
@@ -664,7 +664,7 @@ export const getActiveProductSlugs = unstable_cache(
     return rows.map((r) => r.slug);
   },
   ["active-product-slugs"],
-  { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [SEARCH_CACHE_TAG] }
 );
 
 /**
@@ -965,7 +965,7 @@ const getCachedSearchCatalog = unstable_cache(
     };
   },
   ["search-catalog"],
-  { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [SEARCH_CACHE_TAG] }
 );
 
 export async function getSearchCatalog(): Promise<{
@@ -989,7 +989,7 @@ export const getSearchSynonymGroups = unstable_cache(
     ).filter((g) => g.length > 1);
   },
   ["search-synonyms"],
-  { revalidate: 60, tags: [SEARCH_CACHE_TAG] }
+  { revalidate: STOREFRONT_DATA_REVALIDATE, tags: [SEARCH_CACHE_TAG] }
 );
 
 /**

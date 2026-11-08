@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { STOREFRONT_DATA_REVALIDATE } from "@/lib/cache-lifetime";
 import { sql } from "@/lib/db/client";
 import { isEmptyListing } from "@/lib/category-visibility";
 import { categoryListingUrl } from "@/lib/filtered-url";
@@ -20,7 +21,7 @@ type CategoryPromoRow = {
 
 // Only enabled panels — a disabled/never-configured category is meant to
 // read as "no promo" everywhere downstream, not as a promo with blank
-// fields. Cached the same way as the category rows themselves (60s,
+// fields. Cached the same way as the category rows themselves (lib/cache-lifetime,
 // invalidated by CATEGORY_CACHE_TAG) since a dashboard save touches both.
 //
 // Returns a plain array, not a Map: unstable_cache round-trips its return
@@ -35,7 +36,7 @@ async function fetchEnabledCategoryPromos(): Promise<CategoryPromoRow[]> {
 }
 
 const getCachedCategoryPromos = unstable_cache(fetchEnabledCategoryPromos, ["category-promos"], {
-  revalidate: 60,
+  revalidate: STOREFRONT_DATA_REVALIDATE,
   tags: [CATEGORY_CACHE_TAG],
 });
 
@@ -51,7 +52,7 @@ async function fetchSecondaryParentEdges(): Promise<SecondaryParentEdge[]> {
 }
 
 const getCachedSecondaryParentEdges = unstable_cache(fetchSecondaryParentEdges, ["category-secondary-parents"], {
-  revalidate: 60,
+  revalidate: STOREFRONT_DATA_REVALIDATE,
   tags: [CATEGORY_CACHE_TAG],
 });
 
@@ -167,7 +168,7 @@ async function fetchAllCategories(): Promise<CategoryTreeRow[]> {
 // same 32 rows, and re-linking them in memory is far cheaper than caching
 // several derived shapes or re-querying per shape.
 const getCachedCategoryRows = unstable_cache(fetchAllCategories, ["category-rows"], {
-  revalidate: 60,
+  revalidate: STOREFRONT_DATA_REVALIDATE,
   tags: [CATEGORY_CACHE_TAG],
 });
 
@@ -434,6 +435,45 @@ export async function getNoindexCategoryIds(): Promise<Set<string>> {
     SELECT resource_id FROM shop.seo_meta
      WHERE resource_type = 'category' AND robots = 'noindex'`;
   return new Set(rows.map((r) => r.resource_id));
+}
+
+/**
+ * Every category page that lists at least one of these products: each
+ * product's own category and everything above it, along both the parent_id
+ * tree and the cross-listing edges (a listing shows its whole subtree over
+ * the same combined edges, lib/db/catalog.ts). Used after an order so the
+ * category grids show the new stock at once instead of after the cached
+ * page's lifetime. Live query on purpose: it runs once per order, never on a
+ * page view.
+ */
+export async function getListingPathsForProducts(productSlugs: string[]): Promise<string[]> {
+  if (productSlugs.length === 0) return [];
+  const rows = await sql<{ id: string }[]>`
+    WITH RECURSIVE up AS (
+      SELECT p.category_id AS id
+        FROM shop.product p
+       WHERE p.slug = ANY(${productSlugs}) AND p.category_id IS NOT NULL
+      UNION
+      SELECT e.parent
+        FROM up
+        JOIN (
+          SELECT id, parent_id AS parent FROM shop.category
+          UNION ALL
+          SELECT category_id AS id, parent_category_id AS parent FROM shop.category_secondary_parent
+        ) e ON e.id = up.id
+       WHERE e.parent IS NOT NULL
+    )
+    SELECT id FROM up`;
+  const ids = new Set(rows.map((r) => r.id));
+  const paths: string[] = [];
+  const walk = (nodes: CategoryNode[]) => {
+    for (const node of nodes) {
+      if (ids.has(node.id)) paths.push(node.canonicalHref);
+      walk(node.children);
+    }
+  };
+  walk(await getCategoryTree());
+  return paths;
 }
 
 /** The canonical path for a category, given its ancestor chain. */
