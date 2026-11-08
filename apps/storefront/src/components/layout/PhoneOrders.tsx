@@ -37,9 +37,9 @@ export function telHref(phone: string): string {
  *
  * Colours are inherited from the bar rather than set here, so the bar stays
  * the single owner of its own theme. Below sm (true phones) both the label
- * and the number are dropped entirely, leaving just the icon — sized to
- * match the header's cart icon (h-5 w-5) since it's now the only content on
- * that side of the bar and needs the same visual weight. The number stays
+ * and the number are dropped entirely, leaving just the icon — h-6 w-6,
+ * a step above the header's other icons, at the owner's request
+ * (2026-11-08) so the call button is easy to spot and tap. The number stays
  * in the accessible name, so the link is never announced as a bare icon, and
  * tapping it hands off to the tel: link regardless. From sm up (tablet and
  * desktop) the icon returns to its smaller inline size and the label drops
@@ -56,7 +56,7 @@ export function PhoneOrdersLink({ phoneOrders }: { phoneOrders: PhoneOrders }) {
       // the negative margin absorbs it back out of the layout.
       className="-my-1 flex shrink-0 items-center gap-1.5 py-1 transition-opacity hover:opacity-80"
     >
-      <PhoneIcon className="h-5 w-5 shrink-0 sm:h-3.5 sm:w-3.5" />
+      <PhoneIcon className="h-6 w-6 shrink-0 sm:h-3.5 sm:w-3.5" />
       <span className="hidden sm:inline">{label}:</span>
       <span className="hidden font-medium tabular-nums sm:inline">{phone}</span>
     </a>

@@ -294,7 +294,9 @@ export function Header({
             aria-label="Άνοιγμα μενού"
             onClick={() => setMobileOpen(true)}
           >
-            <MenuIcon />
+            {/* h-6, one step above the other header icons: the owner wants
+                the menu trigger easy to spot on a phone (2026-11-08). */}
+            <MenuIcon className="h-6 w-6" />
           </button>
 
           {/* Column 2. `justify-self-center` keeps it centred within a column
