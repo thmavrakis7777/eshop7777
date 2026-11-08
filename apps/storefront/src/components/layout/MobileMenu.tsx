@@ -192,43 +192,51 @@ function MenuDrawer({
                   <h2 className="-mt-1 px-4 pb-4 font-display text-lg break-words text-ink">{current.name}</h2>
                 </div>
 
-                {/* Compact by design (spec: "do not blindly force the same
-                    large promotional panel into the mobile menu") — one
-                    row, not the desktop panel's full image tile, so it
-                    can't push the last subcategory further down a screen
-                    that's already tight. Lives in the same scrollable flow
-                    as everything below it; it never claims a fixed height
-                    or its own scroll container, so it can't be the thing
-                    that breaks reaching the final subcategory. */}
-                {topLevelPromo && (
-                  <Link
-                    href={topLevelPromo.href}
-                    onClick={onClose}
-                    className={`${ROW} gap-3 border-b border-border`}
-                  >
-                    {(() => {
-                      const imageUrl = publicImageUrl(topLevelPromo.imagePath);
-                      return imageUrl ? (
-                        <WithAvif src={imageUrl}>
-                          {/* eslint-disable-next-line @next/next/no-img-element -- fixed 48x48 thumbnail in a flex row, not worth next/image's config for this size. */}
-                          <img
-                            src={imageUrl}
-                            alt=""
-                            className="h-12 w-12 shrink-0 rounded-sm bg-surface object-cover"
-                          />
-                        </WithAvif>
-                      ) : null;
-                    })()}
-                    <span className="min-w-0 flex-1">
-                      {topLevelPromo.title && (
-                        <span className="block truncate text-sm font-medium text-ink">{topLevelPromo.title}</span>
-                      )}
-                      <span className="text-xs font-medium text-accent">{topLevelPromo.buttonText}</span>
-                    </span>
-                  </Link>
-                )}
-
                 {(() => {
+                  // Compact by design (spec: "do not blindly force the same
+                  // large promotional panel into the mobile menu") — one
+                  // row, not the desktop panel's full image tile. It sits
+                  // after the subcategories (owner's choice, 2026-11-08: the
+                  // categories come first, the offer closes the list) and
+                  // is tinted in the accent colour so it reads as its own
+                  // block rather than one more subcategory. Same scrollable
+                  // flow as every row above it — no fixed height, no own
+                  // scroll container.
+                  const promoLink = topLevelPromo ? (
+                    <Link
+                      key="promo"
+                      href={topLevelPromo.href}
+                      onClick={onClose}
+                      className={`${ROW} gap-3 border-b border-l-4 border-border border-l-accent bg-accent/10`}
+                    >
+                      {(() => {
+                        const imageUrl = publicImageUrl(topLevelPromo.imagePath);
+                        return imageUrl ? (
+                          <WithAvif src={imageUrl}>
+                            {/* eslint-disable-next-line @next/next/no-img-element -- fixed 48x48 thumbnail in a flex row, not worth next/image's config for this size. */}
+                            <img
+                              src={imageUrl}
+                              alt=""
+                              className="h-12 w-12 shrink-0 rounded-sm bg-surface object-cover"
+                            />
+                          </WithAvif>
+                        ) : null;
+                      })()}
+                      <span className="min-w-0 flex-1">
+                        {topLevelPromo.title && (
+                          // CSS uppercase, not a capitalised string: with
+                          // <html lang="el"> the browser drops the Greek
+                          // accents the way capitals are written (ΠΡΟΣΦΟΡΕΣ,
+                          // not ΠΡΟΣΦΟΡΈΣ), and screen readers still get
+                          // the normal-case words.
+                          <span className="block truncate text-sm font-semibold uppercase tracking-wide text-accent">
+                            {topLevelPromo.title}
+                          </span>
+                        )}
+                        <span className="text-xs font-medium text-ink">{topLevelPromo.buttonText}</span>
+                      </span>
+                    </Link>
+                  ) : null;
                   // Dashboard-configurable (Category Management → "Κινητό
                   // μενού"): enable/disable, button text, and top/bottom
                   // position, per category, surviving renames since it's
@@ -266,6 +274,7 @@ function MenuDrawer({
                       {current.displayChildren.map((child) => (
                         <CategoryRow key={child.handle} node={child} onDrill={drillInto} onClose={onClose} />
                       ))}
+                      {promoLink}
                       {/* Default position — the last element in the
                           scrollable flow, so reaching it is exactly the
                           same "scroll the container to its real bottom"
