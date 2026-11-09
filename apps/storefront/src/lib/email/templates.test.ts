@@ -22,6 +22,7 @@ function order(invoice: OrderEmailData["invoice"]): OrderEmailData {
     shippingCents: 0,
     shippingMethodName: null,
     isPickup: false,
+    isLocalDelivery: false,
     vatCents: 194,
     vatRate: 24,
     totalCents: 1000,

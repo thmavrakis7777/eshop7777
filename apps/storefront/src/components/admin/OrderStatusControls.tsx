@@ -66,6 +66,8 @@ export function OrderStatusControls({
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  // On by default: a customer whose order is cancelled should hear about it.
+  const [notifyOnCancel, setNotifyOnCancel] = useState(true);
   const [note, setNote] = useState(adminNote ?? "");
 
   const cancelled = status === "cancelled";
@@ -203,6 +205,15 @@ export function OrderStatusControls({
               καταγραφεί κίνηση αποθέματος. Η ενέργεια δεν αναιρείται — μια ακυρωμένη παραγγελία δεν
               ξανανοίγει.
             </p>
+            <label className="mt-4 flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={notifyOnCancel}
+                onChange={(e) => setNotifyOnCancel(e.target.checked)}
+                className="h-4 w-4"
+              />
+              Ενημέρωση του πελάτη με email
+            </label>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
@@ -214,7 +225,7 @@ export function OrderStatusControls({
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => run(() => setOrderStatusAction(orderId, "cancelled"))}
+                onClick={() => run(() => setOrderStatusAction(orderId, "cancelled", undefined, notifyOnCancel))}
                 className="rounded-md bg-danger px-3.5 py-2 text-sm font-medium text-bg hover:bg-danger/90 disabled:opacity-50"
               >
                 {pending ? "Ακύρωση…" : "Ακύρωση παραγγελίας"}

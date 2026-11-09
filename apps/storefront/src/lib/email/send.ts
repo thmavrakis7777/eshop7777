@@ -11,6 +11,10 @@ import {
   shipmentNotificationHtml,
   shipmentNotificationText,
   shell,
+  readyNotificationHtml,
+  readyNotificationText,
+  cancellationHtml,
+  cancellationText,
 } from "@/lib/email/templates";
 import type { OrderEmailData } from "@/lib/db/order-email";
 
@@ -277,6 +281,37 @@ export async function sendShipmentNotificationEmail(order: OrderEmailData): Prom
     subject: `Η παραγγελία σας #${order.orderNumber} απεστάλη | ${storeName}`,
     html: shipmentNotificationHtml(order, { storeName, contact, orderUrl }),
     text: shipmentNotificationText(order, { storeName, orderUrl }),
+  });
+}
+
+/**
+ * «Έτοιμη για παραλαβή» / «Βγήκε για παράδοση» — the admin's button on a
+ * pickup or Heraklion-delivery order (no courier, no tracking code).
+ */
+export async function sendReadyNotificationEmail(order: OrderEmailData, kind: "pickup" | "local"): Promise<boolean> {
+  const { storeName } = await getBranding();
+  const contact = await contactInfo();
+  const orderUrl = `${siteUrl}/checkout/epibebaiosi?order=${order.id}`;
+  return send({
+    to: order.email,
+    subject:
+      kind === "pickup"
+        ? `Η παραγγελία σας #${order.orderNumber} είναι έτοιμη για παραλαβή | ${storeName}`
+        : `Η παραγγελία σας #${order.orderNumber} βγήκε για παράδοση | ${storeName}`,
+    html: readyNotificationHtml(order, { storeName, contact, orderUrl, kind }),
+    text: readyNotificationText(order, { storeName, contact, orderUrl, kind }),
+  });
+}
+
+/** Sent when the admin cancels an order with «Ενημέρωση του πελάτη» ticked. */
+export async function sendCancellationEmail(order: OrderEmailData): Promise<boolean> {
+  const { storeName } = await getBranding();
+  const contact = await contactInfo();
+  return send({
+    to: order.email,
+    subject: `Η παραγγελία σας #${order.orderNumber} ακυρώθηκε | ${storeName}`,
+    html: cancellationHtml(order, { storeName, contact }),
+    text: cancellationText(order, { contact }),
   });
 }
 

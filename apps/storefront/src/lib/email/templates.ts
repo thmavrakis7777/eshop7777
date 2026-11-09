@@ -434,3 +434,127 @@ export function shipmentNotificationText(order: OrderEmailData, ctx: { storeName
     .filter((l) => l !== null)
     .join("\n");
 }
+
+/**
+ * The Google-review ask, shared by every "it's on its way / ready" email.
+ * Same copy as the courier shipment email.
+ */
+function reviewBlock(storeName: string): string {
+  return `<div style="margin-top:24px;border-top:1px solid ${BORDER};padding-top:20px">
+      <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:${INK}">Η γνώμη σας είναι σημαντική για εμάς</p>
+      <p style="margin:0;font-size:13px;line-height:1.7;color:${MUTED}">
+        Ευχαριστούμε που επιλέξατε το ${escapeHtml(storeName)}. Αν μείνατε ικανοποιημένοι από την εμπειρία σας, θα χαρούμε πολύ
+        να μοιραστείτε την αξιολόγησή σας στο Google — η γνώμη σας βοηθά και άλλους πελάτες να μας γνωρίσουν.
+      </p>
+      ${ctaButton("Αφήστε μας μια αξιολόγηση στο Google", GOOGLE_REVIEW_URL)}
+    </div>`;
+}
+
+type Contact = { phone: string | null; email: string | null; address: string | null };
+
+/**
+ * «Έτοιμη για παραλαβή» (store pickup) or «Βγήκε για παράδοση» (the shop's
+ * own Heraklion delivery) — the no-courier counterpart of the shipment
+ * email, sent from the admin order page with one button (owner's request,
+ * 2026-11-09).
+ */
+export function readyNotificationHtml(
+  order: OrderEmailData,
+  ctx: { storeName: string; contact: Contact; orderUrl: string; kind: "pickup" | "local" }
+): string {
+  const cod = order.paymentMethod === "cod";
+  const where =
+    ctx.kind === "pickup"
+      ? `<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin:20px 0 6px">Παραλαβή από</div>
+    <p style="margin:0;font-size:13px;line-height:1.6;color:${INK}">
+      ${escapeHtml(ctx.storeName)}${ctx.contact.address ? `<br>${escapeHtml(ctx.contact.address)}` : ""}${ctx.contact.phone ? `<br><span style="color:${MUTED}">${escapeHtml(ctx.contact.phone)}</span>` : ""}
+    </p>`
+      : `<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin:20px 0 6px">Παράδοση σε</div>
+    ${addressBlock(order.shippingAddress)}`;
+  const note =
+    ctx.kind === "pickup"
+      ? `Σας περιμένουμε στο κατάστημα.${cod ? " Θα εξοφλήσετε κατά την παραλαβή." : ""}`
+      : `Η παραγγελία σας βρίσκεται καθ' οδόν και θα σας την παραδώσουμε σύντομα.${cod ? " Θα εξοφλήσετε κατά την παράδοση." : ""}`;
+
+  const body = `
+    <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:${INK}">${ctx.kind === "pickup" ? "Η παραγγελία σας είναι έτοιμη!" : "Η παραγγελία σας είναι καθ' οδόν!"}</h1>
+    <p style="margin:0;font-size:14px;color:${MUTED}">Παραγγελία <strong style="color:${INK}">#${order.orderNumber}</strong></p>
+    ${where}
+    <p style="margin:16px 0 0;font-size:13px;line-height:1.7;color:${MUTED}">${escapeHtml(note)} Για οποιαδήποτε απορία, επικοινωνήστε μαζί μας.</p>
+    ${ctaButton("Δείτε την παραγγελία σας", ctx.orderUrl)}
+    ${reviewBlock(ctx.storeName)}`;
+
+  return shell({
+    previewText:
+      ctx.kind === "pickup"
+        ? `Η παραγγελία σας #${order.orderNumber} είναι έτοιμη για παραλαβή.`
+        : `Η παραγγελία σας #${order.orderNumber} βγήκε για παράδοση.`,
+    bodyHtml: body,
+    storeName: ctx.storeName,
+    contact: ctx.contact,
+  });
+}
+
+export function readyNotificationText(
+  order: OrderEmailData,
+  ctx: { storeName: string; contact: Contact; orderUrl: string; kind: "pickup" | "local" }
+): string {
+  const cod = order.paymentMethod === "cod";
+  return [
+    ctx.kind === "pickup" ? `Η παραγγελία σας είναι έτοιμη!` : `Η παραγγελία σας είναι καθ' οδόν!`,
+    ``,
+    `Παραγγελία #${order.orderNumber}`,
+    ``,
+    ctx.kind === "pickup"
+      ? `Παραλαβή από: ${ctx.storeName}${ctx.contact.address ? `, ${ctx.contact.address}` : ""}`
+      : `Θα σας την παραδώσουμε σύντομα.`,
+    cod ? (ctx.kind === "pickup" ? `Θα εξοφλήσετε κατά την παραλαβή.` : `Θα εξοφλήσετε κατά την παράδοση.`) : null,
+    ``,
+    `Δείτε την παραγγελία σας: ${ctx.orderUrl}`,
+    ``,
+    `Η γνώμη σας είναι σημαντική για εμάς — αν μείνατε ικανοποιημένοι, θα χαρούμε πολύ να μοιραστείτε την αξιολόγησή σας στο Google: ${GOOGLE_REVIEW_URL}`,
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+}
+
+/**
+ * Sent when the owner cancels an order with «Ενημέρωση του πελάτη» ticked
+ * (the default). Lists what was cancelled so the customer can tell which
+ * order it was.
+ */
+export function cancellationHtml(order: OrderEmailData, ctx: { storeName: string; contact: Contact }): string {
+  const paidNote =
+    order.paymentMethod === "cod"
+      ? ""
+      : ` Αν έχετε ήδη πληρώσει, θα επικοινωνήσουμε μαζί σας για την επιστροφή των χρημάτων.`;
+  const body = `
+    <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:${INK}">Η παραγγελία σας ακυρώθηκε</h1>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED}">Παραγγελία <strong style="color:${INK}">#${order.orderNumber}</strong> · ${escapeHtml(order.createdAtFormatted)}</p>
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:${INK}">Η παραγγελία σας ακυρώθηκε.${paidNote}</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${order.items.map(productRow).join("")}</table>
+    ${summaryBlock(order)}
+    <p style="margin:20px 0 0;font-size:13px;line-height:1.7;color:${MUTED}">
+      Για οποιαδήποτε απορία, επικοινωνήστε μαζί μας${ctx.contact.phone ? ` στο ${escapeHtml(ctx.contact.phone)}` : ""}.
+    </p>`;
+  return shell({
+    previewText: `Η παραγγελία σας #${order.orderNumber} ακυρώθηκε.`,
+    bodyHtml: body,
+    storeName: ctx.storeName,
+    contact: ctx.contact,
+  });
+}
+
+export function cancellationText(order: OrderEmailData, ctx: { contact: Contact }): string {
+  return [
+    `Η παραγγελία σας #${order.orderNumber} ακυρώθηκε.`,
+    order.paymentMethod === "cod" ? null : `Αν έχετε ήδη πληρώσει, θα επικοινωνήσουμε μαζί σας για την επιστροφή των χρημάτων.`,
+    ``,
+    ...order.items.map((i) => `${i.title} × ${i.quantity} — ${money(i.lineTotalCents)}`),
+    `Σύνολο: ${money(order.totalCents)}`,
+    ``,
+    `Για οποιαδήποτε απορία, επικοινωνήστε μαζί μας${ctx.contact.phone ? ` στο ${ctx.contact.phone}` : ""}.`,
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+}

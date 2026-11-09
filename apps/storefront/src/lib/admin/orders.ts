@@ -13,6 +13,7 @@ import { sql, transaction } from "@/lib/db/client";
 
 export type OrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
 export type PaymentStatus = "unpaid" | "paid" | "refunded" | "partially_refunded";
+export type DeliveryKind = "pickup" | "local" | "courier";
 export type FulfillmentStatus = "unfulfilled" | "fulfilled" | "partially_fulfilled" | "returned";
 
 export class OrderError extends Error {
@@ -120,6 +121,10 @@ export type AdminOrderDetail = {
   shippingAddress: Record<string, string | null> | null;
   billingAddress: Record<string, string | null> | null;
   shippingMethodName: string | null;
+  // How the order reaches the customer, matched back from the method name
+  // (orders keep only the name): store pickup, the shop's own Heraklion
+  // delivery, or a courier with a tracking code.
+  deliveryKind: DeliveryKind;
   paymentMethod: string;
   discountCode: string | null;
   taxDocumentType: "receipt" | "invoice";
@@ -174,7 +179,10 @@ export async function getOrderDetail(id: string): Promise<AdminOrderDetail | nul
           'note', e.note, 'createdAt', e.created_at, 'adminName', u.name) ORDER BY e.created_at DESC)
         FROM shop.order_event e
         LEFT JOIN shop.admin_user u ON u.id = e.admin_user_id
-        WHERE e.order_id = o.id), '[]'::json) AS events
+        WHERE e.order_id = o.id), '[]'::json) AS events,
+      (SELECT CASE WHEN sm.is_pickup THEN 'pickup' WHEN sm.heraklion_only THEN 'local' ELSE 'courier' END
+         FROM shop.shipping_method sm WHERE sm.name = o.shipping_method_name
+         ORDER BY sm.is_pickup DESC LIMIT 1) AS delivery_kind
     FROM shop.orders o WHERE o.id = ${id}`) as unknown as Array<Record<string, unknown>>;
 
   const r = rows[0];
@@ -198,6 +206,7 @@ export async function getOrderDetail(id: string): Promise<AdminOrderDetail | nul
     shippingAddress: (r.shipping_address as Record<string, string | null>) ?? null,
     billingAddress: (r.billing_address as Record<string, string | null>) ?? null,
     shippingMethodName: (r.shipping_method_name as string) ?? null,
+    deliveryKind: ((r.delivery_kind as DeliveryKind | null) ?? "courier"),
     paymentMethod: r.payment_method as string,
     discountCode: (r.discount_code as string) ?? null,
     taxDocumentType: r.tax_document_type as "receipt" | "invoice",
@@ -413,6 +422,25 @@ export async function saveShipmentInfo(
       shouldNotify: Boolean(input.courierName?.trim() && input.trackingCode?.trim() && !before.shipment_email_sent_at),
     };
   });
+}
+
+/**
+ * Pickup / Heraklion-delivery orders have no courier or tracking code, so
+ * their "it's on its way" moment is a button: «Έτοιμη για παραλαβή» or
+ * «Βγήκε για παράδοση». It shares shipment_email_sent_at with the courier
+ * email — one "the customer was told it's coming" timestamp per order.
+ */
+export async function markReadyEmailSent(orderId: string, adminUserId: string, kind: "pickup" | "local"): Promise<void> {
+  await sql`UPDATE shop.orders SET shipment_email_sent_at = now() WHERE id = ${orderId}`;
+  await sql`
+    INSERT INTO shop.order_event (order_id, type, note, admin_user_id)
+    VALUES (${orderId}, 'email_shipment', ${kind === "pickup" ? "Email «Έτοιμη για παραλαβή»" : "Email «Βγήκε για παράδοση»"}, ${adminUserId})`;
+}
+
+export async function markCancellationEmailSent(orderId: string, adminUserId: string): Promise<void> {
+  await sql`
+    INSERT INTO shop.order_event (order_id, type, note, admin_user_id)
+    VALUES (${orderId}, 'email_cancellation', 'Email ακύρωσης στον πελάτη', ${adminUserId})`;
 }
 
 export async function markShipmentEmailSent(orderId: string, adminUserId: string, manual: boolean): Promise<void> {

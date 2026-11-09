@@ -6,6 +6,8 @@ import { requireAdmin, requireOwner, auditLog } from "@/lib/admin/auth";
 import {
   OrderError,
   deleteOrderPermanently,
+  markCancellationEmailSent,
+  markReadyEmailSent,
   markShipmentEmailSent,
   saveAdminNote,
   saveShipmentInfo,
@@ -17,7 +19,7 @@ import {
   type PaymentStatus,
 } from "@/lib/admin/orders";
 import { getOrderForEmail } from "@/lib/db/order-email";
-import { sendShipmentNotificationEmail } from "@/lib/email/send";
+import { sendCancellationEmail, sendReadyNotificationEmail, sendShipmentNotificationEmail } from "@/lib/email/send";
 import { setCustomerActive, withdrawMarketingConsent } from "@/lib/admin/customers";
 import { DiscountError, deleteDiscount, getDiscountUsage, saveDiscount, type DiscountUsage } from "@/lib/admin/discounts";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
@@ -55,7 +57,9 @@ function mapError(err: unknown): string {
 export async function setOrderStatusAction(
   orderId: string,
   status: OrderStatus,
-  note?: string
+  note?: string,
+  // Cancelling only: email the customer (the dialog's tick, on by default).
+  notifyCustomer = false
 ): Promise<ActionResult> {
   let user;
   try {
@@ -77,6 +81,20 @@ export async function setOrderStatusAction(
     scheduleRestockNotifications();
     revalidatePath("/admin/inventory");
     revalidatePath("/", "layout");
+    if (notifyCustomer) {
+      // The cancellation itself already committed; a failed email must not
+      // read back as a failed cancel.
+      try {
+        const orderData = await getOrderForEmail(orderId);
+        if (orderData && (await sendCancellationEmail(orderData))) {
+          await markCancellationEmailSent(orderId, user.id);
+          return { ok: true, message: "Η παραγγελία ακυρώθηκε και ο πελάτης ενημερώθηκε με email." };
+        }
+      } catch (err) {
+        console.error("[admin] CANCELLATION_EMAIL_FAILED", { orderId, error: String(err) });
+      }
+      return { ok: true, message: "Η παραγγελία ακυρώθηκε, αλλά το email στον πελάτη απέτυχε." };
+    }
   }
   return { ok: true, message: "Η κατάσταση ενημερώθηκε." };
 }
@@ -260,6 +278,34 @@ export async function resendShipmentEmailAction(orderId: string): Promise<Action
   await auditLog(user.id, "order.shipment_email.resend", "order", orderId);
   revalidatePath(`/admin/orders/${orderId}`);
   return { ok: true, message: "Το email αποστολής στάλθηκε ξανά." };
+}
+
+/**
+ * «Έτοιμη για παραλαβή» / «Βγήκε για παράδοση» — the no-courier orders'
+ * customer notification. Always sends when pressed (the button's own
+ * confirm step guards against a double send).
+ */
+export async function sendReadyEmailAction(orderId: string, kind: "pickup" | "local"): Promise<ActionResult> {
+  let user;
+  try {
+    user = await admin();
+  } catch {
+    return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
+  }
+  let sent = false;
+  try {
+    const orderData = await getOrderForEmail(orderId);
+    if (!orderData) return { ok: false, error: "Η παραγγελία δεν βρέθηκε." };
+    sent = await sendReadyNotificationEmail(orderData, kind);
+  } catch (err) {
+    console.error("[admin] READY_EMAIL_FAILED", { orderId, error: String(err) });
+  }
+  if (!sent) return { ok: false, error: "Η αποστολή του email απέτυχε. Δοκίμασε ξανά." };
+
+  await markReadyEmailSent(orderId, user.id, kind);
+  await auditLog(user.id, "order.ready_email", "order", orderId, { kind });
+  revalidatePath(`/admin/orders/${orderId}`);
+  return { ok: true, message: "Ο πελάτης ενημερώθηκε με email." };
 }
 
 export async function saveOrderNoteAction(orderId: string, note: string): Promise<ActionResult> {

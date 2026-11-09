@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { resendShipmentEmailAction, saveShipmentInfoAction } from "@/lib/admin/sales-actions";
+import { resendShipmentEmailAction, saveShipmentInfoAction, sendReadyEmailAction } from "@/lib/admin/sales-actions";
 
 /**
  * Suggestions only (a <datalist>, not a locked dropdown) — this store's
@@ -185,6 +185,104 @@ export function ShipmentControls({
                 type="button"
                 disabled={pending}
                 onClick={() => run(() => resendShipmentEmailAction(orderId))}
+                className="rounded-md bg-ink px-3.5 py-2 text-sm font-medium text-white hover:bg-accent disabled:opacity-50"
+              >
+                {pending ? "Αποστολή…" : "Αποστολή email"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Pickup and Heraklion-delivery orders have no courier or tracking code, so
+ * instead of the courier form they get one button that emails the customer
+ * «Έτοιμη για παραλαβή» / «Βγήκε για παράδοση» (owner's request, 2026-11-09).
+ * A confirm step guards against a double send; pressing it again later
+ * re-sends, which is what the owner wants if the customer lost the email.
+ */
+export function ReadyNotificationControls({
+  orderId,
+  kind,
+  cancelled,
+  confirmationEmailSentAt,
+  readyEmailSentAt,
+}: {
+  orderId: string;
+  kind: "pickup" | "local";
+  cancelled: boolean;
+  confirmationEmailSentAt: string | null;
+  readyEmailSentAt: string | null;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [confirming, setConfirming] = useState(false);
+
+  const label = kind === "pickup" ? "Έτοιμη για παραλαβή" : "Βγήκε για παράδοση";
+
+  function send() {
+    startTransition(async () => {
+      const result = await sendReadyEmailAction(orderId, kind);
+      setMsg(result.ok ? { ok: true, text: result.message ?? "Έγινε." } : { ok: false, text: result.error ?? "" });
+      setConfirming(false);
+      if (result.ok) router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {msg && (
+        <p role="status" className={`text-sm ${msg.ok ? "text-success" : "text-danger"}`}>
+          {msg.text}
+        </p>
+      )}
+      <p className="text-sm text-ink-muted">
+        {kind === "pickup" ? "Παραλαβή από το κατάστημα" : "Παράδοση Ηράκλειο"} — χωρίς courier.
+      </p>
+      <div className="flex flex-col gap-2">
+        <EmailStatus label="Email επιβεβαίωσης" sentAt={confirmationEmailSentAt} />
+        <EmailStatus label={`Email «${label}»`} sentAt={readyEmailSentAt} />
+      </div>
+      <button
+        type="button"
+        disabled={pending || cancelled}
+        onClick={() => setConfirming(true)}
+        className="w-full rounded-md bg-ink px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent disabled:opacity-40"
+      >
+        {readyEmailSentAt ? `Ξανά email «${label}»` : `${label} · Ειδοποίηση πελάτη`}
+      </button>
+
+      {confirming && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-5">
+          <button
+            type="button"
+            aria-label="Άκυρο"
+            onClick={() => setConfirming(false)}
+            className="absolute inset-0 bg-ink/30"
+          />
+          <div role="dialog" aria-modal="true" className="relative w-full max-w-md rounded-lg border border-border bg-bg p-6">
+            <h2 className="font-display text-lg text-ink">{label}</h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              {kind === "pickup"
+                ? "Ο πελάτης θα λάβει email ότι η παραγγελία είναι έτοιμη να την παραλάβει από το κατάστημα, μαζί με τη διεύθυνση του καταστήματος."
+                : "Ο πελάτης θα λάβει email ότι η παραγγελία βγήκε για παράδοση."}
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="rounded-md border border-border px-3.5 py-2 text-sm font-medium hover:bg-surface"
+              >
+                Πίσω
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={send}
                 className="rounded-md bg-ink px-3.5 py-2 text-sm font-medium text-white hover:bg-accent disabled:opacity-50"
               >
                 {pending ? "Αποστολή…" : "Αποστολή email"}

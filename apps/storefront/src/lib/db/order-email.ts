@@ -39,6 +39,8 @@ export type OrderEmailData = {
   shippingMethodName: string | null;
   // Store pickup: the email names the shop, not the customer's address.
   isPickup: boolean;
+  // The shop's own «Παράδοση Ηράκλειο» delivery (no courier, no tracking).
+  isLocalDelivery: boolean;
   vatCents: number;
   vatRate: number;
   totalCents: number;
@@ -87,6 +89,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
       shipping_cents: number;
       shipping_method_name: string | null;
       is_pickup: boolean;
+      is_local_delivery: boolean;
       vat_cents: number;
       vat_rate: number;
       total_cents: number;
@@ -121,6 +124,9 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
            -- Orders keep only the method's name; match it back to the method.
            EXISTS (SELECT 1 FROM shop.shipping_method sm
                     WHERE sm.is_pickup AND sm.name = o.shipping_method_name) AS is_pickup,
+           EXISTS (SELECT 1 FROM shop.shipping_method sm
+                    WHERE sm.heraklion_only AND NOT sm.is_pickup
+                      AND sm.name = o.shipping_method_name) AS is_local_delivery,
            o.vat_cents, o.vat_rate, o.total_cents, o.payment_method,
            o.shipping_address, o.courier_name, o.tracking_code, o.tracking_url,
            d.code AS loyalty_reward_code, d.ends_at AS loyalty_reward_ends_at,
@@ -174,6 +180,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
     shippingCents: r.shipping_cents,
     shippingMethodName: r.shipping_method_name,
     isPickup: r.is_pickup,
+    isLocalDelivery: r.is_local_delivery,
     vatCents: r.vat_cents,
     vatRate: Number(r.vat_rate),
     totalCents: r.total_cents,

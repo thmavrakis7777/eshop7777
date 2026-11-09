@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getAdminUser } from "@/lib/admin/auth";
 import { getOrderDetail } from "@/lib/admin/orders";
 import { OrderStatusControls } from "@/components/admin/OrderStatusControls";
-import { ShipmentControls } from "@/components/admin/ShipmentControls";
+import { ReadyNotificationControls, ShipmentControls } from "@/components/admin/ShipmentControls";
 import { DeleteOrderControls } from "@/components/admin/DeleteOrderControls";
 import { formatMetres, perMetreCents } from "@/lib/length";
 import {
@@ -25,6 +25,7 @@ const EVENT_LABELS: Record<string, string> = {
   shipment_info: "Στοιχεία αποστολής",
   email_confirmation: "Email επιβεβαίωσης",
   email_shipment: "Email αποστολής",
+  email_cancellation: "Email ακύρωσης",
 };
 
 function Address({ address }: { address: Record<string, string | null> | null }) {
@@ -243,15 +244,25 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           </Card>
 
           <Card>
-            <SectionTitle>Αποστολή</SectionTitle>
-            <ShipmentControls
-              orderId={order.id}
-              courierName={order.courierName}
-              trackingCode={order.trackingCode}
-              trackingUrl={order.trackingUrl}
-              confirmationEmailSentAt={order.confirmationEmailSentAt}
-              shipmentEmailSentAt={order.shipmentEmailSentAt}
-            />
+            <SectionTitle>{order.deliveryKind === "courier" ? "Αποστολή" : "Αποστολή & ειδοποιήσεις"}</SectionTitle>
+            {order.deliveryKind === "courier" ? (
+              <ShipmentControls
+                orderId={order.id}
+                courierName={order.courierName}
+                trackingCode={order.trackingCode}
+                trackingUrl={order.trackingUrl}
+                confirmationEmailSentAt={order.confirmationEmailSentAt}
+                shipmentEmailSentAt={order.shipmentEmailSentAt}
+              />
+            ) : (
+              <ReadyNotificationControls
+                orderId={order.id}
+                kind={order.deliveryKind}
+                cancelled={order.status === "cancelled"}
+                confirmationEmailSentAt={order.confirmationEmailSentAt}
+                readyEmailSentAt={order.shipmentEmailSentAt}
+              />
+            )}
           </Card>
 
           {/* Owner-only, same tier as the other destructive/account-
