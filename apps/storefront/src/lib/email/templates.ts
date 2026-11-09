@@ -81,7 +81,7 @@ function summaryBlock(order: OrderEmailData): string {
     <tr><td colspan="2" style="padding-top:10px;border-top:1px solid ${BORDER}"></td></tr>
     <tr>
       <td style="padding:6px 0 0;font-size:16px;font-weight:700;color:${INK}">Σύνολο</td>
-      <td style="padding:6px 0 0;font-size:16px;font-weight:700;color:${INK};text-align:right">${money(order.totalCents)}</td>
+      <td style="padding:6px 0 0;font-size:16px;font-weight:700;color:${INK};text-align:right;white-space:nowrap">${money(order.totalCents)}</td>
     </tr>
     <tr>
       <td colspan="2" style="padding-top:4px;font-size:11px;color:${MUTED}">
@@ -93,7 +93,7 @@ function summaryBlock(order: OrderEmailData): string {
   function row(label: string, value: string): string {
     return `<tr>
       <td style="padding:3px 0;color:${MUTED}">${label}</td>
-      <td style="padding:3px 0;text-align:right;color:${INK}">${value}</td>
+      <td style="padding:3px 0 3px 12px;text-align:right;color:${INK};white-space:nowrap" valign="top">${value}</td>
     </tr>`;
   }
 }
@@ -103,7 +103,7 @@ function loyaltyRewardBlock(reward: NonNullable<OrderEmailData["loyaltyReward"]>
     <tr><td style="padding:18px 20px">
       <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:8px">Ανταμοιβή πιστότητας</div>
       <p style="margin:0;font-size:13px;color:${INK}">
-        Κέρδισες ένα κουπόνι έκπτωσης 5€ για την επόμενη παραγγελία σου:
+        Κερδίσατε ένα κουπόνι έκπτωσης 5€ για την επόμενη παραγγελία σας:
         <strong style="font-family:monospace">${escapeHtml(reward.code)}</strong>
         ${reward.endsAtFormatted ? ` (ισχύει έως ${escapeHtml(reward.endsAtFormatted)})` : ""}
       </p>
@@ -114,6 +114,22 @@ function loyaltyRewardBlock(reward: NonNullable<OrderEmailData["loyaltyReward"]>
 const PAYMENT_METHOD_LABELS: Record<string, string> = { cod: "Αντικαταβολή", bank_transfer: "Τραπεζική κατάθεση" };
 function paymentMethodLabel(method: string): string {
   return PAYMENT_METHOD_LABELS[method] ?? method;
+}
+
+// Store pickup: the customer comes to the shop, so the email names the shop
+// (and its address from Ρυθμίσεις) rather than echoing the customer's own
+// address back as if the order were being sent there.
+function pickupBlock(storeName: string, contact: { phone: string | null; address: string | null }): string {
+  return `<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Παραλαβή από</div>
+    <p style="margin:0;font-size:13px;line-height:1.6;color:${INK}">
+      ${escapeHtml(storeName)}${contact.address ? `<br>${escapeHtml(contact.address)}` : ""}${contact.phone ? `<br><span style="color:${MUTED}">${escapeHtml(contact.phone)}</span>` : ""}
+    </p>`;
+}
+
+function thankYouLine(storeName: string, isPickup: boolean): string {
+  return `Σας ευχαριστούμε θερμά που επιλέξατε το ${storeName}. Ετοιμάζουμε την παραγγελία σας και θα σας ενημερώσουμε ${
+    isPickup ? "μόλις είναι έτοιμη για παραλαβή" : "μόλις αποσταλεί"
+  }.`;
 }
 
 function addressBlock(address: OrderEmailData["shippingAddress"]): string {
@@ -195,7 +211,7 @@ export function orderConfirmationHtml(
 ): string {
   const itemRows = order.items.map(productRow).join("");
   const body = `
-    <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:${INK}">Ευχαριστούμε για την παραγγελία σου!</h1>
+    <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:${INK}">Ευχαριστούμε για την παραγγελία σας!</h1>
     <p style="margin:0 0 20px;font-size:14px;color:${MUTED}">Παραγγελία <strong style="color:${INK}">#${order.orderNumber}</strong> · ${escapeHtml(order.createdAtFormatted)}</p>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemRows}</table>
@@ -208,8 +224,10 @@ export function orderConfirmationHtml(
         <p style="margin:0;font-size:13px;color:${INK}">${escapeHtml(paymentMethodLabel(order.paymentMethod))}</p>
       </td></tr>
       <tr><td style="padding-top:16px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Παράδοση σε</div>
-        ${addressBlock(order.shippingAddress)}
+        ${order.isPickup
+          ? pickupBlock(ctx.storeName, ctx.contact)
+          : `<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Παράδοση σε</div>
+        ${addressBlock(order.shippingAddress)}`}
       </td></tr>
       ${order.invoice ? `<tr><td style="padding-top:16px">${invoiceBlock(order.invoice)}</td></tr>` : ""}
     </table>
@@ -217,12 +235,11 @@ export function orderConfirmationHtml(
     ${ctaButton("Δείτε την παραγγελία σας", ctx.orderUrl)}
 
     <p style="margin:16px 0 0;font-size:13px;line-height:1.7;color:${MUTED}">
-      Σας ευχαριστούμε θερμά που επιλέξατε το ${escapeHtml(ctx.storeName)}. Ετοιμάζουμε την παραγγελία σας
-      και θα σας ενημερώσουμε μόλις αποσταλεί.
+      ${escapeHtml(thankYouLine(ctx.storeName, order.isPickup))}
     </p>`;
 
   return shell({
-    previewText: `Η παραγγελία σου #${order.orderNumber} καταχωρήθηκε επιτυχώς.`,
+    previewText: `Η παραγγελία σας #${order.orderNumber} καταχωρήθηκε επιτυχώς.`,
     bodyHtml: body,
     storeName: ctx.storeName,
     contact: ctx.contact,
@@ -233,7 +250,7 @@ export function orderConfirmationText(order: OrderEmailData, ctx: { storeName: s
   const lines = order.items.map((i) => `${i.title} × ${i.quantity} — ${money(i.lineTotalCents)}`);
   const netCents = order.totalCents - order.vatCents;
   return [
-    `Ευχαριστούμε για την παραγγελία σου!`,
+    `Ευχαριστούμε για την παραγγελία σας!`,
     ``,
     `Παραγγελία #${order.orderNumber} · ${order.createdAtFormatted}`,
     ``,
@@ -248,12 +265,12 @@ export function orderConfirmationText(order: OrderEmailData, ctx: { storeName: s
     ``,
     ...invoiceTextLines(order.invoice),
     order.loyaltyReward
-      ? `Κέρδισες ένα κουπόνι έκπτωσης 5€ για την επόμενη παραγγελία σου: ${order.loyaltyReward.code}${order.loyaltyReward.endsAtFormatted ? ` (ισχύει έως ${order.loyaltyReward.endsAtFormatted})` : ""}`
+      ? `Κερδίσατε ένα κουπόνι έκπτωσης 5€ για την επόμενη παραγγελία σας: ${order.loyaltyReward.code}${order.loyaltyReward.endsAtFormatted ? ` (ισχύει έως ${order.loyaltyReward.endsAtFormatted})` : ""}`
       : null,
     order.loyaltyReward ? `` : null,
     `Δείτε την παραγγελία σας: ${ctx.orderUrl}`,
     ``,
-    `Σας ευχαριστούμε θερμά που επιλέξατε το ${ctx.storeName}. Ετοιμάζουμε την παραγγελία σας και θα σας ενημερώσουμε μόλις αποσταλεί.`,
+    thankYouLine(ctx.storeName, order.isPickup),
   ]
     .filter((l) => l !== null)
     .join("\n");

@@ -1,6 +1,7 @@
 import "server-only";
 import { sql } from "@/lib/db/client";
 import { publicImageUrl } from "@/lib/storage/urls";
+import { SHOP_TIME_ZONE } from "@/lib/dates";
 
 /**
  * Read model for the two transactional order emails (confirmation,
@@ -36,6 +37,8 @@ export type OrderEmailData = {
   discountCode: string | null;
   shippingCents: number;
   shippingMethodName: string | null;
+  // Store pickup: the email names the shop, not the customer's address.
+  isPickup: boolean;
   vatCents: number;
   vatRate: number;
   totalCents: number;
@@ -58,8 +61,18 @@ export type OrderEmailData = {
   invoice: { companyName: string; afm: string; doy: string; activity: string } | null;
 };
 
-const dateFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short" });
-const dateOnlyFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium" });
+// Pinned to Greek time: the server runs in UTC, so without timeZone an order
+// placed at 17:54 in Heraklion was emailed as «3:54 μ.μ.» (order #1030).
+const dateFmt = new Intl.DateTimeFormat("el-GR", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: SHOP_TIME_ZONE,
+});
+const dateOnlyFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: SHOP_TIME_ZONE });
+
+// «5:54 μ.μ.» must never split across lines on a phone: a no-break space
+// keeps «μ.μ.» next to the time.
+const formatOrderDate = (d: Date) => dateFmt.format(d).replace(/\s(?=[πμ]\.μ\.)/g, " ");
 
 export async function getOrderForEmail(orderId: string): Promise<OrderEmailData | null> {
   const rows = await sql<
@@ -73,6 +86,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
       discount_code: string | null;
       shipping_cents: number;
       shipping_method_name: string | null;
+      is_pickup: boolean;
       vat_cents: number;
       vat_rate: number;
       total_cents: number;
@@ -104,6 +118,9 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
     SELECT o.id, o.order_number, o.email, o.created_at,
            o.subtotal_cents, o.discount_cents, o.discount_code,
            o.shipping_cents, o.shipping_method_name,
+           -- Orders keep only the method's name; match it back to the method.
+           EXISTS (SELECT 1 FROM shop.shipping_method sm
+                    WHERE sm.is_pickup AND sm.name = o.shipping_method_name) AS is_pickup,
            o.vat_cents, o.vat_rate, o.total_cents, o.payment_method,
            o.shipping_address, o.courier_name, o.tracking_code, o.tracking_url,
            d.code AS loyalty_reward_code, d.ends_at AS loyalty_reward_ends_at,
@@ -139,7 +156,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
     id: r.id,
     orderNumber: r.order_number,
     email: r.email,
-    createdAtFormatted: dateFmt.format(new Date(r.created_at)),
+    createdAtFormatted: formatOrderDate(new Date(r.created_at)),
     items: r.items.map((i) => ({
       title: i.title,
       variantTitle: i.variant_title,
@@ -156,6 +173,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
     discountCode: r.discount_code,
     shippingCents: r.shipping_cents,
     shippingMethodName: r.shipping_method_name,
+    isPickup: r.is_pickup,
     vatCents: r.vat_cents,
     vatRate: Number(r.vat_rate),
     totalCents: r.total_cents,
