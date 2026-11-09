@@ -10,6 +10,7 @@ import {
   ownerOrderNotificationText,
   shipmentNotificationHtml,
   shipmentNotificationText,
+  shell,
 } from "@/lib/email/templates";
 import type { OrderEmailData } from "@/lib/db/order-email";
 
@@ -38,14 +39,18 @@ async function contactInfo(): Promise<{ phone: string | null; email: string | nu
   };
 }
 
-function simpleShell(heading: string, bodyHtml: string, storeName: string): string {
-  return `<!doctype html><html lang="el"><body style="margin:0;padding:24px;background:#f6f5f3;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1c1b19">
-  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:32px">
-    <h1 style="margin:0 0 16px;font-size:20px;font-weight:600">${escapeHtml(heading)}</h1>
-    ${bodyHtml}
-    <p style="margin:32px 0 0;font-size:12px;color:#6b6862">${escapeHtml(storeName)}</p>
-  </div>
-</body></html>`;
+// The short emails (password, welcome, newsletter, back-in-stock) wear the
+// same branded frame as the order emails — logo on top, shop contact and
+// legal links underneath — instead of a bare card (owner's request,
+// 2026-11-09).
+async function simpleShell(heading: string, bodyHtml: string, storeName: string): Promise<string> {
+  return shell({
+    previewText: heading,
+    bodyHtml: `<h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#1c1b19">${escapeHtml(heading)}</h1>
+    <div style="color:#1c1b19">${bodyHtml}</div>`,
+    storeName,
+    contact: await contactInfo(),
+  });
 }
 
 export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {
@@ -55,14 +60,14 @@ export async function sendPasswordResetEmail(to: string, token: string): Promise
     to,
     subject: "Επαναφορά κωδικού πρόσβασης",
     text:
-      `Ζήτησες επαναφορά του κωδικού σου.\n\nΆνοιξε τον παρακάτω σύνδεσμο για να ορίσεις νέο κωδικό:\n${link}\n\n` +
+      `Ζητήσατε επαναφορά του κωδικού σας.\n\nΑνοίξτε τον παρακάτω σύνδεσμο για να ορίσετε νέο κωδικό:\n${link}\n\n` +
       `Ο σύνδεσμος ισχύει για 30 λεπτά και μπορεί να χρησιμοποιηθεί μία φορά.\n` +
-      `Αν δεν το ζήτησες εσύ, αγνόησε αυτό το email — ο κωδικός σου παραμένει ίδιος.`,
-    html: simpleShell(
+      `Αν δεν το ζητήσατε εσείς, αγνοήστε αυτό το email — ο κωδικός σας παραμένει ίδιος.`,
+    html: await simpleShell(
       "Επαναφορά κωδικού πρόσβασης",
-      `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Ζήτησες επαναφορά του κωδικού σου. Πάτησε το κουμπί για να ορίσεις νέο.</p>
+      `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Ζητήσατε επαναφορά του κωδικού σας. Πατήστε το κουμπί για να ορίσετε νέο.</p>
        <p style="margin:0 0 24px"><a href="${escapeHtml(link)}" style="display:inline-block;background:#1c1b19;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px">Ορισμός νέου κωδικού</a></p>
-       <p style="margin:0;font-size:13px;line-height:1.6;color:#6b6862">Ο σύνδεσμος ισχύει για 30 λεπτά και μπορεί να χρησιμοποιηθεί μία φορά. Αν δεν το ζήτησες εσύ, αγνόησε αυτό το email — ο κωδικός σου παραμένει ίδιος.</p>`,
+       <p style="margin:0;font-size:13px;line-height:1.6;color:#6b6862">Ο σύνδεσμος ισχύει για 30 λεπτά και μπορεί να χρησιμοποιηθεί μία φορά. Αν δεν το ζητήσατε εσείς, αγνοήστε αυτό το email — ο κωδικός σας παραμένει ίδιος.</p>`,
       storeName
     ),
   });
@@ -78,15 +83,15 @@ export async function sendWelcomeEmail(to: string, firstName: string): Promise<v
   const accountUrl = `${siteUrl}/logariasmos`;
   await send({
     to,
-    subject: `Καλώς ήρθες στο ${storeName}`,
+    subject: `Καλώς ήρθατε στο ${storeName}`,
     text:
-      `Γεια σου ${firstName},\n\nΟ λογαριασμός σου στο ${storeName} δημιουργήθηκε με επιτυχία.\n\n` +
-      `Από τον λογαριασμό σου μπορείς να βλέπεις το ιστορικό των παραγγελιών σου, να αποθηκεύεις διευθύνσεις ` +
-      `παράδοσης και να ολοκληρώνεις πιο γρήγορα την επόμενη παραγγελία σου.\n\n${accountUrl}`,
-    html: simpleShell(
-      `Καλώς ήρθες στο ${storeName}`,
-      `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Γεια σου ${escapeHtml(firstName)},</p>
-       <p style="margin:0 0 16px;font-size:14px;line-height:1.6">Ο λογαριασμός σου δημιουργήθηκε με επιτυχία. Από εδώ και πέρα μπορείς να βλέπεις το ιστορικό των παραγγελιών σου, να αποθηκεύεις διευθύνσεις παράδοσης και να ολοκληρώνεις πιο γρήγορα την επόμενη παραγγελία σου.</p>
+      `Γεια σας ${firstName},\n\nΟ λογαριασμός σας στο ${storeName} δημιουργήθηκε με επιτυχία.\n\n` +
+      `Από τον λογαριασμό σας μπορείτε να βλέπετε το ιστορικό των παραγγελιών σας, να αποθηκεύετε διευθύνσεις ` +
+      `παράδοσης και να ολοκληρώνετε πιο γρήγορα την επόμενη παραγγελία σας.\n\n${accountUrl}`,
+    html: await simpleShell(
+      `Καλώς ήρθατε στο ${storeName}`,
+      `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Γεια σας ${escapeHtml(firstName)},</p>
+       <p style="margin:0 0 16px;font-size:14px;line-height:1.6">Ο λογαριασμός σας δημιουργήθηκε με επιτυχία. Από εδώ και πέρα μπορείτε να βλέπετε το ιστορικό των παραγγελιών σας, να αποθηκεύετε διευθύνσεις παράδοσης και να ολοκληρώνετε πιο γρήγορα την επόμενη παραγγελία σας.</p>
        <p style="margin:0 0 24px"><a href="${escapeHtml(accountUrl)}" style="display:inline-block;background:#1c1b19;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px">Ο λογαριασμός μου</a></p>`,
       storeName
     ),
@@ -94,9 +99,9 @@ export async function sendWelcomeEmail(to: string, firstName: string): Promise<v
 }
 
 const NEWSLETTER_DEFAULTS = {
-  subject: (storeName: string) => `Καλώς ήρθες στη λέσχη ${storeName}`,
-  heading: (storeName: string) => `Καλώς ήρθες στη λέσχη ${storeName}`,
-  body: "Ευχαριστούμε που εγγράφηκες! Θα λαμβάνεις νέες αφίξεις, οδηγούς αγορών και αποκλειστικές προσφορές απευθείας στο inbox σου.",
+  subject: (storeName: string) => `Καλώς ήρθατε στη λέσχη ${storeName}`,
+  heading: (storeName: string) => `Καλώς ήρθατε στη λέσχη ${storeName}`,
+  body: "Ευχαριστούμε που εγγραφήκατε! Θα λαμβάνετε νέες αφίξεις, οδηγούς αγορών και αποκλειστικές προσφορές απευθείας στο inbox σας.",
 };
 
 /**
@@ -140,7 +145,7 @@ export async function sendNewsletterConfirmationEmail(to: string, unsubscribeTok
       (buttonText && buttonUrl ? `${buttonText}: ${buttonUrl}\n\n` : "") +
       (footer ? `${footer}\n\n` : "") +
       `Διαγραφή από το newsletter: ${unsubscribeUrl}`,
-    html: simpleShell(
+    html: await simpleShell(
       heading,
       `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">${escapeHtml(body)}</p>
        ${buttonHtml}
@@ -168,7 +173,7 @@ export async function sendNewsletterSignupNotificationEmail(subscriberEmail: str
     to,
     subject: `Νέα εγγραφή newsletter | ${storeName}`,
     text: `Ένας νέος συνδρομητής εγγράφηκε στο newsletter: ${subscriberEmail}`,
-    html: simpleShell(
+    html: await simpleShell(
       "Νέα εγγραφή newsletter",
       `<p style="margin:0;font-size:14px;line-height:1.6">Ένας νέος συνδρομητής εγγράφηκε στο newsletter: <strong>${escapeHtml(subscriberEmail)}</strong></p>`,
       storeName
@@ -190,21 +195,21 @@ export async function sendPasswordChangedEmail(to: string): Promise<void> {
   const contactLine = [contact.phone, contact.email].filter(Boolean).join(" ή στο ");
   await send({
     to,
-    subject: "Ο κωδικός πρόσβασής σου άλλαξε",
+    subject: "Ο κωδικός πρόσβασής σας άλλαξε",
     text:
-      `Ο κωδικός πρόσβασης του λογαριασμού σου στο ${storeName} άλλαξε μόλις τώρα.\n\n` +
-      `Αν το έκανες εσύ, δεν χρειάζεται να κάνεις τίποτα.\n\n` +
+      `Ο κωδικός πρόσβασης του λογαριασμού σας στο ${storeName} άλλαξε μόλις τώρα.\n\n` +
+      `Αν το κάνατε εσείς, δεν χρειάζεται να κάνετε τίποτα.\n\n` +
       (contactLine
-        ? `Αν δεν το έκανες εσύ, επικοινώνησε μαζί μας άμεσα στο ${contactLine}.`
-        : `Αν δεν το έκανες εσύ, επικοινώνησε μαζί μας άμεσα.`),
-    html: simpleShell(
-      "Ο κωδικός πρόσβασής σου άλλαξε",
-      `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Ο κωδικός πρόσβασης του λογαριασμού σου στο ${escapeHtml(storeName)} άλλαξε μόλις τώρα.</p>
-       <p style="margin:0 0 16px;font-size:14px;line-height:1.6">Αν το έκανες εσύ, δεν χρειάζεται να κάνεις τίποτα.</p>
+        ? `Αν δεν το κάνατε εσείς, επικοινωνήστε μαζί μας άμεσα στο ${contactLine}.`
+        : `Αν δεν το κάνατε εσείς, επικοινωνήστε μαζί μας άμεσα.`),
+    html: await simpleShell(
+      "Ο κωδικός πρόσβασής σας άλλαξε",
+      `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Ο κωδικός πρόσβασης του λογαριασμού σας στο ${escapeHtml(storeName)} άλλαξε μόλις τώρα.</p>
+       <p style="margin:0 0 16px;font-size:14px;line-height:1.6">Αν το κάνατε εσείς, δεν χρειάζεται να κάνετε τίποτα.</p>
        <p style="margin:0;font-size:14px;line-height:1.6;font-weight:600">${
          contactLine
-           ? `Αν δεν το έκανες εσύ, επικοινώνησε μαζί μας άμεσα στο ${escapeHtml(contactLine)}.`
-           : `Αν δεν το έκανες εσύ, επικοινώνησε μαζί μας άμεσα.`
+           ? `Αν δεν το κάνατε εσείς, επικοινωνήστε μαζί μας άμεσα στο ${escapeHtml(contactLine)}.`
+           : `Αν δεν το κάνατε εσείς, επικοινωνήστε μαζί μας άμεσα.`
        }</p>`,
       storeName
     ),
@@ -287,13 +292,13 @@ export async function sendBackInStockEmail(to: string, product: { title: string;
     to,
     subject: `Ξανά διαθέσιμο: ${product.title} | ${storeName}`,
     text:
-      `Γεια σου,\n\nΤο προϊόν «${product.title}», για το οποίο ζήτησες ενημέρωση, είναι ξανά διαθέσιμο στο ${storeName}.\n\n` +
-      `${product.url}\n\nΛαμβάνεις αυτό το email μία φορά, επειδή ζήτησες ειδοποίηση για αυτό το προϊόν.`,
-    html: simpleShell(
+      `Γεια σας,\n\nΤο προϊόν «${product.title}», για το οποίο ζητήσατε ενημέρωση, είναι ξανά διαθέσιμο στο ${storeName}.\n\n` +
+      `${product.url}\n\nΛαμβάνετε αυτό το email μία φορά, επειδή ζητήσατε ειδοποίηση για αυτό το προϊόν.`,
+    html: await simpleShell(
       "Ξανά διαθέσιμο",
-      `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Το προϊόν <strong>${escapeHtml(product.title)}</strong>, για το οποίο ζήτησες ενημέρωση, είναι ξανά διαθέσιμο.</p>
-       <p style="margin:0 0 24px"><a href="${escapeHtml(product.url)}" style="display:inline-block;background:#1c1b19;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px">Δες το προϊόν</a></p>
-       <p style="margin:0;font-size:12px;line-height:1.6;color:#6b6862">Λαμβάνεις αυτό το email μία φορά, επειδή ζήτησες ειδοποίηση για αυτό το προϊόν.</p>`,
+      `<p style="margin:0 0 16px;font-size:14px;line-height:1.6">Το προϊόν <strong>${escapeHtml(product.title)}</strong>, για το οποίο ζητήσατε ενημέρωση, είναι ξανά διαθέσιμο.</p>
+       <p style="margin:0 0 24px"><a href="${escapeHtml(product.url)}" style="display:inline-block;background:#1c1b19;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px">Δείτε το προϊόν</a></p>
+       <p style="margin:0;font-size:12px;line-height:1.6;color:#6b6862">Λαμβάνετε αυτό το email μία φορά, επειδή ζητήσατε ειδοποίηση για αυτό το προϊόν.</p>`,
       storeName
     ),
   });

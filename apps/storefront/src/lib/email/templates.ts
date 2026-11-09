@@ -185,7 +185,7 @@ function footer(storeName: string, contact: { phone: string | null; email: strin
   </td></tr>`;
 }
 
-function shell(opts: { previewText: string; bodyHtml: string; storeName: string; contact: { phone: string | null; email: string | null; address: string | null } }): string {
+export function shell(opts: { previewText: string; bodyHtml: string; storeName: string; contact: { phone: string | null; email: string | null; address: string | null } }): string {
   return `<!doctype html>
 <html lang="el">
 <body style="margin:0;padding:0;background:${SURFACE};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
@@ -285,7 +285,7 @@ export function shipmentNotificationHtml(
     : `<p style="margin:16px 0 0;font-size:13px;color:${MUTED}">Κωδικός αποστολής: <strong style="color:${INK};font-family:monospace">${escapeHtml(order.trackingCode ?? "")}</strong></p>`;
 
   const body = `
-    <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:${INK}">Η παραγγελία σου απεστάλη!</h1>
+    <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:${INK}">Η παραγγελία σας απεστάλη!</h1>
     <p style="margin:0 0 20px;font-size:14px;color:${MUTED}">Παραγγελία <strong style="color:${INK}">#${order.orderNumber}</strong></p>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SURFACE};border-radius:10px">
@@ -301,7 +301,7 @@ export function shipmentNotificationHtml(
     ${trackingSection}
 
     <p style="margin:20px 0 0;font-size:13px;line-height:1.7;color:${MUTED}">
-      Η παραγγελία σου βρίσκεται καθ' οδόν προς εσένα. Αν χρειαστείς βοήθεια με την παραλαβή, επικοινώνησε μαζί μας.
+      Η παραγγελία σας βρίσκεται καθ' οδόν προς εσάς. Αν χρειαστείτε βοήθεια με την παραλαβή, επικοινωνήστε μαζί μας.
     </p>
 
     <div style="margin-top:24px;border-top:1px solid ${BORDER};padding-top:20px">
@@ -314,7 +314,7 @@ export function shipmentNotificationHtml(
     </div>`;
 
   return shell({
-    previewText: `Η παραγγελία σου #${order.orderNumber} απεστάλη.`,
+    previewText: `Η παραγγελία σας #${order.orderNumber} απεστάλη.`,
     bodyHtml: body,
     storeName: ctx.storeName,
     contact: ctx.contact,
@@ -367,7 +367,17 @@ export function ownerOrderNotificationHtml(
           <p style="margin:0;font-size:13px;color:${INK}">${escapeHtml(paymentMethodLabel(order.paymentMethod))}</p>
         </td>
         <td width="50%" valign="top" style="padding-left:10px">
-          <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Παράδοση σε</div>
+          ${
+            // Pickup is said outright, so the customer's address below isn't
+            // read as "send it here"; it stays for reference.
+            order.isPickup
+              ? `<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Τρόπος παράδοσης</div>
+          <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:${ACCENT}">Παραλαβή από το κατάστημα</p>
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Στοιχεία πελάτη</div>`
+              : `<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Παράδοση σε${
+                  order.shippingMethodName ? ` · ${escapeHtml(order.shippingMethodName)}` : ""
+                }</div>`
+          }
           ${addressBlock(order.shippingAddress)}
         </td>
       </tr>
@@ -397,6 +407,7 @@ export function ownerOrderNotificationText(order: OrderEmailData, ctx: { adminOr
     ...lines,
     ``,
     `Σύνολο: ${money(order.totalCents)}`,
+    order.isPickup ? `Τρόπος παράδοσης: Παραλαβή από το κατάστημα` : order.shippingMethodName ? `Τρόπος παράδοσης: ${order.shippingMethodName}` : null,
     `Τρόπος πληρωμής: ${paymentMethodLabel(order.paymentMethod)}`,
     ``,
     `Άνοιγμα παραγγελίας: ${ctx.adminOrderUrl}`,
@@ -407,7 +418,7 @@ export function ownerOrderNotificationText(order: OrderEmailData, ctx: { adminOr
 
 export function shipmentNotificationText(order: OrderEmailData, ctx: { storeName: string; orderUrl: string }): string {
   return [
-    `Η παραγγελία σου απεστάλη!`,
+    `Η παραγγελία σας απεστάλη!`,
     ``,
     `Παραγγελία #${order.orderNumber}`,
     ``,
