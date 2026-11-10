@@ -17,9 +17,10 @@ import type { FulfillmentStatus, OrderStatus, PaymentStatus } from "@/lib/admin/
  * can be paid but unfulfilled, or shipped but unpaid (cash on delivery is the
  * default here, so that is the normal case rather than an edge one).
  *
- * Cancelling asks for confirmation because it returns stock, which is a real
- * inventory movement — and it is refused afterwards, since a cancelled order
- * is terminal.
+ * Cancelling asks for confirmation because it can return stock, which is a
+ * real inventory movement (a tick, pre-ticked only for an order not yet
+ * sent) — and it is refused afterwards, since a cancelled order is terminal.
+ * «Παραδόθηκε» also asks first, offering the thank-you + review email.
  */
 
 const ORDER_STATUSES: Array<{ value: OrderStatus; label: string }> = [
@@ -54,6 +55,7 @@ export function OrderStatusControls({
   fulfillmentStatus,
   adminNote,
   itemCount,
+  reviewEmailSent,
 }: {
   orderId: string;
   status: OrderStatus;
@@ -61,6 +63,9 @@ export function OrderStatusControls({
   fulfillmentStatus: FulfillmentStatus;
   adminNote: string | null;
   itemCount: number;
+  // A thank-you/review email already went out for this order (history row
+  // 'email_review') — the delivered dialog then starts unticked.
+  reviewEmailSent: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -68,6 +73,15 @@ export function OrderStatusControls({
   const [confirmCancel, setConfirmCancel] = useState(false);
   // On by default: a customer whose order is cancelled should hear about it.
   const [notifyOnCancel, setNotifyOnCancel] = useState(true);
+  // Goods that already left the shop (shipped / delivered) are not on the
+  // shelf, so returning them to stock is off by default there — the owner
+  // ticks it if the parcel actually came back.
+  const sent = status === "shipped" || status === "delivered";
+  const [restockOnCancel, setRestockOnCancel] = useState(!sent);
+  // Choosing «Παραδόθηκε» opens a confirm step offering the thank-you +
+  // Google review email; every other status still applies straight away.
+  const [confirmDelivered, setConfirmDelivered] = useState(false);
+  const [sendReview, setSendReview] = useState(!reviewEmailSent);
   const [note, setNote] = useState(adminNote ?? "");
 
   const cancelled = status === "cancelled";
@@ -78,9 +92,19 @@ export function OrderStatusControls({
       setMsg(result.ok ? { ok: true, text: result.message ?? "Έγινε." } : { ok: false, text: result.error ?? "" });
       if (result.ok) {
         setConfirmCancel(false);
+        setConfirmDelivered(false);
         router.refresh();
       }
     });
+  }
+
+  function onStatusChange(next: OrderStatus) {
+    if (next === "delivered") {
+      setSendReview(!reviewEmailSent);
+      setConfirmDelivered(true);
+      return;
+    }
+    run(() => setOrderStatusAction(orderId, next));
   }
 
   return (
@@ -93,7 +117,7 @@ export function OrderStatusControls({
 
       {cancelled && (
         <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink-muted">
-          Η παραγγελία είναι ακυρωμένη. Το απόθεμα έχει επιστραφεί και η κατάσταση δεν αλλάζει άλλο.
+          Η παραγγελία είναι ακυρωμένη και η κατάσταση δεν αλλάζει άλλο.
         </p>
       )}
 
@@ -105,7 +129,7 @@ export function OrderStatusControls({
           id="order-status"
           value={cancelled ? "cancelled" : status}
           disabled={cancelled || pending}
-          onChange={(e) => run(() => setOrderStatusAction(orderId, e.target.value as OrderStatus))}
+          onChange={(e) => onStatusChange(e.target.value as OrderStatus)}
           className={select}
         >
           {ORDER_STATUSES.map((s) => (
@@ -201,11 +225,21 @@ export function OrderStatusControls({
           <div role="dialog" aria-modal="true" className="relative w-full max-w-md rounded-lg border border-border bg-bg p-6">
             <h2 className="font-display text-lg text-ink">Ακύρωση παραγγελίας</h2>
             <p className="mt-2 text-sm text-ink-muted">
-              Θα επιστραφούν <strong className="text-ink">{itemCount} τεμάχια</strong> στο απόθεμα και θα
-              καταγραφεί κίνηση αποθέματος. Η ενέργεια δεν αναιρείται — μια ακυρωμένη παραγγελία δεν
-              ξανανοίγει.
+              {sent
+                ? "Η παραγγελία έχει ήδη σταλεί, οπότε τα προϊόντα δεν είναι στο ράφι. Επιστρέψτε τα στο απόθεμα μόνο αν το δέμα γύρισε πίσω."
+                : "Τα προϊόντα δεν έχουν φύγει από το κατάστημα και επιστρέφουν στο απόθεμα."}{" "}
+              Η ενέργεια δεν αναιρείται — μια ακυρωμένη παραγγελία δεν ξανανοίγει.
             </p>
             <label className="mt-4 flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={restockOnCancel}
+                onChange={(e) => setRestockOnCancel(e.target.checked)}
+                className="h-4 w-4"
+              />
+              Επιστροφή {itemCount} τεμαχίων στο απόθεμα
+            </label>
+            <label className="mt-2 flex items-center gap-2 text-sm text-ink">
               <input
                 type="checkbox"
                 checked={notifyOnCancel}
@@ -225,10 +259,56 @@ export function OrderStatusControls({
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => run(() => setOrderStatusAction(orderId, "cancelled", undefined, notifyOnCancel))}
+                onClick={() =>
+                  run(() => setOrderStatusAction(orderId, "cancelled", undefined, notifyOnCancel, restockOnCancel))
+                }
                 className="rounded-md bg-danger px-3.5 py-2 text-sm font-medium text-bg hover:bg-danger/90 disabled:opacity-50"
               >
                 {pending ? "Ακύρωση…" : "Ακύρωση παραγγελίας"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDelivered && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-5">
+          <button
+            type="button"
+            aria-label="Άκυρο"
+            onClick={() => setConfirmDelivered(false)}
+            className="absolute inset-0 bg-ink/30"
+          />
+          <div role="dialog" aria-modal="true" className="relative w-full max-w-md rounded-lg border border-border bg-bg p-6">
+            <h2 className="font-display text-lg text-ink">Παραδόθηκε</h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              Η παραγγελία θα σημειωθεί ως «Παραδόθηκε».
+              {reviewEmailSent && " Έχει ήδη σταλεί email ευχαριστίας για αυτή την παραγγελία."}
+            </p>
+            <label className="mt-4 flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={sendReview}
+                onChange={(e) => setSendReview(e.target.checked)}
+                className="h-4 w-4"
+              />
+              Email ευχαριστίας με αίτημα αξιολόγησης στο Google
+            </label>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDelivered(false)}
+                className="rounded-md border border-border px-3.5 py-2 text-sm font-medium hover:bg-surface"
+              >
+                Πίσω
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => run(() => setOrderStatusAction(orderId, "delivered", undefined, sendReview))}
+                className="rounded-md bg-ink px-3.5 py-2 text-sm font-medium text-white hover:bg-accent disabled:opacity-50"
+              >
+                {pending ? "Αποθήκευση…" : "Επιβεβαίωση"}
               </button>
             </div>
           </div>

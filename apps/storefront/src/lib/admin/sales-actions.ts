@@ -8,6 +8,7 @@ import {
   deleteOrderPermanently,
   markCancellationEmailSent,
   markReadyEmailSent,
+  markReviewEmailSent,
   markShipmentEmailSent,
   saveAdminNote,
   saveShipmentInfo,
@@ -19,7 +20,12 @@ import {
   type PaymentStatus,
 } from "@/lib/admin/orders";
 import { getOrderForEmail } from "@/lib/db/order-email";
-import { sendCancellationEmail, sendReadyNotificationEmail, sendShipmentNotificationEmail } from "@/lib/email/send";
+import {
+  sendCancellationEmail,
+  sendDeliveredThankYouEmail,
+  sendReadyNotificationEmail,
+  sendShipmentNotificationEmail,
+} from "@/lib/email/send";
 import { setCustomerActive, withdrawMarketingConsent } from "@/lib/admin/customers";
 import { DiscountError, deleteDiscount, getDiscountUsage, saveDiscount, type DiscountUsage } from "@/lib/admin/discounts";
 import type { ActionResult } from "@/lib/admin/catalog-actions";
@@ -58,8 +64,13 @@ export async function setOrderStatusAction(
   orderId: string,
   status: OrderStatus,
   note?: string,
-  // Cancelling only: email the customer (the dialog's tick, on by default).
-  notifyCustomer = false
+  // Cancelling: email the customer (the dialog's tick, on by default).
+  // Delivered: send the thank-you + Google review email (the delivered
+  // dialog's tick).
+  notifyCustomer = false,
+  // Cancelling only: put the units back on the shelf (the dialog's tick —
+  // pre-ticked unless the order had already left the shop).
+  restock = true
 ): Promise<ActionResult> {
   let user;
   try {
@@ -68,19 +79,37 @@ export async function setOrderStatusAction(
     return { ok: false, error: "Η συνεδρία σου έληξε. Συνδέσου ξανά." };
   }
   try {
-    await updateOrderStatus(orderId, status, user.id, note);
-    await auditLog(user.id, "order.status", "order", orderId, { status });
+    await updateOrderStatus(orderId, status, user.id, note, { restock });
+    await auditLog(user.id, "order.status", "order", orderId, { status, ...(status === "cancelled" ? { restock } : {}) });
   } catch (err) {
     return { ok: false, error: mapError(err) };
   }
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin");
-  // Cancelling restores stock, so inventory views must reflect it too.
+  // The review ask waits for this moment (it used to ride on the shipment
+  // email, before the customer had the goods). The status change already
+  // committed; a failed email must not read back as a failed change.
+  if (status === "delivered" && notifyCustomer) {
+    try {
+      const orderData = await getOrderForEmail(orderId);
+      if (orderData && (await sendDeliveredThankYouEmail(orderData))) {
+        await markReviewEmailSent(orderId, user.id);
+        revalidatePath(`/admin/orders/${orderId}`);
+        return { ok: true, message: "Η κατάσταση ενημερώθηκε και στάλθηκε email ευχαριστίας με αίτημα αξιολόγησης." };
+      }
+    } catch (err) {
+      console.error("[admin] REVIEW_EMAIL_FAILED", { orderId, error: String(err) });
+    }
+    return { ok: true, message: "Η κατάσταση ενημερώθηκε, αλλά το email ευχαριστίας απέτυχε." };
+  }
+  // Cancelling restores stock (when ticked), so inventory views must reflect it too.
   if (status === "cancelled") {
-    scheduleRestockNotifications();
-    revalidatePath("/admin/inventory");
-    revalidatePath("/", "layout");
+    if (restock) {
+      scheduleRestockNotifications();
+      revalidatePath("/admin/inventory");
+      revalidatePath("/", "layout");
+    }
     if (notifyCustomer) {
       // The cancellation itself already committed; a failed email must not
       // read back as a failed cancel.
@@ -209,11 +238,13 @@ export async function saveShipmentInfoAction(
   };
 
   let shouldNotify = false;
+  let markedShipped = false;
   try {
-    ({ shouldNotify } = await saveShipmentInfo(orderId, input, user.id));
+    ({ shouldNotify, markedShipped } = await saveShipmentInfo(orderId, input, user.id));
     await auditLog(user.id, "order.shipment_info", "order", orderId, {
       courierName: input.courierName,
       trackingCode: input.trackingCode,
+      markedShipped,
     });
   } catch (err) {
     return { ok: false, error: mapError(err) };
@@ -221,9 +252,11 @@ export async function saveShipmentInfoAction(
 
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
+  if (markedShipped) revalidatePath("/admin");
+  const shippedNote = markedShipped ? " Η κατάσταση έγινε «Απεστάλη»." : "";
 
   if (!shouldNotify) {
-    return { ok: true, message: "Τα στοιχεία αποστολής αποθηκεύτηκαν." };
+    return { ok: true, message: `Τα στοιχεία αποστολής αποθηκεύτηκαν.${shippedNote}` };
   }
 
   // The save above already succeeded and committed — nothing past this
@@ -231,20 +264,23 @@ export async function saveShipmentInfoAction(
   // wrongly read as "the save failed" when it didn't.
   try {
     const orderData = await getOrderForEmail(orderId);
-    if (!orderData) return { ok: true, message: "Τα στοιχεία αποστολής αποθηκεύτηκαν." };
+    if (!orderData) return { ok: true, message: `Τα στοιχεία αποστολής αποθηκεύτηκαν.${shippedNote}` };
 
     const sent = await sendShipmentNotificationEmail(orderData);
     if (sent) {
       await markShipmentEmailSent(orderId, user.id, false);
       revalidatePath(`/admin/orders/${orderId}`);
-      return { ok: true, message: "Τα στοιχεία αποστολής αποθηκεύτηκαν. Το email αποστολής στάλθηκε αυτόματα." };
+      return {
+        ok: true,
+        message: `Τα στοιχεία αποστολής αποθηκεύτηκαν. Το email αποστολής στάλθηκε αυτόματα.${shippedNote}`,
+      };
     }
   } catch (err) {
     console.error("[admin] SHIPMENT_EMAIL_TRIGGER_FAILED", { orderId, error: String(err) });
   }
   return {
     ok: true,
-    message: "Τα στοιχεία αποστολής αποθηκεύτηκαν, αλλά το email αποστολής απέτυχε — δοκίμασε «Επαναποστολή email».",
+    message: `Τα στοιχεία αποστολής αποθηκεύτηκαν, αλλά το email αποστολής απέτυχε — δοκίμασε «Επαναποστολή email».${shippedNote}`,
   };
 }
 
@@ -302,10 +338,17 @@ export async function sendReadyEmailAction(orderId: string, kind: "pickup" | "lo
   }
   if (!sent) return { ok: false, error: "Η αποστολή του email απέτυχε. Δοκίμασε ξανά." };
 
-  await markReadyEmailSent(orderId, user.id, kind);
-  await auditLog(user.id, "order.ready_email", "order", orderId, { kind });
+  const { markedShipped } = await markReadyEmailSent(orderId, user.id, kind);
+  await auditLog(user.id, "order.ready_email", "order", orderId, { kind, markedShipped });
   revalidatePath(`/admin/orders/${orderId}`);
-  return { ok: true, message: "Ο πελάτης ενημερώθηκε με email." };
+  if (markedShipped) {
+    revalidatePath("/admin/orders");
+    revalidatePath("/admin");
+  }
+  return {
+    ok: true,
+    message: `Ο πελάτης ενημερώθηκε με email.${markedShipped ? " Η κατάσταση έγινε «Απεστάλη»." : ""}`,
+  };
 }
 
 export async function saveOrderNoteAction(orderId: string, note: string): Promise<ActionResult> {

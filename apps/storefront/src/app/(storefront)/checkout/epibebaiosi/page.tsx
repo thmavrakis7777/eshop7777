@@ -11,6 +11,7 @@ import { OrderStatusBadge } from "@/components/account/OrderStatusBadge";
 import { PurchaseTracker } from "@/components/checkout/PurchaseTracker";
 import { ON_ORDER_DELIVERY_TEXT } from "@/lib/stock";
 import { formatMetres, perMetreCents } from "@/lib/length";
+import { SHOP_TIME_ZONE } from "@/lib/dates";
 
 // The explicit canonical matters even on a noindex page: without it this
 // route inherits the root layout's `canonical: "/"` and tells crawlers the
@@ -122,7 +123,7 @@ export default async function OrderConfirmationPage({
             </code>
             {order.loyaltyReward.endsAt && (
               <span className="block text-xs text-ink-muted">
-                Ισχύει έως {new Intl.DateTimeFormat("el-GR", { dateStyle: "medium" }).format(new Date(order.loyaltyReward.endsAt))}
+                Ισχύει έως {new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: SHOP_TIME_ZONE }).format(new Date(order.loyaltyReward.endsAt))}
               </span>
             )}
           </div>
@@ -207,6 +208,13 @@ export default async function OrderConfirmationPage({
             <p className="text-ink-muted">Απόδειξη</p>
           )}
         </div>
+
+        {order.customerNote && (
+          <div className="flex flex-col gap-1 text-sm">
+            <h2 className="font-medium text-ink">Σχόλια παραγγελίας</h2>
+            <p className="whitespace-pre-line text-ink-muted">{order.customerNote}</p>
+          </div>
+        )}
 
         <p className="text-center text-sm text-ink-muted">Σου στείλαμε επιβεβαίωση στο {order.email}</p>
 

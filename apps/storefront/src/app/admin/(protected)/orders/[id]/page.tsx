@@ -10,6 +10,7 @@ import {
   Card,
   PageHeader,
   SectionTitle,
+  STATUS_MAPS,
   StatusBadge,
   formatDateTime,
   money,
@@ -26,7 +27,22 @@ const EVENT_LABELS: Record<string, string> = {
   email_confirmation: "Email επιβεβαίωσης",
   email_shipment: "Email αποστολής",
   email_cancellation: "Email ακύρωσης",
+  email_review: "Email ευχαριστίας",
 };
+
+// The history stores raw status codes ("pending", "confirmed"); shown as
+// they were, the owner read English codes next to Greek labels everywhere
+// else. Same Greek wording as the badges (STATUS_MAPS); an unknown code
+// falls back to itself rather than disappearing.
+const EVENT_STATUS_KIND: Record<string, keyof typeof STATUS_MAPS> = {
+  status: "order",
+  payment: "payment",
+  fulfillment: "fulfillment",
+};
+function statusLabel(eventType: string, code: string): string {
+  const kind = EVENT_STATUS_KIND[eventType];
+  return (kind ? STATUS_MAPS[kind][code]?.label : undefined) ?? code;
+}
 
 function Address({ address }: { address: Record<string, string | null> | null }) {
   if (!address) return <p className="text-sm text-ink-muted">—</p>;
@@ -168,6 +184,15 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </div>
           </section>
 
+          {/* The customer's «Σχόλια παραγγελίας» from checkout — above the
+              addresses, where whoever packs or delivers the order looks. */}
+          {order.customerNote && (
+            <Card className="border-accent/40 bg-accent/5">
+              <SectionTitle>Σχόλια πελάτη</SectionTitle>
+              <p className="whitespace-pre-line text-sm text-ink">{order.customerNote}</p>
+            </Card>
+          )}
+
           <div className="grid gap-5 sm:grid-cols-2">
             <Card>
               <SectionTitle>Παράδοση</SectionTitle>
@@ -197,7 +222,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                     <span className="font-medium text-ink">{EVENT_LABELS[e.type] ?? e.type}</span>
                     {e.fromStatus && e.toStatus && (
                       <span className="text-ink-muted">
-                        {e.fromStatus} → {e.toStatus}
+                        {statusLabel(e.type, e.fromStatus)} → {statusLabel(e.type, e.toStatus)}
                       </span>
                     )}
                     {e.note && <span className="text-ink-muted">{e.note}</span>}
@@ -240,6 +265,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               fulfillmentStatus={order.fulfillmentStatus}
               adminNote={order.adminNote}
               itemCount={itemCount}
+              reviewEmailSent={order.events.some((e) => e.type === "email_review")}
             />
           </Card>
 

@@ -393,6 +393,8 @@ export type Order = {
   billingAddress?: AddressSummary;
   taxDocumentType: TaxDocumentType;
   invoiceDetails?: InvoiceDetails;
+  // «Σχόλια παραγγελίας» the customer wrote at checkout, if any.
+  customerNote?: string;
   createdAt: string;
   status: string;
   paymentStatus: string;

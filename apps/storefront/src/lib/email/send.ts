@@ -15,6 +15,8 @@ import {
   readyNotificationText,
   cancellationHtml,
   cancellationText,
+  deliveredThankYouHtml,
+  deliveredThankYouText,
 } from "@/lib/email/templates";
 import type { OrderEmailData } from "@/lib/db/order-email";
 
@@ -300,6 +302,23 @@ export async function sendReadyNotificationEmail(order: OrderEmailData, kind: "p
         : `Η παραγγελία σας #${order.orderNumber} βγήκε για παράδοση | ${storeName}`,
     html: readyNotificationHtml(order, { storeName, contact, orderUrl, kind }),
     text: readyNotificationText(order, { storeName, contact, orderUrl, kind }),
+  });
+}
+
+/**
+ * Thank-you + Google review ask, sent when the admin marks an order
+ * «Παραδόθηκε» with the dialog's tick on — the moment the customer actually
+ * has the goods (it used to ride on the shipment email).
+ */
+export async function sendDeliveredThankYouEmail(order: OrderEmailData): Promise<boolean> {
+  const { storeName } = await getBranding();
+  const contact = await contactInfo();
+  const orderUrl = `${siteUrl}/checkout/epibebaiosi?order=${order.id}`;
+  return send({
+    to: order.email,
+    subject: `Ευχαριστούμε για την παραγγελία σας #${order.orderNumber} | ${storeName}`,
+    html: deliveredThankYouHtml(order, { storeName, contact, orderUrl }),
+    text: deliveredThankYouText(order, { storeName, orderUrl }),
   });
 }
 

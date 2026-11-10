@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  cancellationHtml,
+  deliveredThankYouHtml,
+  deliveredThankYouText,
   orderConfirmationHtml,
   orderConfirmationText,
   ownerOrderNotificationHtml,
   ownerOrderNotificationText,
+  readyNotificationHtml,
+  readyNotificationText,
+  shipmentNotificationHtml,
+  shipmentNotificationText,
 } from "@/lib/email/templates";
 import type { OrderEmailData } from "@/lib/db/order-email";
 
@@ -33,6 +40,8 @@ function order(invoice: OrderEmailData["invoice"]): OrderEmailData {
     trackingUrl: null,
     loyaltyReward: null,
     invoice,
+    customerNote: null,
+    paymentStatus: "unpaid",
   };
 }
 
@@ -79,5 +88,58 @@ describe("invoice details in the order emails", () => {
   it("skips the activity line when there is none", () => {
     const text = orderConfirmationText(order({ ...INVOICE, activity: "" }), { storeName: "Κατάστημα", orderUrl: "https://x.test" });
     expect(text).not.toContain("Δραστηριότητα");
+  });
+});
+
+const REVIEW_URL = "g.page/r/";
+
+describe("Google review ask", () => {
+  const ctx = { storeName: "Κατάστημα", contact, orderUrl: "https://x.test" };
+  const shipped = { ...order(null), courierName: "ACS", trackingCode: "123" };
+
+  it("is not in the shipment or ready emails, sent before the customer has the goods", () => {
+    for (const output of [
+      shipmentNotificationHtml(shipped, ctx),
+      shipmentNotificationText(shipped, ctx),
+      readyNotificationHtml(order(null), { ...ctx, kind: "pickup" }),
+      readyNotificationText(order(null), { ...ctx, kind: "local" }),
+    ]) {
+      expect(output).not.toContain(REVIEW_URL);
+    }
+  });
+
+  it("is in the thank-you email sent on «Παραδόθηκε»", () => {
+    expect(deliveredThankYouHtml(order(null), ctx)).toContain(REVIEW_URL);
+    expect(deliveredThankYouText(order(null), ctx)).toContain(REVIEW_URL);
+  });
+});
+
+describe("customer note («Σχόλια παραγγελίας»)", () => {
+  const note = { ...order(null), customerNote: "κουδούνι <Παπαδάκης>\n2ος όροφος" };
+
+  it("reaches the owner's alert and the customer's confirmation, escaped, line breaks kept", () => {
+    const ownerHtml = ownerOrderNotificationHtml(note, { storeName: "Κατάστημα", contact, adminOrderUrl: "https://x.test" });
+    const html = orderConfirmationHtml(note, { storeName: "Κατάστημα", contact, orderUrl: "https://x.test" });
+    for (const output of [ownerHtml, html]) {
+      expect(output).toContain("Σχόλια παραγγελίας");
+      expect(output).toContain("κουδούνι &lt;Παπαδάκης&gt;<br>2ος όροφος");
+    }
+    expect(ownerOrderNotificationText(note, { adminOrderUrl: "https://x.test" })).toContain("Σχόλια παραγγελίας: κουδούνι");
+  });
+
+  it("adds nothing when the customer left it empty", () => {
+    expect(ownerOrderNotificationHtml(order(null), { storeName: "Κατάστημα", contact, adminOrderUrl: "https://x.test" })).not.toContain(
+      "Σχόλια παραγγελίας"
+    );
+  });
+});
+
+describe("cancellation email refund line", () => {
+  const ctx = { storeName: "Κατάστημα", contact };
+  it("is absent for an unpaid cash-on-delivery order", () => {
+    expect(cancellationHtml(order(null), ctx)).not.toContain("επιστροφή των χρημάτων");
+  });
+  it("is there for a cash-on-delivery order already paid", () => {
+    expect(cancellationHtml({ ...order(null), paymentStatus: "paid" }, ctx)).toContain("επιστροφή των χρημάτων");
   });
 });

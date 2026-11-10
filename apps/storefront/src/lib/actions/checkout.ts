@@ -21,6 +21,7 @@ import { getOrderForEmail, markConfirmationEmailSent } from "@/lib/db/order-emai
 import { isValidEmail, isValidPhone, isValidPostalCode } from "@/lib/checkout-validation";
 import { normalizePhone, normalizePostalCode } from "@/lib/address-format";
 import { saveOrderAddressToCustomer } from "@/lib/db/customer";
+import { normalizeOrderNote } from "@/lib/order-note";
 import type { Cart, ShippingOption } from "@/lib/types";
 
 // Maps real failure codes to the Greek copy table in CHECKOUT_UX_SPEC.md §12.
@@ -199,10 +200,13 @@ export type CheckoutCompleteResult =
  * own signed-in customer, copies the committed order's address (never a
  * browser-supplied one), and runs after the order like the emails do: a
  * failure to save it must not turn a placed order into an error.
+ *
+ * `note` is «Σχόλια παραγγελίας», cleaned and capped here on the server
+ * (normalizeOrderNote) whatever the browser sent.
  */
 export async function completeCheckoutAction(
   paymentMethodCode: string,
-  options: { saveAddress?: boolean } = {}
+  options: { saveAddress?: boolean; note?: string } = {}
 ): Promise<CheckoutCompleteResult> {
   const cartId = await requireCartId();
   if (!cartId) return { ok: false, error: EXPIRED };
@@ -213,7 +217,7 @@ export async function completeCheckoutAction(
   const soldProductHandles = [...new Set((await getCart())?.items.map((i) => i.productHandle) ?? [])];
   let order;
   try {
-    order = await completeOrder(cartId, customerId, paymentMethodCode);
+    order = await completeOrder(cartId, customerId, paymentMethodCode, normalizeOrderNote(options.note));
   } catch (err) {
     return { ok: false, error: mapCheckoutError(err) };
   }

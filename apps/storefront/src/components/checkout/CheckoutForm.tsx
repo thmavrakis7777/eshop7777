@@ -39,6 +39,7 @@ import { BillingAddressSection } from "@/components/checkout/BillingAddressSecti
 import { ShippingSection } from "@/components/checkout/ShippingSection";
 import { TaxDocumentSection } from "@/components/checkout/TaxDocumentSection";
 import { PaymentSection } from "@/components/checkout/PaymentSection";
+import { OrderNoteField } from "@/components/checkout/OrderNoteField";
 import { CheckoutOrderSummary } from "@/components/checkout/CheckoutOrderSummary";
 import { EmptyCartState } from "@/components/cart/EmptyCartState";
 import { formatPrice } from "@/lib/format";
@@ -226,6 +227,8 @@ export function CheckoutForm({
   // that's almost always the only one, so this preserves the previous
   // no-choice-needed behavior exactly while supporting a real second option.
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(paymentProviders[0]?.id ?? null);
+  // «Σχόλια παραγγελίας» — optional, sent with the order (lib/order-note.ts).
+  const [orderNote, setOrderNote] = useState("");
 
   // Set the first time "Ολοκλήρωση Παραγγελίας" is clicked while required
   // fields are still missing/invalid — from then on, every section's error
@@ -682,7 +685,10 @@ export function CheckoutForm({
     if (!selectedPaymentId) return;
     setSubmitError(undefined);
     startSubmitTransition(async () => {
-      const result = await completeCheckoutAction(selectedPaymentId, { saveAddress: showSaveAddress && saveAddress });
+      const result = await completeCheckoutAction(selectedPaymentId, {
+        saveAddress: showSaveAddress && saveAddress,
+        note: orderNote,
+      });
       if (result.ok) {
         // The order consumed the cart (its cookie is gone). Saying so here
         // empties the header badge and drawer at once; it used to arrive
@@ -834,6 +840,8 @@ export function CheckoutForm({
             registryMatch={registryMatch?.afm === invoiceFields.afm.trim() ? registryMatch : null}
           />
         <PaymentSection providers={paymentProviders} selectedId={selectedPaymentId} onSelect={setSelectedPaymentId} />
+
+        <OrderNoteField value={orderNote} onChange={setOrderNote} />
 
         {/* Normal document flow on every breakpoint — not sticky/fixed. On
             mobile this used to be a `fixed inset-x-0 bottom-0` bar, always

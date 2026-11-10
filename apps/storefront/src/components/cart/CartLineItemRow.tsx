@@ -33,6 +33,10 @@ export function CartLineItemRow({
   onRemove: () => void;
 }) {
   const pct = discountPercent(item.unitPrice, item.compareAtUnitPrice);
+  // Over stock the line holds a quantity the server never accepted, so its
+  // total is shown as «—», not a price for units that cannot be bought
+  // (99 × 0,50 € read «49,50 €» beside a 3,00 € subtotal). The notice below
+  // says why.
   const overstocked = isLineItemOverstocked(item);
   // Stock, or for a hose line the lower of stock and 20 μ (line-length.ts).
   const { max: maxQuantity, capIsLength } = lineMax(item);
@@ -55,7 +59,7 @@ export function CartLineItemRow({
         {onOrder && <span className="text-xs text-accent">{ON_ORDER_DELIVERY_TEXT}</span>}
 
         <div className="flex flex-col gap-0.5">
-          {item.compareAtUnitPrice && (
+          {item.compareAtUnitPrice && !overstocked && (
             <div className="flex items-baseline gap-1.5 text-xs">
               <span className="text-ink-muted">Αρχική τιμή:</span>
               <span className="text-ink-muted line-through">{formatLineUnitPrice(item.compareAtUnitPrice, item)}</span>
@@ -89,7 +93,7 @@ export function CartLineItemRow({
 
         <div className="flex items-baseline gap-1.5 text-sm">
           <span className="text-ink-muted">Σύνολο:</span>
-          <span className="font-semibold text-ink tabular-nums">{formatPrice(item.lineTotal)}</span>
+          <span className="font-semibold text-ink tabular-nums">{overstocked ? "—" : formatPrice(item.lineTotal)}</span>
         </div>
 
         <button

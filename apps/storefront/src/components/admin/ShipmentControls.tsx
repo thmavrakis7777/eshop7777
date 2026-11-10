@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { resendShipmentEmailAction, saveShipmentInfoAction, sendReadyEmailAction } from "@/lib/admin/sales-actions";
+import { SHOP_TIME_ZONE } from "@/lib/dates";
 
 /**
  * Suggestions only (a <datalist>, not a locked dropdown) — this store's
@@ -20,7 +21,7 @@ const COURIER_SUGGESTIONS = [
   "Μεταφορική Mavrakis Home",
 ];
 
-const dateTimeFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short" });
+const dateTimeFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short", timeZone: SHOP_TIME_ZONE });
 
 const input =
   "w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-ink disabled:opacity-50";

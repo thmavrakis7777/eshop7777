@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import { deleteMediaAction } from "@/lib/admin/media-actions";
 import type { MediaItem } from "@/lib/admin/media";
 import { formatBytes } from "@/lib/admin/format-bytes";
+import { SHOP_TIME_ZONE } from "@/lib/dates";
 
 /**
  * The media library grid. Filtering, search and selection are all local —
@@ -30,7 +31,7 @@ const FOLDERS: Record<string, string> = {
   branding: "Λογότυπο / brand",
 };
 
-const dateFmt = new Intl.DateTimeFormat("el-GR", { day: "numeric", month: "short", year: "numeric" });
+const dateFmt = new Intl.DateTimeFormat("el-GR", { day: "numeric", month: "short", year: "numeric", timeZone: SHOP_TIME_ZONE });
 
 type Usage = "all" | "used" | "unused";
 type Sort = "newest" | "oldest" | "largest";

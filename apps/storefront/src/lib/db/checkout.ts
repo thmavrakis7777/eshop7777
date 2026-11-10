@@ -64,7 +64,9 @@ function randomLoyaltyCode(): string {
 export async function completeOrder(
   cartId: string,
   customerId: string | null,
-  paymentMethodCode: string
+  paymentMethodCode: string,
+  // «Σχόλια παραγγελίας», already cleaned by normalizeOrderNote; null = none.
+  customerNote: string | null = null
 ): Promise<CompletedOrder> {
   return sql.begin(async (tx) => {
     // FOR UPDATE: serialises concurrent submissions of the same cart. A
@@ -274,7 +276,7 @@ export async function completeOrder(
         subtotal_cents, discount_cents, shipping_cents, vat_cents, total_cents, vat_rate,
         shipping_address, billing_address, shipping_method_name, payment_method,
         discount_code, tax_document_type, invoice_company_name, invoice_afm,
-        invoice_doy, invoice_activity)
+        invoice_doy, invoice_activity, customer_note)
       VALUES (
         ${customerId ?? cart.customer_id}, ${cart.email}, 'pending', 'unpaid', 'unfulfilled',
         ${totals.subtotalCents}, ${totals.discountCents}, ${totals.shippingCents},
@@ -282,7 +284,7 @@ export async function completeOrder(
         ${cart.shipping_address as never}, ${(cart.billing_address ?? cart.shipping_address) as never},
         ${shipping.name}, ${payment.code}, ${discount?.code ?? null},
         ${cart.tax_document_type}, ${cart.invoice_company_name}, ${cart.invoice_afm},
-        ${cart.invoice_doy}, ${cart.invoice_activity})
+        ${cart.invoice_doy}, ${cart.invoice_activity}, ${customerNote})
       RETURNING id, order_number`;
 
     for (const item of items) {
@@ -371,7 +373,7 @@ export async function completeOrder(
 
     await tx`
       INSERT INTO shop.order_event (order_id, type, to_status, note)
-      VALUES (${order.id}, 'created', 'pending', 'Order placed by customer')`;
+      VALUES (${order.id}, 'created', 'pending', 'Η παραγγελία καταχωρήθηκε από τον πελάτη')`;
 
     // The cart is retired, not deleted — it is the audit trail of what was in
     // it, and order_item already holds the immutable snapshot.

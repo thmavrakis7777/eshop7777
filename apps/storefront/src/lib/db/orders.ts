@@ -35,6 +35,7 @@ type OrderRow = {
   invoice_afm: string | null;
   invoice_doy: string | null;
   invoice_activity: string | null;
+  customer_note: string | null;
   created_at: Date;
   status: string;
   payment_status: string;
@@ -66,7 +67,7 @@ const ORDER_FIELDS = sql`
   o.shipping_cents, o.vat_cents, o.total_cents, o.vat_rate,
   o.shipping_method_name, o.shipping_address, o.billing_address,
   o.tax_document_type, o.invoice_company_name, o.invoice_afm,
-  o.invoice_doy, o.invoice_activity, o.created_at,
+  o.invoice_doy, o.invoice_activity, o.customer_note, o.created_at,
   o.status, o.payment_status, o.payment_method,
   o.courier_name, o.tracking_code, o.tracking_url,
   d.code AS loyalty_reward_code, d.ends_at AS loyalty_reward_ends_at,
@@ -130,6 +131,7 @@ export function toDomainOrder(o: OrderRow): Order {
           },
         }
       : {}),
+    ...(o.customer_note ? { customerNote: o.customer_note } : {}),
     createdAt: new Date(o.created_at).toISOString(),
     status: o.status,
     paymentStatus: o.payment_status,

@@ -8,11 +8,12 @@ import {
   setAdminRoleAction,
 } from "@/lib/admin/settings-actions";
 import type { AdminUserRow } from "@/lib/admin/settings";
+import { SHOP_TIME_ZONE } from "@/lib/dates";
 
 const field =
   "w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-ink";
 
-const dt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short" });
+const dt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short", timeZone: SHOP_TIME_ZONE });
 
 /**
  * Admin accounts. Owner-only — the server enforces it via requireOwner(), and

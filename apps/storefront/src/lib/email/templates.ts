@@ -230,6 +230,7 @@ export function orderConfirmationHtml(
         ${addressBlock(order.shippingAddress)}`}
       </td></tr>
       ${order.invoice ? `<tr><td style="padding-top:16px">${invoiceBlock(order.invoice)}</td></tr>` : ""}
+      ${order.customerNote ? `<tr><td style="padding-top:16px">${customerNoteBlock(order.customerNote)}</td></tr>` : ""}
     </table>
 
     ${ctaButton("Δείτε την παραγγελία σας", ctx.orderUrl)}
@@ -264,6 +265,7 @@ export function orderConfirmationText(order: OrderEmailData, ctx: { storeName: s
     `Τρόπος πληρωμής: ${paymentMethodLabel(order.paymentMethod)}`,
     ``,
     ...invoiceTextLines(order.invoice),
+    ...customerNoteTextLines(order.customerNote),
     order.loyaltyReward
       ? `Κερδίσατε ένα κουπόνι έκπτωσης 5€ για την επόμενη παραγγελία σας: ${order.loyaltyReward.code}${order.loyaltyReward.endsAtFormatted ? ` (ισχύει έως ${order.loyaltyReward.endsAtFormatted})` : ""}`
       : null,
@@ -302,16 +304,7 @@ export function shipmentNotificationHtml(
 
     <p style="margin:20px 0 0;font-size:13px;line-height:1.7;color:${MUTED}">
       Η παραγγελία σας βρίσκεται καθ' οδόν προς εσάς. Αν χρειαστείτε βοήθεια με την παραλαβή, επικοινωνήστε μαζί μας.
-    </p>
-
-    <div style="margin-top:24px;border-top:1px solid ${BORDER};padding-top:20px">
-      <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:${INK}">Η γνώμη σας είναι σημαντική για εμάς</p>
-      <p style="margin:0;font-size:13px;line-height:1.7;color:${MUTED}">
-        Ευχαριστούμε που επιλέξατε το ${escapeHtml(ctx.storeName)}. Αν μείνατε ικανοποιημένοι από την εμπειρία σας, θα χαρούμε πολύ
-        να μοιραστείτε την αξιολόγησή σας στο Google — η γνώμη σας βοηθά και άλλους πελάτες να μας γνωρίσουν.
-      </p>
-      ${ctaButton("Αφήστε μας μια αξιολόγηση στο Google", GOOGLE_REVIEW_URL)}
-    </div>`;
+    </p>`;
 
   return shell({
     previewText: `Η παραγγελία σας #${order.orderNumber} απεστάλη.`,
@@ -353,6 +346,16 @@ export function ownerOrderNotificationHtml(
       order.invoice
         ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SURFACE};border-radius:10px;margin-bottom:20px">
       <tr><td style="padding:16px 20px">${invoiceBlock(order.invoice)}</td></tr>
+    </table>`
+        : ""
+    }
+
+    ${
+      // First thing after the customer block: «κουδούνι Παπαδάκης, 2ος» is
+      // what the person packing and delivering must not miss.
+      order.customerNote
+        ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SURFACE};border-radius:10px;margin-bottom:20px">
+      <tr><td style="padding:16px 20px">${customerNoteBlock(order.customerNote)}</td></tr>
     </table>`
         : ""
     }
@@ -404,6 +407,7 @@ export function ownerOrderNotificationText(order: OrderEmailData, ctx: { adminOr
     order.shippingAddress?.phone ? `Τηλέφωνο: ${order.shippingAddress.phone}` : null,
     ``,
     ...invoiceTextLines(order.invoice),
+    ...customerNoteTextLines(order.customerNote),
     ...lines,
     ``,
     `Σύνολο: ${money(order.totalCents)}`,
@@ -427,17 +431,16 @@ export function shipmentNotificationText(order: OrderEmailData, ctx: { storeName
     order.trackingUrl ? `Παρακολούθηση: ${order.trackingUrl}` : null,
     ``,
     `Δείτε την παραγγελία σας: ${ctx.orderUrl}`,
-    ``,
-    `Η γνώμη σας είναι σημαντική για εμάς — αν μείνατε ικανοποιημένοι από την εμπειρία σας στο ${ctx.storeName}, θα χαρούμε πολύ να μοιραστείτε την αξιολόγησή σας στο Google:`,
-    GOOGLE_REVIEW_URL,
   ]
     .filter((l) => l !== null)
     .join("\n");
 }
 
 /**
- * The Google-review ask, shared by every "it's on its way / ready" email.
- * Same copy as the courier shipment email.
+ * The Google-review ask. It rode on the shipment and «έτοιμη / βγήκε για
+ * παράδοση» emails until 2026-11-10, which asked the customer to rate an
+ * order they had not received yet; now it is only in the thank-you email
+ * sent when the order is marked «Παραδόθηκε» (deliveredThankYouHtml).
  */
 function reviewBlock(storeName: string): string {
   return `<div style="margin-top:24px;border-top:1px solid ${BORDER};padding-top:20px">
@@ -451,6 +454,16 @@ function reviewBlock(storeName: string): string {
 }
 
 type Contact = { phone: string | null; email: string | null; address: string | null };
+
+/** The customer's «Σχόλια παραγγελίας», line breaks kept. */
+function customerNoteBlock(note: string): string {
+  return `<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:${MUTED};text-transform:uppercase;margin-bottom:6px">Σχόλια παραγγελίας</div>
+        <p style="margin:0;font-size:13px;line-height:1.6;color:${INK}">${escapeHtml(note).replace(/\n/g, "<br>")}</p>`;
+}
+
+function customerNoteTextLines(note: string | null): string[] {
+  return note ? [`Σχόλια παραγγελίας: ${note}`, ``] : [];
+}
 
 /**
  * «Έτοιμη για παραλαβή» (store pickup) or «Βγήκε για παράδοση» (the shop's
@@ -481,8 +494,7 @@ export function readyNotificationHtml(
     <p style="margin:0;font-size:14px;color:${MUTED}">Παραγγελία <strong style="color:${INK}">#${order.orderNumber}</strong></p>
     ${where}
     <p style="margin:16px 0 0;font-size:13px;line-height:1.7;color:${MUTED}">${escapeHtml(note)} Για οποιαδήποτε απορία, επικοινωνήστε μαζί μας.</p>
-    ${ctaButton("Δείτε την παραγγελία σας", ctx.orderUrl)}
-    ${reviewBlock(ctx.storeName)}`;
+    ${ctaButton("Δείτε την παραγγελία σας", ctx.orderUrl)}`;
 
   return shell({
     previewText:
@@ -511,11 +523,47 @@ export function readyNotificationText(
     cod ? (ctx.kind === "pickup" ? `Θα εξοφλήσετε κατά την παραλαβή.` : `Θα εξοφλήσετε κατά την παράδοση.`) : null,
     ``,
     `Δείτε την παραγγελία σας: ${ctx.orderUrl}`,
-    ``,
-    `Η γνώμη σας είναι σημαντική για εμάς — αν μείνατε ικανοποιημένοι, θα χαρούμε πολύ να μοιραστείτε την αξιολόγησή σας στο Google: ${GOOGLE_REVIEW_URL}`,
   ]
     .filter((l) => l !== null)
     .join("\n");
+}
+
+/**
+ * Sent when the owner marks an order «Παραδόθηκε» with the dialog's tick on:
+ * a short thank-you and the Google review ask, now that the customer has
+ * the goods. Worded for every delivery kind (courier, the shop's own
+ * delivery, pickup), so it never says how the order arrived.
+ */
+export function deliveredThankYouHtml(order: OrderEmailData, ctx: { storeName: string; contact: Contact; orderUrl: string }): string {
+  const body = `
+    <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:${INK}">Ευχαριστούμε για την προτίμησή σας!</h1>
+    <p style="margin:0;font-size:14px;color:${MUTED}">Παραγγελία <strong style="color:${INK}">#${order.orderNumber}</strong></p>
+    <p style="margin:16px 0 0;font-size:14px;line-height:1.7;color:${INK}">
+      Η παραγγελία σας ολοκληρώθηκε. Ελπίζουμε να είστε ικανοποιημένοι με τις αγορές σας. Για οποιαδήποτε απορία, επικοινωνήστε μαζί μας.
+    </p>
+    ${reviewBlock(ctx.storeName)}
+    <p style="margin:8px 0 0;font-size:12px;color:${MUTED}"><a href="${escapeHtml(ctx.orderUrl)}" style="color:${MUTED};text-decoration:underline">Δείτε την παραγγελία σας</a></p>`;
+  return shell({
+    previewText: `Ευχαριστούμε για την παραγγελία σας #${order.orderNumber}.`,
+    bodyHtml: body,
+    storeName: ctx.storeName,
+    contact: ctx.contact,
+  });
+}
+
+export function deliveredThankYouText(order: OrderEmailData, ctx: { storeName: string; orderUrl: string }): string {
+  return [
+    `Ευχαριστούμε για την προτίμησή σας!`,
+    ``,
+    `Παραγγελία #${order.orderNumber}`,
+    ``,
+    `Η παραγγελία σας ολοκληρώθηκε. Ελπίζουμε να είστε ικανοποιημένοι με τις αγορές σας.`,
+    ``,
+    `Η γνώμη σας είναι σημαντική για εμάς — αν μείνατε ικανοποιημένοι από την εμπειρία σας στο ${ctx.storeName}, θα χαρούμε πολύ να μοιραστείτε την αξιολόγησή σας στο Google:`,
+    GOOGLE_REVIEW_URL,
+    ``,
+    `Δείτε την παραγγελία σας: ${ctx.orderUrl}`,
+  ].join("\n");
 }
 
 /**
@@ -524,8 +572,10 @@ export function readyNotificationText(
  * order it was.
  */
 export function cancellationHtml(order: OrderEmailData, ctx: { storeName: string; contact: Contact }): string {
+  // A cash-on-delivery order normally has no money to return — unless it
+  // was already paid (delivered, then cancelled).
   const paidNote =
-    order.paymentMethod === "cod"
+    order.paymentMethod === "cod" && order.paymentStatus !== "paid"
       ? ""
       : ` Αν έχετε ήδη πληρώσει, θα επικοινωνήσουμε μαζί σας για την επιστροφή των χρημάτων.`;
   const body = `
@@ -548,7 +598,7 @@ export function cancellationHtml(order: OrderEmailData, ctx: { storeName: string
 export function cancellationText(order: OrderEmailData, ctx: { contact: Contact }): string {
   return [
     `Η παραγγελία σας #${order.orderNumber} ακυρώθηκε.`,
-    order.paymentMethod === "cod" ? null : `Αν έχετε ήδη πληρώσει, θα επικοινωνήσουμε μαζί σας για την επιστροφή των χρημάτων.`,
+    order.paymentMethod === "cod" && order.paymentStatus !== "paid" ? null : `Αν έχετε ήδη πληρώσει, θα επικοινωνήσουμε μαζί σας για την επιστροφή των χρημάτων.`,
     ``,
     ...order.items.map((i) => `${i.title} × ${i.quantity} — ${money(i.lineTotalCents)}`),
     `Σύνολο: ${money(order.totalCents)}`,

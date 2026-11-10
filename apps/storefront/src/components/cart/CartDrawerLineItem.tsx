@@ -30,6 +30,10 @@ export function CartDrawerLineItem({
   onQuantityChange: (quantity: number) => void;
   onRemove: () => void;
 }) {
+  // Over stock the line holds a quantity the server never accepted, so its
+  // total is shown as «—», not a price for units that cannot be bought
+  // (99 × 0,50 € read «49,50 €» beside a 3,00 € subtotal). The notice below
+  // says why.
   const overstocked = isLineItemOverstocked(item);
   // Stock, or for a hose line the lower of stock and 20 μ (line-length.ts).
   const { max: maxQuantity, capIsLength } = lineMax(item);
@@ -80,8 +84,8 @@ export function CartDrawerLineItem({
           {/* Same order as ProductCard: discounted price, then the original
               struck through beside it. */}
           <div className="flex min-w-0 flex-wrap items-baseline justify-end gap-x-2 text-sm tabular-nums">
-            <span className="font-semibold text-ink">{formatPrice(item.lineTotal)}</span>
-            {item.compareAtUnitPrice && (
+            <span className="font-semibold text-ink">{overstocked ? "—" : formatPrice(item.lineTotal)}</span>
+            {item.compareAtUnitPrice && !overstocked && (
               <span className="text-xs text-ink-muted line-through">
                 {formatPrice({ ...item.compareAtUnitPrice, amount: item.compareAtUnitPrice.amount * item.quantity })}
               </span>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { SHOP_TIME_ZONE } from "@/lib/dates";
 
 /**
  * The admin's shared vocabulary. Every screen in Phases 8–11 is assembled
@@ -301,8 +302,8 @@ export function ButtonLink({
 // ---------------------------------------------------------------------------
 
 const currency = new Intl.NumberFormat("el-GR", { style: "currency", currency: "EUR" });
-const dateTime = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short" });
-const dateOnly = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium" });
+const dateTime = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short", timeZone: SHOP_TIME_ZONE });
+const dateOnly = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: SHOP_TIME_ZONE });
 
 export const money = (cents: number) => currency.format(cents / 100);
 // For an editable price field's defaultValue — comma decimal, no currency

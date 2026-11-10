@@ -33,6 +33,10 @@ export function CartLineItemTableRow({
   onRemove: () => void;
 }) {
   const pct = discountPercent(item.unitPrice, item.compareAtUnitPrice);
+  // Over stock the line holds a quantity the server never accepted, so its
+  // total is shown as «—», not a price for units that cannot be bought
+  // (99 × 0,50 € read «49,50 €» beside a 3,00 € subtotal). The notice below
+  // says why.
   const overstocked = isLineItemOverstocked(item);
   // Stock, or for a hose line the lower of stock and 20 μ (line-length.ts).
   const { max: maxQuantity, capIsLength } = lineMax(item);
@@ -94,7 +98,7 @@ export function CartLineItemTableRow({
         />
       </div>
 
-      <div className="text-center text-sm font-semibold text-ink tabular-nums">{formatPrice(item.lineTotal)}</div>
+      <div className="text-center text-sm font-semibold text-ink tabular-nums">{overstocked ? "—" : formatPrice(item.lineTotal)}</div>
 
       {error && (
         <p role="alert" className="col-span-5 text-xs text-danger">

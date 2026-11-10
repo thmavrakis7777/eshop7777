@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCustomer, getCustomerLoyaltyCoupons } from "@/lib/data/customer";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import { formatPrice } from "@/lib/format";
+import { SHOP_TIME_ZONE } from "@/lib/dates";
 
 export const metadata: Metadata = {
   title: "Ο λογαριασμός μου",
@@ -50,7 +51,7 @@ export default async function AccountOverviewPage() {
                     <span className="text-ink-muted">−{formatPrice({ amount: c.valueCents / 100, currencyCode: "EUR" })}</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-ink-muted">
-                    {c.endsAt && <span>Έως {new Intl.DateTimeFormat("el-GR", { dateStyle: "medium" }).format(new Date(c.endsAt))}</span>}
+                    {c.endsAt && <span>Έως {new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: SHOP_TIME_ZONE }).format(new Date(c.endsAt))}</span>}
                     <span
                       className={`rounded-sm px-2 py-0.5 font-medium ${
                         status === "Διαθέσιμο" ? "bg-accent/10 text-accent" : "bg-surface-strong text-ink-muted"

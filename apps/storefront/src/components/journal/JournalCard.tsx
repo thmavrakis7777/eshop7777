@@ -1,6 +1,7 @@
 import Link from "@/components/ui/Link";
 import { WithAvif } from "@/components/ui/AvifSource";
 import type { JournalArticleCard } from "@/lib/data/journal";
+import { SHOP_TIME_ZONE } from "@/lib/dates";
 
 /**
  * Journal presentation pieces. All Server Components — an editorial page is
@@ -18,6 +19,7 @@ const dateFormatter = new Intl.DateTimeFormat("el-GR", {
   day: "numeric",
   month: "long",
   year: "numeric",
+  timeZone: SHOP_TIME_ZONE,
 });
 
 export function ArticleDate({ iso, className = "" }: { iso: string; className?: string }) {

@@ -61,6 +61,10 @@ export type OrderEmailData = {
   // Set only when the customer asked for a Τιμολόγιο; null means Απόδειξη,
   // the default, which the emails don't spell out.
   invoice: { companyName: string; afm: string; doy: string; activity: string } | null;
+  // «Σχόλια παραγγελίας» from checkout (e.g. «κουδούνι Παπαδάκης, 2ος»); null if left empty.
+  customerNote: string | null;
+  // Read by the cancellation email: a paid cash-on-delivery order gets the refund line.
+  paymentStatus: string;
 };
 
 // Pinned to Greek time: the server runs in UTC, so without timeZone an order
@@ -105,6 +109,8 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
       invoice_afm: string | null;
       invoice_doy: string | null;
       invoice_activity: string | null;
+      customer_note: string | null;
+      payment_status: string;
       items: Array<{
         title: string;
         variant_title: string | null;
@@ -131,7 +137,7 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
            o.shipping_address, o.courier_name, o.tracking_code, o.tracking_url,
            d.code AS loyalty_reward_code, d.ends_at AS loyalty_reward_ends_at,
            o.tax_document_type, o.invoice_company_name, o.invoice_afm,
-           o.invoice_doy, o.invoice_activity,
+           o.invoice_doy, o.invoice_activity, o.customer_note, o.payment_status,
            COALESCE((
              SELECT json_agg(json_build_object(
                'title', i.title, 'variant_title', i.variant_title, 'sku', i.sku,
@@ -214,6 +220,8 @@ export async function getOrderForEmail(orderId: string): Promise<OrderEmailData 
             activity: r.invoice_activity ?? "",
           }
         : null,
+    customerNote: r.customer_note,
+    paymentStatus: r.payment_status,
   };
 }
 

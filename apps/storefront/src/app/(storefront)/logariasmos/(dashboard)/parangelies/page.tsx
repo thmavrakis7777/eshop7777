@@ -6,6 +6,7 @@ import { getCustomerOrders } from "@/lib/data/customer";
 import { formatPrice } from "@/lib/format";
 import { OrderStatusBadge } from "@/components/account/OrderStatusBadge";
 import { PlaceholderTile } from "@/components/ui/PlaceholderTile";
+import { SHOP_TIME_ZONE } from "@/lib/dates";
 
 export const metadata: Metadata = {
   title: "Παραγγελίες",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/logariasmos/parangelies" },
 };
 
-const DATE_FORMATTER = new Intl.DateTimeFormat("el-GR", { day: "numeric", month: "long", year: "numeric" });
+const DATE_FORMATTER = new Intl.DateTimeFormat("el-GR", { day: "numeric", month: "long", year: "numeric", timeZone: SHOP_TIME_ZONE });
 
 export default async function OrdersPage() {
   const orders = await getCustomerOrders();

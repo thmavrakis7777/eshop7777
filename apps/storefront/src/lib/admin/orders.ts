@@ -1,5 +1,5 @@
 import "server-only";
-import { sql, transaction } from "@/lib/db/client";
+import { sql, transaction, type Tx } from "@/lib/db/client";
 
 /**
  * Order management for the admin.
@@ -242,7 +242,8 @@ export async function updateOrderStatus(
   orderId: string,
   next: OrderStatus,
   adminUserId: string,
-  note?: string
+  note?: string,
+  options: { restock?: boolean } = {}
 ): Promise<void> {
   await transaction(async (tx) => {
     const [order] = await tx<{ status: OrderStatus }[]>`
@@ -256,7 +257,13 @@ export async function updateOrderStatus(
     // Cancelling returns the reserved units to stock. Doing this anywhere
     // other than inside the same transaction as the status change would
     // allow a cancelled order whose stock was never returned.
-    if (next === "cancelled") {
+    //
+    // `restock: false` is the owner's choice in the cancel dialog, offered
+    // because an order that already shipped or was delivered has its goods
+    // out of the shop: putting them back on the shelf automatically would
+    // let the site sell units that are not there (found on test order #1031,
+    // 2026-11-10). The dialog pre-ticks it for an order not yet sent.
+    if (next === "cancelled" && options.restock !== false) {
       // Only the units that came off the shelf go back. On-order units
       // («Κατόπιν παραγγελίας», backordered_quantity) were never in stock.
       const items = await tx<{ variant_id: string | null; quantity: number }[]>`
@@ -404,7 +411,7 @@ export async function saveShipmentInfo(
   orderId: string,
   input: { courierName: string | null; trackingCode: string | null; trackingUrl: string | null },
   adminUserId: string
-): Promise<{ shouldNotify: boolean }> {
+): Promise<{ shouldNotify: boolean; markedShipped: boolean }> {
   return transaction(async (tx) => {
     const [before] = await tx<{ shipment_email_sent_at: Date | null }[]>`
       SELECT shipment_email_sent_at FROM shop.orders WHERE id = ${orderId} FOR UPDATE`;
@@ -418,10 +425,43 @@ export async function saveShipmentInfo(
       INSERT INTO shop.order_event (order_id, type, note, admin_user_id)
       VALUES (${orderId}, 'shipment_info', 'Ενημερώθηκαν τα στοιχεία αποστολής', ${adminUserId})`;
 
+    const complete = Boolean(input.courierName?.trim() && input.trackingCode?.trim());
+    const markedShipped = complete && (await advanceToShipped(tx, orderId, adminUserId));
+
     return {
-      shouldNotify: Boolean(input.courierName?.trim() && input.trackingCode?.trim() && !before.shipment_email_sent_at),
+      shouldNotify: complete && !before.shipment_email_sent_at,
+      markedShipped,
     };
   });
+}
+
+/**
+ * Courier + tracking code saved, or «Βγήκε για παράδοση» sent: the parcel
+ * has left the shop, so the order becomes «Απεστάλη» by itself. Before this
+ * the status stayed «Σε επεξεργασία» until the owner changed it by hand, so
+ * the customer's order page contradicted the "απεστάλη" email they had just
+ * received (test order #1031, 2026-11-10).
+ *
+ * Only moves forward from a pre-shipment status: an order already shipped,
+ * delivered or cancelled is left alone. One statement (lock, update, history
+ * row) so it works inside a transaction or on its own. Returns whether the
+ * status changed.
+ */
+async function advanceToShipped(q: Tx | typeof sql, orderId: string, adminUserId: string): Promise<boolean> {
+  const rows = await q`
+    WITH prev AS (
+      SELECT status FROM shop.orders WHERE id = ${orderId} FOR UPDATE
+    ), upd AS (
+      UPDATE shop.orders o SET status = 'shipped'
+        FROM prev
+       WHERE o.id = ${orderId} AND prev.status IN ('pending', 'confirmed', 'processing')
+      RETURNING prev.status AS from_status
+    )
+    INSERT INTO shop.order_event (order_id, type, from_status, to_status, note, admin_user_id)
+    SELECT ${orderId}, 'status', from_status, 'shipped', 'Αυτόματα, με την ειδοποίηση αποστολής', ${adminUserId}
+      FROM upd
+    RETURNING id`;
+  return rows.length > 0;
 }
 
 /**
@@ -429,12 +469,35 @@ export async function saveShipmentInfo(
  * their "it's on its way" moment is a button: «Έτοιμη για παραλαβή» or
  * «Βγήκε για παράδοση». It shares shipment_email_sent_at with the courier
  * email — one "the customer was told it's coming" timestamp per order.
+ *
+ * «Βγήκε για παράδοση» also marks the order «Απεστάλη» (advanceToShipped).
+ * «Έτοιμη για παραλαβή» does not: the goods are still in the shop until the
+ * customer collects them.
  */
-export async function markReadyEmailSent(orderId: string, adminUserId: string, kind: "pickup" | "local"): Promise<void> {
-  await sql`UPDATE shop.orders SET shipment_email_sent_at = now() WHERE id = ${orderId}`;
+export async function markReadyEmailSent(
+  orderId: string,
+  adminUserId: string,
+  kind: "pickup" | "local"
+): Promise<{ markedShipped: boolean }> {
+  return transaction(async (tx) => {
+    await tx`UPDATE shop.orders SET shipment_email_sent_at = now() WHERE id = ${orderId}`;
+    await tx`
+      INSERT INTO shop.order_event (order_id, type, note, admin_user_id)
+      VALUES (${orderId}, 'email_shipment', ${kind === "pickup" ? "Email «Έτοιμη για παραλαβή»" : "Email «Βγήκε για παράδοση»"}, ${adminUserId})`;
+    return { markedShipped: kind === "local" && (await advanceToShipped(tx, orderId, adminUserId)) };
+  });
+}
+
+/**
+ * The thank-you email with the Google review request, sent when the order
+ * is marked «Παραδόθηκε» (see sendDeliveredThankYouEmail). Recorded as its
+ * own history row; the admin's delivered dialog reads it to untick the box
+ * if one was already sent.
+ */
+export async function markReviewEmailSent(orderId: string, adminUserId: string): Promise<void> {
   await sql`
     INSERT INTO shop.order_event (order_id, type, note, admin_user_id)
-    VALUES (${orderId}, 'email_shipment', ${kind === "pickup" ? "Email «Έτοιμη για παραλαβή»" : "Email «Βγήκε για παράδοση»"}, ${adminUserId})`;
+    VALUES (${orderId}, 'email_review', 'Email ευχαριστίας με αίτημα αξιολόγησης', ${adminUserId})`;
 }
 
 export async function markCancellationEmailSent(orderId: string, adminUserId: string): Promise<void> {
