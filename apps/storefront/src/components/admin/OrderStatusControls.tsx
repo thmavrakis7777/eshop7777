@@ -75,7 +75,8 @@ export function OrderStatusControls({
   const [notifyOnCancel, setNotifyOnCancel] = useState(true);
   // Goods that already left the shop (shipped / delivered) are not on the
   // shelf, so returning them to stock is off by default there — the owner
-  // ticks it if the parcel actually came back.
+  // ticks it if the parcel actually came back. Reset each time the dialog
+  // opens (below).
   const sent = status === "shipped" || status === "delivered";
   const [restockOnCancel, setRestockOnCancel] = useState(!sent);
   // Choosing «Παραδόθηκε» opens a confirm step offering the thank-you +
@@ -206,7 +207,14 @@ export function OrderStatusControls({
           <button
             type="button"
             disabled={pending}
-            onClick={() => setConfirmCancel(true)}
+            onClick={() => {
+              // Re-derived on every open, not only at mount: the status may
+              // have changed on this page since (processing → delivered), and
+              // a default computed at mount stayed ticked for a delivered
+              // order (found live on test order #1032).
+              setRestockOnCancel(!sent);
+              setConfirmCancel(true);
+            }}
             className="w-full rounded-md border border-danger/40 px-3 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/5 disabled:opacity-50"
           >
             Ακύρωση παραγγελίας
