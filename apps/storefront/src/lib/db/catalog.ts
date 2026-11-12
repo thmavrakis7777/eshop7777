@@ -325,6 +325,10 @@ export type CategoryFacets = {
   priceMaxCents: number | null;
   hasOutOfStock: boolean;
   materials: string[];
+  // Products (not variants — a 3-colour product counts once) per material in
+  // this category, shown next to each «Υλικό» tick box like the «Κατηγορία»
+  // counts already are. Optional so test fixtures without it stay valid.
+  materialCounts?: Record<string, number>;
   origins: { code: string; label: string }[];
 };
 
@@ -521,7 +525,14 @@ export const getCategoryFilterFacets = unstable_cache(
       array_agg(DISTINCT p.material)
         FILTER (WHERE p.material IS NOT NULL AND p.material <> '') AS materials,
       array_agg(DISTINCT p.origin_country)
-        FILTER (WHERE p.origin_country IS NOT NULL AND p.origin_country <> '') AS origins
+        FILTER (WHERE p.origin_country IS NOT NULL AND p.origin_country <> '') AS origins,
+      (SELECT json_object_agg(mc.material, mc.n)
+         FROM (SELECT p2.material, count(*)::int AS n
+                 FROM shop.product p2
+                WHERE p2.is_active AND p2.category_id IN (SELECT id FROM tree)
+                  AND p2.material IS NOT NULL AND p2.material <> ''
+                  AND EXISTS (SELECT 1 FROM shop.product_variant v2 WHERE v2.product_id = p2.id AND v2.is_active)
+                GROUP BY p2.material) mc) AS material_counts
       FROM shop.product p
       JOIN shop.product_variant v ON v.product_id = p.id AND v.is_active
      WHERE p.is_active AND p.category_id IN (SELECT id FROM tree)
@@ -531,6 +542,7 @@ export const getCategoryFilterFacets = unstable_cache(
     has_out_of_stock: boolean | null;
     materials: string[] | null;
     origins: string[] | null;
+    material_counts: Record<string, number> | null;
   }>;
 
   const row = rows[0];
@@ -545,6 +557,7 @@ export const getCategoryFilterFacets = unstable_cache(
     // stock — otherwise the checkbox would filter nothing away.
     hasOutOfStock: row?.has_out_of_stock === true,
     materials: materials.length >= 2 ? materials.sort((a, b) => a.localeCompare(b, "el")) : [],
+    materialCounts: row?.material_counts ?? {},
     origins:
       originCodes.length >= 2
         ? originCodes

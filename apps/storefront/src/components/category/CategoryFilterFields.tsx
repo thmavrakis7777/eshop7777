@@ -187,14 +187,19 @@ export function CategoryFilterFields({
           <h3 className="text-sm font-medium text-ink">Υλικό</h3>
           <div className="mt-2 max-h-48 overflow-y-auto">
             {facets.materials.map((m) => (
-              <label key={m} className={label}>
-                <input
-                  type="checkbox"
-                  className={checkbox}
-                  checked={draft.material.includes(m)}
-                  onChange={(e) => toggleMaterial(m, e.target.checked)}
-                />
-                {m}
+              <label key={m} className={`${label} justify-between`}>
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className={checkbox}
+                    checked={draft.material.includes(m)}
+                    onChange={(e) => toggleMaterial(m, e.target.checked)}
+                  />
+                  {m}
+                </span>
+                {facets.materialCounts?.[m] != null && (
+                  <span className="text-xs text-ink-muted tabular-nums">{facets.materialCounts[m]}</span>
+                )}
               </label>
             ))}
           </div>
