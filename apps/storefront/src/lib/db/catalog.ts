@@ -241,10 +241,10 @@ export function toDomainProduct(r: ProductRow, newArrivalWindowDays: number): Pr
     price: { amount, currencyCode: "EUR" },
     compareAtPrice: onSale ? { amount: toEuros(compareAt), currencyCode: "EUR" } : undefined,
     priceRange,
-    badges: [
-      ...(onSale ? (["sale"] as const) : []),
-      ...(isNewArrival(r, newArrivalWindowDays) ? (["new"] as const) : []),
-    ],
+    // One badge per card: «Προσφορά» wins over «Νέο». Two stacked labels on
+    // every discounted product read as noise, and the price strike-through
+    // already tells the shopper more than "new" would.
+    badges: onSale ? ["sale"] : isNewArrival(r, newArrivalWindowDays) ? ["new"] : [],
     variants,
     placeholderTone: toneFor(r.slug),
     imageUrl: publicImageUrl(r.image_path),

@@ -19,7 +19,7 @@ export function PaymentSection({
       <SectionHeading number={6} title="Πληρωμή" />
       {providers.length === 0 ? (
         <p role="alert" className="text-sm text-danger">
-          Δεν υπάρχει διαθέσιμος τρόπος πληρωμής αυτή τη στιγμή. Επικοινώνησε μαζί μας.
+          Δεν υπάρχει διαθέσιμος τρόπος πληρωμής αυτή τη στιγμή. Επικοινωνήστε μαζί μας.
         </p>
       ) : (
         <div className="flex flex-col gap-2">

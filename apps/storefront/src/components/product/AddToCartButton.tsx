@@ -131,7 +131,7 @@ export function AddToCartButton({
     : isPending
       ? "Προσθήκη…"
       : !selectedVariant
-        ? "Επίλεξε παραλλαγή"
+        ? "Επιλέξτε παραλλαγή"
         : "Προσθήκη στο καλάθι";
 
   return (
@@ -155,7 +155,7 @@ export function AddToCartButton({
         </div>
       ) : hasMultipleVariants && (
         <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium text-ink">Επίλεξε παραλλαγή</legend>
+          <legend className="text-sm font-medium text-ink">Επιλέξτε παραλλαγή</legend>
           <div className="flex flex-wrap gap-2">
             {product.variants.map((v) => (
               <label

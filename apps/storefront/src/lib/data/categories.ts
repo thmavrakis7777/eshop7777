@@ -248,7 +248,7 @@ export const getNavCategories = cache(async (): Promise<NavCategory[]> => {
         imagePath: p.image_path,
         title: p.title,
         description: p.description,
-        buttonText: p.button_text || "Δες τα προϊόντα",
+        buttonText: p.button_text || "Δείτε τα προϊόντα",
         href:
           p.destination_type === "sale"
             ? categoryListingUrl(categoryPathHref([], root), "sale=1")

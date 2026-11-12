@@ -29,8 +29,8 @@ export default async function NewsletterUnsubscribePage({
         <>
           <h1 className="font-display text-2xl text-ink md:text-3xl">Η απεγγραφή ολοκληρώθηκε.</h1>
           <p className="max-w-md text-sm text-ink-muted">
-            Δεν θα λαμβάνεις πλέον emails newsletter από το MAVRAKIS HOME. Οι παραγγελίες σου δεν
-            επηρεάζονται — θα συνεχίσεις να λαμβάνεις email σχετικά με αυτές κανονικά.
+            Δεν θα λαμβάνετε πλέον emails newsletter από το MAVRAKIS HOME. Οι παραγγελίες σας δεν
+            επηρεάζονται — θα συνεχίσετε να λαμβάνετε email σχετικά με αυτές κανονικά.
           </p>
         </>
       ) : (
@@ -38,7 +38,7 @@ export default async function NewsletterUnsubscribePage({
           <h1 className="font-display text-2xl text-ink md:text-3xl">Ο σύνδεσμος δεν είναι έγκυρος.</h1>
           <p className="max-w-md text-sm text-ink-muted">
             Ελέγξτε ότι ανοίξατε τον σύνδεσμο ολόκληρο από το email, ή επικοινωνήστε μαζί μας αν
-            χρειάζεσαι βοήθεια με την εγγραφή σου.
+            χρειάζεστε βοήθεια με την εγγραφή σας.
           </p>
         </>
       )}

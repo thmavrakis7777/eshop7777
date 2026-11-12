@@ -69,7 +69,7 @@ export async function registerCustomer(input: {
     // is someone's real account, not a guest row: without this check,
     // anyone could "register" with that email, set a password, and walk
     // into it (CHECKOUT_PREFILL_GOOGLE_SPEC.md §3.3). Its owner adds a
-    // password through "Ξέχασες τον κωδικό;", which proves the email is theirs.
+    // password through "Ξεχάσατε τον κωδικό;", which proves the email is theirs.
     if (existing[0]?.password_hash || existing[0]?.has_google) {
       throw new AuthError("Email already registered", "email_taken");
     }

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 const QUICK_LINKS = [
   { href: "/logariasmos/parangelies", label: "Παραγγελίες", description: "Ιστορικό και κατάσταση παραγγελιών" },
   { href: "/logariasmos/diefthinseis", label: "Διευθύνσεις", description: "Αποθηκευμένες διευθύνσεις παράδοσης" },
-  { href: "/lista-epithymion", label: "Λίστα επιθυμιών", description: "Τα προϊόντα που έχεις αποθηκεύσει" },
+  { href: "/lista-epithymion", label: "Λίστα επιθυμιών", description: "Τα προϊόντα που έχετε αποθηκεύσει" },
 ];
 
 export default async function AccountOverviewPage() {

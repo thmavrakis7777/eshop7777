@@ -73,6 +73,12 @@ describe("toDomainProduct — new-arrival badge", () => {
     const narrow = toDomainProduct(row({ createdAt: daysAgo(10) }), 5);
     expect(narrow.badges).not.toContain("new");
   });
+
+  it("a new product on sale shows only «Προσφορά» — one badge per card", () => {
+    const r = row({ createdAt: daysAgo(0) });
+    r.variants[0].compare_at_price_cents = 1500;
+    expect(toDomainProduct(r, 30).badges).toEqual(["sale"]);
+  });
 });
 
 describe("toDomainProduct — EAN (0046)", () => {

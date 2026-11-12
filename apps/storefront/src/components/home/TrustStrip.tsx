@@ -45,13 +45,13 @@ export const DEFAULT_TRUST_ITEMS: TrustItem[] = [
   {
     icon: "returns",
     title: "Δωρεάν επιστροφές 30 ημερών",
-    description: "Αν δεν σου ταιριάζει, το επιστρέφεις εύκολα",
+    description: "Αν δεν σας ταιριάζει, το επιστρέφετε εύκολα",
     visible: true,
   },
   {
     icon: "payment",
     title: "Πληρωμή με αντικαταβολή",
-    description: "Πληρώνεις όταν παραλάβεις την παραγγελία σου",
+    description: "Πληρώνετε όταν παραλάβετε την παραγγελία σας",
     visible: true,
   },
   {

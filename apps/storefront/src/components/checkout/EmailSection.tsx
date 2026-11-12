@@ -36,7 +36,7 @@ export function EmailSection({
       <SectionHeading number={1} title="Email" saving={saving} />
       {signInHref && (
         <p className="text-sm text-ink-muted">
-          Έχεις λογαριασμό;{" "}
+          Έχετε λογαριασμό;{" "}
           <Link href={signInHref} className="font-medium text-accent hover:underline">
             Σύνδεση
           </Link>
@@ -54,7 +54,7 @@ export function EmailSection({
         error={error}
       />
       <p className="text-xs text-ink-muted">
-        Θα σου στείλουμε την επιβεβαίωση της παραγγελίας σε αυτό το email.
+        Θα σας στείλουμε την επιβεβαίωση της παραγγελίας σε αυτό το email.
       </p>
     </section>
   );

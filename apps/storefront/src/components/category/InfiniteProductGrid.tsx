@@ -201,7 +201,7 @@ export function InfiniteProductGrid({
                 onClick={loadMore}
                 className="rounded-sm border border-border px-4 py-2 text-sm font-medium text-ink hover:bg-surface transition-colors"
               >
-                Δοκίμασε ξανά
+                Δοκιμάστε ξανά
               </button>
             </>
           ) : (
@@ -220,7 +220,7 @@ export function InfiniteProductGrid({
         </div>
       ) : (
         state.products.length > pageSize && (
-          <p className="mt-10 text-center text-sm text-ink-muted">Είδες όλα τα προϊόντα.</p>
+          <p className="mt-10 text-center text-sm text-ink-muted">Είδατε όλα τα προϊόντα.</p>
         )
       )}
 

@@ -41,7 +41,7 @@ export async function categoryMetadata(
     seo?.metaDescription ||
     (category.pageType === "landing"
       ? `${category.name} — υπηρεσία διαθέσιμη στο φυσικό μας κατάστημα.`
-      : `${category.name} — ποιοτικά προϊόντα για το σπίτι σου, με γρήγορη παράδοση σε όλη την Ελλάδα.`);
+      : `${category.name} — ποιοτικά προϊόντα για το σπίτι σας, με γρήγορη παράδοση σε όλη την Ελλάδα.`);
 
   const href = categoryPathHref(ancestors, category);
   const canonical = page === 1 && seo?.canonicalUrl ? seo.canonicalUrl : canonicalListingPath(href, page);
@@ -70,7 +70,9 @@ export async function categoryMetadata(
       title: seo?.ogTitle || title,
       description: seo?.ogDescription || description,
       url: `${siteUrl}${canonical}`,
-      ...(image ? { images: [{ url: image, alt: category.name }] } : {}),
+      // The page's own title, not the bare category name: "ΜΠΑΝΙΟ" alone told
+      // a share preview or a screen reader nothing about what the image shows.
+      ...(image ? { images: [{ url: image, alt: seo?.ogTitle || title }] } : {}),
     },
     // Without its own `twitter` block, every category-depth route silently
     // inherited the root layout's generic site-wide one (Next only replaces

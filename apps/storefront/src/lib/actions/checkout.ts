@@ -30,24 +30,24 @@ function mapCheckoutError(err: unknown): string {
   if (err instanceof CheckoutError) {
     switch (err.code) {
       case "insufficient_inventory":
-        return "Ένα προϊόν στο καλάθι σου δεν είναι πλέον διαθέσιμο στην ποσότητα που ζήτησες.";
+        return "Ένα προϊόν στο καλάθι σας δεν είναι πλέον διαθέσιμο στην ποσότητα που ζητήσατε.";
       case "empty_cart":
-        return "Το καλάθι σου είναι άδειο.";
+        return "Το καλάθι σας είναι άδειο.";
       case "missing_details":
-        return "Συμπλήρωσε όλα τα απαραίτητα στοιχεία πριν ολοκληρώσεις την παραγγελία.";
+        return "Συμπληρώστε όλα τα απαραίτητα στοιχεία πριν ολοκληρώσετε την παραγγελία.";
       case "already_completed":
         return "Αυτή η παραγγελία έχει ήδη καταχωρηθεί.";
       case "not_found":
-        return "Το καλάθι σου έληξε. Ξεκίνα ξανά από το καλάθι.";
+        return "Το καλάθι σας έληξε. Ξεκινήστε ξανά από το καλάθι.";
     }
   }
   if (err instanceof CartError) {
     if (err.code === "insufficient_inventory") {
-      return "Ένα προϊόν στο καλάθι σου δεν είναι πλέον διαθέσιμο στην ποσότητα που ζήτησες.";
+      return "Ένα προϊόν στο καλάθι σας δεν είναι πλέον διαθέσιμο στην ποσότητα που ζητήσατε.";
     }
-    if (err.code === "not_found") return "Δεν είναι διαθέσιμη αυτή η μέθοδος αποστολής. Δοκίμασε ξανά.";
+    if (err.code === "not_found") return "Δεν είναι διαθέσιμη αυτή η μέθοδος αποστολής. Δοκιμάστε ξανά.";
   }
-  return "Κάτι πήγε στραβά. Δοκίμασε ξανά.";
+  return "Κάτι πήγε στραβά. Δοκιμάστε ξανά.";
 }
 
 async function requireCartId(): Promise<string | null> {
@@ -57,7 +57,7 @@ async function requireCartId(): Promise<string | null> {
 
 export type CheckoutActionResult = { ok: true; cart: Cart } | { ok: false; error: string; cart: Cart | null };
 
-const EXPIRED = "Το καλάθι σου έληξε. Ξεκίνα ξανά από το καλάθι.";
+const EXPIRED = "Το καλάθι σας έληξε. Ξεκινήστε ξανά από το καλάθι.";
 
 async function cartResultFrom(run: (cartId: string) => Promise<unknown>): Promise<CheckoutActionResult> {
   const cartId = await requireCartId();

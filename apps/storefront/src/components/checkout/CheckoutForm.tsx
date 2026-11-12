@@ -889,7 +889,7 @@ function SubmitButton({
           this line makes the obligation itself unambiguous, always visible
           (not just on error/disabled), regardless of the total shown. */}
       <p className="text-center text-xs text-ink-muted">
-        Πατώντας «Ολοκλήρωση Παραγγελίας» αναλαμβάνεις την υποχρέωση πληρωμής του συνολικού ποσού. Ισχύουν οι{" "}
+        Πατώντας «Ολοκλήρωση Παραγγελίας» αναλαμβάνετε την υποχρέωση πληρωμής του συνολικού ποσού. Ισχύουν οι{" "}
         <a href="/oroi-xrisis" className="underline underline-offset-2 hover:text-ink" target="_blank" rel="noopener noreferrer">
           Όροι Χρήσης
         </a>{" "}
@@ -917,7 +917,7 @@ function SubmitButton({
         {isPending ? "Επεξεργασία…" : `ΟΛΟΚΛΗΡΩΣΗ ΠΑΡΑΓΓΕΛΙΑΣ · ${formatPrice(total)}`}
       </button>
       {!canSubmit && !isPending && (
-        <p className="text-center text-xs text-ink-muted">Συμπλήρωσε τα στοιχεία παραπάνω για να ολοκληρώσεις την παραγγελία.</p>
+        <p className="text-center text-xs text-ink-muted">Συμπληρώστε τα στοιχεία παραπάνω για να ολοκληρώσετε την παραγγελία.</p>
       )}
       {error && (
         <p role="alert" className="text-center text-sm text-danger">

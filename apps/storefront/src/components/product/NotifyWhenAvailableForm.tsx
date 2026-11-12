@@ -32,7 +32,7 @@ export function NotifyWhenAvailableForm({ variantId }: { variantId: string }) {
   if (done) {
     return (
       <p role="status" className="rounded-sm border border-border bg-surface px-3.5 py-3 text-sm text-ink">
-        Θα σου στείλουμε email μόλις το προϊόν είναι ξανά διαθέσιμο.
+        Θα σας στείλουμε email μόλις το προϊόν είναι ξανά διαθέσιμο.
       </p>
     );
   }
@@ -68,7 +68,7 @@ export function NotifyWhenAvailableForm({ variantId }: { variantId: string }) {
         </p>
       )}
       <p className="text-[11px] text-ink-muted">
-        Το email σου χρησιμοποιείται μόνο για να σε ενημερώσουμε όταν το προϊόν είναι ξανά διαθέσιμο και
+        Το email σας χρησιμοποιείται μόνο για να σας ενημερώσουμε όταν το προϊόν είναι ξανά διαθέσιμο και
         διαγράφεται μόλις σταλεί η ειδοποίηση.{" "}
         <Link href="/aporrito" className="underline hover:text-ink">
           Πολιτική Απορρήτου

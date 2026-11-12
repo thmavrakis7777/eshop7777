@@ -72,7 +72,7 @@ export function ProductRail({
         <h2 className="text-2xl text-ink md:text-3xl">{title}</h2>
         {viewAllHref && (
           <Link href={viewAllHref} className="text-sm font-medium text-accent hover:underline">
-            Δες όλα →
+            Δείτε όλα →
           </Link>
         )}
       </div>

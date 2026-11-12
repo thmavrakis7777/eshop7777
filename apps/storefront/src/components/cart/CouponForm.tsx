@@ -72,7 +72,7 @@ export function CouponForm({
             setCode("");
             setExpanded(false);
           } else {
-            setError(err ?? "Κάτι πήγε στραβά. Δοκίμασε ξανά.");
+            setError(err ?? "Κάτι πήγε στραβά. Δοκιμάστε ξανά.");
           }
         });
       }}

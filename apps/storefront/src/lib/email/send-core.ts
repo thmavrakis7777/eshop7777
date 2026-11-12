@@ -36,6 +36,9 @@ export type Email = {
   // (logged as EMAIL_SEND_FAILED with Resend's own reason), it can't send
   // from an arbitrary unverified address.
   fromOverride?: string;
+  // Per-send reply address. Only the contact form uses it, so the owner can
+  // answer the customer straight from the notification email.
+  replyTo?: string;
 };
 
 // Three distinct, greppable outcomes for production log search — so "why did
@@ -60,7 +63,7 @@ function logEmail(event: EmailLogEvent, detail: Record<string, string | number>)
  * (order-confirmation and shipment-notification status shown in the admin
  * dashboard) can record it truthfully instead of assuming success.
  */
-export async function send({ to, subject, html, text, fromOverride }: Email): Promise<boolean> {
+export async function send({ to, subject, html, text, fromOverride, replyTo: replyToOverride }: Email): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = fromOverride?.trim() || process.env.RESEND_FROM_EMAIL;
 
@@ -74,7 +77,7 @@ export async function send({ to, subject, html, text, fromOverride }: Email): Pr
   }
 
   const { storeName } = await getBranding();
-  const replyTo = process.env.RESEND_REPLY_TO_EMAIL?.trim() || undefined;
+  const replyTo = replyToOverride?.trim() || process.env.RESEND_REPLY_TO_EMAIL?.trim() || undefined;
 
   try {
     const res = await fetch(RESEND_ENDPOINT, {

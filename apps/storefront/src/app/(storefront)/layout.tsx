@@ -24,6 +24,7 @@ import { getAnalyticsSettings } from "@/lib/data/analytics-settings";
 import { getPublishedLegalPages } from "@/lib/data/content-pages";
 import { getNationwideFreeShippingThresholdCents } from "@/lib/data/checkout";
 import { resolveStockInquiryContact } from "@/lib/whatsapp";
+import { hasAnyAnalyticsService } from "@/lib/content-types";
 import { parseOpeningHours } from "@/lib/opening-hours";
 import { storeLocationJsonLd, storeProfileSameAs } from "@/lib/maps";
 
@@ -150,7 +151,12 @@ function buildWebsiteJsonLd(storeName: string) {
 export async function generateMetadata(): Promise<Metadata> {
   const branding = await getBranding();
   return {
-    title: { default: branding.defaultSeoTitle, template: `%s | ${branding.storeName}` },
+    // `absolute`, not `default`: a nested layout's own default title still
+    // goes through the ROOT layout's "%s | <store>" template, so every page
+    // that sets no title of its own (the 404 above all) came out as
+    // "MAVRAKIS HOME | MAVRAKIS HOME". The template below still applies to
+    // this layout's children as before.
+    title: { absolute: branding.defaultSeoTitle, template: `%s | ${branding.storeName}` },
     description: branding.defaultSeoDescription,
     ...(branding.faviconUrl ? { icons: { icon: branding.faviconUrl } } : {}),
     openGraph: {
@@ -162,12 +168,12 @@ export async function generateMetadata(): Promise<Metadata> {
       url: siteUrl,
       ...(branding.ogImageUrl ? { images: [{ url: branding.ogImageUrl }] } : {}),
     },
-    twitter: {
-      card: "summary_large_image",
-      title: branding.defaultSeoTitle,
-      description: branding.defaultSeoDescription,
-      ...(branding.ogImageUrl ? { images: [branding.ogImageUrl] } : {}),
-    },
+    // Card type only. Title, description and image are left out on purpose:
+    // when this layout set them, every page without its own `twitter` block
+    // (Πληρωμές, Cookies, Επικοινωνία, …) announced the bare store name and
+    // the site-wide description. Left unset, Next fills each page's twitter
+    // tags from that page's own openGraph (resolve-metadata postProcessMetadata).
+    twitter: { card: "summary_large_image" },
   };
 }
 
@@ -268,6 +274,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
               storeName={branding.storeName}
               logoUrl={branding.logoUrl}
               legalPages={legalPages}
+              showCookieSettings={hasAnyAnalyticsService(analyticsSettings)}
             />
             <CartDrawer
               cartMessage={settings?.cartMessage ?? null}

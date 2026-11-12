@@ -37,7 +37,7 @@ export function CheckoutOrderSummary({
     <>
       <details className="rounded-md border border-border lg:hidden">
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3.5 text-sm font-medium text-ink">
-          <span>Η παραγγελία σου</span>
+          <span>Η παραγγελία σας</span>
           <span className="flex items-center gap-2 tabular-nums">
             {formatPrice(cart.total)}
             <ChevronIcon />
@@ -49,7 +49,7 @@ export function CheckoutOrderSummary({
       </details>
 
       <div className="hidden rounded-md border border-border p-5 lg:sticky lg:top-24 lg:block">
-        <h2 className="mb-4 font-display text-lg text-ink">Η παραγγελία σου</h2>
+        <h2 className="mb-4 font-display text-lg text-ink">Η παραγγελία σας</h2>
         <OrderSummaryContent cart={cart} onRemove={onRemove} pendingLineId={pendingLineId} stockInquiry={stockInquiry} />
       </div>
     </>

@@ -178,7 +178,7 @@ export async function CategoryRoute({
       categoryFilter={categoryFilter}
       // "Shop by category" entering a main category; "choose a type" once
       // you are already inside one and picking a narrower kind of thing.
-      childNavTitle={ancestors.length === 0 ? "Αγόρασε ανά κατηγορία" : "Διάλεξε τύπο"}
+      childNavTitle={ancestors.length === 0 ? "Αγοράστε ανά κατηγορία" : "Διαλέξτε τύπο"}
       childNavVariant={isFiltered ? "chips" : "cards"}
       activeFilters={isFiltered ? activeFilterChips(
               filters,

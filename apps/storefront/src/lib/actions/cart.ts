@@ -65,16 +65,16 @@ function mapCartError(err: unknown): string {
       case "invalid_code":
         return "Ο κωδικός δεν είναι έγκυρος.";
       case "min_subtotal":
-        return "Το καλάθι σου δεν φτάνει το ελάχιστο ποσό για αυτόν τον κωδικό.";
+        return "Το καλάθι σας δεν φτάνει το ελάχιστο ποσό για αυτόν τον κωδικό.";
       case "not_found":
         return "Αυτό το προϊόν δεν είναι πλέον διαθέσιμο.";
       case "invalid_quantity":
         return "Μη έγκυρη ποσότητα.";
       case "length_out_of_range":
-        return "Επίλεξε μήκος μέσα στα επιτρεπτά όρια του προϊόντος.";
+        return "Επιλέξτε μήκος μέσα στα επιτρεπτά όρια του προϊόντος.";
     }
   }
-  return "Κάτι πήγε στραβά. Δοκίμασε ξανά.";
+  return "Κάτι πήγε στραβά. Δοκιμάστε ξανά.";
 }
 
 export type CartActionResult = { ok: true; cart: Cart } | { ok: false; error: string; cart: Cart | null };
@@ -93,7 +93,7 @@ async function resultFrom(run: () => Promise<unknown>): Promise<CartActionResult
     // The mutation succeeded but the cart vanished underneath us (pruned
     // between write and read-back) — surface the same "expired" state the UI
     // already knows how to show.
-    if (!cart) return { ok: false, error: "Το καλάθι σου έληξε. Ξεκίνα ένα νέο.", cart: null };
+    if (!cart) return { ok: false, error: "Το καλάθι σας έληξε. Ξεκινήστε ένα νέο.", cart: null };
     return { ok: true, cart };
   } catch (err) {
     return { ok: false, error: mapCartError(err), cart: await getCart() };
@@ -105,7 +105,7 @@ async function requireCartId(): Promise<string | null> {
   return isCartId(id) ? id : null;
 }
 
-const EXPIRED: CartActionResult = { ok: false, error: "Το καλάθι σου έληξε. Ξεκίνα ένα νέο.", cart: null };
+const EXPIRED: CartActionResult = { ok: false, error: "Το καλάθι σας έληξε. Ξεκινήστε ένα νέο.", cart: null };
 
 export async function getCartAction(): Promise<Cart | null> {
   return getCart();
@@ -116,7 +116,7 @@ export async function addLineItemAction(variantId: string, quantity = 1): Promis
   // A generous per-add budget: browsing and adding several products in a row
   // is normal use; a scripted loop hammering this to spam cart rows is not.
   if (!(await checkRateLimit(await rateLimitKey("add-to-cart"), 30, 300))) {
-    return { ok: false, error: "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο.", cart: await getCart() };
+    return { ok: false, error: "Πάρα πολλές προσπάθειες. Δοκιμάστε ξανά σε λίγο.", cart: await getCart() };
   }
   return resultFrom(async () => {
     const cartId = await getOrCreateCartId();
@@ -132,7 +132,7 @@ export async function updateLineItemQuantityAction(lineItemId: string, quantity:
   // QuantityStepper) can easily rack up more of these than adds in the same
   // window. Still a hard ceiling against a scripted loop.
   if (!(await checkRateLimit(await rateLimitKey("update-cart-quantity"), 60, 300))) {
-    return { ok: false, error: "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο.", cart: await getCart() };
+    return { ok: false, error: "Πάρα πολλές προσπάθειες. Δοκιμάστε ξανά σε λίγο.", cart: await getCart() };
   }
   return resultFrom(() => updateItemQuantity(cartId, lineItemId, quantity));
 }
@@ -149,7 +149,7 @@ export async function applyPromoCodeAction(code: string): Promise<CartActionResu
   // Unauthenticated, unlimited-guess codes are an enumeration surface — a
   // typo-retry budget is generous, a scripted sweep of the codespace is not.
   if (!(await checkRateLimit(await rateLimitKey("promo-code"), 20, 300))) {
-    return { ok: false, error: "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο.", cart: await getCart() };
+    return { ok: false, error: "Πάρα πολλές προσπάθειες. Δοκιμάστε ξανά σε λίγο.", cart: await getCart() };
   }
   const customerId = await getCustomerId();
   return resultFrom(() => applyDiscount(cartId, code, customerId));

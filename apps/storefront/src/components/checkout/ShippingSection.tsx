@@ -98,7 +98,7 @@ function FreeShippingHint({ options, selectedId, subtotalAfterDiscountEur, hasOv
 
   const thresholdEur = relevant.freeOverCents / 100;
   if (subtotalAfterDiscountEur >= thresholdEur) {
-    return <p className="text-xs font-medium text-success">Έχεις δωρεάν μεταφορικά!</p>;
+    return <p className="text-xs font-medium text-success">Έχετε δωρεάν μεταφορικά!</p>;
   }
   const remaining = thresholdEur - subtotalAfterDiscountEur;
   return (
@@ -159,7 +159,7 @@ export function ShippingSection({
       {noCourierTitles.length > 0 && (
         <p className="rounded-sm border border-border bg-surface px-4 py-3 text-xs text-ink">
           {noCourierTitles.map((t) => `«${t}»`).join(", ")}{" "}
-          {noCourierTitles.length === 1 ? "δεν αποστέλλεται" : "δεν αποστέλλονται"} με courier. Η παραγγελία σου
+          {noCourierTitles.length === 1 ? "δεν αποστέλλεται" : "δεν αποστέλλονται"} με courier. Η παραγγελία σας
           μπορεί να παραληφθεί από το κατάστημα ή να παραδοθεί από εμάς εντός Ηρακλείου.
         </p>
       )}
@@ -173,7 +173,7 @@ export function ShippingSection({
       )}
 
       {status === "pending-address" && (
-        <p className="text-sm text-ink-muted">Συμπλήρωσε τη διεύθυνσή σου για να δεις τις επιλογές αποστολής.</p>
+        <p className="text-sm text-ink-muted">Συμπληρώστε τη διεύθυνσή σας για να δείτε τις επιλογές αποστολής.</p>
       )}
 
       {status === "loading" && (
@@ -186,14 +186,14 @@ export function ShippingSection({
 
       {status === "empty" && (
         <p role="alert" className="text-sm text-danger">
-          Δεν είναι διαθέσιμη αποστολή για αυτή τη διεύθυνση. Επικοινώνησε μαζί μας.
+          Δεν είναι διαθέσιμη αποστολή για αυτή τη διεύθυνση. Επικοινωνήστε μαζί μας.
         </p>
       )}
 
       {status === "error" && (
         <div className="flex flex-col items-start gap-2">
           <p role="alert" className="text-sm text-danger">
-            Δεν μπορέσαμε να υπολογίσουμε τα μεταφορικά αυτή τη στιγμή. Δοκίμασε ξανά.
+            Δεν μπορέσαμε να υπολογίσουμε τα μεταφορικά αυτή τη στιγμή. Δοκιμάστε ξανά.
           </p>
           {onRetry && (
             <button
@@ -201,7 +201,7 @@ export function ShippingSection({
               onClick={onRetry}
               className="rounded-sm border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-ink"
             >
-              Δοκίμασε ξανά
+              Δοκιμάστε ξανά
             </button>
           )}
         </div>

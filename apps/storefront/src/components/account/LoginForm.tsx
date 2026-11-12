@@ -23,7 +23,7 @@ export function LoginForm({ redirectTo, googleHref }: { redirectTo: string; goog
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isValidEmail(email) || !isRequired(password)) {
-      setError("Συμπλήρωσε email και κωδικό πρόσβασης.");
+      setError("Συμπληρώστε email και κωδικό πρόσβασης.");
       return;
     }
     setError(undefined);
@@ -80,7 +80,7 @@ export function LoginForm({ redirectTo, googleHref }: { redirectTo: string; goog
       </button>
       <div className="flex items-center justify-between text-sm">
         <Link href="/logariasmos/xexasate-kodikos" className="text-ink-muted hover:text-ink hover:underline">
-          Ξέχασες τον κωδικό;
+          Ξεχάσατε τον κωδικό;
         </Link>
         <Link href={withRedirectTo("/logariasmos/eggrafi", redirectTo)} className="text-accent hover:underline">
           Δημιουργία λογαριασμού

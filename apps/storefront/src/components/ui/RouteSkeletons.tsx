@@ -89,7 +89,7 @@ export function CartSkeleton() {
   return (
     <Loading>
       <div className="container-shell py-8 md:py-12">
-        <h1 className="mb-6 font-display text-2xl md:text-3xl">Το καλάθι σου</h1>
+        <h1 className="mb-6 font-display text-2xl md:text-3xl">Το καλάθι σας</h1>
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px]">
           <div className="flex flex-col gap-6">
             {Array.from({ length: 2 }).map((_, i) => (

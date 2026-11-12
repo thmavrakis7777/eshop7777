@@ -17,7 +17,7 @@ import { SHOP_TIME_ZONE } from "@/lib/dates";
 // route inherits the root layout's `canonical: "/"` and tells crawlers the
 // order confirmation *is* the homepage.
 export const metadata: Metadata = {
-  title: "Η παραγγελία σου",
+  title: "Η παραγγελία σας",
   robots: { index: false, follow: true },
   alternates: { canonical: "/checkout/epibebaiosi" },
 };
@@ -44,7 +44,7 @@ export default async function OrderConfirmationPage({
     return (
       <div className="container-shell flex flex-col items-center gap-4 py-16 text-center md:py-24">
         <p className="text-base font-medium text-ink">Δεν βρήκαμε αυτή την παραγγελία.</p>
-        <p className="text-sm text-ink-muted">Έλεγξε τον σύνδεσμο ή επικοινώνησε μαζί μας αν χρειάζεσαι βοήθεια.</p>
+        <p className="text-sm text-ink-muted">Ελέγξτε τον σύνδεσμο ή επικοινωνήστε μαζί μας αν χρειάζεστε βοήθεια.</p>
         <Link href="/" className="rounded-sm bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent">
           Επιστροφή στην αρχική
         </Link>
@@ -57,7 +57,7 @@ export default async function OrderConfirmationPage({
       <PurchaseTracker orderId={order.id} totalAmount={order.total.amount} />
       <div className="mx-auto flex max-w-xl flex-col gap-8">
         <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="font-display text-2xl text-ink md:text-3xl">Η παραγγελία σου ολοκληρώθηκε.</h1>
+          <h1 className="font-display text-2xl text-ink md:text-3xl">Η παραγγελία σας ολοκληρώθηκε.</h1>
           <div className="flex items-center gap-2">
             <p className="text-sm text-ink-muted">Παραγγελία #{order.displayId}</p>
             <OrderStatusBadge status={order.status} />
@@ -117,7 +117,7 @@ export default async function OrderConfirmationPage({
 
         {order.loyaltyReward && (
           <div className="rounded-md border border-accent/30 bg-accent/5 p-4 text-center text-sm text-ink">
-            Κέρδισες ένα κουπόνι έκπτωσης 5€ για την επόμενη παραγγελία σου:{" "}
+            Κερδίσατε ένα κουπόνι έκπτωσης 5€ για την επόμενη παραγγελία σας:{" "}
             <code className="rounded-sm bg-surface-strong px-2 py-0.5 font-mono font-medium text-ink">
               {order.loyaltyReward.code}
             </code>
@@ -239,11 +239,11 @@ export default async function OrderConfirmationPage({
         <div className="flex flex-col items-center gap-4 border-t border-border pt-6">
           <ContinueShoppingLink className="rounded-sm bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent" />
           <p className="text-center text-sm text-ink-muted">
-            Χρειάζεσαι βοήθεια; <Link href="/epikoinonia" className="text-accent hover:underline">Επικοινώνησε μαζί μας</Link>
+            Χρειάζεστε βοήθεια; <Link href="/epikoinonia" className="text-accent hover:underline">Επικοινωνήστε μαζί μας</Link>
           </p>
           {!customerId && (
             <p className="text-center text-xs text-ink-muted">
-              Θέλεις να δημιουργήσεις λογαριασμό για τις επόμενες παραγγελίες;{" "}
+              Θέλετε να δημιουργήσετε λογαριασμό για τις επόμενες παραγγελίες;{" "}
               <Link href="/logariasmos" className="text-accent hover:underline">Δημιουργία λογαριασμού</Link>
             </p>
           )}

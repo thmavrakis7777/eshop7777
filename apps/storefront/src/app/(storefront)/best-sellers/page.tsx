@@ -9,7 +9,7 @@ type Props = {
 };
 
 const TITLE = "Best sellers";
-const DESCRIPTION = "Τα αγαπημένα προϊόντα για το σπίτι σου.";
+const DESCRIPTION = "Τα αγαπημένα προϊόντα για το σπίτι σας.";
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { page: pageParam } = await searchParams;

@@ -59,7 +59,7 @@ export function ConsentBanner({ settings }: { settings: AnalyticsSettings | null
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink-muted">
               Χρησιμοποιούμε cookies ανάλυσης και, όπου ισχύει, διαφήμισης για να βελτιώνουμε το κατάστημα. Δεν
-              φορτώνουμε κανένα τέτοιο cookie χωρίς τη συγκατάθεσή σου — δες την{" "}
+              φορτώνουμε κανένα τέτοιο cookie χωρίς τη συγκατάθεσή σας — δείτε την{" "}
               <Link href="/cookies" className="underline underline-offset-2 hover:text-ink">
                 Πολιτική Cookies
               </Link>
@@ -91,7 +91,7 @@ export function ConsentBanner({ settings }: { settings: AnalyticsSettings | null
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-ink-muted">Επίλεξε ποιες κατηγορίες cookies επιτρέπεις.</p>
+            <p className="text-sm text-ink-muted">Επιλέξτε ποιες κατηγορίες cookies επιτρέπετε.</p>
             <div className="flex flex-col gap-3">
               <label className="flex items-start gap-3 text-sm">
                 <input type="checkbox" checked disabled className="mt-0.5 h-4 w-4 accent-ink" />
@@ -112,7 +112,18 @@ export function ConsentBanner({ settings }: { settings: AnalyticsSettings | null
                   />
                   <span>
                     <span className="font-medium text-ink">Ανάλυση (Analytics)</span>
-                    <span className="block text-ink-muted">Google Analytics, Microsoft Clarity — στατιστικά επισκεψιμότητας.</span>
+                    {/* Only the services actually configured — naming Clarity
+                        while only GA4 is set would ask consent for a tool
+                        that never loads. */}
+                    <span className="block text-ink-muted">
+                      {[
+                        (settings?.ga4MeasurementId || settings?.gtmContainerId) && "Google Analytics",
+                        settings?.clarityProjectId && "Microsoft Clarity",
+                      ]
+                        .filter(Boolean)
+                        .join(", ")}{" "}
+                      — στατιστικά επισκεψιμότητας.
+                    </span>
                   </span>
                 </label>
               )}

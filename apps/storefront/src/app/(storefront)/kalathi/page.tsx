@@ -20,7 +20,7 @@ export default async function CartPage() {
   if (!cart || cart.items.length === 0) {
     return (
       <div className="container-shell py-8 md:py-12">
-        <h1 className="mb-6 font-display text-2xl md:text-3xl">Το καλάθι σου</h1>
+        <h1 className="mb-6 font-display text-2xl md:text-3xl">Το καλάθι σας</h1>
         <EmptyCartState />
       </div>
     );
@@ -34,14 +34,14 @@ export default async function CartPage() {
 
   return (
     <div className="container-shell py-8 md:py-12">
-      <h1 className="mb-6 font-display text-2xl md:text-3xl">Το καλάθι σου</h1>
+      <h1 className="mb-6 font-display text-2xl md:text-3xl">Το καλάθι σας</h1>
       <CartPageView
         initialCart={cart}
         cartMessage={settings?.cartMessage ?? null}
         freeShippingThresholdCents={freeShippingThresholdCents}
         stockInquiry={resolveStockInquiryContact(settings)}
       />
-      <ProductRail title="Ταιριάζει καλά με ό,τι έχεις στο καλάθι" products={crossSell} />
+      <ProductRail title="Ταιριάζει καλά με ό,τι έχετε στο καλάθι" products={crossSell} />
     </div>
   );
 }

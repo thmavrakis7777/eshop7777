@@ -13,10 +13,10 @@ export const metadata: Metadata = {
 // app/api/auth/google and its callback via loginErrorPath). A cancel is the
 // customer's own choice, so it gets no message at all.
 const GOOGLE_MESSAGES: Record<string, string> = {
-  failed: "Δεν ήταν δυνατή η σύνδεση με Google. Δοκίμασε ξανά ή συνδέσου με email.",
-  unverified: "Το email του λογαριασμού Google δεν είναι επιβεβαιωμένο. Συνδέσου με email και κωδικό.",
-  unavailable: "Η σύνδεση με Google δεν είναι διαθέσιμη αυτή τη στιγμή. Συνδέσου με email και κωδικό.",
-  rate_limited: "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο.",
+  failed: "Δεν ήταν δυνατή η σύνδεση με Google. Δοκιμάστε ξανά ή συνδεθείτε με email.",
+  unverified: "Το email του λογαριασμού Google δεν είναι επιβεβαιωμένο. Συνδεθείτε με email και κωδικό.",
+  unavailable: "Η σύνδεση με Google δεν είναι διαθέσιμη αυτή τη στιγμή. Συνδεθείτε με email και κωδικό.",
+  rate_limited: "Πάρα πολλές προσπάθειες. Δοκιμάστε ξανά σε λίγο.",
 };
 
 export default async function LoginPage({
@@ -33,7 +33,7 @@ export default async function LoginPage({
       <h1 className="font-display text-2xl text-ink">Σύνδεση</h1>
       {reset === "success" && (
         <p role="status" className="rounded-sm bg-surface px-4 py-3 text-sm text-ink">
-          Ο κωδικός σου ενημερώθηκε. Συνδέσου με τον νέο σου κωδικό.
+          Ο κωδικός σας ενημερώθηκε. Συνδεθείτε με τον νέο σας κωδικό.
         </p>
       )}
       {googleMessage && (

@@ -188,6 +188,49 @@ export async function sendNewsletterSignupNotificationEmail(subscriberEmail: str
 }
 
 /**
+ * Owner-facing: a message from the /epikoinonia contact form. Goes where new
+ * orders go (owner notification address, else the public contact email), and
+ * Reply-To is the customer, so answering is one click. Everything the
+ * visitor typed is escaped — this is unauthenticated input.
+ */
+export async function sendContactMessageEmail(message: {
+  name: string;
+  email: string;
+  phone: string | null;
+  orderNumber: string | null;
+  body: string;
+}): Promise<boolean> {
+  const settings = await getSiteSettings();
+  const to = settings?.ownerNotificationEmail?.trim() || settings?.contactEmail?.trim();
+  if (!to) return false;
+
+  const { storeName } = await getBranding();
+  const rows: [string, string][] = [
+    ["Όνομα", message.name],
+    ["Email", message.email],
+    ...(message.phone ? ([["Τηλέφωνο", message.phone]] as [string, string][]) : []),
+    ...(message.orderNumber ? ([["Αρ. παραγγελίας", message.orderNumber]] as [string, string][]) : []),
+  ];
+  const rowsHtml = rows
+    .map(([k, v]) => `<p style="margin:0 0 4px;font-size:14px;line-height:1.6"><strong>${k}:</strong> ${escapeHtml(v)}</p>`)
+    .join("");
+  const bodyHtml = escapeHtml(message.body).replace(/\r?\n/g, "<br>");
+
+  return send({
+    to,
+    replyTo: message.email,
+    subject: `Μήνυμα από τη φόρμα επικοινωνίας — ${message.name} | ${storeName}`,
+    text: `${rows.map(([k, v]) => `${k}: ${v}`).join("\n")}\n\n${message.body}\n\n(Απαντήστε σε αυτό το email για να απαντήσετε απευθείας στον πελάτη.)`,
+    html: await simpleShell(
+      "Νέο μήνυμα από τη φόρμα επικοινωνίας",
+      `${rowsHtml}<div style="margin:16px 0 0;padding:12px 14px;border-left:3px solid #d8d3cb;font-size:14px;line-height:1.6">${bodyHtml}</div>
+      <p style="margin:16px 0 0;font-size:12px;color:#6b665e">Απαντήστε σε αυτό το email για να απαντήσετε απευθείας στον πελάτη.</p>`,
+      storeName
+    ),
+  });
+}
+
+/**
  * Sent whenever a customer's password actually changes — not on a reset
  * *request* (sendPasswordResetEmail already covers that), on the change
  * itself, from settings or via a completed reset. Deliberately no link:

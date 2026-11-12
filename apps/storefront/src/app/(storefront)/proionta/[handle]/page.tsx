@@ -344,9 +344,13 @@ export default async function ProductPage({ params }: Props) {
               {product.length && <span className="text-base font-normal text-ink-muted"> / μέτρο</span>}
             </span>
             {!product.priceRange && product.compareAtPrice && (
-              <span className="text-base text-ink-muted line-through">{formatPrice(product.compareAtPrice)}</span>
+              <span className="text-base text-ink-muted line-through">
+                <span className="sr-only">Αρχική τιμή: </span>
+                {formatPrice(product.compareAtPrice)}
+              </span>
             )}
           </div>
+          <p className="mt-1 text-xs text-ink-muted">Η τιμή περιλαμβάνει ΦΠΑ</p>
 
           <SelectedStockStatus fallback={stockState} className="mt-4" />
 

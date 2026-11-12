@@ -22,7 +22,7 @@ export async function subscribeToNewsletterAction(input: {
   // because the client-side disabled state is only a UX nicety, not a
   // security boundary.
   if (!input.consent) {
-    return { ok: false, error: "Χρειαζόμαστε τη συναίνεσή σου για να σε εγγράψουμε στο newsletter." };
+    return { ok: false, error: "Χρειαζόμαστε τη συναίνεσή σας για να σας εγγράψουμε στο newsletter." };
   }
   if (!isValidEmail(email)) {
     return { ok: false, error: "Μη έγκυρη διεύθυνση email." };

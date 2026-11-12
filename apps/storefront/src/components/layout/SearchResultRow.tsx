@@ -124,7 +124,7 @@ export function SearchResultRow({
               onClick={onNavigate}
               className="whitespace-nowrap text-xs font-medium text-accent hover:underline"
             >
-              {product.length ? "Επίλεξε μήκος →" : "Επιλογές →"}
+              {product.length ? "Επιλέξτε μήκος →" : "Επιλογές →"}
             </Link>
           )}
         </div>

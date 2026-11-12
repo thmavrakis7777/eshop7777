@@ -35,7 +35,7 @@ export function FreeShippingProgress({
     <div className="flex flex-col gap-1.5">
       <p className="text-xs text-ink-muted">
         {reached ? (
-          <span className="font-medium text-ink">Έχεις ΔΩΡΕΑΝ μεταφορικά 🎉</span>
+          <span className="font-medium text-ink">Έχετε ΔΩΡΕΑΝ μεταφορικά 🎉</span>
         ) : (
           <>
             Ακόμα <span className="font-medium text-ink">{formatPrice({ amount: remaining, currencyCode: "EUR" })}</span> για ΔΩΡΕΑΝ μεταφορικά

@@ -25,8 +25,8 @@ export function EmptyCartState({
     <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
       <BagIcon className="h-10 w-10 text-ink-muted" />
       <div className="flex flex-col gap-1">
-        <p className="text-base font-medium text-ink">Το καλάθι σου είναι άδειο.</p>
-        <p className="text-sm text-ink-muted">Βρες κάτι που θα αγαπήσεις για το σπίτι σου.</p>
+        <p className="text-base font-medium text-ink">Το καλάθι σας είναι άδειο.</p>
+        <p className="text-sm text-ink-muted">Βρείτε κάτι που θα αγαπήσετε για το σπίτι σας.</p>
       </div>
       {onContinueShopping ? (
         <button

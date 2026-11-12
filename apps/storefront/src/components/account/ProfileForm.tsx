@@ -18,7 +18,7 @@ export function ProfileForm({ customer }: { customer: Customer }) {
     e.preventDefault();
     setSuccess(false);
     if (!isRequired(firstName) || !isRequired(lastName)) {
-      setError("Συμπλήρωσε όνομα και επώνυμο.");
+      setError("Συμπληρώστε όνομα και επώνυμο.");
       return;
     }
     if (phone && !isValidPhone(phone)) {

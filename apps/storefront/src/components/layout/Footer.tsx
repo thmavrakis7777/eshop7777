@@ -14,10 +14,11 @@ import { FooterNewsletterForm } from "./FooterNewsletterForm";
 import type { SiteSettings } from "@/lib/data/site-settings";
 import type { NavCategory } from "@/lib/types";
 import { storeMapsUrl } from "@/lib/maps";
-import { formatWhatsappPhone, isValidWhatsappPhone, normalizeWhatsappPhone } from "@/lib/whatsapp";
+import { formatWhatsappPhoneLocal, isValidWhatsappPhone, normalizeWhatsappPhone } from "@/lib/whatsapp";
+import { telHref } from "./PhoneOrders";
 
 const DEFAULT_TAGLINE =
-  "Προϊόντα για κουζίνα, μπάνιο, αποθήκευση και κήπο — σχεδιασμένα να διαρκούν, φτιαγμένα για την καθημερινότητά σου.";
+  "Προϊόντα για κουζίνα, μπάνιο, αποθήκευση και κήπο — σχεδιασμένα να διαρκούν, φτιαγμένα για την καθημερινότητά σας.";
 
 const helpLinks = [
   { label: "Παρακολούθηση Παραγγελίας", href: "/paraggelia" },
@@ -67,6 +68,7 @@ export function Footer({
   storeName,
   logoUrl,
   legalPages,
+  showCookieSettings,
 }: {
   categories: NavCategory[];
   settings: SiteSettings | null;
@@ -74,6 +76,11 @@ export function Footer({
   logoUrl: string | null;
   // Only slugs actually is_published=true — see getPublishedLegalPages().
   legalPages: { slug: string; title: string }[];
+  // The consent banner only exists while an analytics/marketing service is
+  // configured (ConsentBanner returns null otherwise), so with none set the
+  // "Ρυθμίσεις Cookies" button opened nothing — a dead control. Shown only
+  // when there is a banner for it to reopen.
+  showCookieSettings: boolean;
 }) {
   const publishedSlugs = new Set(legalPages.map((p) => p.slug));
   const legalLinks = LEGAL_LINK_ORDER.filter((l) => publishedSlugs.has(l.slug)).map((l) => ({
@@ -127,10 +134,10 @@ export function Footer({
 
             <div className="mt-6">
               <h3 className={heading}>Newsletter</h3>
-              <p className="mt-1 text-xs text-ink-muted">Εγγράψου για νέα προϊόντα και προσφορές.</p>
+              <p className="mt-1 text-xs text-ink-muted">Εγγραφείτε για νέα προϊόντα και προσφορές.</p>
               <FooterNewsletterForm />
               <p className="mt-2 max-w-xs text-[11px] text-ink-muted">
-                Με την εγγραφή αποδέχεσαι την{" "}
+                Με την εγγραφή αποδέχεστε την{" "}
                 <Link href="/aporrito" className="underline hover:text-ink">
                   Πολιτική Απορρήτου
                 </Link>
@@ -145,7 +152,7 @@ export function Footer({
               <ul className="mt-3 flex flex-col gap-3 text-sm">
                 {settings?.contactPhone && (
                   <li>
-                    <a href={`tel:${settings.contactPhone}`} className={contactLink}>
+                    <a href={telHref(settings.contactPhone)} className={contactLink}>
                       <PhoneIcon className={contactIcon} />
                       <span className="tabular-nums">{settings.contactPhone}</span>
                     </a>
@@ -161,7 +168,7 @@ export function Footer({
                     >
                       <WhatsAppIcon className={contactIcon} />
                       <span>
-                        WhatsApp <span className="tabular-nums">{formatWhatsappPhone(whatsapp)}</span>
+                        WhatsApp <span className="tabular-nums">{formatWhatsappPhoneLocal(whatsapp)}</span>
                       </span>
                     </a>
                   </li>
@@ -226,7 +233,7 @@ export function Footer({
         <div className="container-shell flex flex-col gap-4 py-6 text-xs text-ink-muted md:flex-row md:items-center md:justify-between">
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span>© {new Date().getFullYear()} {storeName}. Με επιφύλαξη παντός δικαιώματος.</span>
-            <CookieSettingsLink />
+            {showCookieSettings && <CookieSettingsLink />}
           </span>
           {/* Only methods checkout can actually process — the one configured
               Medusa provider is pp_system_default ("Αντικαταβολή"). Listing

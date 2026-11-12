@@ -52,7 +52,7 @@ export function CartTotals({ cart, shippingAtCheckout = false }: { cart: Cart; s
       </div>
       {showShipping && hasOversizedItem && (
         <p className="text-xs text-ink-muted">
-          Περιλαμβάνει πρόσθετη χρέωση μεταφορικών για ογκώδες/βαρύ προϊόν στο καλάθι σου — δείτε τη{" "}
+          Περιλαμβάνει πρόσθετη χρέωση μεταφορικών για ογκώδες/βαρύ προϊόν στο καλάθι σας — δείτε τη{" "}
           <Link href="/apostoles" className="underline underline-offset-2 hover:text-ink">
             σελίδα Αποστολών
           </Link>

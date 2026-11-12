@@ -53,7 +53,7 @@ export function FooterNewsletterForm() {
     <form onSubmit={handleSubmit} className="mt-3 max-w-xs">
       <div className="flex flex-col gap-2 sm:flex-row">
         <label htmlFor={id} className="sr-only">
-          Email
+          Το email σας
         </label>
         <input
           id={id}
@@ -68,13 +68,13 @@ export function FooterNewsletterForm() {
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex shrink-0 items-center justify-center gap-1 rounded-sm bg-ink px-3.5 py-2 text-xs font-medium tracking-wide text-white transition-colors hover:bg-accent disabled:opacity-60"
+          className="inline-flex shrink-0 items-center justify-center gap-1 rounded-sm bg-ink px-3.5 py-2 text-xs font-medium uppercase tracking-wide text-white transition-colors hover:bg-accent disabled:opacity-60"
         >
           {isPending ? (
             "…"
           ) : (
             <>
-              ΕΓΓΡΑΦΗ
+              Εγγραφή
               <ChevronRightIcon className="h-3.5 w-3.5" />
             </>
           )}

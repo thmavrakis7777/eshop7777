@@ -31,7 +31,7 @@ export function WishlistPageView() {
       <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
         <HeartIcon className="h-10 w-10 text-ink-muted" />
         <div className="flex flex-col gap-1">
-          <p className="text-base font-medium text-ink">Η λίστα επιθυμιών σου είναι άδεια.</p>
+          <p className="text-base font-medium text-ink">Η λίστα επιθυμιών σας είναι άδεια.</p>
           <p className="text-sm text-ink-muted">Πάτησε την καρδιά σε ένα προϊόν για να το αποθηκεύσεις εδώ.</p>
         </div>
         <ContinueShoppingLink className="rounded-sm bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent" />

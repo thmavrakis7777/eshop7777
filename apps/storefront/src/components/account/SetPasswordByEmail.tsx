@@ -6,7 +6,7 @@ import { requestPasswordResetAction } from "@/lib/actions/customer";
 // For an account that signs in with Google and has no password yet. Sends
 // the ordinary reset email to the account's own address; its link
 // (/logariasmos/nea-kodikos) sets the first password. Same action as
-// "Ξέχασες τον κωδικό;", so the same rate limit and the same always-"sent"
+// "Ξεχάσατε τον κωδικό;", so the same rate limit and the same always-"sent"
 // answer apply.
 export function SetPasswordByEmail({ email }: { email: string }) {
   const [sent, setSent] = useState(false);
@@ -25,7 +25,7 @@ export function SetPasswordByEmail({ email }: { email: string }) {
   if (sent) {
     return (
       <p role="status" className="rounded-sm bg-surface px-4 py-3 text-sm text-ink">
-        Σου στείλαμε email στο {email} με σύνδεσμο για να ορίσεις κωδικό.
+        Σας στείλαμε email στο {email} με σύνδεσμο για να ορίσετε κωδικό.
       </p>
     );
   }
@@ -33,8 +33,8 @@ export function SetPasswordByEmail({ email }: { email: string }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-ink-muted">
-        Συνδέεσαι με Google, οπότε ο λογαριασμός σου δεν έχει ακόμη κωδικό. Αν θέλεις να μπαίνεις και με email και
-        κωδικό, θα σου στείλουμε σύνδεσμο στο {email} για να ορίσεις έναν.
+        Συνδέεστε με Google, οπότε ο λογαριασμός σας δεν έχει ακόμη κωδικό. Αν θέλετε να μπαίνετε και με email και
+        κωδικό, θα σας στείλουμε σύνδεσμο στο {email} για να ορίσετε έναν.
       </p>
       {error && (
         <p role="alert" className="text-sm text-danger">

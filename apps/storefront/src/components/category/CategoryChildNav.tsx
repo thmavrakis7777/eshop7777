@@ -18,8 +18,16 @@ export type ChildCategoryLink = {
 // because every child used to be a primary child of the page being viewed —
 // a cross-listed child's real URL can live under a different category
 // entirely (wherever its own primary parent puts it).
+//
+// Empty subcategories are left out once at least one sibling has products:
+// a card reading "Μπαταρίες Μπάνιου — 0 προϊόντα" next to real ones only
+// advertises what the shop does not have. A category whose children are ALL
+// still empty keeps showing them, so its page is not left blank while the
+// owner is filling it. Service ('landing') children never count as empty.
 export function toChildLinks(children: CategoryNode[]): ChildCategoryLink[] {
-  return children.map((child) => ({
+  const hasContent = (c: CategoryNode) => c.pageType === "landing" || c.productCount > 0;
+  const visible = children.some(hasContent) ? children.filter(hasContent) : children;
+  return visible.map((child) => ({
     name: child.name,
     href: child.canonicalHref,
     imagePath: child.imagePath,
@@ -120,7 +128,7 @@ export function CategoryChildNav({
                       : `${item.productCount} προϊόντα`}
                 </span>
                 <span className="mt-3 hidden text-xs font-medium text-accent sm:block">
-                  {isService ? "Μάθε περισσότερα" : "Δες τα προϊόντα"} <span aria-hidden="true">→</span>
+                  {isService ? "Μάθετε περισσότερα" : "Δείτε τα προϊόντα"} <span aria-hidden="true">→</span>
                 </span>
               </span>
 

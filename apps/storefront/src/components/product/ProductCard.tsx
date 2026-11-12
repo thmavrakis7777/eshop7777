@@ -177,6 +177,7 @@ export function ProductCard({
             </span>
             {!product.priceRange && product.compareAtPrice && (
               <span className="text-xs text-ink-muted line-through">
+                <span className="sr-only">Αρχική τιμή: </span>
                 {formatPrice(product.compareAtPrice)}
               </span>
             )}
@@ -199,7 +200,7 @@ export function ProductCard({
             >
               {/* A length product picks its length on the product page (owner,
                   2026-10-17) — never a silent 1 μ add from the card. */}
-              {product.length ? "Επίλεξε μήκος" : "Επιλογές"}
+              {product.length ? "Επιλέξτε μήκος" : "Επιλογές"}
             </Link>
           )}
         </div>

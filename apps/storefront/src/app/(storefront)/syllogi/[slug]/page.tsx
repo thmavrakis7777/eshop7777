@@ -24,7 +24,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const page = parsePage(pageParam);
   const title = seo?.seoTitle || collection.title;
   const description =
-    seo?.metaDescription || collection.description || `${collection.title} — επιλεγμένα προϊόντα για το σπίτι σου.`;
+    seo?.metaDescription || collection.description || `${collection.title} — επιλεγμένα προϊόντα για το σπίτι σας.`;
   const path =
     page === 1 && seo?.canonicalUrl ? seo.canonicalUrl : canonicalListingPath(`/syllogi/${collection.slug}`, page);
 

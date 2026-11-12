@@ -27,7 +27,7 @@ export function AddressBook({ addresses: initialAddresses }: { addresses: Custom
   return (
     <div className="flex flex-col gap-4">
       {addresses.length === 0 && !adding && (
-        <p className="text-sm text-ink-muted">Δεν έχεις αποθηκευμένες διευθύνσεις ακόμα.</p>
+        <p className="text-sm text-ink-muted">Δεν έχετε αποθηκευμένες διευθύνσεις ακόμα.</p>
       )}
 
       <ul className="flex flex-col gap-3">

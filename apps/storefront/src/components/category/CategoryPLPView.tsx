@@ -168,7 +168,7 @@ export async function CategoryPLPView({
         {description && <p className="mt-3 max-w-2xl text-sm text-ink-muted md:text-base">{description}</p>}
 
         {childCategories && childCategories.length > 0 && (
-          <CategoryChildNav title={childNavTitle ?? "Διάλεξε κατηγορία"} items={childCategories} variant={childNavVariant} />
+          <CategoryChildNav title={childNavTitle ?? "Διαλέξτε κατηγορία"} items={childCategories} variant={childNavVariant} />
         )}
 
         {/* Where a filter change lands (lib/scroll-to-products.ts): the active

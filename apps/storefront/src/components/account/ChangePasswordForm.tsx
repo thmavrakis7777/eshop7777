@@ -17,7 +17,7 @@ export function ChangePasswordForm() {
     e.preventDefault();
     setSuccess(false);
     if (!isRequired(currentPassword)) {
-      setError("Συμπλήρωσε τον τρέχοντα κωδικό.");
+      setError("Συμπληρώστε τον τρέχοντα κωδικό.");
       return;
     }
     if (!isValidPassword(newPassword)) {
@@ -75,7 +75,7 @@ export function ChangePasswordForm() {
       )}
       {success && (
         <p role="status" className="text-sm text-ink">
-          Ο κωδικός σου ενημερώθηκε.
+          Ο κωδικός σας ενημερώθηκε.
         </p>
       )}
       <button

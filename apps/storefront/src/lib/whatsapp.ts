@@ -35,6 +35,19 @@ export function formatWhatsappPhone(raw: string): string {
   return `+${digits}`;
 }
 
+/**
+ * The same number as Greek customers write it, without the country code —
+ * "695 150 8538" — matching how the shop's other phone numbers appear on
+ * the site. Non-Greek numbers keep the international form.
+ */
+export function formatWhatsappPhoneLocal(raw: string): string {
+  const digits = normalizeWhatsappPhone(raw);
+  if (digits.length === 12 && digits.startsWith("30")) {
+    return `${digits.slice(2, 5)} ${digits.slice(5, 8)} ${digits.slice(8)}`;
+  }
+  return formatWhatsappPhone(raw);
+}
+
 // Loose on purpose (same spirit as isValidPhone in checkout-validation.ts):
 // full international format (country code + number), no per-country rules.
 export function isValidWhatsappPhone(raw: string): boolean {

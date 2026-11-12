@@ -39,13 +39,13 @@ export const metadata: Metadata = {
     locale: "el_GR",
     siteName,
     title: siteDefaultTitle,
-    description: "Ποιοτικά είδη κουζίνας, μπάνιου, αποθήκευσης και κήπου για το σπίτι σου.",
+    description: "Ποιοτικά είδη κουζίνας, μπάνιου, αποθήκευσης και κήπου για το σπίτι σας.",
     url: siteUrl,
   },
   twitter: {
     card: "summary_large_image",
     title: siteDefaultTitle,
-    description: "Ποιοτικά είδη κουζίνας, μπάνιου, αποθήκευσης και κήπου για το σπίτι σου.",
+    description: "Ποιοτικά είδη κουζίνας, μπάνιου, αποθήκευσης και κήπου για το σπίτι σας.",
   },
   // Deliberately no `alternates.canonical`. A default here is inherited by
   // every page that doesn't set its own, which made each 404 (and any page

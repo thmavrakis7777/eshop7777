@@ -21,4 +21,4 @@ export const siteName = "MAVRAKIS HOME";
 // instead of the same Greek copy duplicated in two files.
 export const siteDefaultTitle = "MAVRAKIS HOME — Είδη Σπιτιού, Κουζίνας & Μπάνιου";
 export const siteDefaultDescription =
-  "Ποιοτικά είδη κουζίνας, μπάνιου, αποθήκευσης και κήπου για το σπίτι σου. Γρήγορη παράδοση σε όλη την Ελλάδα.";
+  "Ποιοτικά είδη κουζίνας, μπάνιου, αποθήκευσης και κήπου για το σπίτι σας. Γρήγορη παράδοση σε όλη την Ελλάδα.";

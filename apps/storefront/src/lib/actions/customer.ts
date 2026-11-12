@@ -33,7 +33,7 @@ import { sendPasswordChangedEmail, sendPasswordResetEmail, sendWelcomeEmail } fr
 import { isValidEmail, isValidPassword, isRequired, isValidPostalCode } from "@/lib/checkout-validation";
 import type { Address, Customer, CustomerAddress } from "@/lib/types";
 
-const RATE_LIMITED = "Πάρα πολλές προσπάθειες. Δοκίμασε ξανά σε λίγο.";
+const RATE_LIMITED = "Πάρα πολλές προσπάθειες. Δοκιμάστε ξανά σε λίγο.";
 
 function mapAuthError(err: unknown): string {
   if (err instanceof AuthError) {
@@ -44,17 +44,17 @@ function mapAuthError(err: unknown): string {
         // Also what registering with a Google-linked email answers
         // (registerCustomer) — point to the way in that actually works.
         return getGoogleOAuthConfig()
-          ? "Υπάρχει ήδη λογαριασμός με αυτό το email. Συνδέσου με τον κωδικό σου ή με Google."
+          ? "Υπάρχει ήδη λογαριασμός με αυτό το email. Συνδεθείτε με τον κωδικό σας ή με Google."
           : "Υπάρχει ήδη λογαριασμός με αυτό το email.";
       case "wrong_password":
         return "Ο τρέχων κωδικός δεν είναι σωστός.";
       case "rate_limited":
         return RATE_LIMITED;
       case "not_found":
-        return "Η σύνδεσή σου έληξε. Συνδέσου ξανά.";
+        return "Η σύνδεσή σας έληξε. Συνδεθείτε ξανά.";
     }
   }
-  return "Κάτι πήγε στραβά. Δοκίμασε ξανά.";
+  return "Κάτι πήγε στραβά. Δοκιμάστε ξανά.";
 }
 
 
@@ -71,7 +71,7 @@ export async function registerAction(input: {
   const { email, password, firstName, lastName } = input;
   if (!isValidEmail(email)) return { ok: false, error: "Μη έγκυρη διεύθυνση email." };
   if (!isValidPassword(password)) return { ok: false, error: "Ο κωδικός πρέπει να έχει τουλάχιστον 8 χαρακτήρες." };
-  if (!isRequired(firstName) || !isRequired(lastName)) return { ok: false, error: "Συμπλήρωσε όνομα και επώνυμο." };
+  if (!isRequired(firstName) || !isRequired(lastName)) return { ok: false, error: "Συμπληρώστε όνομα και επώνυμο." };
 
   if (!(await checkRateLimit(await rateLimitKey("register"), 5, 3600))) {
     return { ok: false, error: RATE_LIMITED };
@@ -105,7 +105,7 @@ export async function registerAction(input: {
 export async function loginAction(input: { email: string; password: string }): Promise<AuthActionResult> {
   const { email, password } = input;
   if (!isValidEmail(email) || !isRequired(password)) {
-    return { ok: false, error: "Συμπλήρωσε email και κωδικό πρόσβασης." };
+    return { ok: false, error: "Συμπληρώστε email και κωδικό πρόσβασης." };
   }
 
   if (!(await checkRateLimit(await rateLimitKey("login"), 10, 900))) {
@@ -195,10 +195,10 @@ export async function changePasswordAction(input: {
 }): Promise<AuthActionResult> {
   const { currentPassword, newPassword } = input;
   if (!isValidPassword(newPassword)) return { ok: false, error: "Ο νέος κωδικός πρέπει να έχει τουλάχιστον 8 χαρακτήρες." };
-  if (!isRequired(currentPassword)) return { ok: false, error: "Συμπλήρωσε τον τρέχοντα κωδικό." };
+  if (!isRequired(currentPassword)) return { ok: false, error: "Συμπληρώστε τον τρέχοντα κωδικό." };
 
   const customerId = await getCustomerId();
-  if (!customerId) return { ok: false, error: "Η σύνδεσή σου έληξε. Συνδέσου ξανά." };
+  if (!customerId) return { ok: false, error: "Η σύνδεσή σας έληξε. Συνδεθείτε ξανά." };
 
   try {
     await changeCustomerPassword(customerId, currentPassword, newPassword);
@@ -225,10 +225,10 @@ export async function updateProfileAction(input: {
   phone: string;
 }): Promise<CustomerActionResult> {
   if (!isRequired(input.firstName) || !isRequired(input.lastName)) {
-    return { ok: false, error: "Συμπλήρωσε όνομα και επώνυμο." };
+    return { ok: false, error: "Συμπληρώστε όνομα και επώνυμο." };
   }
   const customerId = await getCustomerId();
-  if (!customerId) return { ok: false, error: "Η σύνδεσή σου έληξε. Συνδέσου ξανά." };
+  if (!customerId) return { ok: false, error: "Η σύνδεσή σας έληξε. Συνδεθείτε ξανά." };
 
   try {
     const customer = await updateCustomerProfile(customerId, input);
@@ -241,7 +241,7 @@ export async function updateProfileAction(input: {
 
 async function addressResultFrom(run: (customerId: string) => Promise<unknown>): Promise<AddressActionResult> {
   const customerId = await getCustomerId();
-  if (!customerId) return { ok: false, error: "Η σύνδεσή σου έληξε. Συνδέσου ξανά." };
+  if (!customerId) return { ok: false, error: "Η σύνδεσή σας έληξε. Συνδεθείτε ξανά." };
   try {
     await run(customerId);
     revalidatePath("/logariasmos/diefthinseis");
@@ -256,7 +256,7 @@ function validAddress(a: Address): boolean {
 }
 
 export async function addAddressAction(address: Address, label?: string): Promise<AddressActionResult> {
-  if (!validAddress(address)) return { ok: false, error: "Συμπλήρωσε σωστά όλα τα στοιχεία της διεύθυνσης." };
+  if (!validAddress(address)) return { ok: false, error: "Συμπληρώστε σωστά όλα τα στοιχεία της διεύθυνσης." };
   return addressResultFrom((id) => addCustomerAddress(id, address, label));
 }
 
@@ -265,7 +265,7 @@ export async function updateAddressAction(
   address: Address,
   label?: string
 ): Promise<AddressActionResult> {
-  if (!validAddress(address)) return { ok: false, error: "Συμπλήρωσε σωστά όλα τα στοιχεία της διεύθυνσης." };
+  if (!validAddress(address)) return { ok: false, error: "Συμπληρώστε σωστά όλα τα στοιχεία της διεύθυνσης." };
   return addressResultFrom((id) => updateCustomerAddress(id, addressId, address, label));
 }
 

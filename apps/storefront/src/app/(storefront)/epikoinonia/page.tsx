@@ -8,6 +8,7 @@ import { getSeoOverride } from "@/lib/data/seo";
 import { deriveMetaDescription } from "@/lib/seo-text";
 import { richBodyToPlainText } from "@/components/content/RichBody";
 import { siteUrl } from "@/lib/site-config";
+import { ContactForm } from "@/components/content/ContactForm";
 
 const SLUG = "epikoinonia";
 const PATH = "/epikoinonia";
@@ -59,6 +60,12 @@ export default async function ContactPage() {
           </a>
         </p>
       )}
+      <section id="forma" aria-labelledby="contact-form-heading" className="relative mt-10">
+        <h2 id="contact-form-heading" className="font-display text-xl text-ink md:text-2xl">
+          Φόρμα Επικοινωνίας
+        </h2>
+        <ContactForm />
+      </section>
     </ContentPageView>
   );
 }

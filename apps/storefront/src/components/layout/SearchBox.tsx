@@ -257,7 +257,7 @@ export function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
             <div className="px-4 py-5 text-center">
               <p className="text-sm text-ink">Δεν βρήκαμε προϊόντα για «{trimmedQuery}»</p>
               <p className="mt-1 text-xs text-ink-muted">
-                Δοκίμασε διαφορετική αναζήτηση ή έλεγξε την ορθογραφία.
+                Δοκιμάστε διαφορετική αναζήτηση ή ελέγξτε την ορθογραφία.
               </p>
             </div>
           ) : (
@@ -292,7 +292,7 @@ export function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
                 onClick={goToResultsPage}
                 className="block w-full border-t border-border px-4 py-3 text-left text-sm font-medium text-accent hover:underline"
               >
-                Δες όλα τα αποτελέσματα για «{trimmedQuery}» →
+                Δείτε όλα τα αποτελέσματα για «{trimmedQuery}» →
               </button>
             </>
           )}

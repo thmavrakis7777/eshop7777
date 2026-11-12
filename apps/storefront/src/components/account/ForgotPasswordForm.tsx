@@ -29,8 +29,8 @@ export function ForgotPasswordForm() {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-sm text-ink">
-          Αν υπάρχει λογαριασμός με το email <strong>{email}</strong>, θα λάβεις σύντομα ένα μήνυμα με οδηγίες
-          επαναφοράς του κωδικού σου. Ο σύνδεσμος ισχύει για 30 λεπτά.
+          Αν υπάρχει λογαριασμός με το email <strong>{email}</strong>, θα λάβετε σύντομα ένα μήνυμα με οδηγίες
+          επαναφοράς του κωδικού σας. Ο σύνδεσμος ισχύει για 30 λεπτά.
         </p>
         {/* 30 = RESET_TOKEN_TTL_MINUTES (lib/auth/session.ts) and what the
             reset email itself says (lib/email/send.ts); keep all three equal. */}
@@ -44,7 +44,7 @@ export function ForgotPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
       <p className="text-sm text-ink-muted">
-        Συμπλήρωσε το email του λογαριασμού σου και θα σου στείλουμε σύνδεσμο επαναφοράς κωδικού.
+        Συμπληρώστε το email του λογαριασμού σας και θα σας στείλουμε σύνδεσμο επαναφοράς κωδικού.
       </p>
       <FormField id="forgot-password-email" label="Email" type="email" autoComplete="email" value={email} onChange={setEmail} />
       {error && (

@@ -25,7 +25,7 @@ export function RegisterForm({ redirectTo, googleHref }: { redirectTo: string; g
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isRequired(firstName) || !isRequired(lastName)) {
-      setError("Συμπλήρωσε όνομα και επώνυμο.");
+      setError("Συμπληρώστε όνομα και επώνυμο.");
       return;
     }
     if (!isValidEmail(email)) {
@@ -90,7 +90,7 @@ export function RegisterForm({ redirectTo, googleHref }: { redirectTo: string; g
         {isPending ? "Δημιουργία…" : "Δημιουργία λογαριασμού"}
       </button>
       <p className="text-sm text-ink-muted">
-        Έχεις ήδη λογαριασμό;{" "}
+        Έχετε ήδη λογαριασμό;{" "}
         <Link href={withRedirectTo("/logariasmos/eisodos", redirectTo)} className="text-accent hover:underline">
           Σύνδεση
         </Link>

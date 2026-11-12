@@ -202,7 +202,7 @@ function CartDrawerInner({
         }`}
       >
         <div className="flex items-center justify-between border-b border-border p-4">
-          <h2 className="font-display text-lg">Το καλάθι σου {itemCount > 0 && `(${itemCount})`}</h2>
+          <h2 className="font-display text-lg">Το καλάθι σας {itemCount > 0 && `(${itemCount})`}</h2>
           <button ref={closeButtonRef} type="button" className="p-2" aria-label="Κλείσιμο καλαθιού" onClick={handleClose}>
             <CloseIcon />
           </button>
@@ -292,7 +292,7 @@ function CartDrawerInner({
                 Συνέχεια αγορών
               </button>
               <Link href="/kalathi" className="text-ink-muted hover:text-ink hover:underline" onClick={handleClose}>
-                Δες το καλάθι
+                Δείτε το καλάθι
               </Link>
             </div>
           </div>

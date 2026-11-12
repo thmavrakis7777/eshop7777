@@ -9,8 +9,8 @@ import { AfterPageLoad } from "@/components/ui/AfterPageLoad";
 import { WithAvif } from "@/components/ui/AvifSource";
 
 const DEFAULTS = {
-  heading: "Μείνε ενημερωμένος",
-  body: "Νέες αφίξεις, οδηγοί αγορών και αποκλειστικές προσφορές, απευθείας στο inbox σου.",
+  heading: "Μείνετε ενημερωμένοι",
+  body: "Νέες αφίξεις, οδηγοί αγορών και αποκλειστικές προσφορές, απευθείας στο inbox σας.",
   ctaLabel: "Εγγραφή",
 };
 
@@ -18,7 +18,7 @@ const MESSAGES = {
   subscribed: "Ευχαριστούμε! Η εγγραφή σας στη λέσχη MAVRAKIS HOME ολοκληρώθηκε.",
   already_subscribed: "Αυτό το email είναι ήδη εγγεγραμμένο στη λίστα μας.",
   error: "Κάτι πήγε στραβά. Παρακαλούμε δοκιμάστε ξανά.",
-  consent: "Χρειαζόμαστε τη συναίνεσή σου για να σε εγγράψουμε στο newsletter.",
+  consent: "Χρειαζόμαστε τη συναίνεσή σας για να σας εγγράψουμε στο newsletter.",
 };
 
 export function Newsletter({ section }: { section?: HomepageSection } = {}) {
@@ -94,14 +94,14 @@ export function Newsletter({ section }: { section?: HomepageSection } = {}) {
           <form onSubmit={handleSubmit} className="mx-auto mt-6 flex max-w-sm flex-col gap-3">
             <div className="flex gap-2">
               <label htmlFor="newsletter-email" className="sr-only">
-                Email
+                Το email σας
               </label>
               <input
                 id="newsletter-email"
                 type="email"
                 required
                 disabled={isPending}
-                placeholder="Το email σου"
+                placeholder="Το email σας"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-sm border border-white/20 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/50 outline-none focus-visible:border-white disabled:opacity-60"

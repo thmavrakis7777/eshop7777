@@ -49,7 +49,7 @@ export function AddressForm({
       !isRequired(values.city) ||
       !isValidPostalCode(values.postalCode)
     ) {
-      setError("Συμπλήρωσε σωστά όλα τα υποχρεωτικά πεδία.");
+      setError("Συμπληρώστε σωστά όλα τα υποχρεωτικά πεδία.");
       return;
     }
     if (values.phone && !isValidPhone(values.phone)) {

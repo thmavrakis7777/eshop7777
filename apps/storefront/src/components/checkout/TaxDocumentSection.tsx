@@ -113,8 +113,8 @@ export function TaxDocumentSection({
                     and the customer may know better. */}
                 {registryMatch.inactive && (
                   <p className="text-danger">
-                    Σύμφωνα με το μητρώο ΑΑΔΕ, η επιχείρηση με αυτόν τον ΑΦΜ δεν είναι ενεργή. Έλεγξε ότι τον
-                    έγραψες σωστά.
+                    Σύμφωνα με το μητρώο ΑΑΔΕ, η επιχείρηση με αυτόν τον ΑΦΜ δεν είναι ενεργή. Ελέγξτε ότι τον
+                    γράψατε σωστά.
                   </p>
                 )}
               </div>
@@ -138,7 +138,7 @@ export function TaxDocumentSection({
             error={errors.activity}
           />
           <p className="text-xs text-ink-muted">
-            Ως έδρα χρησιμοποιείται η διεύθυνση χρέωσης (ή η διεύθυνση παράδοσης, αν δεν έχεις ορίσει διαφορετική).
+            Ως έδρα χρησιμοποιείται η διεύθυνση χρέωσης (ή η διεύθυνση παράδοσης, αν δεν έχετε ορίσει διαφορετική).
           </p>
         </div>
       </div>

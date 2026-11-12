@@ -25,7 +25,7 @@ export default async function OrdersPage() {
 
       {orders.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-sm border border-dashed border-border py-12 text-center">
-          <p className="text-sm text-ink-muted">Δεν έχεις κάνει ακόμα καμία παραγγελία.</p>
+          <p className="text-sm text-ink-muted">Δεν έχετε κάνει ακόμα καμία παραγγελία.</p>
           <ContinueShoppingLink className="text-sm font-medium text-accent hover:underline" />
         </div>
       ) : (
