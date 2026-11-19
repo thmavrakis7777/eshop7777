@@ -55,7 +55,9 @@ export function HeroCarousel({
         ref={trackRef}
         tabIndex={0}
         aria-label="Κεντρικό banner — κύλιση με το πληκτρολόγιο ή αφή"
-        className="scrollbar-hide flex snap-x snap-mandatory overflow-x-auto scroll-smooth focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-4"
+        // `relative`: see ProductRail — absolutely-positioned slide content
+        // must be clipped by this scroller, not widen the page.
+        className="relative scrollbar-hide flex snap-x snap-mandatory overflow-x-auto scroll-smooth focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-4"
       >
         {slides.map((slide, i) => (
           <div key={slide.id} className="w-full flex-none snap-start">

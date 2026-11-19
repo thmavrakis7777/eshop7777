@@ -78,7 +78,9 @@ export function HorizontalScroller({
         role="region"
         tabIndex={0}
         aria-label={label}
-        className={`scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 motion-safe:scroll-smooth focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-4 ${className}`}
+        // `relative`: see ProductRail — keeps absolutely-positioned card
+        // content clipped by this scroller instead of widening the page.
+        className={`relative scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 motion-safe:scroll-smooth focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-4 ${className}`}
       >
         {children}
       </div>

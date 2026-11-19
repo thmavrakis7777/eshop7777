@@ -97,19 +97,25 @@
 
   html {
     scroll-behavior: smooth;
+    /* Must be non-visible too, or the browser moves body's overflow-x up to
+       the viewport and body itself stops clipping. On the viewport,
+       overflow-x is only a desktop scrollbar rule: iOS Safari / Chrome
+       Android still let a phone pinch-zoom out to the full content width
+       and pan sideways into blank space. That is exactly what happened
+       (2026-11-19): body had overflow-x: hidden, the homepage rails leaked
+       ~6000px of width, and phones could zoom/pan far off the page. */
+    overflow-x: clip;
   }
 
   body {
     background: var(--color-bg);
     color: var(--color-ink);
     font-family: var(--font-sans);
-    /* Safety net for the full-bleed homepage sections (Hero/EditorialBanner/
-       Newsletter no longer use container-shell) — none of them rely on
-       100vw or negative margins to reach the edge, so this should never
-       actually clip anything; it exists purely so a future off-by-a-pixel
-       full-bleed addition fails as "no scrollbar" instead of "1px
-       horizontal scroll on every page." */
-    overflow-x: hidden;
+    /* Safety net so nothing can ever make the page wider than the screen.
+       `clip`, not `hidden`: it clips the body box itself (which phones
+       respect for zoom/pan limits) without making body a scroll container,
+       so the sticky header keeps working. */
+    overflow-x: clip;
   }
 
   h1,

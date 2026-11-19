@@ -82,7 +82,13 @@ export function ProductRail({
           ref={trackRef}
           tabIndex={0}
           aria-label={`${title} — λίστα προϊόντων, κύλιση με το πληκτρολόγιο ή αφή`}
-          className="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-4"
+          // `relative` is load-bearing: it makes this track the containing
+          // block of the cards' absolutely-positioned bits (the sr-only
+          // labels). Without it their containing block is the wrapper
+          // above, OUTSIDE the scroller, so overflow-x-auto doesn't clip
+          // them and the far-right cards stretched the whole page to
+          // ~6000px — phones then let you zoom out / pan into blank space.
+          className="relative scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-4"
         >
           {products.map((p) => (
             <div key={p.id} className={`flex-none snap-start ${RAIL_CARD_WIDTH[size]}`}>
